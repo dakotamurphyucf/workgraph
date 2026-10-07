@@ -1,0 +1,32 @@
+# Official AlmaLinux 10 AMD64 manifest, resolved 2026-10-07.
+# The standard AMD64 image requires an x86-64-v3 capable CPU/emulator.
+FROM almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6
+
+ARG BUILDER_UID=1000
+ARG BUILDER_GID=1000
+RUN dnf -y install gcc gcc-c++ make patch git tar gzip bzip2 unzip xz curl-minimal \
+      ca-certificates pkgconf-pkg-config gmp-devel rpm-build redhat-rpm-config \
+      findutils diffutils python3 which file shadow-utils util-linux \
+    && dnf clean all \
+    && groupadd -g "$BUILDER_GID" workgraph \
+    && useradd -m -u "$BUILDER_UID" -g workgraph workgraph
+
+RUN curl --fail --location --retry 3 \
+      https://github.com/ocaml/opam/releases/download/2.3.0/opam-2.3.0-x86_64-linux \
+      -o /usr/local/bin/opam \
+    && echo '324e78e3f33efeba279aacf9f9610cfec7b2df7d7e0e1640f75f09de85f96cc9  /usr/local/bin/opam' | sha256sum -c - \
+    && chmod 0755 /usr/local/bin/opam
+
+COPY --chmod=0755 packaging/almalinux/bootstrap.sh /usr/local/bin/workgraph-bootstrap
+COPY --chmod=0755 packaging/almalinux/build.sh /usr/local/bin/workgraph-build
+COPY packaging/almalinux/workgraph.spec /opt/workgraph.spec
+COPY dune-project workgraph.opam /opt/workgraph-deps/
+
+USER workgraph
+ENV OPAMROOT=/home/workgraph/.opam \
+    OPAMSWITCH=workgraph \
+    WORKGRAPH_OPAM_SWITCH=workgraph \
+    OPAMJOBS=2
+RUN /usr/local/bin/workgraph-bootstrap
+WORKDIR /home/workgraph
+CMD ["/usr/local/bin/workgraph-build", "/source", "/out"]

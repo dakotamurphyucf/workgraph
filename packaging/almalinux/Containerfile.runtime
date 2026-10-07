@@ -1,0 +1,11 @@
+FROM almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6
+ARG BUILDER_UID=1000
+ARG BUILDER_GID=1000
+RUN dnf -y install git python3 tar gzip shadow-utils util-linux \
+    && dnf clean all \
+    && groupadd -g "$BUILDER_GID" workgraph \
+    && useradd -m -u "$BUILDER_UID" -g workgraph workgraph
+COPY --chmod=0755 packaging/almalinux/runtime.sh /usr/local/bin/workgraph-runtime-smoke
+COPY tools/installed_smoke.py /opt/workgraph-installed-smoke.py
+ENV HOME=/home/workgraph
+CMD ["/usr/local/bin/workgraph-runtime-smoke"]

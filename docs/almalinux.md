@@ -1,0 +1,133 @@
+# AlmaLinux 10 on x86_64, including WSL
+
+The native package targets ordinary AlmaLinux 10 x86_64/AMD64 userspace. It runs
+in the foreground and requires no systemd service, automatic startup or OCaml
+toolchain. The RPM and native tarball contain the same executable.
+
+**Qualification status: pending native AMD64 CI.** The reproducible recipe below
+builds in an official AlmaLinux 10 container and tests both packages in separate
+fresh runtime containers. A successful run produces `qualification.json` with
+`"status": "passed"`; the release evidence must name that run and its artifact
+checksums before describing a download as qualified.
+
+The first local attempt used Docker Desktop on an ARM64 Mac with AMD64 emulation.
+The official standard AMD64 image stopped before a shell could run with
+`Fatal glibc error: CPU does not support x86-64-v3`. This attempt did not qualify
+an executable. Native AMD64 GitHub Actions is the qualification route. Docker
+tests use the host kernel; they do not certify Windows, the WSL kernel, SELinux
+policy or every AlmaLinux 10 minor release.
+
+## Install the qualified package
+
+Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
+For the RPM:
+
+```sh
+sudo dnf install ./workgraph-0.1.0-1.el10.x86_64.rpm
+workgraph --version
+```
+
+For the tarball:
+
+```sh
+tar -xzf workgraph-0.1.0-almalinux-10-x86_64.tar.gz
+install -Dm755 workgraph-0.1.0-almalinux-10-x86_64/bin/workgraph \
+  "$HOME/.local/bin/workgraph"
+export PATH="$HOME/.local/bin:$PATH"
+workgraph --version
+```
+
+The version must print `0.1.0`. The executable links to the AlmaLinux system
+libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
+opam installation is unnecessary. Git is needed only for Git handoffs, and
+Python 3 is needed for the supplied examples and qualification walkthrough.
+
+## Run inside AlmaLinux WSL
+
+Keep the registry, managed workspaces and socket on the distribution's Linux
+filesystem, such as `$HOME/.local/state/workgraph`. Avoid `/mnt/c` for managed
+stores: Workgraph relies on Linux locking, Unix sockets, atomic rename and
+directory synchronization. Microsoft also recommends using the Linux filesystem
+when working with Linux tools. See [Microsoft's WSL filesystem guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
+
+In an AlmaLinux WSL shell:
+
+```sh
+mkdir -p "$HOME/.local/state/workgraph"
+chmod 700 "$HOME/.local/state/workgraph"
+workgraph serve "$HOME/.local/state/workgraph/registry.json" \
+  "$HOME/.local/state/workgraph/daemon.sock"
+```
+
+Leave that foreground process running. In a second AlmaLinux WSL shell:
+
+```sh
+workgraph call "$HOME/.local/state/workgraph/daemon.sock" initialize '{}'
+workgraph call "$HOME/.local/state/workgraph/daemon.sock" workspace.create \
+  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph/demo","actor_id":"operator","mutation_id":"create-demo"}'
+workgraph call "$HOME/.local/state/workgraph/daemon.sock" workspace.list '{}'
+workgraph call "$HOME/.local/state/workgraph/daemon.sock" daemon.shutdown '{}'
+```
+
+For an end-to-end check on the actual WSL installation, install Git and Python 3,
+obtain the matching source archive, and run its walkthrough with a fresh directory
+under the Linux home filesystem:
+
+```sh
+sudo dnf install git python3
+tar -xzf workgraph-0.1.0-source.tar.gz
+python3 workgraph-0.1.0/tools/installed_smoke.py "$(command -v workgraph)" \
+  "$HOME/.local/state/workgraph/wsl-qualification"
+python3 workgraph-0.1.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
+  --directory "$HOME/.local/state/workgraph/wsl-history-qualification"
+```
+
+Both destination directories must be unused. The first walkthrough checks the
+installed CLI, Git clone/resume, export verification and restore. The second
+checks history adapter retries, search, complete payloads and context recovery.
+Keep their JSON output and daemon logs when reporting a failure.
+
+## Reproduce the build and package qualification
+
+Run from a clean source checkout on an AMD64 host with an x86-64-v3 capable CPU,
+Docker, Bash and Python 3. No host opam switch is created or changed:
+
+```sh
+mkdir -p "$PWD/dist/almalinux-10-x86_64"
+docker build --platform linux/amd64 -f packaging/almalinux/Containerfile \
+  --build-arg "BUILDER_UID=$(id -u)" --build-arg "BUILDER_GID=$(id -g)" \
+  -t workgraph-alma-builder .
+docker run --rm --platform linux/amd64 \
+  -v "$PWD:/source:ro" -v "$PWD/dist/almalinux-10-x86_64:/out" \
+  workgraph-alma-builder /usr/local/bin/workgraph-build /source /out
+packaging/almalinux/qualify.sh "$PWD/dist/almalinux-10-x86_64"
+```
+
+The output directory must be empty before the build. The builder runs as an
+ordinary user so permission tests retain their meaning. It packages the explicit
+source allowlist before compiling; `.git`, checkout credentials, host build
+outputs, local workspace data, `scratch/` and `dist/` are excluded.
+
+The recipe fixes the official AMD64 image manifest to
+`sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6`,
+opam to `2.3.0` with a verified binary checksum, the opam repository tree to
+`e4cd7ede2d55a46570977c0ffaa7e96845190817`, OCaml to `5.3.0`, Dune to `3.21.1`,
+and ocamlformat to `0.28.1`. The project pins its direct library dependencies.
+`toolchain.export` records the complete resolved dependency closure and package
+definitions. DNF repositories remain live; all installed RPM versions are
+recorded, so this is a reproducible build procedure rather than a promise of
+bit-identical future output.
+
+`./dev build @fmt @runtest @install` must pass before packaging. The RPM spec
+installs that tested native archive and preserves executable bytes; it is not a
+separate compiler build. Fresh runtime containers contain Git and Python 3 but
+no compiler, opam or Dune. They qualify tar and RPM independently, verify dynamic
+library resolution and RPM integrity, run both walkthroughs, and compare the
+installed executable hashes.
+
+Results are retained under `dist/almalinux-10-x86_64`: `archives/`, `rpm/`,
+`logs/`, `runtime/`, `toolchain.export`, `build-metadata.json` and, only after both
+runtime checks pass, `qualification.json`. See the [official AlmaLinux image
+documentation](https://wiki.almalinux.org/containers/docker-images) and
+[AlmaLinux 10 architecture notes](https://wiki.almalinux.org/release-notes/10.0)
+for the standard x86-64-v3 image baseline.

@@ -47,7 +47,9 @@ For an existing matching switch, set `WORKGRAPH_OPAM_SWITCH` to its name or path
 it does not install dependencies or change switch defaults. Direct dependency
 versions are pinned in `dune-project` and `workgraph.opam`.
 
-Source installation is the documented path. See the [operator guide](docs/operator-guide.md)
+For AlmaLinux 10 x86_64 and WSL, see the [package and WSL guide](docs/almalinux.md)
+for the build recipe, validation scope and runtime commands.
+See the [operator guide](docs/operator-guide.md)
 for runtime layout, recovery and packaging. [Validation](docs/validation.md) records
 executed tests and platform limits; test counts are not capacity or durability guarantees.
 
