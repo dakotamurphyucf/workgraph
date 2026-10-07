@@ -1,0 +1,43 @@
+(library
+ (name workgraph_test_transport)
+ (wrapped false)
+ (modules memory_transport)
+ (libraries core eio)
+ (preprocess
+  (pps ppx_jane)))
+
+(library
+ (name workgraph_service_tests)
+ (modules service_test)
+ (libraries
+  workgraph
+  workgraph_test_transport
+  core
+  eio_main
+  expect_test_helpers_core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(executable
+ (name service_driver)
+ (modules service_driver)
+ (libraries workgraph workgraph_test_transport core eio_main)
+ (preprocess
+  (pps ppx_jane)))
+
+(rule
+ (alias runtest)
+ (deps
+  driver_test.py
+  ../../examples/history-adapter.py
+  ../../examples/history-recovery-demo.py
+  ../../examples/coordination-runner.py)
+ (action
+  (run python3 %{dep:driver_test.py} %{exe:service_driver.exe})))
+
+(rule
+ (alias runtest)
+ (deps socket_test.py ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

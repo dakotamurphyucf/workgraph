@@ -1,0 +1,55 @@
+(library
+ (name workgraph_tests)
+ (modules
+  domain_test
+  registry_test
+  protocol_test
+  export_test
+  storage_test
+  discussion_test)
+ (libraries workgraph core eio_main expect_test_helpers_core)
+ (inline_tests
+  (deps
+   (glob_files fixtures/*)))
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(rule
+ (alias runtest)
+ (deps
+  integration.py
+  ../bin/main.exe
+  client_workflow.exe
+  platform_fixture.exe
+  store_fixture.exe
+  ../examples/agent-workflow.sh
+  ../examples/coordination-workflow.sh)
+ (action
+  (run
+   python3
+   %{dep:integration.py}
+   %{exe:../bin/main.exe}
+   %{exe:client_workflow.exe}
+   %{exe:platform_fixture.exe}
+   %{exe:store_fixture.exe})))
+
+(executable
+ (name client_workflow)
+ (modules client_workflow)
+ (libraries workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))
+
+(executable
+ (name store_fixture)
+ (modules store_fixture)
+ (libraries workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))
+
+(executable
+ (name platform_fixture)
+ (modules platform_fixture)
+ (libraries workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))

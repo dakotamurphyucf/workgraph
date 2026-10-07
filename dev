@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+workgraph_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+workgraph_switch=${WORKGRAPH_OPAM_SWITCH:-default}
+if [ "${1:-}" = run ]; then
+  shift
+  exec opam exec --switch="$workgraph_switch" -- dune exec --root "$workgraph_root" bin/main.exe -- "$@"
+fi
+exec opam exec --switch="$workgraph_switch" -- dune "$@" --root "$workgraph_root"

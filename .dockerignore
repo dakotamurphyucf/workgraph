@@ -1,0 +1,12 @@
+.git
+_build*
+_opam
+.local
+scratch
+dist
+**/__pycache__
+**/*.pyc
+**/*.corrected
+**/.DS_Store
+**/._*
+.env*

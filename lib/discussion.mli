@@ -1,0 +1,74 @@
+open Core
+
+module Kind : sig
+  type t =
+    | Comment
+    | Progress
+    | Decision
+    | Blocker
+    | Evidence
+  [@@deriving sexp, equal]
+
+  val jsonaf_of_t : t -> Jsonaf.t
+  val t_of_jsonaf : Jsonaf.t -> t
+end
+
+module Version : sig
+  type t =
+    { revision : int
+    ; serial : int
+    ; sequence : int
+    ; actor : Id.Actor.t
+    ; timestamp : string
+    ; body : string
+    ; tombstone : bool
+    }
+  [@@deriving sexp, jsonaf]
+end
+
+module Change : sig
+  type t =
+    | Create of
+        { id : Id.Comment.t
+        ; target : Entity_ref.t
+        ; reply_to : Id.Comment.t option
+        ; kind : Kind.t
+        ; version : Version.t
+        }
+    | Revise of
+        { id : Id.Comment.t
+        ; version : Version.t
+        }
+  [@@deriving sexp, jsonaf]
+end
+
+type t
+
+val empty : t
+val next_serial : t -> int
+val generated_id : t -> sequence:int -> Id.Comment.t
+val revision : t -> Id.Comment.t -> int
+val target : t -> Id.Comment.t -> Entity_ref.t
+
+(** Pure, append-only resolved changes. Revisions and serials must be consecutive;
+    replies reference an existing live comment on the same target. Tombstones
+    have an empty current body while prior revisions remain retrievable.
+    Invalid input raises [Json.Decode_error], caught by the state boundary. *)
+val apply : t -> Change.t -> sequence:int -> t
+
+val get : t -> Id.Comment.t -> Jsonaf.t
+val history : t -> Id.Comment.t -> Jsonaf.t list
+val ids : t -> Id.Comment.t Sequence.t
+
+(** Target-scoped reads use an immutable ID index rebuilt by replay. Global
+    lists remain ID-ordered; scoped lists retain the same order. *)
+val list : t -> target:Entity_ref.t option -> include_tombstones:bool -> Jsonaf.t list
+
+(** Visits only this target's comments/versions, ordered by activity serial. *)
+val since : t -> target:Entity_ref.t -> after:int -> Jsonaf.t list
+
+(** Distinct referenced targets, in typed comparator order. *)
+val targets : t -> Entity_ref.t list
+
+val to_json : t -> Jsonaf.t
+val search_documents : t -> Search.Document.t list

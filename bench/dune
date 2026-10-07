@@ -1,0 +1,13 @@
+(executable
+ (name query_bench)
+ (modules query_bench)
+ (libraries workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))
+
+(executable
+ (name load_bench)
+ (modules load_bench)
+ (libraries workgraph core eio_main mtime)
+ (preprocess
+  (pps ppx_jane)))

@@ -1,0 +1,12 @@
+(library
+ (name workgraph_history_tests)
+ (libraries workgraph core core_unix eio_main expect_test_helpers_core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(rule
+ (alias runtest)
+ (deps adapter_test.py ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:adapter_test.py})))

@@ -1,0 +1,6 @@
+(dirs :standard \ scratch dist)
+
+(env
+ (_
+  (flags
+   (:standard -w +9))))

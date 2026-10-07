@@ -1,0 +1,52 @@
+{
+  "version": "1",
+  "workspace_id": "fixture",
+  "sequence": "1",
+  "previous": null,
+  "key": "agent:create",
+  "request_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "response": {
+    "workspace_revision": "1",
+    "result": {
+      "id": "task"
+    },
+    "durable": true
+  },
+  "events": {
+    "version": "1",
+    "revision": "1",
+    "actor": "agent",
+    "timestamp": "2026-10-07T00:00:00Z",
+    "changes": [
+      [
+        "Ticket_put",
+        {
+          "id": "task",
+          "display_key": "WG-1",
+          "title": "Remember the decision",
+          "description": "Café",
+          "project": null,
+          "parent": null,
+          "milestone": null,
+          "archived": false,
+          "status_id": null,
+          "priority": "0",
+          "assignee": null,
+          "labels": [],
+          "acceptance_criteria": "",
+          "status": "todo",
+          "revision": "1",
+          "hold": null,
+          "waivers": [],
+          "prerequisites": [],
+          "related": [],
+          "claim": null,
+          "created_sequence": "1",
+          "created_at": "2026-10-07T00:00:00Z",
+          "updated_at": "2026-10-07T00:00:00Z",
+          "next_token": "1"
+        }
+      ]
+    ]
+  }
+}

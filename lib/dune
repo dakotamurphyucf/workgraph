@@ -1,0 +1,9 @@
+(library
+ (name workgraph)
+ (public_name workgraph)
+ (libraries core core_unix eio eio.unix jsonaf digestif cstruct base64 uutf)
+ (foreign_stubs
+  (language c)
+  (names platform_stubs))
+ (preprocess
+  (pps ppx_jane ppx_jsonaf_conv)))

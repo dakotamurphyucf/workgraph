@@ -1,0 +1,1 @@
+These fixed v1 input/canonical/hash fixtures were authored independently of the OCaml codecs. Canonical bytes use Python json.dumps(sort_keys=True, ensure_ascii=False, separators=(",", ":")); SHA-256 uses hashlib. The legacy ticket omits later defaulted fields and uses the old status enum shape. Do not regenerate fixtures from the codecs under test.
