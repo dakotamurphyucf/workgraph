@@ -46,8 +46,11 @@ test "$(./dev run --version)" = 0.1.0
 ldd _build/default/bin/main.exe > "$output_directory/logs/linked-libraries.txt"
 file _build/default/bin/main.exe > "$output_directory/logs/executable-format.txt"
 readelf -h _build/default/bin/main.exe > "$output_directory/logs/elf-header.txt"
+python3 packaging/almalinux/collect_notices.py "$output_directory/notices" \
+  2>&1 | tee "$output_directory/logs/dependency-notices.log"
 python3 tools/package.py "$output_directory/archives" \
   --binary "$project_directory/_build/default/bin/main.exe" \
+  --notices "$output_directory/notices" \
   --platform almalinux-10-x86_64 \
   | tee "$output_directory/logs/native-package.json"
 
@@ -82,6 +85,7 @@ metadata = {
     'opam_version': '2.3.0', 'ocaml_version': '5.3.0', 'dune_version': '3.21.1',
     'ocamlformat_version': '0.28.1', 'source_identity': package['source_identity'],
     'build_checks': ['@fmt', '@runtest', '@install'], 'artifacts': artifacts,
+    'dependency_notices': 'notices/INVENTORY.json',
     'limits': ['AlmaLinux userspace on the container host kernel',
                'No Windows, WSL kernel or SELinux qualification',
                'DNF repository package versions are recorded, not snapshot-pinned'],

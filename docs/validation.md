@@ -28,6 +28,18 @@ are not established by this evidence. Process termination, injected errors and
 successful filesystem sync calls do not prove a storage device's power-loss
 behavior.
 
+The [AlmaLinux package recipe](almalinux.md) writes `qualification.json` only
+after its build checks and independent tarball/RPM runtime checks succeed. That
+record identifies the target, version, source identity, artifact SHA-256 hashes,
+build checks, runtime results and scope limits. Runtime acceptance checks cover
+an installed executable without an OCaml toolchain, dynamic-library resolution,
+Git clone/resume, export/restore and history adapter retry/search/payload workflows;
+the tarball and RPM executable hashes must match. Check the record and its
+matching release artifacts before treating a package as qualified. This page
+does not establish a successful AlmaLinux run. Container qualification covers
+AlmaLinux userspace on the container host kernel; actual WSL execution remains
+a separate check on the intended Windows host.
+
 Test counts are not performance or capacity guarantees. Current bounds are
 documented in the [API reference](api.md#storage-and-ownership) and
 [format contract](compatibility.md). There is no history pruning, blob garbage

@@ -2,7 +2,7 @@
 """Create local source/native preview bundles; never builds, installs or publishes.
 
 Usage: python3 tools/package.py NEW_ABSOLUTE_DIRECTORY
-       [--binary ABS_EXECUTABLE --platform PLATFORM]
+       [--binary ABS_EXECUTABLE --platform PLATFORM --notices DIRECTORY]
 Only explicit source directories are included, never _build, local data or notes.
 """
 import argparse
@@ -44,9 +44,13 @@ def main():
     parser.add_argument("destination", type=Path)
     parser.add_argument("--binary", type=Path)
     parser.add_argument("--platform", choices=["macos-arm64", "linux-aarch64", "almalinux-10-x86_64"])
+    parser.add_argument("--notices", type=Path,
+                        help="dependency license texts and inventory for this binary's toolchain")
     args = parser.parse_args()
     if bool(args.binary) != bool(args.platform):
         parser.error("--binary and --platform must be provided together")
+    if bool(args.binary) != bool(args.notices):
+        parser.error("native packages require --notices; source-only packages must omit it")
     if not args.destination.is_absolute():
         parser.error("destination must be absolute and fresh")
     root = Path(__file__).resolve().parent.parent
@@ -68,6 +72,20 @@ def main():
         files[name] = (path.read_bytes(), 0o755 if name == "dev" or name.endswith(".sh") else 0o644)
     source_identity = sha(encode({name: sha(data) for name, (data, _) in sorted(files.items())}))
     binary = args.binary.resolve(strict=True).read_bytes() if args.binary else None
+    notices = {}
+    if args.notices:
+        if args.notices.is_symlink() or not args.notices.is_dir():
+            parser.error("--notices must name a real directory")
+        for path in sorted(args.notices.rglob("*")):
+            if path.is_symlink():
+                parser.error("notice symlinks are not permitted: " + str(path))
+            if path.is_file():
+                name = "THIRD_PARTY_NOTICES/" + path.relative_to(args.notices).as_posix()
+                notices[name] = (path.read_bytes(), 0o644)
+            elif not path.is_dir():
+                parser.error("notices must contain only regular files and directories")
+        if not notices:
+            parser.error("--notices must contain dependency license texts and inventory")
     args.destination.mkdir(mode=0o700)
     checksums = {}
     stem = "workgraph-" + version
@@ -80,6 +98,7 @@ def main():
                         if name in {"README.md", "AGENT_GUIDE.md", "engineering-standards.md", "LICENSE"}
                         or name.startswith(("docs/", "examples/"))}
         native_files["bin/workgraph"] = (binary, 0o755)
+        native_files.update(notices)
         checksums[name] = archive(args.destination / name, stem + "-" + args.platform, native_files,
                                   {"version": version, "kind": "native", "platform": args.platform,
                                    "source_identity": source_identity})

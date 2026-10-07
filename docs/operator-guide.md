@@ -29,8 +29,10 @@ dependencies or changes a switch default. The repository's
 
 `python3 tools/package.py NEW_ABSOLUTE_DIRECTORY` creates local source archives,
 file manifests and `SHA256SUMS`; it does not build or publish anything. Supplying
-`--binary ABS_EXECUTABLE --platform PLATFORM` also packages an existing native
-executable. Check the tool's `--help` for supported labels and
+`--binary ABS_EXECUTABLE --platform PLATFORM --notices DIRECTORY` also packages an
+existing native executable with its dependency license texts and inventory.
+Use notices from the toolchain that compiled the binary; the AlmaLinux recipe
+collects these automatically. Check the tool's `--help` for supported labels and
 [validation](validation.md) for executed platform evidence. A platform label alone
 does not qualify a binary. Native bundles contain `bin/workgraph`; verify their
 checksums and use a binary matching the target OS, architecture and runtime.

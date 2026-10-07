@@ -28,6 +28,7 @@ environment before this RPM is created. No OCaml toolchain is needed at runtime.
 %install
 install -D -m 0755 bin/workgraph %{buildroot}%{_bindir}/workgraph
 install -D -m 0644 LICENSE %{buildroot}%{_licensedir}/%{name}/LICENSE
+cp -r THIRD_PARTY_NOTICES %{buildroot}%{_licensedir}/%{name}/
 mkdir -p %{buildroot}%{_docdir}/%{name}
 cp -r README.md AGENT_GUIDE.md engineering-standards.md docs examples MANIFEST.json \
   %{buildroot}%{_docdir}/%{name}/
@@ -37,5 +38,5 @@ test "$(%{buildroot}%{_bindir}/workgraph --version)" = '%{version}'
 
 %files
 %{_bindir}/workgraph
-%license %{_licensedir}/%{name}/LICENSE
+%license %{_licensedir}/%{name}
 %doc %{_docdir}/%{name}

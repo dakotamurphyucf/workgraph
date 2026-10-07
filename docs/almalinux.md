@@ -4,18 +4,17 @@ The native package targets ordinary AlmaLinux 10 x86_64/AMD64 userspace. It runs
 in the foreground and requires no systemd service, automatic startup or OCaml
 toolchain. The RPM and native tarball contain the same executable.
 
-**Qualification status: pending native AMD64 CI.** The reproducible recipe below
-builds in an official AlmaLinux 10 container and tests both packages in separate
-fresh runtime containers. A successful run produces `qualification.json` with
-`"status": "passed"`; the release evidence must name that run and its artifact
-checksums before describing a download as qualified.
+Each qualified release includes `qualification.json` with `"status": "passed"`,
+artifact checksums, the exact source identity and build environment. The
+[AlmaLinux package workflow](https://github.com/dakotamurphyucf/workgraph/actions/workflows/almalinux.yml)
+builds in official AlmaLinux 10 userspace on a native AMD64 runner and tests both
+packages in separate fresh runtime containers. Check the release evidence for
+the passing run and commit before treating a download as qualified.
 
-The first local attempt used Docker Desktop on an ARM64 Mac with AMD64 emulation.
-The official standard AMD64 image stopped before a shell could run with
-`Fatal glibc error: CPU does not support x86-64-v3`. This attempt did not qualify
-an executable. Native AMD64 GitHub Actions is the qualification route. Docker
-tests use the host kernel; they do not certify Windows, the WSL kernel, SELinux
-policy or every AlmaLinux 10 minor release.
+The pinned image contains AlmaLinux 10.2 and glibc 2.39. Its standard AMD64
+userspace requires x86-64-v3 support. Docker tests use the host kernel; they do
+not certify Windows, the WSL kernel, SELinux policy or every AlmaLinux 10 minor
+release. ARM64 Docker emulation that lacks x86-64-v3 cannot run this image.
 
 ## Install the qualified package
 
@@ -41,6 +40,9 @@ The version must print `0.1.0`. The executable links to the AlmaLinux system
 libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
 Python 3 is needed for the supplied examples and qualification walkthrough.
+Third-party license texts and an exact dependency inventory are retained under
+`THIRD_PARTY_NOTICES/` in the native archive and
+`/usr/share/licenses/workgraph/THIRD_PARTY_NOTICES/` in the RPM installation.
 
 ## Run inside AlmaLinux WSL
 
@@ -55,7 +57,7 @@ In an AlmaLinux WSL shell:
 ```sh
 mkdir -p "$HOME/.local/state/workgraph"
 chmod 700 "$HOME/.local/state/workgraph"
-workgraph serve "$HOME/.local/state/workgraph/registry.json" \
+workgraph serve "$HOME/.local/state/workgraph/registry" \
   "$HOME/.local/state/workgraph/daemon.sock"
 ```
 
@@ -108,7 +110,7 @@ ordinary user so permission tests retain their meaning. It packages the explicit
 source allowlist before compiling; `.git`, checkout credentials, host build
 outputs, local workspace data, `scratch/` and `dist/` are excluded.
 
-The recipe fixes the official AMD64 image manifest to
+The recipe fixes the official AlmaLinux 10.2 AMD64 image manifest to
 `sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6`,
 opam to `2.3.0` with a verified binary checksum, the opam repository tree to
 `e4cd7ede2d55a46570977c0ffaa7e96845190817`, OCaml to `5.3.0`, Dune to `3.21.1`,
@@ -127,7 +129,10 @@ installed executable hashes.
 
 Results are retained under `dist/almalinux-10-x86_64`: `archives/`, `rpm/`,
 `logs/`, `runtime/`, `toolchain.export`, `build-metadata.json` and, only after both
-runtime checks pass, `qualification.json`. See the [official AlmaLinux image
+runtime checks pass, `qualification.json`. `notices/INVENTORY.json` records the
+installed opam dependency closure, source checksums and hashes of preserved
+license files, including notices discovered inside vendored library sources.
+See the [official AlmaLinux image
 documentation](https://wiki.almalinux.org/containers/docker-images) and
 [AlmaLinux 10 architecture notes](https://wiki.almalinux.org/release-notes/10.0)
 for the standard x86-64-v3 image baseline.
