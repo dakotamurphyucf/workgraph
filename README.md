@@ -105,8 +105,10 @@ terminate an agent automatically.
 
 Use the JSON CLI from shell scripts or agent tools, or integrate through the
 [OCaml client and socket API](docs/api.md#cli-and-ocaml-client). Give agents the
-[agent usage guide](AGENT_GUIDE.md) along with their socket path, workspace ID,
-and actor ID.
+[self-contained agent guide](AGENT_GUIDE.md) along with their executable path,
+socket path, workspace ID, actor ID, and optional run ID. Give them the whole file:
+its XML sections include every API method, JSON schema, workflow, and recovery rule,
+so agents do not need to load other documents.
 
 ## Install
 
@@ -214,14 +216,15 @@ workgraph daemon shutdown "$WG_SOCKET"
 
 Run the same `serve` command to recover your saved state; do not recreate the
 workspace. The [agent usage guide](AGENT_GUIDE.md) continues with claiming work,
-recording progress, and writing a handoff. The RPM installs that guide at
-`/usr/share/doc/workgraph/AGENT_GUIDE.md`.
+recording progress, and writing a handoff, followed by the complete API reference.
+Use the guide from this repository for the latest documentation. The v0.1.0 RPM
+installs an earlier, shorter guide at `/usr/share/doc/workgraph/AGENT_GUIDE.md`.
 
 ## Guides and examples
 
 | Goal | Start here |
 | --- | --- |
-| Give an agent enough context to use Workgraph | [Agent usage guide](AGENT_GUIDE.md) |
+| Give an agent the complete usage and API context in one file | [Self-contained XML agent guide](AGENT_GUIDE.md) |
 | Follow the task lifecycle | [Task workflow](docs/agent-workflow.md) and [shell example](examples/agent-workflow.sh) |
 | Coordinate workers and reviewers | [Coordination guide](docs/coordination-guide.md) and [parallel-work example](examples/coordination-runner.py) |
 | Use boards, requests, teams, and inboxes | [Communication guide](docs/communication.md) |
