@@ -28,8 +28,8 @@ formats and automatic migrations are unsupported.
 
 ## Build and install
 
-Install opam, a C toolchain, make/pkg-config and Python 3 for tests. If needed,
-initialize opam with `opam init --bare --no-setup`. From this checkout, provision
+Install opam, a C toolchain, make/pkg-config, and Python 3, Git and jq for tests.
+If needed, initialize opam with `opam init --bare --no-setup`. From this checkout, provision
 a dedicated switch without changing the global default:
 
 ```sh

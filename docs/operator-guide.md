@@ -6,8 +6,9 @@ to it are absolute, and workspace/export destination parents must already exist.
 
 ## Install locally
 
-For a source build, install opam, a C toolchain, make/pkg-config and Python 3
-(tests only). If opam is new, initialize it without creating a default compiler:
+For a source build, install opam, a C toolchain, make/pkg-config, and Python 3,
+Git and jq for the test suite. If opam is new, initialize it without creating a
+default compiler:
 `opam init --bare --no-setup`. From an extracted source directory, provision a
 dedicated switch without changing the global default:
 

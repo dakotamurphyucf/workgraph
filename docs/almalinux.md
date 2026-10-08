@@ -105,7 +105,8 @@ docker run --rm --platform linux/amd64 \
 packaging/almalinux/qualify.sh "$PWD/dist/almalinux-10-x86_64"
 ```
 
-The output directory must be empty before the build. The builder runs as an
+The output directory must be empty before the build. The builder includes Git,
+Python 3 and jq for the integration tests and shell examples. It runs as an
 ordinary user so permission tests retain their meaning. It packages the explicit
 source allowlist before compiling; `.git`, checkout credentials, host build
 outputs, local workspace data, `scratch/` and `dist/` are excluded.

@@ -6,7 +6,7 @@ ARG BUILDER_UID=1000
 ARG BUILDER_GID=1000
 RUN dnf -y install gcc gcc-c++ make patch git tar gzip bzip2 unzip xz curl-minimal \
       ca-certificates pkgconf-pkg-config gmp-devel rpm-build redhat-rpm-config \
-      findutils diffutils python3 which file shadow-utils util-linux \
+      findutils diffutils python3 jq which file shadow-utils util-linux \
     && dnf clean all \
     && groupadd -g "$BUILDER_GID" workgraph \
     && useradd -m -u "$BUILDER_UID" -g workgraph workgraph
