@@ -22,7 +22,7 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.1.0-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.1.0-2.el10.x86_64.rpm
 workgraph --version
 ```
 

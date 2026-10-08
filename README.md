@@ -127,10 +127,10 @@ mkdir -p "$HOME/Downloads/workgraph-0.1.0"
 cd "$HOME/Downloads/workgraph-0.1.0" || exit
 
 WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.1.0"
-curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.1.0-1.el10.x86_64.rpm"
+curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.1.0-2.el10.x86_64.rpm"
 curl -fLO "$WORKGRAPH_RELEASE/SHA256SUMS"
 sha256sum --check --ignore-missing SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.1.0-1.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.1.0-2.el10.x86_64.rpm
 workgraph --version
 ```
 
@@ -217,8 +217,9 @@ workgraph daemon shutdown "$WG_SOCKET"
 Run the same `serve` command to recover your saved state; do not recreate the
 workspace. The [agent usage guide](AGENT_GUIDE.md) continues with claiming work,
 recording progress, and writing a handoff, followed by the complete API reference.
-Use the guide from this repository for the latest documentation. The v0.1.0 RPM
-installs an earlier, shorter guide at `/usr/share/doc/workgraph/AGENT_GUIDE.md`.
+The refreshed v0.1.0 packages include this complete guide. The RPM installs it at
+`/usr/share/doc/workgraph/AGENT_GUIDE.md`; the release also offers it as a separate
+`AGENT_GUIDE.md` download. Installing package revision 2 upgrades the earlier RPM.
 
 ## Guides and examples
 
