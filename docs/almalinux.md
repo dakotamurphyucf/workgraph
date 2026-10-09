@@ -1,10 +1,11 @@
 # AlmaLinux 10 on x86_64, including WSL
 
-The download instructions below install published v0.2.0 and use its matching
-bundled guide/API. This checkout prepares unpublished v0.3.0; use the
-[source-build instructions](../README.md#build-the-current-checkout-from-source)
-or local packaging procedure for its current contracts. No v0.3.0 download is
-published here.
+This guide targets **v0.3.0** and its matching bundled guide/API.
+**Release status: v0.3.0 is not published yet.** The release filenames below apply
+once published; until then, use a qualified candidate package supplied by the
+maintainer, the [source build](../README.md#build-the-current-checkout-from-source),
+or the local packaging procedure below. Start with fresh registry/workspace
+folders: v0.2 data and saved requests are unsupported, with no migration.
 
 For copy-and-paste installation, optional removal of an older setup, and a first
 ticket workflow, use the [WSL reset and quick-start guide](wsl-quickstart.md).
@@ -31,22 +32,21 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.2.0-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.3.0-1.el10.x86_64.rpm
 workgraph --version
 ```
 
 For the tarball:
 
 ```sh
-tar -xzf workgraph-0.2.0-almalinux-10-x86_64.tar.gz
-install -Dm755 workgraph-0.2.0-almalinux-10-x86_64/bin/workgraph \
-  "$HOME/.local/bin/workgraph"
-export PATH="$HOME/.local/bin:$PATH"
+tar -xzf workgraph-0.3.0-almalinux-10-x86_64.tar.gz
+export PATH="$PWD/workgraph-0.3.0-almalinux-10-x86_64/bin:$PATH"
 workgraph --version
 ```
 
-The version must print `0.2.0`. The executable links to the AlmaLinux system
-libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
+Keep the extracted archive directory together so the agent guide and its references
+remain available. The version must print `0.3.0`. The executable links to the
+AlmaLinux system libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
 Python 3 is needed for the supplied examples and qualification walkthrough.
 Third-party license texts and an exact dependency inventory are retained under
@@ -56,7 +56,7 @@ Third-party license texts and an exact dependency inventory are retained under
 ## Run inside AlmaLinux WSL
 
 Keep the registry, managed workspaces and socket on the distribution's Linux
-filesystem, such as `$HOME/.local/state/workgraph`. Avoid `/mnt/c` for managed
+filesystem, such as `$HOME/.local/state/workgraph-0.3`. Avoid `/mnt/c` for managed
 stores: Workgraph relies on Linux locking, Unix sockets, atomic rename and
 directory synchronization. Microsoft also recommends using the Linux filesystem
 when working with Linux tools. See [Microsoft's WSL filesystem guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
@@ -64,20 +64,20 @@ when working with Linux tools. See [Microsoft's WSL filesystem guidance](https:/
 In an AlmaLinux WSL shell:
 
 ```sh
-mkdir -p "$HOME/.local/state/workgraph"
-chmod 700 "$HOME/.local/state/workgraph"
-workgraph serve "$HOME/.local/state/workgraph/registry" \
-  "$HOME/.local/state/workgraph/daemon.sock"
+mkdir -p "$HOME/.local/state/workgraph-0.3"
+chmod 700 "$HOME/.local/state/workgraph-0.3"
+workgraph serve "$HOME/.local/state/workgraph-0.3/registry" \
+  "$HOME/.local/state/workgraph-0.3/daemon.sock"
 ```
 
 Leave that foreground process running. In a second AlmaLinux WSL shell:
 
 ```sh
-workgraph call "$HOME/.local/state/workgraph/daemon.sock" initialize '{}'
-workgraph call "$HOME/.local/state/workgraph/daemon.sock" workspace.create \
-  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph/demo","actor_id":"operator","mutation_id":"create-demo"}'
-workgraph call "$HOME/.local/state/workgraph/daemon.sock" workspace.list '{}'
-workgraph call "$HOME/.local/state/workgraph/daemon.sock" daemon.shutdown '{}'
+workgraph call "$HOME/.local/state/workgraph-0.3/daemon.sock" initialize '{}'
+workgraph call "$HOME/.local/state/workgraph-0.3/daemon.sock" workspace.create \
+  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph-0.3/demo","actor_id":"operator","mutation_id":"create-demo"}'
+workgraph call "$HOME/.local/state/workgraph-0.3/daemon.sock" workspace.list '{}'
+workgraph call "$HOME/.local/state/workgraph-0.3/daemon.sock" daemon.shutdown '{}'
 ```
 
 For an end-to-end check on the actual WSL installation, install Git and Python 3,
@@ -86,11 +86,11 @@ under the Linux home filesystem:
 
 ```sh
 sudo dnf install git python3
-tar -xzf workgraph-0.2.0-source.tar.gz
-python3 workgraph-0.2.0/tools/installed_smoke.py "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph/wsl-qualification"
-python3 workgraph-0.2.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
-  --directory "$HOME/.local/state/workgraph/wsl-history-qualification"
+tar -xzf workgraph-0.3.0-source.tar.gz
+python3 workgraph-0.3.0/tools/installed_smoke.py "$(command -v workgraph)" \
+  "$HOME/.local/state/workgraph-0.3/wsl-qualification"
+python3 workgraph-0.3.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
+  --directory "$HOME/.local/state/workgraph-0.3/wsl-history-qualification"
 ```
 
 Both destination directories must be unused. The first walkthrough checks the

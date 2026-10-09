@@ -16,8 +16,9 @@ model credentials, or MCP server is needed.
 
 Workgraph is written in OCaml with Jane Street Core and Eio, and is
 [MIT-licensed](LICENSE). **This checkout prepares the unpublished v0.3.0 preview.**
-The guides and examples here use its `workgraph_api:"0.3"` contract. Build this checkout from source to use
-them; published v0.2.0 packages retain their own matching guide and API.
+The guides and examples here use its `workgraph_api:"0.3"` contract. Use a matching
+candidate package or build this checkout to use them; published v0.2.0 packages
+retain their own matching guide and API.
 
 ## What you can do
 
@@ -151,44 +152,33 @@ contributors use the private scratch layout required by [AGENTS.md](AGENTS.md).
 
 ## Install
 
-The current v0.3.0 preview has no published binary release. Use the source-build
-steps below. Published v0.2.0 packages remain available for existing v0.2 workflows;
-their API and stored planning formats differ from this checkout.
+**v0.3.0 is not published yet.** All current guides target v0.3.0. Until release,
+use a qualified candidate package supplied by the maintainer or build this checkout
+using the steps below. Download commands in the guides are ready for v0.3.0 and
+will work only after its assets are published.
+
+Use fresh registry and workspace folders for this breaking preview. Existing v0.2
+workspaces and saved requests are unsupported; retain them separately with their
+matching executable if needed. There is no automatic migration.
 
 ### AlmaLinux 10 x86_64, including WSL
 
-The [v0.2.0 preview release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.2.0)
-provides an RPM, native archive, source archive, checksums, and qualification
-evidence. Check that evidence for the passing run and source identity before
-treating a package as qualified. The executable uses AlmaLinux's standard glibc
-libraries; no OCaml toolchain is needed to run it.
+Follow the [WSL reset and quick start](docs/wsl-quickstart.md) for installation,
+optional cleanup, daemon setup, a first ticket and connection values to give agents.
+The [AlmaLinux guide](docs/almalinux.md) also covers native archives, CPU requirements
+and checks to run on your installation. Both guides target v0.3.0.
 
-Run inside AlmaLinux:
-
-```sh
-command -v curl >/dev/null || sudo dnf install -y curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.2.0"
-cd "$HOME/Downloads/workgraph-0.2.0" || exit
-
-WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.2.0"
-curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.2.0-1.el10.x86_64.rpm"
-curl -fLO "$WORKGRAPH_RELEASE/SHA256SUMS"
-sha256sum --check --ignore-missing SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.2.0-1.el10.x86_64.rpm
-workgraph --version
-```
-
-The version should print `0.2.0`. Release evidence records checks performed in
-AlmaLinux AMD64 containers. Actual WSL execution is a separate check on your
-Windows host. The [AlmaLinux and WSL guide](docs/almalinux.md) covers archive
-installation, CPU requirements, and checks to run on your own installation.
+The RPM installs the executable and complete offline documentation. No OCaml or
+opam installation is needed; the executable uses AlmaLinux system libraries.
+Check the package's qualification evidence for native AlmaLinux installation checks.
+Actual WSL execution is a separate check on your Windows host.
 
 ### macOS ARM64
 
-Download the [v0.2.0 Apple Silicon archive](https://github.com/dakotamurphyucf/workgraph/releases/download/v0.2.0/workgraph-0.2.0-macos-arm64.tar.gz)
-and follow the [macOS guide](docs/macos-install.md) to verify its checksum and
-install it. The native archive runs without an OCaml or opam installation.
-Inspect its release qualification evidence for the macOS version tested.
+Follow the [macOS guide](docs/macos-install.md) to verify and install the v0.3.0
+Apple Silicon archive. Keep its executable and offline guides together. No OCaml
+or opam installation is needed. Check its qualification evidence for the actual
+macOS version tested.
 
 ### Build the current checkout from source
 
@@ -214,8 +204,8 @@ or path. Direct dependency versions are pinned in `dune-project` and
 
 ## Try it
 
-These commands use the current v0.3.0 preview. Build this checkout using the
-source steps above.
+These commands use v0.3.0. Install a matching candidate package or build this
+checkout using the source steps above.
 
 Inspect API methods without starting a daemon:
 

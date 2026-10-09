@@ -1,15 +1,18 @@
 # Workgraph on AlmaLinux 10 in WSL: reset, install, and quick start
 
-This guide installs **Workgraph v0.2.0 preview** on **x86_64/AMD64 AlmaLinux 10**
+This guide installs **Workgraph v0.3.0 preview** on **x86_64/AMD64 AlmaLinux 10**
 inside WSL. Run the commands in your AlmaLinux terminal, as your normal user;
 use `sudo` only where shown. No OCaml, opam, or systemd setup is required.
-Use that package's bundled guides for its matching API. The current checkout
-prepares unpublished v0.3.0; its [source-build instructions](../README.md#build-the-current-checkout-from-source)
-and agent guide apply to that newer preview. This page retains the published
-v0.2.0 download links and workflow.
+**Release status: v0.3.0 is not published yet.** The download commands below are
+ready for that release and will work only after its assets are published. Until
+then, use a qualified candidate package supplied by the maintainer or
+[build this checkout](../README.md#build-the-current-checkout-from-source), then
+continue at [Start the daemon](#start-the-daemon-and-create-a-workspace).
+Use the guide bundled with your installed executable; do not mix v0.2 guides,
+saved requests or data with v0.3.
 
 For a first installation, skip the optional reset and begin with
-[Install v0.2.0](#install-v020).
+[Install v0.3.0](#install-v030).
 
 The preview has changed its API and storage format. Start with fresh registry
 and workspace folders; old prototype data has no migration support. You may
@@ -97,6 +100,7 @@ the commands matching directories you have inspected and want to discard:
 ```bash
 rm -rI -- "$HOME/.local/state/workgraph"
 rm -rI -- "$HOME/.workgraph-demo"
+rm -rI -- "$HOME/.local/state/workgraph-0.2"
 ```
 
 GNU `rm -I` asks for confirmation before recursive deletion. These commands are
@@ -106,7 +110,7 @@ If you also want to erase a setup made with this guide, stop its daemon first,
 then explicitly delete its separate directory:
 
 ```bash
-rm -rI -- "$HOME/.local/state/workgraph-0.2"
+rm -rI -- "$HOME/.local/state/workgraph-0.3"
 ```
 
 Separately remove any custom workspace roots identified earlier, and old
@@ -115,25 +119,27 @@ not delete workspaces stored elsewhere.** Exports and Git copies also remain
 where you stored them. Do not broadly search for and delete everything named
 `workgraph`.
 
-## Install v0.2.0
+## Install v0.3.0
 
 Download the RPM and checksums from the
-[v0.2.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.2.0):
+[v0.3.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0):
 
 ```bash
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
 sudo dnf install -y jq
 
-mkdir -p "$HOME/Downloads/workgraph-0.2.0"
-cd "$HOME/Downloads/workgraph-0.2.0" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.3.0"
+cd "$HOME/Downloads/workgraph-0.3.0" || exit
 
-RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.2.0"
+RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.3.0"
 
-curl -fLO "$RELEASE/workgraph-0.2.0-1.el10.x86_64.rpm"
+curl -fLO "$RELEASE/workgraph-0.3.0-1.el10.x86_64.rpm"
 curl -fLO "$RELEASE/SHA256SUMS"
 
-sha256sum --check --ignore-missing SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.2.0-1.el10.x86_64.rpm
+awk '$2 == "workgraph-0.3.0-1.el10.x86_64.rpm" { print; count++ }
+     END { if (count != 1) exit 1 }' SHA256SUMS > rpm.SHA256SUMS &&
+  sha256sum --check rpm.SHA256SUMS &&
+  sudo dnf install -y ./workgraph-0.3.0-1.el10.x86_64.rpm
 
 hash -r
 command -v workgraph
@@ -145,7 +151,7 @@ version:
 
 ```text
 /usr/bin/workgraph
-0.2.0
+0.3.0
 ```
 
 The executable uses standard AlmaLinux system libraries. `jq` is needed only
@@ -154,11 +160,11 @@ for the shell example below that extracts an ownership token.
 ## Start the daemon and create a workspace
 
 Keep managed data and the socket on the Linux filesystem under `$HOME`, rather
-than `/mnt/c`. This setup uses a private directory dedicated to v0.2.0.
+than `/mnt/c`. This setup uses a private directory dedicated to v0.3.0.
 
 ```bash
 umask 077
-WG_HOME="$HOME/.local/state/workgraph-0.2"
+WG_HOME="$HOME/.local/state/workgraph-0.3"
 mkdir -p "$WG_HOME"
 
 export WG_CONTEXT="$WG_HOME/agent.json"
@@ -181,7 +187,7 @@ and writes connection defaults to `agent.json`. Repeating the same setup reuses
 the matching workspace and context. The first run requires a fresh workspace
 root; do not precreate `$WG_HOME/workspace`.
 
-| Location under `~/.local/state/workgraph-0.2/` | Purpose |
+| Location under `~/.local/state/workgraph-0.3/` | Purpose |
 | --- | --- |
 | `registry/` | Local workspace registrations and administrative state |
 | `workspace/` | This workspace's durable tickets, resources, and history |
@@ -255,7 +261,7 @@ Omit `--output text` to receive JSON. In a new terminal, restore the context
 variable before running commands:
 
 ```bash
-export WG_CONTEXT="$HOME/.local/state/workgraph-0.2/agent.json"
+export WG_CONTEXT="$HOME/.local/state/workgraph-0.3/agent.json"
 ```
 
 ## Give an agent access
@@ -276,7 +282,7 @@ and permission to use your Workgraph socket.
 > break work into tickets, record progress and decisions, and recover context
 > between sessions. Read `/usr/share/doc/workgraph/AGENT_GUIDE.md` and follow its
 > references when needed. Use `/usr/bin/workgraph` with
-> `--context /home/<your-linux-user>/.local/state/workgraph-0.2/agent.json`.
+> `--context /home/<your-linux-user>/.local/state/workgraph-0.3/agent.json`.
 > The workspace is `demo`; the project is `demo-project`.
 
 To print the actual connection values for this setup:
@@ -284,7 +290,7 @@ To print the actual connection values for this setup:
 ```bash
 printf 'Executable: %s\nContext: %s\nGuide: %s\n' \
   "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph-0.2/agent.json" \
+  "$HOME/.local/state/workgraph-0.3/agent.json" \
   '/usr/share/doc/workgraph/AGENT_GUIDE.md'
 ```
 
@@ -310,9 +316,10 @@ installed by this guide.
 
 ## Platform checks and further information
 
-The release passed fresh AlmaLinux 10 x86_64 container installation checks for
-both the RPM and native archive. Actual WSL execution is a separate environment
-check. The standard AlmaLinux 10 AMD64 target requires an x86-64-v3-capable CPU.
+Before installing a release, check its qualification evidence for passing fresh
+AlmaLinux 10 x86_64 container checks of both the RPM and native archive. Actual
+WSL execution is a separate environment check. The standard AlmaLinux 10 AMD64
+target requires an x86-64-v3-capable CPU.
 
 The [AlmaLinux guide](almalinux.md) includes optional installed-runtime checks
 you can run on your WSL instance. See the [operator guide](operator-guide.md)
