@@ -9,6 +9,9 @@ import tempfile
 import time
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from daemon_ready import is_listening
+
 EXE = Path(sys.argv.pop(1)).resolve()
 
 
@@ -24,7 +27,7 @@ class DirectReadTest(unittest.TestCase):
                 nonlocal daemon
                 daemon = subprocess.Popen([str(EXE), 'serve', str(root / 'registry'), str(address)], stdout=log, stderr=subprocess.STDOUT)
                 deadline = time.monotonic() + 10
-                while not address.exists():
+                while not is_listening(address):
                     if daemon.poll() is not None or time.monotonic() >= deadline:
                         log.seek(0)
                         self.fail(log.read())

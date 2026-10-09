@@ -16,6 +16,8 @@ import threading
 import unittest
 import uuid
 
+from daemon_ready import is_listening
+
 EXE = Path(sys.argv.pop(1)).resolve()
 CLIENT_EXE = Path(sys.argv.pop(1)).resolve()
 PLATFORM_EXE = Path(sys.argv.pop(1)).resolve()
@@ -1346,7 +1348,7 @@ class Integration(unittest.TestCase):
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
             deadline = time.monotonic() + 10
-            while not address.exists():
+            while not is_listening(address):
                 self.assertIsNone(daemon.poll())
                 self.assertLess(time.monotonic(), deadline)
                 time.sleep(0.01)

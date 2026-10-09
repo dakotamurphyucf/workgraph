@@ -12,6 +12,9 @@ import threading
 import time
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from daemon_ready import is_listening
+
 EXE = Path(sys.argv.pop(1)).resolve()
 ADAPTER = Path(__file__).resolve().parents[2] / "examples/history-adapter.py"
 spec = importlib.util.spec_from_file_location("history_adapter", ADAPTER)
@@ -118,7 +121,7 @@ class ExecutionCliTest(unittest.TestCase):
                     process = subprocess.Popen([str(EXE), "serve", str(root / "registry"), str(address)],
                                                stdout=log, stderr=subprocess.STDOUT)
                     deadline = time.monotonic() + 10
-                    while not address.exists():
+                    while not is_listening(address):
                         if process.poll() is not None or time.monotonic() >= deadline:
                             log.seek(0)
                             self.fail(log.read())

@@ -15,6 +15,7 @@
  (alias runtest)
  (deps
   socket_test.py
+  ../daemon_ready.py
   ../../examples/codex-hooks/workgraph-hook.py
   ../../examples/notification-watcher.py
   ../../examples/history-adapter.py)

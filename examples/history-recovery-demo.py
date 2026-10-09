@@ -18,11 +18,17 @@ spec.loader.exec_module(module)
 
 def wait_socket(address, process):
     deadline = time.monotonic() + 10
-    while not address.exists():
+    while True:
         if process.poll() is not None:
             raise RuntimeError("daemon stopped during startup")
         if time.monotonic() > deadline:
             raise TimeoutError("daemon socket unavailable")
+        try:
+            module.Workgraph(address).call("daemon.health", {})
+        except (FileNotFoundError, ConnectionRefusedError):
+            pass
+        else:
+            return
         time.sleep(0.02)
 
 

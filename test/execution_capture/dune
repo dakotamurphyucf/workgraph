@@ -8,6 +8,6 @@
 
 (rule
  (alias runtest)
- (deps cli_test.py ../../examples/history-adapter.py)
+ (deps cli_test.py ../daemon_ready.py ../../examples/history-adapter.py)
  (action
   (run python3 %{dep:cli_test.py} %{exe:../../bin/main.exe})))

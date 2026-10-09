@@ -8,6 +8,9 @@ import tempfile
 import time
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from daemon_ready import is_listening
+
 EXE = Path(sys.argv.pop(1)).resolve()
 spec = importlib.util.spec_from_file_location('adapter', Path(__file__).resolve().parents[2] / 'examples/history-adapter.py')
 adapter = importlib.util.module_from_spec(spec)
@@ -30,7 +33,7 @@ class TransactionTest(unittest.TestCase):
                     process = subprocess.Popen([str(EXE), 'serve', str(root / 'registry'), str(socket)],
                                                stdout=log, stderr=subprocess.STDOUT)
                     deadline = time.monotonic() + 10
-                    while not socket.exists():
+                    while not is_listening(socket):
                         if process.poll() is not None or time.monotonic() >= deadline:
                             log.seek(0)
                             self.fail(log.read())

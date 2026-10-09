@@ -1,5 +1,5 @@
 (rule
  (alias runtest)
- (deps inbox_wait_test.py)
+ (deps inbox_wait_test.py ../daemon_ready.py)
  (action
   (run python3 %{dep:inbox_wait_test.py} %{exe:../../bin/main.exe})))

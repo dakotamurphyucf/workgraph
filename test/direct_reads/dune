@@ -1,6 +1,6 @@
 (rule
  (alias runtest)
- (deps direct_reads_test.py)
+ (deps direct_reads_test.py ../daemon_ready.py)
  (action
   (run python3 %{dep:direct_reads_test.py} %{exe:../../bin/main.exe})))
 

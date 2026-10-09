@@ -7,6 +7,6 @@
 
 (rule
  (alias runtest)
- (deps socket_test.py)
+ (deps socket_test.py ../daemon_ready.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

@@ -8,6 +8,9 @@ import tempfile
 import time
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from daemon_ready import is_listening
+
 BINARY = Path(sys.argv.pop(1)).resolve()
 RECIPE = Path(sys.argv.pop(1)).resolve()
 
@@ -21,7 +24,7 @@ class CapacityTest(unittest.TestCase):
         self.daemon = subprocess.Popen([str(BINARY), 'serve', str(self.root / 'registry'), str(self.socket)],
                                        stdout=self.log, stderr=subprocess.STDOUT)
         deadline = time.monotonic() + 10
-        while not self.socket.exists():
+        while not is_listening(self.socket):
             if self.daemon.poll() is not None or time.monotonic() >= deadline:
                 self.log.seek(0)
                 self.fail(self.log.read())

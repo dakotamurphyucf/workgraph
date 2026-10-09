@@ -1,6 +1,6 @@
 (rule
  (alias runtest)
- (deps socket_test.py ../../examples/capacity-rollover.py)
+ (deps socket_test.py ../daemon_ready.py ../../examples/capacity-rollover.py)
  (action
   (run
    python3

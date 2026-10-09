@@ -7,6 +7,9 @@ import tempfile
 import time
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from daemon_ready import is_listening
+
 EXE = str(Path(sys.argv.pop(1)).resolve())
 
 class DiagnosticsTest(unittest.TestCase):
@@ -25,7 +28,7 @@ class DiagnosticsTest(unittest.TestCase):
                     return rpc(method, workspace_id='w', actor_id='owner', mutation_id=method.replace('.','-'), **fields)
                 try:
                     deadline = time.monotonic() + 10
-                    while not Path(address).exists():
+                    while not is_listening(address):
                         if daemon.poll() is not None or time.monotonic() > deadline:
                             log.seek(0); self.fail(log.read())
                         time.sleep(.01)

@@ -7,7 +7,10 @@
 
 (rule
  (alias runtest)
- (deps socket_test.py ../../examples/gated-review-workflow.py)
+ (deps
+  socket_test.py
+  ../daemon_ready.py
+  ../../examples/gated-review-workflow.py)
  (action
   (run
    python3

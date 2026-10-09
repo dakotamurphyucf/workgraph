@@ -8,6 +8,7 @@
  (alias runtest)
  (deps
   socket_test.py
+  ../daemon_ready.py
   ../../examples/evaluation.py
   ../../examples/history-adapter.py)
  (action

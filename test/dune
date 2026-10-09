@@ -48,6 +48,7 @@
  (alias runtest)
  (deps
   integration.py
+  daemon_ready.py
   ../bin/main.exe
   client_workflow.exe
   platform_fixture.exe
@@ -100,3 +101,9 @@
    %{dep:local_io_test.py}
    %{exe:../bin/main.exe}
    %{exe:local_io_fixture.exe})))
+
+(rule
+ (alias runtest)
+ (deps daemon_ready.py daemon_ready_test.py)
+ (action
+  (run python3 %{dep:daemon_ready_test.py})))
