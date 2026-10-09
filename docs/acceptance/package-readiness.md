@@ -72,3 +72,10 @@ unchanged. The local `@fmt @runtest @install` gate passed after these correction
 Native qualification must be rerun against this corrected source; the failed runs
 are not successful artifact evidence. Read each bundle's accompanying external
 `qualification.json` for its actual installed-runtime result and artifact hashes.
+
+The first installed AlmaLinux tar qualification passed on native AMD64. RPM
+verification then detected AlmaLinux's build post-processing rewriting three
+example scripts from `#!/bin/sh` to `#!/usr/bin/sh`. The RPM specification now
+disables that shebang rewrite, preserving the exact scripts in the native archive.
+The installed verifier continues to require every packaged file's original bytes;
+its check was not relaxed. Final RPM acceptance requires a new installed run.
