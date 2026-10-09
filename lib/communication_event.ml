@@ -200,10 +200,30 @@ module Request = struct
   [@@deriving sexp, equal, jsonaf]
 end
 
+module Message = struct
+  (** Immutable routing metadata. The authored discussion body is pinned to
+      comment_revision; recipient expansion is frozen at this event. *)
+  type t =
+    { message_id : Communication_id.Message.t
+    ; revision : Counter.t
+    ; comment_id : Id.Comment.t
+    ; comment_revision : Counter.t
+    ; ticket_id : Id.Ticket.t option
+    ; direct_recipients : Recipient.t list
+    ; teams : Communication_id.Team.t list
+    ; recipients : Recipient.t list
+    ; reply_to_message_id : Communication_id.Message.t option
+    ; correlation_id : string option
+    ; created : Attribution.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+end
+
 module Notification = struct
   module Kind = struct
     type t =
       | Thread_changed
+      | Message_received
       | Request_created
       | Request_acknowledged
       | Request_accepted
@@ -216,6 +236,7 @@ module Notification = struct
   module Source = struct
     type t =
       | Thread of Communication_id.Thread.t
+      | Message of Communication_id.Message.t
       | Request of Communication_id.Request.t
     [@@deriving sexp, equal, jsonaf]
   end
@@ -256,6 +277,7 @@ end
 module Update = struct
   type t =
     | Board_put of Board.t
+    | Message_put of Message.t
     | Thread_put of Thread.t
     | Team_put of Team.t
     | Request_put of
@@ -263,9 +285,10 @@ module Update = struct
         ; kind : Notification.Kind.t
         }
     | Subscription_put of Subscription.t
-    | Cursor_advanced of
-        { recipient : Recipient.t
-        ; through : Counter.t
+    | Inbox_ack of
+        { consumer_id : Communication_id.Consumer.t
+        ; recipient : Recipient.t
+        ; notification_ids : Counter.t list
         }
   [@@deriving sexp, equal, jsonaf]
 end
@@ -295,11 +318,12 @@ let t_of_jsonaf json =
   let entity_revision =
     match event.update with
     | Update.Board_put x -> x.Board.revision
+    | Message_put x -> x.Message.revision
     | Thread_put x -> x.Thread.revision
     | Team_put x -> x.Team.revision
     | Request_put { request; _ } -> request.Request.revision
     | Subscription_put x -> x.Subscription.revision
-    | Cursor_advanced { through; _ } -> through + 1
+    | Inbox_ack _ -> 1
   in
   if entity_revision <= 0
   then Json.fail Corrupt_store "invalid communication entity revision";

@@ -6,13 +6,43 @@
   protocol_test
   export_test
   storage_test
-  discussion_test)
+  discussion_test
+  api_codec_test)
  (libraries workgraph core eio_main expect_test_helpers_core)
  (inline_tests
   (deps
    (glob_files fixtures/*)))
  (preprocess
   (pps ppx_jane ppx_expect)))
+
+(rule
+ (alias runtest)
+ (deps
+  ../tools/check_agent_guide.py
+  ../AGENT_GUIDE.md
+  (source_tree ../docs/agent))
+ (action
+  (run
+   python3
+   %{dep:../tools/check_agent_guide.py}
+   ..
+   --binary
+   %{exe:../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps
+  ../tools/generate_api_reference.py
+  (source_tree ../docs/api-reference))
+ (action
+  (run
+   python3
+   %{dep:../tools/generate_api_reference.py}
+   --binary
+   %{exe:../bin/main.exe}
+   --output
+   ../docs/api-reference
+   --check)))
 
 (rule
  (alias runtest)

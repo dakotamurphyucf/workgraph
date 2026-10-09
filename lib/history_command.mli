@@ -8,6 +8,9 @@ type t =
       ; inputs : Session_event.Input.t list
       }
 
+(** Decode through the same public codecs used by method descriptors. Resolved
+    references never admit planning aliases. Scope/version existence checks remain
+    the enclosing dispatcher's responsibility. *)
 val decode
   :  workspace:Id.Workspace.t
   -> actor:Id.Actor.t
@@ -20,6 +23,10 @@ val decode
 val session_scopes : t -> Entity_ref.t list
 val resource_versions : t -> Session_event.Resource_ref.t list
 
+(** Publish on the separate durable journal, then project and validate the saved
+    receipt. Exact retries retain the original receipt metadata. Invalid internal
+    response data raises [Api_method.Invalid_response], preserving uncertain-write
+    behavior; cancellation and unexpected exceptions propagate. *)
 val execute
   :  Session_store.t
   -> t
@@ -30,6 +37,10 @@ val execute
   -> unit
   -> (Jsonaf.t, Problem.t) Result.t
 
+(** Execute typed queries against this fixed capture. Budgets fit complete public
+    metadata records and exact byte prefixes with explicit cursors; oversized
+    captures/records return [Blocked]. The internal response includes [capture],
+    projected by [Api_response.History] into public [meta.history_capture]. *)
 val query
   :  Session_store.Capture.t
   -> fs:_ Eio.Path.t

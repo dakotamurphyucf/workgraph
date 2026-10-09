@@ -33,6 +33,7 @@ let%expect_test "target index matches independent global-history filtering" =
                 ; target = target selected
                 ; reply_to = None
                 ; kind = Progress
+                ; origin = Authored
                 ; version
                 })
              ~sequence:version.sequence);
@@ -84,4 +85,77 @@ let%expect_test "target index matches independent global-history filtering" =
         done));
   print_endline "100 target-index histories match global reference";
   [%expect {| 100 target-index histories match global reference |}]
+;;
+
+let%expect_test "resolved discussion changes enforce authorship and immutable origin" =
+  let actor = Id.Actor.of_string "author" |> Disk.unwrap in
+  let other = Id.Actor.of_string "other" |> Disk.unwrap in
+  let id = Id.Comment.of_string "evidence" |> Disk.unwrap in
+  let target = Entity_ref.Ticket (Id.Ticket.of_string "work" |> Disk.unwrap) in
+  let version =
+    { Discussion.Version.revision = 1
+    ; serial = 1
+    ; sequence = 1
+    ; actor
+    ; timestamp = "now"
+    ; body = "original"
+    ; tombstone = false
+    }
+  in
+  let create origin target kind reply_to =
+    Discussion.Change.Create { id; target; reply_to; kind; origin; version }
+  in
+  let report f =
+    match Json.decode f with
+    | Ok _ -> print_endline "ok"
+    | Error problem -> print_s [%sexp (problem.kind : Problem.kind)]
+  in
+  let completed =
+    Discussion.apply Discussion.empty (create Completion target Evidence None) ~sequence:1
+  in
+  let authored =
+    Discussion.apply Discussion.empty (create Authored target Evidence None) ~sequence:1
+  in
+  List.iter [ completed; authored ] ~f:(fun state ->
+    List.iter [ actor; other ] ~f:(fun actor ->
+      List.iter [ false; true ] ~f:(fun tombstone ->
+        report (fun () ->
+          Discussion.apply
+            state
+            (Revise
+               { id
+               ; version =
+                   { version with
+                     revision = 2
+                   ; serial = 2
+                   ; sequence = 2
+                   ; actor
+                   ; body = (if tombstone then "" else "correction")
+                   ; tombstone
+                   }
+               })
+            ~sequence:2))));
+  List.iter
+    [ create Completion Workspace Evidence None
+    ; create Completion target Progress None
+    ; create Completion target Evidence (Some id)
+    ]
+    ~f:(fun change ->
+      report (fun () -> Discussion.apply Discussion.empty change ~sequence:1));
+  report (fun () -> Discussion.Origin.t_of_jsonaf (Json.string "unknown"));
+  [%expect
+    {|
+    Conflict
+    Conflict
+    Conflict
+    Conflict
+    ok
+    ok
+    Conflict
+    Conflict
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    Invalid_argument
+  |}]
 ;;

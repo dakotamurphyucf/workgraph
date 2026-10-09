@@ -1,4 +1,5 @@
 open! Core
+module Wire = Coordinator_wire
 
 module Claim = struct
   type t =
@@ -17,7 +18,7 @@ module Ticket = struct
     ; status : Domain_command.Status.t
     ; prerequisites : Id.Ticket.t list
     ; ready : bool
-    ; blockers : Jsonaf.t
+    ; blockers : Planning_ticket_wire.Readiness.t
     ; claim : Claim.t option
     }
 end
@@ -29,41 +30,14 @@ let checked = function
   | Error e -> raise (Json.Decode_error e)
 ;;
 
-let bool b = if b then `True else `False
-let source kind fields = Json.obj (("type", Json.string kind) :: fields)
-
 type item =
-  { kind : string
-  ; key : string
-  ; source : Jsonaf.t
-  ; metadata : Jsonaf.t
+  { row : Wire.Item.t
   ; projects : Id.Project.t list
   ; runs : Id.Run.t list
   ; actors : Id.Actor.t list
   }
 
-let item_json item =
-  Json.obj
-    [ "kind", Json.string item.kind; "source", item.source; "metadata", item.metadata ]
-;;
-
-let kinds =
-  [ "active_attempt"
-  ; "ready_work"
-  ; "allocation_blocked"
-  ; "unanswered_request"
-  ; "stale_run"
-  ; "stale_ownership"
-  ; "expired_ownership"
-  ; "changed_input"
-  ; "pending_review"
-  ; "reservation"
-  ; "reported_usage"
-  ; "budget_limit"
-  ; "dependency_bottleneck"
-  ; "runner_action"
-  ]
-;;
+let item_kind item = Wire.Kind.to_string (Wire.Item.kind item.row)
 
 let read
       ~workspace
@@ -79,57 +53,21 @@ let read
       ~params
   =
   Json.decode (fun () ->
-    Json.fields
-      params
-      ~allowed:
-        [ "project"
-        ; "run"
-        ; "actor"
-        ; "kinds"
-        ; "cursor"
-        ; "limit"
-        ; "max_bytes"
-        ; "stale_after_ms"
-        ; "dependency_path_to"
-        ];
+    let request = Coordination_wire.decode_exn Coordinator_api.Request.codec params in
     require
       (revision >= 0 && Int64.(now_unix_ms >= zero))
       Invalid_argument
       "Coordinator capture has invalid counters";
-    let optional key f = Option.map (Json.optional params key) ~f in
-    let project_filter = optional "project" Id.Project.t_of_jsonaf in
-    let run_filter = optional "run" Id.Run.t_of_jsonaf in
-    let actor_filter = optional "actor" Id.Actor.t_of_jsonaf in
+    let project_filter = Coordinator_api.Request.project request in
+    let run_filter = Coordinator_api.Request.run request in
+    let actor_filter = Coordinator_api.Request.actor request in
     let kind_filter =
-      Option.value_map (Json.optional params "kinds") ~default:kinds ~f:(fun j ->
-        List.dedup_and_sort (List.map (Json.list j) ~f:Json.text) ~compare:String.compare)
+      List.map (Coordinator_api.Request.kinds request) ~f:Wire.Kind.to_string
     in
-    List.iter kind_filter ~f:(fun kind ->
-      require
-        (List.mem kinds kind ~equal:String.equal)
-        Invalid_argument
-        "Unknown coordinator kind filter");
-    let path_to = optional "dependency_path_to" Id.Ticket.t_of_jsonaf in
-    let stale_after_ms =
-      Option.value_map
-        (Json.optional params "stale_after_ms")
-        ~default:300000L
-        ~f:Json.integer64
-    in
-    require
-      Int64.(stale_after_ms > zero)
-      Invalid_argument
-      "Staleness duration must be positive";
-    let limit =
-      Option.value_map (Json.optional params "limit") ~default:50 ~f:Json.integer
-    in
-    let max_bytes =
-      Option.value_map (Json.optional params "max_bytes") ~default:65536 ~f:Json.integer
-    in
-    require
-      (limit > 0 && limit <= 100 && max_bytes >= 4096 && max_bytes <= 1048576)
-      Invalid_argument
-      "Coordinator bounds are invalid";
+    let path_to = Coordinator_api.Request.dependency_path_to request in
+    let stale_after_ms = Coordinator_api.Request.stale_after_ms request in
+    let limit = Coordinator_api.Request.limit request in
+    let max_bytes = Coordinator_api.Request.max_bytes request in
     let filter_hash =
       Json.hash
         (Json.canonical
@@ -197,10 +135,10 @@ let read
               ]))
     in
     let offset, clock =
-      match Json.optional params "cursor" with
+      match Coordinator_api.Request.cursor request with
       | None -> 0, now_unix_ms
       | Some cursor ->
-        let raw = Json.bounded_text cursor ~max_bytes:2048 in
+        let raw = cursor in
         let decoded =
           match Base64.decode raw with
           | Ok s -> s
@@ -279,17 +217,6 @@ let read
         | Some record -> record
         | None -> Json.fail Not_found "Coordinator run filter is not registered")
     in
-    let allocation_reason = function
-      | Allocation.Reason.Not_ready -> Json.obj [ "kind", Json.string "not_ready" ]
-      | Claimed -> Json.obj [ "kind", Json.string "claimed" ]
-      | Missing_capability capability ->
-        Json.obj
-          [ "kind", Json.string "missing_capability"
-          ; "capability", Json.string capability
-          ]
-      | Pool_full pool ->
-        Json.obj [ "kind", Json.string "pool_full"; "pool", Json.string pool ]
-    in
     let run_actors id =
       Option.value_map (run_record id) ~default:[] ~f:(fun r ->
         [ r.Agent_run.Record.actor ])
@@ -307,39 +234,44 @@ let read
       | Run run -> run_actors run
     in
     let output = ref [] in
-    let add kind key source metadata projects item_runs actors =
-      output
-      := { kind; key; source; metadata; projects; runs = item_runs; actors } :: !output
+    let add row _key projects item_runs actors =
+      output := { row; projects; runs = item_runs; actors } :: !output
     in
     List.iter (Agent_run.attempts runs) ~f:(fun attempt ->
       if not (Attempt.State.terminal attempt.Attempt.state)
       then
         add
-          "active_attempt"
+          (Wire.Item.Active_attempt
+             { attempt_id = attempt.id
+             ; metadata =
+                 { ticket_id = attempt.ticket
+                 ; run_id = attempt.run
+                 ; state = attempt.state
+                 ; token = attempt.token
+                 ; last_checkpoint = List.last attempt.checkpoints
+                 }
+             })
           (Attempt.Id.to_string attempt.id)
-          (source "attempt" [ "id", Attempt.Id.jsonaf_of_t attempt.id ])
-          (Json.obj
-             [ "ticket", Id.Ticket.jsonaf_of_t attempt.ticket
-             ; "run", Id.Run.jsonaf_of_t attempt.run
-             ; "state", Attempt.State.jsonaf_of_t attempt.state
-             ; "token", Json.int attempt.token
-             ; ( "last_checkpoint"
-               , Option.value_map
-                   (List.last attempt.checkpoints)
-                   ~default:`Null
-                   ~f:Attempt.Checkpoint.jsonaf_of_t )
-             ])
           (ticket_projects attempt.ticket)
           [ attempt.run ]
           (run_actors attempt.run));
     List.iter tickets ~f:(fun ticket ->
       let project = Option.to_list ticket.Ticket.project in
-      let src = source "ticket" [ "id", Id.Ticket.jsonaf_of_t ticket.id ] in
+      let src = Wire.Source.Ticket ticket.id in
       if ticket.ready && Option.is_none ticket.claim
       then (
         let reasons, item_runs, actors =
           match allocation_run with
-          | None -> [], [], []
+          | None ->
+            ( List.map
+                (Agent_run.start_blockers
+                   runs
+                   ~ticket:ticket.id
+                   ~run:None
+                   ~now_unix_ms:clock)
+                ~f:(fun value -> Wire.Allocation_reason.Coordination value)
+            , []
+            , [] )
           | Some record ->
             let candidate =
               Agent_run.allocation_candidate
@@ -353,34 +285,42 @@ let read
             let reasons =
               List.map
                 (Allocation.eligibility candidate ~capabilities:record.capabilities)
-                ~f:allocation_reason
+                ~f:(fun value -> Wire.Allocation_reason.Allocation value)
             in
             let reasons =
               if Agent_run.Status.terminal record.status
-              then Json.obj [ "kind", Json.string "run_terminal" ] :: reasons
+              then Wire.Allocation_reason.Run_terminal :: reasons
               else reasons
             in
             let reasons =
               match Agent_run_policy.validate_allocation policies record.id ~runs with
               | Ok () -> reasons
-              | Error problem ->
-                Json.obj
-                  [ "kind", Json.string "run_budget"; "problem", Problem.to_json problem ]
-                :: reasons
+              | Error problem -> Wire.Allocation_reason.Run_budget problem :: reasons
+            in
+            let reasons =
+              reasons
+              @ List.map
+                  (Agent_run.start_blockers
+                     runs
+                     ~ticket:ticket.id
+                     ~run:(Some record.id)
+                     ~now_unix_ms:clock)
+                  ~f:(fun value -> Wire.Allocation_reason.Coordination value)
             in
             reasons, [ record.id ], [ record.actor ]
         in
+        let metadata : Wire.Ready.t =
+          { title = ticket.title
+          ; blockers = ticket.blockers
+          ; eligibility_scope = (if Option.is_some allocation_run then Run else Graph)
+          ; allocation_reasons = reasons
+          }
+        in
         add
-          (if List.is_empty reasons then "ready_work" else "allocation_blocked")
+          (if List.is_empty reasons
+           then Wire.Item.Ready_work { ticket_id = ticket.id; metadata }
+           else Wire.Item.Allocation_blocked { ticket_id = ticket.id; metadata })
           (Id.Ticket.to_string ticket.id)
-          src
-          (Json.obj
-             [ "title", Json.string ticket.title
-             ; "blockers", ticket.blockers
-             ; ( "eligibility_scope"
-               , Json.string (if Option.is_some allocation_run then "run" else "graph") )
-             ; "allocation_reasons", `Array reasons
-             ])
           project
           item_runs
           actors);
@@ -401,19 +341,22 @@ let read
           | Valid -> if stale then Some "stale_ownership" else None
         in
         Option.iter kind ~f:(fun kind ->
+          let metadata =
+            Wire.Ownership.Ticket
+              { token = claim.token
+              ; lease_status = status
+              ; lease = claim.lease
+              ; run_id = claim.run
+              }
+          in
+          let row =
+            if String.equal kind "expired_ownership"
+            then Wire.Item.Expired_ownership { source = src; metadata }
+            else Wire.Item.Stale_ownership { source = src; metadata }
+          in
           add
-            kind
+            row
             ("ticket:" ^ Id.Ticket.to_string ticket.id)
-            src
-            (Json.obj
-               [ "token", Json.int claim.token
-               ; ( "lease_status"
-                 , Allocation_lease.Status.sexp_of_t status
-                   |> Sexp.to_string
-                   |> Json.string )
-               ; "lease", Allocation_lease.to_json claim.lease
-               ; "run", Option.value_map claim.run ~default:`Null ~f:Id.Run.jsonaf_of_t
-               ])
             project
             (Option.to_list claim.run)
             [ claim.actor ])));
@@ -426,42 +369,31 @@ let read
              ~after_ms:stale_after_ms
       then
         add
-          "stale_run"
+          (Wire.Item.Stale_run
+             { run_id = record.id
+             ; metadata =
+                 { status = record.status
+                 ; last_observed_unix_ms = (liveness_record record).last_observed_unix_ms
+                 ; liveness =
+                     (if Option.is_none (liveness_record record).last_observed_unix_ms
+                      then Unobserved
+                      else Stale)
+                 }
+             })
           (Id.Run.to_string record.id)
-          (source "run" [ "id", Id.Run.jsonaf_of_t record.id ])
-          (Json.obj
-             [ "status", Agent_run.Status.jsonaf_of_t record.status
-             ; ( "last_observed_unix_ms"
-               , Option.value_map
-                   (liveness_record record).last_observed_unix_ms
-                   ~default:`Null
-                   ~f:Json.int64 )
-             ; "liveness_is_advisory", `True
-             ; ( "liveness"
-               , Json.string
-                   (if Option.is_none (liveness_record record).last_observed_unix_ms
-                    then "unobserved"
-                    else "stale") )
-             ])
           (run_projects record.id)
           [ record.id ]
           [ record.actor ]);
     List.iter (Agent_run.reservations runs) ~f:(fun reservation ->
-      let src =
-        source
-          "reservation"
-          [ "name", Reservation.Name.jsonaf_of_t reservation.Reservation.name ]
-      in
+      let src = Wire.Source.Reservation reservation.Reservation.name in
       let owners = List.map reservation.holders ~f:(fun h -> h.Reservation.Holder.run) in
       let actors =
         List.map reservation.holders ~f:(fun h -> h.Reservation.Holder.actor)
       in
       let projects = List.concat_map owners ~f:run_projects in
       add
-        "reservation"
+        (Wire.Item.Reservation reservation)
         (Reservation.Name.to_string reservation.name)
-        src
-        (Reservation.jsonaf_of_t reservation)
         projects
         owners
         actors;
@@ -479,23 +411,25 @@ let read
         match status with
         | Valid when not stale -> ()
         | Valid | Expired | Clock_regressed ->
+          let metadata =
+            Wire.Ownership.Reservation
+              { run_id = holder.run
+              ; token = holder.token
+              ; liveness_is_advisory = Allocation_lease.Status.equal status Valid
+              ; lease_status = status
+              }
+          in
+          let row =
+            if Allocation_lease.Status.equal status Expired
+            then Wire.Item.Expired_ownership { source = src; metadata }
+            else Wire.Item.Stale_ownership { source = src; metadata }
+          in
           add
-            (if Allocation_lease.Status.equal status Expired
-             then "expired_ownership"
-             else "stale_ownership")
+            row
             ("reservation:"
              ^ Reservation.Name.to_string reservation.name
              ^ ":"
              ^ Id.Run.to_string holder.run)
-            src
-            (Json.obj
-               [ "run", Id.Run.jsonaf_of_t holder.run
-               ; "token", Json.int holder.token
-               ; "liveness_is_advisory", bool (Allocation_lease.Status.equal status Valid)
-               ; ( "lease_status"
-                 , Json.string (Sexp.to_string (Allocation_lease.Status.sexp_of_t status))
-                 )
-               ])
             (run_projects holder.run)
             [ holder.run ]
             [ holder.actor ]));
@@ -529,19 +463,20 @@ let read
             Option.is_none d.Communication.Request.Delivery.acknowledged)
         in
         add
-          "unanswered_request"
+          (Wire.Item.Unanswered_request
+             { request_id = request.id
+             ; metadata =
+                 { thread_id = request.thread
+                 ; comment_id = request.message
+                 ; kind = request.kind
+                 ; unacknowledged_recipients = open_delivery
+                 ; responsibility = request.responsibility
+                 ; deadline_unix_ms =
+                     Option.map request.deadline_unix_ms ~f:(fun time ->
+                       Json.integer64 (Json.string time))
+                 }
+             })
           (Communication_id.Request.to_string request.id)
-          (source "request" [ "id", Communication_id.Request.jsonaf_of_t request.id ])
-          (Json.obj
-             [ "thread", Communication_id.Thread.jsonaf_of_t request.thread
-             ; "message", Id.Comment.jsonaf_of_t request.message
-             ; "kind", Communication.Request.Kind.jsonaf_of_t request.kind
-             ; "unacknowledged_recipients", Json.int open_delivery
-             ; ( "responsibility"
-               , Communication.Request.Responsibility.jsonaf_of_t request.responsibility )
-             ; ( "deadline_unix_ms"
-               , Option.value_map request.deadline_unix_ms ~default:`Null ~f:Json.string )
-             ])
           projects
           (Option.to_list request.created.run
            @ List.concat_map recipients ~f:recipient_runs)
@@ -558,14 +493,8 @@ let read
           Option.value_map attempt ~default:[] ~f:(fun a -> [ a.Attempt.run ])
         in
         add
-          "changed_input"
+          (Wire.Item.Changed_input reconciliation)
           (Int.to_string reconciliation.serial)
-          (source
-             "reconciliation"
-             [ "serial", Json.int reconciliation.serial
-             ; "attempt", Attempt.Id.jsonaf_of_t reconciliation.attempt
-             ])
-          (Evidence.Reconciliation.jsonaf_of_t reconciliation)
           (ticket_projects reconciliation.ticket)
           item_runs
           (List.concat_map item_runs ~f:run_actors));
@@ -588,14 +517,8 @@ let read
                 | Role { members; _ } -> members))
         in
         add
-          "pending_review"
+          (Wire.Item.Pending_review submission)
           (Id.Ticket.to_string submission.ticket)
-          (source
-             "submission"
-             [ "ticket", Id.Ticket.jsonaf_of_t submission.ticket
-             ; "generation", Json.int submission.generation
-             ])
-          (Evidence.Submission.jsonaf_of_t submission)
           (ticket_projects submission.ticket)
           (Option.to_list submission.author.run)
           (submission.author.actor :: reviewers));
@@ -608,29 +531,23 @@ let read
             [ a.Attempt.run ], ticket_projects a.ticket)
       in
       add
-        "reported_usage"
+        (Wire.Item.Reported_usage usage)
         (Usage_record.Id.to_string usage.id)
-        (source "usage" [ "id", Usage_record.Id.jsonaf_of_t usage.id ])
-        (Usage_record.to_json usage)
         projects
         item_runs
         [ usage.actor ]);
     List.iter (Agent_run_policy.attention policies ~runs) ~f:(fun row ->
-      let id = Id.Run.t_of_jsonaf (Json.field row "run") in
+      let id = row.Run_budget.Attention.run_id in
       add
-        "budget_limit"
-        (Id.Run.to_string id ^ ":" ^ Json.text (Json.field row "kind"))
-        (source "run_budget" [ "run", Id.Run.jsonaf_of_t id ])
-        row
+        (Wire.Item.Budget_limit row)
+        (Id.Run.to_string id ^ ":" ^ Run_budget.Attention.Kind.to_string row.kind)
         (run_projects id)
         [ id ]
         (run_actors id));
     List.iter (Agent_run.pending_actions runs) ~f:(fun action ->
       add
-        "runner_action"
+        (Wire.Item.Runner_action action)
         (Id.Run.to_string action.Agent_run.Runner_action.child)
-        (source "run" [ "id", Id.Run.jsonaf_of_t action.child ])
-        (Agent_run.Runner_action.jsonaf_of_t action)
         (run_projects action.child)
         [ action.parent; action.child ]
         (run_actors action.child @ run_actors action.parent));
@@ -654,23 +571,21 @@ let read
           not (Domain_command.Status.equal t.Ticket.status Done))
       then
         add
-          "dependency_bottleneck"
+          (Wire.Item.Dependency_bottleneck
+             { ticket_id = key
+             ; metadata =
+                 { waiting_ticket_ids =
+                     List.dedup_and_sort unresolved ~compare:Id.Ticket.compare
+                 ; waiting_count = List.length unresolved
+                 }
+             })
           (Id.Ticket.to_string key)
-          (source "ticket" [ "id", Id.Ticket.jsonaf_of_t key ])
-          (Json.obj
-             [ ( "waiting_dependents"
-               , `Array
-                   (List.map
-                      (List.sort unresolved ~compare:Id.Ticket.compare)
-                      ~f:Id.Ticket.jsonaf_of_t) )
-             ; "waiting_count", Json.int (List.length unresolved)
-             ])
           (ticket_projects key)
           []
           []);
     let filtered =
       List.filter !output ~f:(fun item ->
-        List.mem kind_filter item.kind ~equal:String.equal
+        List.mem kind_filter (item_kind item) ~equal:String.equal
         && Option.value_map project_filter ~default:true ~f:(fun id ->
           List.mem item.projects id ~equal:Id.Project.equal)
         && Option.value_map run_filter ~default:true ~f:(fun id ->
@@ -678,8 +593,10 @@ let read
         && Option.value_map actor_filter ~default:true ~f:(fun id ->
           List.mem item.actors id ~equal:Id.Actor.equal))
       |> List.sort ~compare:(fun a b ->
-        let kind = String.compare a.kind b.kind in
-        if kind <> 0 then kind else String.compare a.key b.key)
+        let kind = String.compare (item_kind a) (item_kind b) in
+        if kind <> 0
+        then kind
+        else String.compare (Wire.Item.order_key a.row) (Wire.Item.order_key b.row))
     in
     require
       (offset <= List.length filtered)
@@ -687,7 +604,7 @@ let read
       "Coordinator cursor offset is outside capture";
     let path =
       match path_to with
-      | None -> `Null
+      | None -> None
       | Some target ->
         require
           (Map.mem ticket_map target)
@@ -705,88 +622,96 @@ let read
                   t.Ticket.prerequisites)
               in
               let edges =
-                List.fold deps ~init:edges ~f:(fun acc prerequisite ->
-                  Json.obj
-                    [ "ticket", Id.Ticket.jsonaf_of_t id
-                    ; "prerequisite", Id.Ticket.jsonaf_of_t prerequisite
-                    ]
-                  :: acc)
+                List.fold deps ~init:edges ~f:(fun edges prerequisite ->
+                  { Wire.Edge.ticket_id = id; prerequisite_ticket_id = prerequisite }
+                  :: edges)
               in
               walk (List.rev_append deps rest) (Set.add visited id) edges)
         in
-        `Array (walk [ target ] Id.Ticket.Set.empty [])
+        Some (walk [ target ] Id.Ticket.Set.empty [])
     in
     let path, path_omitted =
       match path with
-      | `Array edges ->
+      | None -> None, 0
+      | Some edges ->
         let rec fit acc = function
           | [] -> List.rev acc
           | edge :: rest ->
-            if String.length (Json.canonical (`Array (List.rev (edge :: acc)))) > 1024
+            let candidate = List.rev (edge :: acc) in
+            if
+              String.length
+                (Json.canonical
+                   (`Array
+                       (List.map
+                          candidate
+                          ~f:(Coordination_wire.encode_exn Wire.Edge.codec))))
+              > 1024
             then List.rev acc
             else fit (edge :: acc) rest
         in
         let selected = fit [] edges in
-        `Array selected, List.length edges - List.length selected
-      | `Null -> `Null, 0
-      | _ -> Json.fail Invalid_argument "Invalid path metadata"
+        Some selected, List.length edges - List.length selected
     in
     let remaining = List.drop filtered offset in
     let envelope items next_cursor needs_larger required_bytes =
-      Json.obj
-        [ "workspace", Id.Workspace.jsonaf_of_t workspace
-        ; "revision", Json.int revision
-        ; "captured_now_unix_ms", Json.int64 clock
-        ; "items", `Array items
-        ; "next_cursor", next_cursor
-        ; ( "omitted"
-          , Json.int (Int.max 0 (List.length filtered - offset - List.length items)) )
-        ; "needs_larger_budget", bool needs_larger
-        ; ( "next_item_source"
-          , if needs_larger then (List.hd_exn remaining).source else `Null )
-        ; ("required_bytes", if needs_larger then Json.int required_bytes else `Null)
-        ; "dependency_path", path
-        ; "dependency_path_omitted", Json.int path_omitted
-        ; "critical_path_duration_ms", `Null
-        ; "critical_path_reason", Json.string "Task duration estimates are unavailable"
-        ]
+      let value : Wire.Response.t =
+        { workspace_id = workspace
+        ; captured_now_unix_ms = clock
+        ; items
+        ; next_cursor
+        ; omitted = List.length remaining - List.length items
+        ; needs_larger_budget = needs_larger
+        ; next_item_source =
+            (if needs_larger
+             then Some (Wire.Item.source (List.hd_exn remaining).row)
+             else None)
+        ; required_bytes
+        ; dependency_path = path
+        ; dependency_path_omitted = path_omitted
+        }
+      in
+      match Coordination_wire.encode_exn Wire.Response.codec value with
+      | `Object fields -> Json.obj (("revision", Json.int revision) :: fields)
+      | _ -> Json.fail Invalid_argument "coordinator response must be an object"
     in
-    let selected = List.take remaining limit in
-    let base_bytes = String.length (Json.canonical (envelope [] `Null false 0)) in
+    let cursor_for count =
+      if offset + count < List.length filtered
+      then Some (encode_cursor ~offset:(offset + count) ~clock)
+      else None
+    in
+    let required_first =
+      match remaining with
+      | [] -> None
+      | item :: _ ->
+        Some
+          (Api_response.encoded_size
+             Workspace_view
+             (envelope [ item.row ] (cursor_for 1) false None))
+    in
+    let empty =
+      envelope [] (cursor_for 0) (not (List.is_empty remaining)) required_first
+    in
     require
-      (base_bytes <= max_bytes)
+      (Api_response.encoded_size Workspace_view empty <= max_bytes)
       Invalid_argument
       "Dependency path metadata exceeds query budget; narrow the query";
     let rec fit reversed = function
       | [] -> List.rev reversed
       | item :: rest ->
-        let items = List.rev (item_json item :: reversed) in
-        let next = offset + List.length items in
-        let cursor =
-          if next < List.length filtered
-          then Json.string (encode_cursor ~offset:next ~clock)
-          else `Null
-        in
-        if String.length (Json.canonical (envelope items cursor false 0)) > max_bytes
+        let items = List.rev (item.row :: reversed) in
+        if
+          Api_response.encoded_size
+            Workspace_view
+            (envelope items (cursor_for (List.length items)) false None)
+          > max_bytes
         then List.rev reversed
-        else fit (item_json item :: reversed) rest
+        else fit (item.row :: reversed) rest
     in
-    let items = fit [] selected in
-    let next = offset + List.length items in
-    let next_cursor =
-      if next < List.length filtered
-      then Json.string (encode_cursor ~offset:next ~clock)
-      else `Null
-    in
+    let items = fit [] (List.take remaining limit) in
     let needs_larger = List.is_empty items && not (List.is_empty remaining) in
-    let required_bytes =
-      if needs_larger
-      then
-        String.length
-          (Json.canonical
-             (envelope [ item_json (List.hd_exn remaining) ] next_cursor true 0))
-        + 24
-      else 0
-    in
-    envelope items next_cursor needs_larger required_bytes)
+    envelope
+      items
+      (cursor_for (List.length items))
+      needs_larger
+      (if needs_larger then required_first else None))
 ;;

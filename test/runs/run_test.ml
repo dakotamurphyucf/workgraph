@@ -75,7 +75,10 @@ let%expect_test "resolved replay and strict command/event codecs" =
        ~method_:"run.register"
        ~params:
          (Json.obj
-            [ "id", Json.string "worker"; "objective", Json.string "x"; "unknown", `Null ]));
+            [ "target_run_id", Json.string "worker"
+            ; "objective", Json.string "x"
+            ; "unknown", `Null
+            ]));
   let event = List.hd_exn events in
   report
     (Json.decode (fun () ->

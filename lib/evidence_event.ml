@@ -78,6 +78,49 @@ module Pin = struct
         ; revision : Counter.t
         }
   [@@deriving sexp, equal, jsonaf]
+
+  let validate pin =
+    Json.decode (fun () ->
+      let require condition message =
+        if not condition then Json.fail Invalid_argument message
+      in
+      let nonblank value maximum =
+        (match Api_codec.encode (Api_codec.text ~max_bytes:maximum) value with
+         | Ok _ -> ()
+         | Error p -> raise (Json.Decode_error p));
+        require (not (String.is_empty (String.strip value))) "pin source is blank"
+      in
+      let hex value lengths =
+        require
+          (List.mem lengths (String.length value) ~equal:Int.equal
+           && String.for_all value ~f:(fun c ->
+             Char.is_digit c || (Char.(c >= 'a') && Char.(c <= 'f'))))
+          "invalid pin digest or object ID"
+      in
+      match pin with
+      | Resource p ->
+        require (p.revision > 0) "pin revision must be positive";
+        hex p.digest [ 64 ]
+      | Event p -> require (p.sequence > 0) "event sequence must be positive"
+      | Commit { repository; object_id } ->
+        nonblank repository 1024;
+        hex object_id [ 40; 64 ]
+      | Checksum { source; digest } ->
+        nonblank source 1024;
+        hex digest [ 64 ]
+      | Comment { revision; _ } | Decision { revision; _ } ->
+        require (revision > 0) "pin revision must be positive"
+      | Contract p -> require (p.revision > 0) "pin revision must be positive")
+  ;;
+
+  let generated_t_of_jsonaf = t_of_jsonaf
+
+  let t_of_jsonaf json =
+    let pin = generated_t_of_jsonaf json in
+    match validate pin with
+    | Ok () -> pin
+    | Error p -> raise (Json.Decode_error p)
+  ;;
 end
 
 module Artifact = struct
@@ -116,15 +159,7 @@ module Manifest = struct
 end
 
 module Policy = struct
-  module Requirement = struct
-    type t =
-      | Named_actor of Id.Actor.t
-      | Role of
-          { name : string
-          ; members : Id.Actor.t list
-          }
-    [@@deriving sexp, equal, jsonaf]
-  end
+  module Requirement = Acceptance_policy.Requirement
 
   type t =
     { ticket : Id.Ticket.t
@@ -135,6 +170,85 @@ module Policy = struct
     ; validators : string list
     }
   [@@deriving sexp, equal, jsonaf]
+end
+
+module Acceptance_policy_version = struct
+  type t =
+    { definition : Acceptance_policy.Definition.t
+    ; weakening_reason : string option
+    ; attribution : Attribution.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+end
+
+module Assertion = struct
+  type t =
+    { serial : Counter.t
+    ; ticket : Id.Ticket.t
+    ; token : Counter.t
+    ; attempt : Attempt.Id.t option
+    ; manifest : Manifest_ref.t option
+    ; artifacts : Artifact.t list
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
+    ; criterion : Acceptance_policy.Criterion.Ref.t
+    ; passed : bool
+    ; evidence_pins : Pin.t list
+    ; evidence : string
+    ; attribution : Attribution.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+
+  let validate a =
+    Json.decode (fun () ->
+      let require condition message =
+        if not condition then Json.fail Invalid_argument message
+      in
+      require (a.serial > 0 && a.token > 0) "assertion counters must be positive";
+      require
+        (Id.Ticket.equal
+           a.ticket
+           (Acceptance_policy.Effective.Binding.ticket_id a.policy_binding))
+        "assertion policy ticket differs";
+      require
+        (Option.equal
+           Int.equal
+           (Some a.token)
+           (Acceptance_policy.Effective.Binding.ownership_token a.policy_binding))
+        "assertion policy ownership differs";
+      require
+        ((not (List.is_empty a.evidence_pins)) && List.length a.evidence_pins <= 100)
+        "assertion needs 1..100 evidence pins";
+      require (List.length a.artifacts <= 200) "too many assertion artifacts";
+      List.iter
+        (a.evidence_pins @ List.map a.artifacts ~f:(fun artifact -> artifact.Artifact.pin))
+        ~f:(fun pin ->
+          match Pin.validate pin with
+          | Ok () -> ()
+          | Error p -> raise (Json.Decode_error p));
+      List.iter a.artifacts ~f:(fun artifact ->
+        match Id.Resource.of_string artifact.Artifact.name with
+        | Ok _ -> ()
+        | Error p -> raise (Json.Decode_error p));
+      require
+        (not (String.is_empty (String.strip a.evidence)))
+        "assertion evidence is blank";
+      (match Api_codec.encode (Api_codec.text ~max_bytes:65_536) a.evidence with
+       | Ok _ -> ()
+       | Error p -> raise (Json.Decode_error p));
+      Option.iter a.manifest ~f:(fun reference ->
+        require
+          (reference.Manifest_ref.revision > 0)
+          "assertion manifest revision must be positive"))
+  ;;
+
+  let generated_t_of_jsonaf = t_of_jsonaf
+
+  let t_of_jsonaf json =
+    let assertion = generated_t_of_jsonaf json in
+    match validate assertion with
+    | Ok () -> assertion
+    | Error p -> raise (Json.Decode_error p)
+  ;;
 end
 
 module Submission = struct
@@ -152,7 +266,7 @@ module Submission = struct
     ; generation : Counter.t
     ; manifest : Manifest_ref.t
     ; contract : Contract_ref.t
-    ; policy_revision : Counter.t
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
     ; author : Attribution.t
     ; review_request : Communication_id.Request.t option
     ; state : State.t
@@ -175,7 +289,7 @@ module Review = struct
     ; generation : Counter.t
     ; manifest : Manifest_ref.t
     ; contract : Contract_ref.t
-    ; policy_revision : Counter.t
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
     ; reviewer : Attribution.t
     ; verdict : Verdict.t
     ; evidence : string
@@ -190,6 +304,7 @@ module Validation = struct
     ; serial : Counter.t
     ; manifest : Manifest_ref.t
     ; contract : Contract_ref.t
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
     ; name : string
     ; passed : bool
     ; evidence : string
@@ -245,7 +360,8 @@ module Update = struct
   type t =
     | Contract_put of Contract.t
     | Manifest_put of Manifest.t
-    | Policy_put of Policy.t
+    | Policy_put of Acceptance_policy_version.t
+    | Assertion_added of Assertion.t
     | Submission_put of Submission.t
     | Review_added of
         { review : Review.t
@@ -294,7 +410,12 @@ let t_of_jsonaf json =
      positive m.Manifest.revision;
      positive m.schema_version;
      positive m.contract.revision
-   | Policy_put p -> positive p.Policy.revision
+   | Policy_put p ->
+     positive
+       (Acceptance_policy.Definition.revision p.Acceptance_policy_version.definition)
+   | Assertion_added a ->
+     positive a.Assertion.serial;
+     positive a.token
    | Submission_put s ->
      positive s.Submission.revision;
      positive s.generation

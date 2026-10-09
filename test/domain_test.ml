@@ -66,7 +66,7 @@ let%expect_test "atomic batch resolves forward creation aliases at final validat
     {"operations":[
       {"method":"ticket.create","as":"task","params":{"ticket_id":"a","title":"A","project_id":"$plan"}},
       {"method":"project.create","as":"plan","params":{"project_id":"p","title":"P"}},
-      {"method":"comment.add","params":{"ticket_id":"$task","body":"Created together"}}
+      {"method":"comment.add","params":{"target":{"kind":"ticket","id":"$task"},"body":"Created together"}}
     ]}|}
     |> Disk.unwrap
   in
@@ -86,7 +86,7 @@ let%expect_test "atomic batch resolves forward creation aliases at final validat
     |> Disk.unwrap
   in
   let ticket = Json.field (Json.field context "data") "ticket" in
-  printf "project %s\n" (Json.text (Json.field ticket "project"));
+  printf "project %s\n" (Json.text (Json.field ticket "project_id"));
   [%expect
     {|
     before 0; after 1
@@ -133,7 +133,8 @@ let%expect_test
        "transaction.apply"
        {|
     {"operations":[
-      {"method":"ticket.update","params":{"ticket_id":"a","expected_revision":"1","status":"done"}},
+      {"method":"ticket.start","params":{"ticket_id":"a","expected_revision":"1"}},
+      {"method":"ticket.finish","params":{"ticket_id":"a","token":"1","evidence":"validated"}},
       {"method":"dependency.add","params":{"ticket_id":"a","prerequisite_id":"b"}}
     ]}|});
   [%expect {| Blocked |}]
@@ -150,7 +151,7 @@ let%expect_test "milestone project invariant and subtree moves are atomic" =
       {"method":"project.create","params":{"project_id":"q","title":"Q"}},
       {"method":"milestone.create","params":{"milestone_id":"m","project_id":"p","title":"M","target_date":"2026-12-01"}},
       {"method":"ticket.create","params":{"ticket_id":"root","title":"Root","project_id":"p","milestone_id":"m"}},
-      {"method":"ticket.create","params":{"ticket_id":"child","title":"Child","project_id":"p","parent_id":"root","milestone_id":"m"}}
+      {"method":"ticket.create","params":{"ticket_id":"child","title":"Child","project_id":"p","parent_ticket_id":"root","milestone_id":"m"}}
     ]}|}
   in
   outcome
@@ -162,7 +163,7 @@ let%expect_test "milestone project invariant and subtree moves are atomic" =
     apply
       state
       "ticket.move"
-      {|{"ticket_id":"root","expected_revision":"1","project_id":"q","milestone_id":null,"parent_id":null}|}
+      {|{"ticket_id":"root","expected_revision":"1","project_id":"q","milestone_id":null,"parent_ticket_id":null}|}
   in
   let tickets =
     State.query
@@ -176,14 +177,14 @@ let%expect_test "milestone project invariant and subtree moves are atomic" =
   |> List.iter ~f:(fun ticket ->
     printf
       "%s: project=%s milestone=%s\n"
-      (Json.text (Json.field ticket "id"))
-      (Json.text (Json.field ticket "project"))
-      (Json.canonical (Json.field ticket "milestone")));
+      (Json.text (Json.field ticket "ticket_id"))
+      (Json.text (Json.field ticket "project_id"))
+      (Json.canonical (Json.field ticket "milestone_id")));
   outcome
     (prepare
        state
        "ticket.move"
-       {|{"ticket_id":"root","expected_revision":"2","project_id":"q","milestone_id":null,"parent_id":"child"}|});
+       {|{"ticket_id":"root","expected_revision":"2","project_id":"q","milestone_id":null,"parent_ticket_id":"child"}|});
   [%expect
     {|
     Conflict
@@ -237,7 +238,9 @@ let%expect_test "archival cannot hide active prerequisites and keeps history" =
 
 let%expect_test "revision conflicts and comments do not overwrite ticket edits" =
   let state = apply (empty ()) "ticket.create" {|{"ticket_id":"a","title":"First"}|} in
-  let state = apply state "comment.add" {|{"ticket_id":"a","body":"Progress"}|} in
+  let state =
+    apply state "comment.add" {|{"target":{"kind":"ticket","id":"a"},"body":"Progress"}|}
+  in
   outcome
     (prepare
        state
@@ -299,16 +302,20 @@ let%expect_test "dependency cycles, cancellation and competing claims" =
     ok |}]
 ;;
 
-let%expect_test "handoff context resumes at its coverage cursor" =
+let%expect_test "handoff without an observed coverage cursor retains prior activity" =
   let state = apply (empty ()) "ticket.create" {|{"ticket_id":"a","title":"A"}|} in
-  let state = apply state "comment.add" {|{"ticket_id":"a","body":"Before"}|} in
+  let state =
+    apply state "comment.add" {|{"target":{"kind":"ticket","id":"a"},"body":"Before"}|}
+  in
   let state =
     apply
       state
       "handoff.set"
       {|{"ticket_id":"a","expected_revision":"0","summary":"Ready to test","next_steps":"Run suite","evidence":"build passed"}|}
   in
-  let state = apply state "comment.add" {|{"ticket_id":"a","body":"After"}|} in
+  let state =
+    apply state "comment.add" {|{"target":{"kind":"ticket","id":"a"},"body":"After"}|}
+  in
   let context =
     State.query
       state
@@ -332,6 +339,7 @@ let%expect_test "handoff context resumes at its coverage cursor" =
   printf "audit transactions: %d\n" (List.length changes);
   [%expect
     {|
+    Before
     After
     Conflict
     audit transactions: 4 |}]
@@ -460,7 +468,7 @@ let%expect_test "catalog semantics and metadata references survive renaming and 
   let ticket = Json.field (Json.field context "data") "ticket" in
   printf
     "assignee %s; status ID %s\n"
-    (Json.canonical (Json.field ticket "assignee"))
+    (Json.canonical (Json.field ticket "assignee_id"))
     (Json.canonical (Json.field ticket "status_id"));
   [%expect
     {|
@@ -472,9 +480,7 @@ let%expect_test "catalog semantics and metadata references survive renaming and 
     assignee null; status ID null |}]
 ;;
 
-let%expect_test
-    "custom done status uses completion invariants and atomic final validation"
-  =
+let%expect_test "custom done metadata cannot bypass completion ownership and evidence" =
   let state =
     apply
       (empty ())
@@ -502,7 +508,7 @@ let%expect_test
        ~params:(Json.obj [ "status", Json.string "nonsense" ]));
   [%expect
     {|
-    Blocked
+    Conflict
     Invalid_argument |}]
 ;;
 
@@ -544,8 +550,8 @@ let%expect_test
   outcome
     (prepare
        state
-       "ticket.update"
-       {|{"ticket_id":"a","expected_revision":"4","status":"done"}|});
+       "transaction.apply"
+       {|{"operations":[{"method":"ticket.start","params":{"ticket_id":"a","expected_revision":"4"}},{"method":"ticket.finish","params":{"ticket_id":"a","token":"1","evidence":"validated"}}]}|});
   let state =
     apply state "ticket.hold" {|{"ticket_id":"a","expected_revision":"4","reason":null}|}
   in
@@ -564,8 +570,8 @@ let%expect_test
   outcome
     (prepare
        state
-       "ticket.update"
-       {|{"ticket_id":"a","expected_revision":"6","status":"done"}|});
+       "transaction.apply"
+       {|{"operations":[{"method":"ticket.start","params":{"ticket_id":"a","expected_revision":"6"}},{"method":"ticket.finish","params":{"ticket_id":"a","token":"1","evidence":"validated"}}]}|});
   [%expect
     {|
     Blocked
@@ -617,7 +623,7 @@ let%expect_test "reassignment revokes stale fencing tokens without assigning tic
     |> Disk.unwrap
   in
   let ticket = Json.field (Json.field context "data") "ticket" in
-  printf "assignment: %s\n" (Json.canonical (Json.field ticket "assignee"));
+  printf "assignment: %s\n" (Json.canonical (Json.field ticket "assignee_id"));
   [%expect
     {|
     Stale_claim
@@ -648,7 +654,7 @@ let%expect_test "dependency graph agrees with independent transitive closure mod
         in
         let actual =
           Json.list (Json.field (Json.field query "data") "items")
-          |> List.map ~f:(fun j -> Json.text (Json.field j "id"))
+          |> List.map ~f:(fun j -> Json.text (Json.field j "ticket_id"))
           |> String.Set.of_list
         in
         let expected =
@@ -711,14 +717,36 @@ let%expect_test "dependency graph agrees with independent transitive closure mod
               Json.obj
                 [ "ticket_id", Json.string ids.(i)
                 ; "expected_revision", Json.field ticket "revision"
-                ; "status", Json.string "done"
                 ]
               |> Json.canonical
             in
             let satisfied =
               Array.for_alli edges.(i) ~f:(fun j edge -> (not edge) || finished.(j))
             in
-            match prepare !state "ticket.update" params with
+            let operations =
+              Json.obj
+                [ ( "operations"
+                  , `Array
+                      [ Json.obj
+                          [ "method", Json.string "ticket.start"
+                          ; "params", Json.parse params |> Disk.unwrap
+                          ]
+                      ; Json.obj
+                          [ "method", Json.string "ticket.finish"
+                          ; ( "params"
+                            , Json.obj
+                                [ "ticket_id", Json.string ids.(i)
+                                ; "token", Json.int 1
+                                ; ( "evidence"
+                                  , Json.string
+                                      "reference-model prerequisite checks passed" )
+                                ] )
+                          ]
+                      ] )
+                ]
+              |> Json.canonical
+            in
+            match prepare !state "transaction.apply" operations with
             | Error error ->
               assert ((not satisfied) && Problem.equal_kind error.kind Blocked)
             | Ok prepared ->
@@ -743,31 +771,33 @@ let%expect_test "editing completed ticket content does not rerun completion poli
       {"method":"ticket.create","params":{"ticket_id":"a","title":"A"}},
       {"method":"ticket.create","params":{"ticket_id":"b","title":"B"}},
       {"method":"dependency.add","params":{"ticket_id":"a","prerequisite_id":"b"}},
-      {"method":"ticket.update","params":{"ticket_id":"b","expected_revision":"1","status":"done"}},
-      {"method":"ticket.update","params":{"ticket_id":"a","expected_revision":"2","status":"done"}}
+      {"method":"ticket.start","params":{"ticket_id":"b","expected_revision":"1"}},
+      {"method":"ticket.finish","params":{"ticket_id":"b","token":"1","evidence":"validated"}},
+      {"method":"ticket.start","params":{"ticket_id":"a","expected_revision":"2"}},
+      {"method":"ticket.finish","params":{"ticket_id":"a","token":"1","evidence":"validated"}}
     ]}|}
   in
   let state =
     apply
       state
-      "ticket.update"
-      {|{"ticket_id":"b","expected_revision":"2","status":"todo"}|}
+      "ticket.reopen"
+      {|{"ticket_id":"b","expected_revision":"3","reason":"replacement needed"}|}
   in
   outcome
     (prepare
        state
        "ticket.update"
-       {|{"ticket_id":"a","expected_revision":"3","title":"Corrected title"}|});
+       {|{"ticket_id":"a","expected_revision":"5","title":"Corrected title"}|});
   outcome
     (prepare
        state
        "ticket.metadata"
-       {|{"ticket_id":"a","expected_revision":"3","priority":"2"}|});
+       {|{"ticket_id":"a","expected_revision":"5","priority":"2"}|});
   outcome
     (prepare
        state
        "ticket.update"
-       {|{"ticket_id":"a","expected_revision":"3","status":"done"}|});
+       {|{"ticket_id":"a","expected_revision":"5","status":"done"}|});
   [%expect
     {|
     ok
@@ -781,7 +811,7 @@ let%expect_test "comment revisions, replies and tombstones keep recoverable hist
     apply
       state
       "comment.add"
-      {|{"ticket_id":"a","comment_id":"note","kind":"decision","body":"Original decision"}|}
+      {|{"target":{"kind":"ticket","id":"a"},"comment_id":"note","kind":"decision","body":"Original decision"}|}
   in
   let state =
     apply
@@ -804,7 +834,7 @@ let%expect_test "comment revisions, replies and tombstones keep recoverable hist
     apply
       state
       "comment.add"
-      {|{"ticket_id":"a","comment_id":"reply","reply_to":"note","body":"Follow-up"}|}
+      {|{"target":{"kind":"ticket","id":"a"},"comment_id":"reply","reply_to_id":"note","body":"Follow-up"}|}
   in
   let state =
     apply state "comment.tombstone" {|{"comment_id":"note","expected_revision":"2"}|}
@@ -813,7 +843,7 @@ let%expect_test "comment revisions, replies and tombstones keep recoverable hist
     (prepare
        state
        "comment.add"
-       {|{"ticket_id":"a","reply_to":"note","body":"Late reply"}|});
+       {|{"target":{"kind":"ticket","id":"a"},"reply_to_id":"note","body":"Late reply"}|});
   let context =
     State.query
       state
@@ -863,14 +893,14 @@ let%expect_test "discussion scope and protected handoff invariants are atomic" =
     {"operations":[
       {"method":"ticket.create","params":{"ticket_id":"a","title":"A"}},
       {"method":"ticket.create","params":{"ticket_id":"b","title":"B"}},
-      {"method":"comment.add","params":{"ticket_id":"a","comment_id":"note","body":"Note"}}
+      {"method":"comment.add","params":{"target":{"kind":"ticket","id":"a"},"comment_id":"note","body":"Note"}}
     ]}|}
   in
   outcome
     (prepare
        state
        "comment.add"
-       {|{"ticket_id":"b","reply_to":"note","body":"Wrong target"}|});
+       {|{"target":{"kind":"ticket","id":"b"},"reply_to_id":"note","body":"Wrong target"}|});
   outcome
     (prepare
        state
@@ -921,7 +951,7 @@ let%expect_test "discussion scope and protected handoff invariants are atomic" =
     Stale_claim
     Stale_claim
     Conflict
-    same-transaction updates remain visible: 1 |}]
+    same-transaction updates remain visible: 2 |}]
 ;;
 
 let%expect_test "handoff history preserves provenance and explicit coverage" =
@@ -951,7 +981,7 @@ let%expect_test "handoff history preserves provenance and explicit coverage" =
       printf
         "%s by %s covers %s\n"
         (Json.text (Json.field handoff "summary"))
-        (Json.text (Json.field handoff "actor"))
+        (Json.text (Json.field handoff "actor_id"))
         (Json.text (Json.field handoff "covers_through")));
   let current =
     State.query
@@ -966,7 +996,7 @@ let%expect_test "handoff history preserves provenance and explicit coverage" =
   [%expect
     {|
     First by agent covers 0
-    Second by agent covers 2
+    Second by agent covers 0
     objective: Ship |}]
 ;;
 
@@ -1106,7 +1136,9 @@ let%expect_test "query budgets preserve UTF-8, identity and resumable page offse
   in
   let params = Json.obj [ "max_bytes", Json.int 4096; "limit", Json.int 10 ] in
   let result = State.query state ~method_:"ticket.list" ~params |> Disk.unwrap in
-  let encoded = Json.canonical result in
+  let encoded =
+    Json.canonical (Api_response.to_json (Api_response.project Planning_read result))
+  in
   printf
     "within budget: %b; reported size correct: %b\n"
     (String.length encoded <= 4096)
@@ -1118,7 +1150,7 @@ let%expect_test "query budgets preserve UTF-8, identity and resumable page offse
     "nonempty partial page: %b\n"
     ((not (List.is_empty items)) && List.length items < 10);
   List.iter items ~f:(fun item ->
-    assert (not (String.is_empty (Json.text (Json.field item "id"))));
+    assert (not (String.is_empty (Json.text (Json.field item "ticket_id"))));
     assert (String.length (Json.text (Json.field item "description")) mod 3 = 0));
   let next = Json.integer (Json.field page "next_offset") in
   printf "cursor counts returned items: %b\n" (next = List.length items);
@@ -1139,7 +1171,7 @@ let%expect_test "query budgets preserve UTF-8, identity and resumable page offse
   in
   printf
     "next identity matches cursor: %b\n"
-    (String.equal (Json.text (Json.field first "id")) ("t" ^ Int.to_string next));
+    (String.equal (Json.text (Json.field first "ticket_id")) ("t" ^ Int.to_string next));
   [%expect
     {|
     within budget: true; reported size correct: true
@@ -1150,19 +1182,38 @@ let%expect_test "query budgets preserve UTF-8, identity and resumable page offse
 
 let%expect_test "context budget discloses omissions and rejects invalid budgets" =
   let body = String.make 65_536 'x' in
-  let state = apply (empty ()) "ticket.create" {|{"ticket_id":"a","title":"A"}|} in
+  let state =
+    apply
+      (empty ())
+      "ticket.create"
+      (Json.canonical
+         (Json.obj
+            [ "ticket_id", Json.string "a"
+            ; "title", Json.string "A"
+            ; "description", Json.string body
+            ]))
+  in
   let state =
     apply
       state
       "comment.add"
-      (Json.obj [ "ticket_id", Json.string "a"; "body", Json.string body ]
+      (Json.obj
+         [ "target", Json.obj [ "kind", Json.string "ticket"; "id", Json.string "a" ]
+         ; "body", Json.string body
+         ]
        |> Json.canonical)
   in
+  (* Discussion bodies remain complete; descriptions alone may be shortened. *)
+  outcome
+    (State.query
+       state
+       ~method_:"ticket.context"
+       ~params:(Json.obj [ "ticket_id", Json.string "a"; "max_bytes", Json.int 4096 ]));
   let result =
     State.query
       state
       ~method_:"ticket.context"
-      ~params:(Json.obj [ "ticket_id", Json.string "a"; "max_bytes", Json.int 4096 ])
+      ~params:(Json.obj [ "ticket_id", Json.string "a"; "max_bytes", Json.int 98304 ])
     |> Disk.unwrap
   in
   let budget = Json.field result "budget" in
@@ -1170,6 +1221,14 @@ let%expect_test "context budget discloses omissions and rejects invalid budgets"
     "truncated: %s; omitted fields positive: %b\n"
     (Json.canonical (Json.field budget "truncated"))
     (Json.integer (Json.field budget "omitted_fields") > 0);
+  let data = Json.field result "data" in
+  let update = List.hd_exn (Json.list (Json.field (Json.field data "updates") "items")) in
+  printf
+    "discussion exact: %b; response within budget: %b\n"
+    (String.equal body (Json.text (Json.field update "body")))
+    (String.length
+       (Json.canonical (Api_response.to_json (Api_response.project Planning_read result)))
+     <= 98304);
   outcome
     (State.query
        state
@@ -1177,7 +1236,9 @@ let%expect_test "context budget discloses omissions and rejects invalid budgets"
        ~params:(Json.obj [ "max_bytes", Json.int 1 ]));
   [%expect
     {|
+    Invalid_argument
     truncated: true; omitted fields positive: true
+    discussion exact: true; response within budget: true
     Invalid_argument |}]
 ;;
 
@@ -1191,7 +1252,7 @@ let%expect_test "lexical search reports stable source revisions across current m
       {"method":"project.create","params":{"project_id":"p","title":"Needle project"}},
       {"method":"milestone.create","params":{"milestone_id":"m","project_id":"p","title":"Needle milestone"}},
       {"method":"ticket.create","params":{"ticket_id":"a","project_id":"p","title":"Needle ticket"}},
-      {"method":"comment.add","params":{"comment_id":"c","ticket_id":"a","body":"A NEEDLE decision"}},
+      {"method":"comment.add","params":{"comment_id":"c","target":{"kind":"ticket","id":"a"},"body":"A NEEDLE decision"}},
       {"method":"handoff.set","params":{"ticket_id":"a","expected_revision":"0","summary":"Needle handoff","next_steps":"Next","evidence":"Tests"}},
       {"method":"resource.put_text","params":{"resource_id":"r","expected_revision":"0","title":"Needle research","text":"Needle content"}},
       {"method":"resource.link","params":{"resource_id":"r","expected_revision":"1","target":{"kind":"project","id":"p"}}}
@@ -1209,10 +1270,23 @@ let%expect_test "lexical search reports stable source revisions across current m
     (Json.list (Json.field data "items"))
     ~f:(fun item ->
       let source = Json.field item "source" in
+      let decoded =
+        Api_codec.decode Planning_context_wire.Search.Version.codec source |> Disk.unwrap
+      in
+      let identity =
+        match decoded.source with
+        | Workspace id -> Id.Workspace.to_string id
+        | Project id -> Id.Project.to_string id
+        | Milestone id -> Id.Milestone.to_string id
+        | Ticket id | Handoff id -> Id.Ticket.to_string id
+        | Comment id -> Id.Comment.to_string id
+        | Resource id | Resource_text id -> Id.Resource.to_string id
+        | Fact { scope = _; key } -> Facts.Key.to_string key
+      in
       printf
         "%s %s r%s\n"
         (Json.text (Json.field source "kind"))
-        (Json.text (Json.field source "id"))
+        identity
         (Json.text (Json.field source "revision")));
   printf
     "text without filesystem provider disclosed: %s\n"
@@ -1308,7 +1382,8 @@ let%expect_test
     State.query state ~method_:"ticket.ready" ~params:(Json.obj []) |> Disk.unwrap
   in
   Json.list (Json.field (Json.field ready "data") "items")
-  |> List.iter ~f:(fun ticket -> print_endline (Json.text (Json.field ticket "id")));
+  |> List.iter ~f:(fun ticket ->
+    print_endline (Json.text (Json.field ticket "ticket_id")));
   [%expect
     {|
     z
@@ -1478,7 +1553,7 @@ let%expect_test
   in
   let params =
     Json.parse
-      {|{"operations":[{"method":"ticket.create","as":"task","params":{"title":"Ticket","project_id":"$plan"}},{"method":"project.create","as":"plan","params":{"project_id":"explicit","title":"Project"}},{"method":"comment.add","params":{"ticket_id":"$task","body":"Progress"}}]}|}
+      {|{"operations":[{"method":"ticket.create","as":"task","params":{"title":"Ticket","project_id":"$plan"}},{"method":"project.create","as":"plan","params":{"project_id":"explicit","title":"Project"}},{"method":"comment.add","params":{"target":{"kind":"ticket","id":"$task"},"body":"Progress"}}]}|}
     |> Disk.unwrap
   in
   let resolved =
@@ -1498,7 +1573,7 @@ let%expect_test
   [%expect
     {|
     generated IDs: 2; revision: 1
-    {"operations":[{"as":"task","method":"ticket.create","params":{"project_id":"$plan","ticket_id":"generated_1","title":"Ticket"}},{"as":"plan","method":"project.create","params":{"project_id":"explicit","title":"Project"}},{"method":"comment.add","params":{"body":"Progress","comment_id":"generated_2","ticket_id":"$task"}}]} |}]
+    {"operations":[{"as":"task","method":"ticket.create","params":{"project_id":"$plan","ticket_id":"generated_1","title":"Ticket"}},{"as":"plan","method":"project.create","params":{"project_id":"explicit","title":"Project"}},{"method":"comment.add","params":{"body":"Progress","comment_id":"generated_2","target":{"id":"$task","kind":"ticket"}}}]} |}]
 ;;
 
 let%expect_test "claim run identity fences the same actor across invocations" =

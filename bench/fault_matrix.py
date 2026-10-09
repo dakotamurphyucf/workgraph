@@ -113,7 +113,7 @@ for index, (boundary, when, action) in enumerate(itertools.product(boundaries, [
                 # failures fence until recovery instead of guessing from memory.
                 if not uncertain:
                     state = check(request(address, "workspace.get", {"workspace_id": "demo"}))
-                    assert state["workspace_revision"] == "0", state
+                    assert state["meta"]["workspace_revision"] == "0", state
             assert Path(str(arm) + ".fired").exists(), "intended boundary was not intercepted"
             arm.unlink()
             if process.poll() is None:
@@ -122,14 +122,14 @@ for index, (boundary, when, action) in enumerate(itertools.product(boundaries, [
             start()
             prior = check(request(address, "workspace.receipt", {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "commit"}))
             should_commit = name == "head_publish_directory_sync" or (name == "head_rename" and when == "after")
-            assert prior["status"] == ("committed" if should_commit else "absent"), prior
+            assert prior["data"]["status"] == ("committed" if should_commit else "absent"), prior
             result = check(request(address, "resource.put_text", params))
-            assert result["workspace_revision"] == "1", result
+            assert result["meta"]["workspace_revision"] == "1", result
             assert result == check(request(address, "resource.put_text", params))
             check(request(address, "daemon.shutdown", {}))
             process.wait(timeout=10)
             assert process.returncode == 0, process.returncode
-            item = {"boundary": name, "when": when, "action": action, "errno": number, "recovered_before_retry": prior["status"], "result": "passed"}
+            item = {"boundary": name, "when": when, "action": action, "errno": number, "recovered_before_retry": prior["data"]["status"], "result": "passed"}
             results.append(item)
             print(json.dumps(item), flush=True)
         finally:

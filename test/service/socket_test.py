@@ -36,7 +36,7 @@ class SocketTest(unittest.TestCase):
                             self.fail('daemon startup timed out')
                         time.sleep(.01)
                     def call(method, **params):
-                        return adapter.Workgraph(address).call(method, params)
+                        return adapter.body(adapter.Workgraph(address).call(method, params))
                     scope = {'workspace_id': 'feeds'}
                     def mutate(method, mutation, **params):
                         return call(method, **scope, actor_id='agent', mutation_id=mutation, **params)

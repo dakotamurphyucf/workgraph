@@ -11,11 +11,14 @@ val create
   -> (t, Problem.t) result
 
 val execute : t -> Protocol.Request.t -> (Protocol.response, Problem.t) result
+
+(** Returns the complete validated public [{data; meta}] result. Per-method data
+    contracts are enforced by typed helpers; generic callers inspect metadata. *)
 val invoke : t -> Protocol.Request.t -> (Jsonaf.t, Problem.t) result
 
 module Commit : sig
   type t =
-    { workspace_revision : int
+    { workspace_revision : Api_position.Workspace_revision.t
     ; result : Jsonaf.t
     }
 end
@@ -27,7 +30,7 @@ val mutate
   -> ?run:Id.Run.t
   -> workspace:Id.Workspace.t
   -> actor:Id.Actor.t
-  -> mutation_id:Id.Actor.t
+  -> mutation_id:Id.Mutation.t
   -> Domain_command.t
   -> (Commit.t, Problem.t) result
 
@@ -62,20 +65,22 @@ module Administration : sig
         }
     | Cancel_restore of
         { target_actor : Id.Actor.t
-        ; target_mutation : Id.Actor.t
+        ; target_mutation : Id.Mutation.t
         }
 end
 
+(** Returns the original public receipt envelope. [Ok] requires explicit durable
+    publication; a missing/false acknowledgement reports [Outcome_unknown]. *)
 val administrate
   :  t
   -> actor:Id.Actor.t
-  -> mutation_id:Id.Actor.t
+  -> mutation_id:Id.Mutation.t
   -> Administration.t
   -> (Jsonaf.t, Problem.t) result
 
 module Query_result : sig
   type t =
-    { workspace_revision : int
+    { workspace_revision : Api_position.Workspace_revision.t
     ; data : Jsonaf.t
     ; budget : Jsonaf.t
     }

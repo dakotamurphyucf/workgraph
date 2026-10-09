@@ -1,0 +1,44 @@
+name: macOS ARM64 package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      OPAMROOT: ${{ github.workspace }}/scratch/macos-opam
+      WORKGRAPH_OPAM_SWITCH: workgraph-ci
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Provision isolated pinned toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          brew install opam
+          mkdir -p scratch
+          git init -q scratch/opam-repository
+          git -C scratch/opam-repository remote add origin https://github.com/ocaml/opam-repository.git
+          git -C scratch/opam-repository fetch --depth=1 origin e4cd7ede2d55a46570977c0ffaa7e96845190817
+          git -C scratch/opam-repository checkout --detach FETCH_HEAD
+          opam init --bare --no-setup --yes workgraph-snapshot "$PWD/scratch/opam-repository"
+          opam switch create "$WORKGRAPH_OPAM_SWITCH" ocaml-base-compiler.5.3.0 --yes
+          opam install --switch="$WORKGRAPH_OPAM_SWITCH" --yes --deps-only --with-test . dune.3.21.1
+          test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- ocamlc -version)" = 5.3.0
+          test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- dune --version)" = 3.21.1
+          test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- ocamlformat --version)" = 0.28.1
+      - name: Build, package and qualify installed executable
+        run: packaging/macos/build.sh "$PWD/dist/macos-arm64"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: workgraph-macos-arm64
+          path: dist/macos-arm64/
+          if-no-files-found: warn
+          retention-days: 14

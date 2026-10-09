@@ -1,27 +1,6 @@
 open Core
-
-module Budget : sig
-  type t =
-    { run : Id.Run.t
-    ; revision : int
-    ; max_attempts : int option
-    ; max_active_attempts : int option
-    ; reported_token_limit : int64 option
-    ; reported_elapsed_ms_limit : int64 option
-    }
-  [@@deriving sexp, equal]
-
-  val to_json : t -> Jsonaf.t
-end
-
-module Command : sig
-  type t =
-    | Template_register of Workflow_template.t
-    | Instance_register of Workflow_template.Instance.t
-    | Budget_put of Budget.t
-    | Usage_report of Usage_record.t
-  [@@deriving sexp]
-end
+module Budget = Run_budget
+module Command = Agent_run_policy_command
 
 module Change : sig
   type t =
@@ -58,7 +37,7 @@ val budget : t -> Id.Run.t -> Budget.t option
     total attempts, while only active attempts consume concurrency. *)
 val validate_allocation : t -> Id.Run.t -> runs:Agent_run.t -> (unit, Problem.t) Result.t
 
-val attention : t -> runs:Agent_run.t -> Jsonaf.t list
+val attention : t -> runs:Agent_run.t -> Run_budget.Attention.t list
 
 val validate_references
   :  t
@@ -69,8 +48,15 @@ val validate_references
   -> (unit, Problem.t) Result.t
 
 val decode : method_:string -> params:Jsonaf.t -> (Command.t, Problem.t) Result.t
+
+(** Raises [Json.Decode_error] if a directly constructed command violates the
+    public contract; [decode], [prepare] and [apply] return typed errors instead. *)
 val encode : Command.t -> string * Jsonaf.t
 
+(** Queries keep complete records, including proof and template hash inputs.
+    [max_bytes] bounds the public data/meta envelope (4096..1048576 bytes).
+    An oversized direct record or first page item fails [Invalid_argument]; page
+    offsets count whole records and require the first page capture revision. *)
 val query
   :  t
   -> runs:Agent_run.t

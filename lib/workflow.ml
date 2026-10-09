@@ -270,3 +270,18 @@ let to_json t =
     ; "statuses", `Array (items t ~kind:`Statuses ~include_archived:true)
     ]
 ;;
+
+let actors t ~include_archived =
+  Map.data t.actors
+  |> List.filter ~f:(fun (value : Actor.t) -> include_archived || not value.archived)
+;;
+
+let labels t ~include_archived =
+  Map.data t.labels
+  |> List.filter ~f:(fun (value : Label.t) -> include_archived || not value.archived)
+;;
+
+let statuses t ~include_archived =
+  Map.data t.statuses
+  |> List.filter ~f:(fun (value : Status.t) -> include_archived || not value.archived)
+;;

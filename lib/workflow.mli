@@ -74,6 +74,12 @@ val actor : t -> Id.Actor.t -> Actor.t
 val label : t -> Id.Label.t -> Label.t
 val status : t -> Id.Status.t -> Status.t
 
+(** Typed immutable catalog lists in ID order, with archived entries explicit. *)
+val actors : t -> include_archived:bool -> Actor.t list
+
+val labels : t -> include_archived:bool -> Label.t list
+val statuses : t -> include_archived:bool -> Status.t list
+
 val items
   :  t
   -> kind:[ `Actors | `Labels | `Statuses ]

@@ -147,7 +147,7 @@ module Transaction = struct
       let actor =
         match String.split key ~on:':' with
         | [ actor; mutation ] ->
-          ignore (Id.Actor.of_string mutation |> unwrap : Id.Actor.t);
+          ignore (Id.Mutation.of_string mutation |> unwrap : Id.Mutation.t);
           Id.Actor.of_string actor |> unwrap |> Id.Actor.to_string
         | _ -> Json.fail Corrupt_store "receipt key requires actor:mutation"
       in

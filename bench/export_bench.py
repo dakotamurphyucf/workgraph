@@ -53,7 +53,7 @@ def call(method, **params):
     for key, value in params.items():
         arguments += ["--json-field", key, json.dumps(value)]
     result = subprocess.run(arguments, capture_output=True, text=True, timeout=330, check=True)
-    return json.loads(result.stdout)["result"]
+    return json.loads(result.stdout)["result"]["data"]
 
 
 sampler = threading.Thread(target=sample)

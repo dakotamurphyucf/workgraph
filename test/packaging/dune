@@ -1,0 +1,5 @@
+(rule
+ (alias runtest)
+ (deps packaging_test.py ../../tools/package.py ../../packaging/verify.py)
+ (action
+  (run python3 %{dep:packaging_test.py})))

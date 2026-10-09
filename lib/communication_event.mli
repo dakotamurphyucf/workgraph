@@ -134,10 +134,30 @@ module Request : sig
   [@@deriving sexp, equal, jsonaf]
 end
 
+module Message : sig
+  (** Immutable routing metadata. The authored discussion body is pinned to
+      comment_revision; recipient expansion is frozen at this event. *)
+  type t =
+    { message_id : Communication_id.Message.t
+    ; revision : Counter.t
+    ; comment_id : Id.Comment.t
+    ; comment_revision : Counter.t
+    ; ticket_id : Id.Ticket.t option
+    ; direct_recipients : Recipient.t list
+    ; teams : Communication_id.Team.t list
+    ; recipients : Recipient.t list
+    ; reply_to_message_id : Communication_id.Message.t option
+    ; correlation_id : string option
+    ; created : Attribution.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+end
+
 module Notification : sig
   module Kind : sig
     type t =
       | Thread_changed
+      | Message_received
       | Request_created
       | Request_acknowledged
       | Request_accepted
@@ -150,6 +170,7 @@ module Notification : sig
   module Source : sig
     type t =
       | Thread of Communication_id.Thread.t
+      | Message of Communication_id.Message.t
       | Request of Communication_id.Request.t
     [@@deriving sexp, equal, jsonaf]
   end
@@ -190,6 +211,7 @@ end
 module Update : sig
   type t =
     | Board_put of Board.t
+    | Message_put of Message.t
     | Thread_put of Thread.t
     | Team_put of Team.t
     | Request_put of
@@ -197,9 +219,10 @@ module Update : sig
         ; kind : Notification.Kind.t
         }
     | Subscription_put of Subscription.t
-    | Cursor_advanced of
-        { recipient : Recipient.t
-        ; through : Counter.t
+    | Inbox_ack of
+        { consumer_id : Communication_id.Consumer.t
+        ; recipient : Recipient.t
+        ; notification_ids : Counter.t list
         }
   [@@deriving sexp, equal, jsonaf]
 end

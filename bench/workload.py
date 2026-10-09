@@ -108,7 +108,7 @@ try:
                               "description": "Task context " + "x" * 240}
                 else:
                     method = "comment.add"
-                    params = {"ticket_id": "t%05d" % (i % 10000), "comment_id": "c%06d" % i,
+                    params = {"target": {"kind": "ticket", "id": "t%05d" % (i % 10000)}, "comment_id": "c%06d" % i,
                               "body": "Progress evidence %06d " % i + "x" * 100}
                 operations.append({"method": method, "params": params})
             _, elapsed = mutate("transaction.apply", {"operations": operations}, "%s-%d" % (phase, offset))
@@ -125,10 +125,10 @@ try:
                            ("search.query", {"text": "evidence"})]:
         samples = [call(method, {"workspace_id": "bench", **params})[1] for _ in range(20)]
         emit("query", method=method, **summarize(samples))
-    samples = [mutate("comment.add", {"ticket_id": "t05000", "body": "Measured steady state write"}, "latency-%d" % i)[1] for i in range(20)]
+    samples = [mutate("comment.add", {"target": {"kind": "ticket", "id": "t05000"}, "body": "Measured steady state write"}, "latency-%d" % i)[1] for i in range(20)]
     emit("individual_write", **summarize(samples))
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        samples = list(pool.map(lambda i: mutate("comment.add", {"ticket_id": "t05000", "body": "Concurrent progress"}, "parallel-%d" % i)[1], range(64)))
+        samples = list(pool.map(lambda i: mutate("comment.add", {"target": {"kind": "ticket", "id": "t05000"}, "body": "Concurrent progress"}, "parallel-%d" % i)[1], range(64)))
     emit("eight_clients", **summarize(samples))
     began = time.perf_counter()
     job, admission = call("workspace.export", {"workspace_id": "bench", "destination": str(root / "export"), "actor_id": "bench", "mutation_id": "export"})

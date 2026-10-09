@@ -74,7 +74,10 @@ let () =
           ~method_:"comment.add"
           ~params:
             (Json.obj
-               [ "ticket_id", Json.string "ticket"; "body", Json.string "Duplicate key" ])
+               [ ( "target"
+                 , Json.obj [ "kind", Json.string "ticket"; "id", Json.string "ticket" ] )
+               ; "body", Json.string "Duplicate key"
+               ])
         |> Disk.unwrap
       in
       let prepared =

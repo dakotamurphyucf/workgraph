@@ -194,7 +194,8 @@ let search t capture ~text ?session ?kinds ?after ~limit ~max_bytes () =
                | Some (byte_offset, snippet) ->
                  let item =
                    Json.obj
-                     [ "ref", Session.Event_ref.to_json ref_
+                     [ ( "event_ref"
+                       , Api_codec.encode History_wire.event_ref ref_ |> Disk.unwrap )
                      ; "kind", Json.string (Session_event.kind event)
                      ; "role", Json.string (Session_event.role event)
                      ; "byte_offset", Json.int byte_offset
@@ -202,8 +203,9 @@ let search t capture ~text ?session ?kinds ?after ~limit ~max_bytes () =
                      ]
                  in
                  if
-                   String.length
-                     (Json.canonical (render (List.rev (item :: acc)) (Some ref_) true 0))
+                   Api_response.encoded_size
+                     History
+                     (render (List.rev (item :: acc)) (Some ref_) true 0)
                    > max_bytes
                  then
                    if count = 0
@@ -212,7 +214,7 @@ let search t capture ~text ?session ?kinds ?after ~limit ~max_bytes () =
                  else scan (item :: acc) (count + 1) (Some ref_) rest)))
     in
     let result = scan [] 0 after candidates in
-    if String.length (Json.canonical result) > max_bytes
+    if Api_response.encoded_size History result > max_bytes
     then Json.fail Blocked "history coverage exceeds search budget";
     result)
 ;;

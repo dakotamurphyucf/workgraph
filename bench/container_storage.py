@@ -50,7 +50,7 @@ def stop():
 
 def mutation(key):
     return {"workspace_id": "demo", "actor_id": "agent", "mutation_id": key,
-            "ticket_id": "a", "body": key}
+            "target": {"kind": "ticket", "id": "a"}, "body": key}
 
 
 started = False
@@ -63,10 +63,10 @@ try:
     assert filled.returncode != 0 and "No space left on device" in filled.stderr, filled.stderr
     failed = call("comment.add", mutation("full"))
     assert failed["error"]["data"]["kind"] == "Storage_unavailable", failed
-    assert ok("ticket.context", {"workspace_id": "demo", "ticket_id": "a"})["workspace_revision"] == "1"
+    assert ok("ticket.context", {"workspace_id": "demo", "ticket_id": "a"})["meta"]["workspace_revision"] == "1"
     execute("rm", "/limited/filler")
     committed = ok("comment.add", mutation("full"))
-    assert committed["workspace_revision"] == "2", committed
+    assert committed["meta"]["workspace_revision"] == "2", committed
     stop()
     start()
     assert committed == ok("comment.add", mutation("full"))
@@ -75,14 +75,14 @@ try:
     failed = call("comment.add", mutation("permission"))
     assert failed["error"]["data"]["kind"] == "Storage_unavailable", failed
     execute("chmod", "700", "/limited/workspace/transactions")
-    assert ok("comment.add", mutation("permission"))["workspace_revision"] == "3"
+    assert ok("comment.add", mutation("permission"))["meta"]["workspace_revision"] == "3"
     execute("chmod", "500", "/limited/workspace")
     failed = call("comment.add", mutation("head-permission"))
     assert failed["error"]["data"]["kind"] == "Outcome_unknown", failed
     execute("chmod", "700", "/limited/workspace")
     stop()
     start()
-    assert ok("comment.add", mutation("head-permission"))["workspace_revision"] == "4"
+    assert ok("comment.add", mutation("head-permission"))["meta"]["workspace_revision"] == "4"
     print(json.dumps({"case": "unprivileged_permissions", "result": "passed", "recovered_revision": "4"}), flush=True)
 finally:
     if started:

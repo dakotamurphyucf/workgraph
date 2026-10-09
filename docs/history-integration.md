@@ -16,15 +16,32 @@ Each input line describes a completed observable event by default. Supply a stab
 {"source_id":"provider-message-42","role":"tool","kind":"tool_result","correlation":"call-7","payload":{"output":"A requirement near the end of a long result"},"searchable_text":"A requirement near the end of a long result"}
 ```
 
-The adapter syncs an exact pending append request before sending it and advances its synced ingest cursor only after receiving `durable:true` and the session `through` watermark. A crash after acknowledgement but before cursor persistence retries the same request; receipt identity and source-event identity prevent duplicates. Keep the observable source and cursor durable until ingestion resumes. The adapter rejects changed/truncated acknowledged source prefixes rather than silently ingesting a different conversation. Large opaque bodies can use an already installed blob reference through the typed protocol; the example adapter intentionally rejects requests beyond the existing 4MiB framing budget rather than implementing provider upload policy.
+The adapter syncs an exact pending append request before sending it and advances its synced ingest cursor only after receiving `result.meta.durable: true` and the session `through` watermark. A crash after acknowledgement but before cursor persistence retries the same request; receipt identity and source-event identity prevent duplicates. Keep the observable source and cursor durable until ingestion resumes. The adapter rejects changed/truncated acknowledged source prefixes rather than silently ingesting a different conversation. Large opaque bodies can use an already installed blob reference through the typed protocol; the example adapter intentionally rejects requests beyond the existing 4MiB framing budget rather than implementing provider upload policy.
 
 The adapter publishes a small ordinary `recovery-index` resource containing workspace, session, ticket, note and retrieval instructions. Retain these references and active harness instructions after a reset. The index is a bootstrap record; it does not reconstruct context automatically.
 
-Session mutations are `session.create`, `session.archive` and `session.append`; planning workspace revisions are independent of session event sequences. A session can link local entity scopes and an already committed parent/fork event. An archived session remains readable and searchable. Appending history acknowledges its own journal commit; subsequently publishing a note/reference is a separate planning transaction. Failure between these commits leaves recoverable history, without cross-stream atomicity.
+[session.create](api-reference/session.create.md),
+[session.archive](api-reference/session.archive.md) and
+[session.append](api-reference/session.append.md) are separate from planning
+transactions. A session can link local scopes and an already committed parent/fork
+event. An archived session remains readable and searchable. Appending acknowledges
+its own journal commit; publishing a note/reference afterward is a separate planning
+transaction. Failure between commits leaves recoverable history without cross-stream
+atomicity. Generated method references describe canonical event references, content
+alternatives and scope fields; durable event encodings are not public requests.
 
-Retrieve metadata with `session.get`, `session.list`, `history.get` or `history.read` (`before`, `after`, `around`). `history.search` returns stable `{session_id,sequence}` references, snippets and UTF-8 byte offsets, with event-kind filtering. Search text includes the entire supported text blob, including content beyond the current resource search prefix. `history.payload` expands payload, searchable text or an attachment into base64 chunks with `next_offset` and `has_more`; metadata retrieval does not silently truncate preserved payloads.
+Retrieve metadata with [session.get](api-reference/session.get.md),
+[session.list](api-reference/session.list.md), [history.get](api-reference/history.get.md)
+or [history.read](api-reference/history.read.md).
+[history.search](api-reference/history.search.md) returns stable event references,
+snippets and UTF-8 byte offsets, with event-kind filtering. Search includes the
+entire supported text blob, including text beyond the resource search prefix.
+[history.payload](api-reference/history.payload.md) expands the selected payload,
+searchable text or attachment into bounded base64 chunks. Metadata retrieval does
+not silently truncate retained bytes. Use the generated selector and continuation
+contracts rather than rebuilding them from storage records.
 
-Read/search results expose a captured history `head`; send this head on later pages to exclude concurrent appends. Session sequences start at one, while an `after` read can start at anchor zero. Read limits are 1..100 metadata records; query budgets are 4KiB..1MiB. Payload chunks are at most 256KiB and are reduced to fit the requested result budget. Workgraph counts bytes; the harness decides tokenizer budgets and which results enter model context.
+Every history query exposes `meta.history_capture`, including a captured `head`; send this head on later pages to exclude concurrent appends. Session sequences start at one, while an `after` read can start at anchor zero. Read limits are 1..100 metadata records; query budgets are 4KiB..1MiB. Payload chunks are at most 256KiB and are reduced to fit the requested result budget. Workgraph counts bytes; the harness decides tokenizer budgets and which results enter model context.
 
 Search coverage reports `indexed_through` and `committed_through` per session, `unindexed_events`, and `unsearchable_events`. When coverage is incomplete, `restart_after_indexing:true` and `next:null` require restarting the search after indexing catches up. An empty partial response never establishes absence. Rebuildable local indexes are secondary; acknowledged journal events and blob bytes are authoritative and readable immediately.
 

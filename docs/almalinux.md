@@ -91,8 +91,11 @@ Keep their JSON output and daemon logs when reporting a failure.
 
 ## Reproduce the build and package qualification
 
-Run from a clean source checkout on an AMD64 host with an x86-64-v3 capable CPU,
-Docker, Bash and Python 3. No host opam switch is created or changed:
+Run from a clean source checkout on a native Linux AMD64 host with an x86-64-v3
+capable CPU, a running Linux AMD64 Docker daemon, Bash and Python 3.10+. The host
+UID/GID must be nonzero so the build's permission tests run as an ordinary user.
+Qualification rejects an ARM host or ARM Docker daemon running AMD64 through
+emulation. No host opam switch is created or changed:
 
 ```sh
 mkdir -p "$PWD/dist/almalinux-10-x86_64"
@@ -125,12 +128,19 @@ bit-identical future output.
 installs that tested native archive and preserves executable bytes; it is not a
 separate compiler build. Fresh runtime containers contain Git and Python 3 but
 no compiler, opam or Dune. They qualify tar and RPM independently, verify dynamic
-library resolution and RPM integrity, run both walkthroughs, and compare the
-installed executable hashes.
+library resolution and RPM integrity, run both walkthroughs from the installed
+package, and compare the installed executable hashes. Before extraction or
+execution, qualification checks safe regular archive members, complete manifest
+inventories and hashes, recomputed source identity, complete source/native guides,
+notice inventory hashes and exact installed tar/RPM contents. The RPM includes
+the same inspection record, guide tools and dependency notices as the tarball.
 
 Results are retained under `dist/almalinux-10-x86_64`: `archives/`, `rpm/`,
 `logs/`, `runtime/`, `toolchain.export`, `build-metadata.json` and, only after both
-runtime checks pass, `qualification.json`. `notices/INVENTORY.json` records the
+runtime checks pass, `qualification.json`. This final record binds source identity,
+archive/RPM hashes and executable SHA256. The native archive's embedded
+`QUALIFICATION.json` has `status: inspection-only`; it does not claim a runtime
+result before installed checks have run. `notices/INVENTORY.json` records the
 installed opam dependency closure, source checksums and hashes of preserved
 license files, including notices discovered inside vendored library sources.
 See the [official AlmaLinux image

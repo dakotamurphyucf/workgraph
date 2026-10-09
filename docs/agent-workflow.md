@@ -13,11 +13,14 @@ daemon restarts. User-authored skills can wrap the same commands.
    tickets with acceptance criteria, milestones and parent relationships. Add
    execution prerequisites with `dependency add`; parents organize work separately.
    `related add` records nonblocking relationships.
-3. Query `ticket ready` and `ticket context`. Inspect readiness reasons, resource
+3. Query [ticket.ready](api-reference/ticket.ready.md) and
+   [ticket.resume](api-reference/ticket.resume.md); use ticket context for further
+   detail. Read the [effective acceptance policy](api-reference/acceptance.policy.effective.md)
+   before starting. Inspect readiness reasons, resource
    pointers and existing claims before choosing work. Display keys resolve through
    `ticket resolve`; mutations and relationships use the returned opaque ID.
-4. Claim using the observed ticket revision. Save the returned token plus actor/run
-   identity. Claim conflicts mean another request won; read current context. A
+4. [Start or claim](api-reference/ticket.start.md) using the observed ticket
+   revision. Save the returned token plus actor/run identity. Claim conflicts mean another request won; read current context. A
    fresh run cannot reuse another run's token even if the actor name is the same.
 
 Parallel task execution is an orchestrator decision. Workgraph's dependency DAG
@@ -74,20 +77,27 @@ The default coverage is conservative. Progress and a handoff in the same atomic
 batch remain discoverable afterward. On resume, `ticket context` returns the latest
 handoff and subsequent changes, including edits/tombstones of older comments.
 Fetch further pages or `activity since` until all relevant updates are reviewed.
-Budget omissions are explicit: inspect `budget.truncated`, details and cursors;
+Budget omissions are explicit: inspect `result.meta.budget.truncated`, details and cursors;
 an incomplete page is not proof that no more context exists. Pagination must use
 the observed workspace revision, and stale pages restart from a current snapshot.
 
-To transfer ownership, record a reason with `ticket reassign`, the observed ticket
-revision, and the next actor/run. The new fencing token invalidates the old owner.
+To transfer ownership after the active attempt is finished, record a reason with
+[ticket.reassign](api-reference/ticket.reassign.md), the observed ticket revision
+and the next actor/run. The new fencing token invalidates the old owner.
+If a worker crashed, confirm it is stopped or isolated, then use exact guarded
+[ticket.recover](api-reference/ticket.recover.md) and reservation recovery before
+launching replacement work. Expiry alone is insufficient.
 To keep working after daemon restart, retain the same actor/run/token. To release,
 use the current claim identity; do not delete history or rely on claim expiry.
 
 ## Complete and preserve the outcome
 
-Run the acceptance checks and attach concrete evidence. `ticket complete` requires
-the current claim identity and nonempty evidence, and rejects unresolved blockers
-or children. An atomic batch can include final progress, handoff and completion
+Run the acceptance checks and attach concrete evidence. Read the effective policy
+and current attempt/output bindings; required criteria need exact assertions and
+configured reviews need current acceptance. [ticket.finish](api-reference/ticket.finish.md)
+can publish the final handoff, active attempt completion and ticket completion
+atomically. Completion requires the current claim identity and nonempty evidence,
+and rejects unresolved blockers or children. An atomic batch can include final progress, handoff and completion
 with one durable receipt; preconditions execute in declared order. Project and
 milestone completion ratios are derived, while their explicit status remains a
 separate deliberate update.
@@ -96,3 +106,7 @@ Export the workspace when a portable audit snapshot is useful. Poll the job and
 verify its completed destination. For a Git handoff, close before committing or
 pulling and explicitly transfer writer ownership. Keep request retry files and
 machine-local registry data outside the portable workspace's committed tree.
+
+Exact parameters and result records are in the [generated method reference](api-reference/index.md).
+The workflow above explains when to call them; public codecs remain the source
+for tagged alternatives, optional fields and canonical ID names.

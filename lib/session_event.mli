@@ -54,6 +54,14 @@ module Input : sig
     -> unit
     -> (t, Problem.t) Result.t
 
+  val role : t -> string
+  val kind : t -> string
+  val phase : t -> string
+  val correlation : t -> string option
+  val provenance : t -> Jsonaf.t
+  val payload : t -> Content.t
+  val searchable_text : t -> Content.t option
+  val attachments : t -> Blob_ref.t list
   val client_id : t -> string
   val to_json : t -> Jsonaf.t
   val of_json : Jsonaf.t -> (t, Problem.t) Result.t
@@ -72,6 +80,7 @@ val commit
   -> install:(Content.t -> Blob_ref.t)
   -> t
 
+val input : t -> Input.t
 val ref_ : t -> Session.Event_ref.t
 val actor : t -> Id.Actor.t
 val run : t -> Id.Run.t option

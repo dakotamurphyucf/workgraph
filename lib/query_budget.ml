@@ -45,7 +45,7 @@ let pointer key =
     ~with_:"~1"
 ;;
 
-let fit ~max_bytes value =
+let fit ?(measure = fun json -> String.length (Json.canonical json)) ~max_bytes value =
   if max_bytes < 4096 || max_bytes > 1024 * 1024
   then Json.fail Invalid_argument "invalid query budget";
   let attempt ~text_cap ~array_cap ~detail_cap =
@@ -96,7 +96,34 @@ let fit ~max_bytes value =
           List.map fields ~f:(fun (key, value) ->
             key, trim (path ^ "/" ^ pointer key) key value)
         in
-        if not is_page
+        let is_serial_page =
+          List.Assoc.mem fields "items" ~equal:String.equal
+          && List.Assoc.mem fields "next_after" ~equal:String.equal
+          && List.Assoc.mem fields "after" ~equal:String.equal
+        in
+        if is_serial_page
+        then (
+          let original = Json.obj fields in
+          let retained = Json.list (Json.field (Json.obj result) "items") in
+          let remaining =
+            Json.integer (Json.field original "remaining")
+            + List.length (Json.list (Json.field original "items"))
+            - List.length retained
+          in
+          let cursor =
+            Option.value_map
+              (List.last retained)
+              ~default:(Json.field original "after")
+              ~f:(fun item -> Json.field item "notification_id")
+          in
+          Json.obj
+            (List.map result ~f:(fun (key, value) ->
+               ( key
+               , match key with
+                 | "remaining" -> Json.int remaining
+                 | "next_after" -> cursor
+                 | _ -> value ))))
+        else if not is_page
         then Json.obj result
         else (
           let old = Json.obj fields in
@@ -136,7 +163,7 @@ let fit ~max_bytes value =
     in
     let rec sized bytes =
       let result = wrap bytes in
-      let size = String.length (Json.canonical result) in
+      let size = measure result in
       if Int.equal size bytes then result, size else sized size
     in
     sized 0
@@ -168,4 +195,51 @@ let fit ~max_bytes value =
         if size <= max_bytes then result else choose rest)
   in
   choose profiles
+;;
+
+let annotate_whole_items_exn
+      ?(measure = fun json -> String.length (Json.canonical json))
+      ~max_bytes
+      ~omitted_items
+      value
+  =
+  if max_bytes < 4096 || max_bytes > 1048576 || omitted_items < 0
+  then Json.fail Invalid_argument "invalid whole-item query budget";
+  let fields =
+    match value with
+    | `Object fields ->
+      if List.Assoc.mem fields "budget" ~equal:String.equal
+      then Json.fail Invalid_argument "whole-item candidate already has budget metadata";
+      fields
+    | _ -> Json.fail Invalid_argument "whole-item query candidate must be an object"
+  in
+  let details =
+    if omitted_items = 0
+    then []
+    else
+      [ Json.obj
+          [ "path", Json.string "/items"
+          ; "kind", Json.string "items"
+          ; "omitted", Json.int omitted_items
+          ]
+      ]
+  in
+  let rec sized bytes =
+    let budget =
+      Json.obj
+        [ "max_bytes", Json.int max_bytes
+        ; "returned_bytes", Json.int bytes
+        ; ("truncated", if omitted_items > 0 then `True else `False)
+        ; "omitted_fields", Json.int 0
+        ; "omitted_items", Json.int omitted_items
+        ; "details", `Array details
+        ; "details_complete", `True
+        ]
+    in
+    let result = Json.obj (fields @ [ "budget", budget ]) in
+    let size = measure result in
+    if size < 0 then Json.fail Invalid_argument "negative encoded query size";
+    if Int.equal bytes size then result else sized size
+  in
+  sized 0
 ;;

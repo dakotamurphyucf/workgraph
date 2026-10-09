@@ -1,0 +1,13 @@
+(library
+ (name workgraph_api_catalog_tests)
+ (modules api_catalog_test)
+ (libraries workgraph core expect_test_helpers_core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(rule
+ (alias runtest)
+ (deps cli_reference_test.py)
+ (action
+  (run python3 %{dep:cli_reference_test.py} %{exe:../../bin/main.exe})))

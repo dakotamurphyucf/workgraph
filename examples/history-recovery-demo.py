@@ -81,11 +81,11 @@ def run(executable, directory, *, client=None):
         initial_context.clear()
         bootstrap = {"workspace_id": "recovery-demo", "session_id": "conversation", "ticket_id": "task", "note_id": "agent-note"}
         def read(method, **params):
-            return module.body(client.call(method, {"workspace_id": bootstrap["workspace_id"], **params}))
+            return client.call(method, {"workspace_id": bootstrap["workspace_id"], **params})
         first_hits = read("history.search", session_id=bootstrap["session_id"], text="planted_requirement", limit="10", max_bytes="65536")
-        assert first_hits["complete"] and len(first_hits["items"]) == 1, first_hits
-        first_payload = read("history.payload", ref=first_hits["items"][0]["ref"], head=first_hits["capture"]["head"], length="4096")
-        active_context = {"requirement": base64.b64decode(first_payload["bytes_base64"]).decode()}
+        assert first_hits["data"]["complete"] and len(first_hits["data"]["items"]) == 1, first_hits
+        first_payload = read("history.payload", event_ref=first_hits["data"]["items"][0]["event_ref"], head=first_hits["meta"]["history_capture"]["head"], length="4096")
+        active_context = {"requirement": base64.b64decode(first_payload["data"]["bytes_base64"]).decode()}
         assert "planted_requirement: BLUE" in active_context["requirement"], active_context
         # The driver observes a correction, records it durably, then evicts again.
         with source.open("a") as output:
@@ -99,29 +99,29 @@ def run(executable, directory, *, client=None):
         active_context.clear()
         client.calls = client.response_bytes = 0
         note = read("resource.read_chunk", resource_id=bootstrap["note_id"], offset="0", length="4096")
-        note_text = base64.b64decode(note["data_base64"]).decode()
+        note_text = base64.b64decode(note["data"]["data_base64"]).decode()
         baseline = {"calls": client.calls, "bytes": client.response_bytes, "current_requirement_recovered": "AMBER" in note_text}
         client.calls = client.response_bytes = 0
         hits = read("history.search", session_id=bootstrap["session_id"], text="planted_requirement", limit="10", max_bytes="65536")
-        if not hits["complete"]:
+        if not hits["data"]["complete"]:
             raise RuntimeError("index coverage is incomplete; wait/rebuild before absence claims")
-        assert len(hits["items"]) == 2, hits
-        head = hits["capture"]["head"]
+        assert len(hits["data"]["items"]) == 2, hits
+        head = hits["meta"]["history_capture"]["head"]
         around = read("history.read", session_id=bootstrap["session_id"], anchor="1", direction="around", limit="10", head=head)
-        assert len(around["items"]) == 4, around
-        latest_ref = hits["items"][-1]["ref"]
-        payload = read("history.payload", ref=latest_ref, head=head, length="4096")
-        recovered = base64.b64decode(payload["bytes_base64"]).decode()
+        assert len(around["data"]["items"]) == 4, around
+        latest_ref = hits["data"]["items"][-1]["event_ref"]
+        payload = read("history.payload", event_ref=latest_ref, head=head, length="4096")
+        recovered = base64.b64decode(payload["data"]["bytes_base64"]).decode()
         assert "AMBER replaces BLUE" in recovered, recovered
         tail = read("history.search", session_id=bootstrap["session_id"], text="tool_tail_fact", max_bytes="65536")
-        assert len(tail["items"]) == 1 and int(tail["items"][0]["byte_offset"]) > 65_536, tail
-        tool_context = read("history.read", session_id=bootstrap["session_id"], anchor=tail["items"][0]["ref"]["sequence"], direction="around", limit="3", head=tail["capture"]["head"])
-        calls = [event["event"] for event in tool_context["items"] if event["event"]["kind"] == "tool_call"]
-        results = [event["event"] for event in tool_context["items"] if event["event"]["kind"] == "tool_result"]
+        assert len(tail["data"]["items"]) == 1 and int(tail["data"]["items"][0]["byte_offset"]) > 65_536, tail
+        tool_context = read("history.read", session_id=bootstrap["session_id"], anchor=tail["data"]["items"][0]["event_ref"]["sequence"], direction="around", limit="3", head=tail["meta"]["history_capture"]["head"])
+        calls = [event["event"] for event in tool_context["data"]["items"] if event["event"]["kind"] == "tool_call"]
+        results = [event["event"] for event in tool_context["data"]["items"] if event["event"]["kind"] == "tool_result"]
         assert len(calls) == 1 and len(results) == 1, tool_context
         assert calls[0]["correlation"] == results[0]["correlation"] == "call-1", tool_context
         enhanced = {"calls": client.calls, "bytes": client.response_bytes, "current_requirement_recovered": True}
-        result = {"adapter_restarted_without_duplicate": True, "adapter_restart_mode": "lost_acknowledgement_reentry" if injected else "terminated_process", "committed_events": ingest["through"], "context_reset_by": "external_driver", "context_evictions": 2, "first_recovered_requirement": "BLUE", "current_recovered_requirement": "AMBER", "tool_call_result_context_recovered": True, "notes_only": baseline, "notes_plus_history": enhanced, "tail_fact_offset": tail["items"][0]["byte_offset"], "fixture_payload_bytes": sum(len(module.canonical(record["payload"]).encode()) for record in records)}
+        result = {"adapter_restarted_without_duplicate": True, "adapter_restart_mode": "lost_acknowledgement_reentry" if injected else "terminated_process", "committed_events": ingest["through"], "context_reset_by": "external_driver", "context_evictions": 2, "first_recovered_requirement": "BLUE", "current_recovered_requirement": "AMBER", "tool_call_result_context_recovered": True, "notes_only": baseline, "notes_plus_history": enhanced, "tail_fact_offset": tail["data"]["items"][0]["byte_offset"], "fixture_payload_bytes": sum(len(module.canonical(record["payload"]).encode()) for record in records)}
         if not injected:
             print(module.canonical(result))
         return result

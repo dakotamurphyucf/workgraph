@@ -69,6 +69,8 @@ module Pin : sig
         ; revision : Counter.t
         }
   [@@deriving sexp, equal, jsonaf]
+
+  val validate : t -> (unit, Problem.t) Result.t
 end
 
 module Artifact : sig
@@ -107,15 +109,7 @@ module Manifest : sig
 end
 
 module Policy : sig
-  module Requirement : sig
-    type t =
-      | Named_actor of Id.Actor.t
-      | Role of
-          { name : string
-          ; members : Id.Actor.t list
-          }
-    [@@deriving sexp, equal, jsonaf]
-  end
+  module Requirement = Acceptance_policy.Requirement
 
   type t =
     { ticket : Id.Ticket.t
@@ -126,6 +120,35 @@ module Policy : sig
     ; validators : string list
     }
   [@@deriving sexp, equal, jsonaf]
+end
+
+module Acceptance_policy_version : sig
+  type t =
+    { definition : Acceptance_policy.Definition.t
+    ; weakening_reason : string option
+    ; attribution : Attribution.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+end
+
+module Assertion : sig
+  type t =
+    { serial : Counter.t
+    ; ticket : Id.Ticket.t
+    ; token : Counter.t
+    ; attempt : Attempt.Id.t option
+    ; manifest : Manifest_ref.t option
+    ; artifacts : Artifact.t list
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
+    ; criterion : Acceptance_policy.Criterion.Ref.t
+    ; passed : bool
+    ; evidence_pins : Pin.t list
+    ; evidence : string
+    ; attribution : Attribution.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+
+  val validate : t -> (unit, Problem.t) Result.t
 end
 
 module Submission : sig
@@ -143,7 +166,7 @@ module Submission : sig
     ; generation : Counter.t
     ; manifest : Manifest_ref.t
     ; contract : Contract_ref.t
-    ; policy_revision : Counter.t
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
     ; author : Attribution.t
     ; review_request : Communication_id.Request.t option
     ; state : State.t
@@ -166,7 +189,7 @@ module Review : sig
     ; generation : Counter.t
     ; manifest : Manifest_ref.t
     ; contract : Contract_ref.t
-    ; policy_revision : Counter.t
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
     ; reviewer : Attribution.t
     ; verdict : Verdict.t
     ; evidence : string
@@ -181,6 +204,7 @@ module Validation : sig
     ; serial : Counter.t
     ; manifest : Manifest_ref.t
     ; contract : Contract_ref.t
+    ; policy_binding : Acceptance_policy.Effective.Binding.t
     ; name : string
     ; passed : bool
     ; evidence : string
@@ -236,7 +260,8 @@ module Update : sig
   type t =
     | Contract_put of Contract.t
     | Manifest_put of Manifest.t
-    | Policy_put of Policy.t
+    | Policy_put of Acceptance_policy_version.t
+    | Assertion_added of Assertion.t
     | Submission_put of Submission.t
     | Review_added of
         { review : Review.t

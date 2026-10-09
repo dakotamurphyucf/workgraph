@@ -180,6 +180,25 @@ module Discussion = struct
     ;;
   end
 
+  module Origin = struct
+    type t =
+      | Authored
+      | Completion
+    [@@deriving sexp, equal]
+
+    let jsonaf_of_t = function
+      | Authored -> Json.string "authored"
+      | Completion -> Json.string "completion"
+    ;;
+
+    let t_of_jsonaf value =
+      match Json.text value with
+      | "authored" -> Authored
+      | "completion" -> Completion
+      | _ -> Json.fail Invalid_argument "unknown comment origin"
+    ;;
+  end
+
   module Version = struct
     type t =
       { revision : Revision.t
@@ -200,6 +219,7 @@ module Discussion = struct
           ; target : Entity_ref.t
           ; reply_to : Id.Comment.t option
           ; kind : Kind.t
+          ; origin : Origin.t
           ; version : Version.t
           }
       | Revise of
@@ -331,6 +351,17 @@ module Waiver = struct
   [@@deriving sexp, jsonaf]
 end
 
+module Reassessment = struct
+  type t =
+    { prerequisite : Id.Ticket.t
+    ; reopened_revision : Revision.t
+    ; reason : string
+    ; actor : Id.Actor.t
+    ; timestamp : string
+    }
+  [@@deriving sexp, jsonaf]
+end
+
 module Ticket = struct
   type t =
     { id : Id.Ticket.t
@@ -338,6 +369,7 @@ module Ticket = struct
     ; title : string
     ; description : string
     ; project : Id.Project.t option
+    ; membership_revision : Revision.t
     ; parent : Id.Ticket.t option
     ; milestone : Id.Milestone.t option
     ; archived : bool
@@ -353,12 +385,33 @@ module Ticket = struct
     ; prerequisites : Id.Ticket.t list
     ; related : Id.Ticket.t list
     ; claim : Claim.t option
+    ; created_order : Revision.t
+    ; reopened_token : Revision.t option
+    ; reassessments : Reassessment.t list
     ; created_sequence : Revision.t
     ; created_at : string
     ; updated_at : string
     ; next_token : Revision.t
     }
   [@@deriving sexp, jsonaf]
+
+  let decoded_t_of_jsonaf = t_of_jsonaf
+
+  let t_of_jsonaf json =
+    let ticket = decoded_t_of_jsonaf json in
+    if ticket.membership_revision <= 0
+    then Json.fail Invalid_argument "Ticket membership revision must be positive";
+    ticket
+  ;;
+
+  let decoded_t_of_sexp = t_of_sexp
+
+  let t_of_sexp sexp =
+    let ticket = decoded_t_of_sexp sexp in
+    if ticket.membership_revision <= 0
+    then Sexplib.Conv.of_sexp_error "Ticket membership revision must be positive" sexp;
+    ticket
+  ;;
 end
 
 module Handoff = struct
@@ -391,6 +444,8 @@ module Event = struct
     | Project_put of Project.t
     | Milestone_put of Milestone.t
     | Ticket_put of Ticket.t
+    | Ticket_recovered of Ticket_recovery.t
+    | Signal_receipt of External_condition.Repeat.t
     | Comment_changed of Discussion.Change.t
     | Handoff_put of Handoff.t
     | Resource_changed of Resource.Change.t
@@ -433,6 +488,23 @@ let of_json json =
     in
     (try
        List.iter changes ~f:(function
+         | `Array [ `String "Facts_changed"; payload ] ->
+           let change = Facts.Change.t_of_jsonaf payload in
+           attribution
+             ~sequence:(Facts.Change.sequence change)
+             ~event_actor:(Facts.Change.actor change)
+             ~event_run:(Facts.Change.run change)
+             ~event_timestamp:(Facts.Change.timestamp change)
+         | `Array [ `String "Comment_changed"; payload ] ->
+           let version =
+             match Discussion.Change.t_of_jsonaf payload with
+             | Create { version; _ } | Revise { version; _ } -> version
+           in
+           attribution
+             ~sequence:version.sequence
+             ~event_actor:version.actor
+             ~event_run:run
+             ~event_timestamp:version.timestamp
          | `Array [ `String "Communication_changed"; payload ] ->
            let event = Communication_event.t_of_jsonaf payload in
            if event.version <> 1
@@ -450,6 +522,13 @@ let of_json json =
              ~event_actor:event.actor
              ~event_run:event.actor_run
              ~event_timestamp:event.timestamp
+         | `Array [ `String "Ticket_recovered"; payload ] ->
+           let recovery = Ticket_recovery.t_of_jsonaf payload in
+           attribution
+             ~sequence:recovery.sequence
+             ~event_actor:recovery.actor_id
+             ~event_run:recovery.run_id
+             ~event_timestamp:recovery.timestamp
          | `Array [ `String "Evidence_changed"; payload ] ->
            let event = Evidence_event.t_of_jsonaf payload in
            attribution

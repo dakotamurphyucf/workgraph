@@ -3,30 +3,41 @@ open Core
 let usage =
   {|Usage:
   workgraph --version
+  workgraph methods [--output json|text]
+  workgraph help METHOD [--output json|text]
+  workgraph schema [METHOD]
   workgraph serve ABS_REGISTRY ABS_SOCKET
   workgraph call ABS_SOCKET METHOD PARAMS_JSON
-  workgraph request ABS_SOCKET METHOD [OPTIONS] [--FIELD VALUE ...]
-  workgraph FAMILY ACTION ABS_SOCKET [OPTIONS] [--FIELD VALUE ...]
-  workgraph retry ABS_SOCKET REQUEST_FILE [--timeout SECONDS] [--text]
-  workgraph resource upload ABS_SOCKET --workspace ID --actor ID --resource-id ID
-    --expected-revision REV --title TEXT --file ABS_FILE --save-request FILE
-  workgraph resource download ABS_SOCKET --workspace ID --resource-id ID
-    --destination ABS_NEW_FILE [--version REV]
+  workgraph request [ABS_SOCKET] METHOD [OPTIONS] [--FIELD VALUE ...]
+  workgraph FAMILY ACTION [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
+  workgraph retry [ABS_SOCKET] REQUEST_FILE [--timeout SECONDS] [--output text]
+  workgraph evidence-run --stage ABS_DIR --cwd ABS_DIR [--source-root ABS_GIT_ROOT]
+    [--output-limit BYTES] -- COMMAND ARG...
+  workgraph evidence-publish [ABS_SOCKET] --stage ABS_DIR --workspace-id ID
+    --actor-id ID --mutation-id ID --resource-id ID --expected-revision N --title TEXT
+  workgraph evidence-publish [ABS_SOCKET] --stage ABS_DIR [--timeout SECONDS]
+  workgraph init --context ABS_FILE --socket ABS_SOCKET --workspace-id ID
+    --actor-id ID --root ABS_ROOT --name NAME [--request-directory ABS_DIR]
+    [--start-daemon true --registry ABS_REGISTRY --daemon-log ABS_LOG]
+
+Agent-local defaults:
+  --context ABS_FILE            Load explicit socket/workspace/actor/run defaults
+  --socket ABS_SOCKET           Override context or positional socket
+  --request-directory ABS_DIR   Journal durable writes before transmission
 
 Request options:
-  --json                       Stable JSON output (default)
-  --text                       Human-readable result
+  --output json|text            JSON output (default) or human-readable result
   --timeout SECONDS             Finite request timeout (default 30)
-  --params-file FILE           Read a JSON parameter object
-  --json-field FIELD JSON      Object, array, null or other typed parameter
-  --field-file FIELD FILE      Read a UTF-8 string parameter from a file
-  --save-request FILE          Sync a new retry file before sending; generates a
-                              mutation ID when absent on a mutation request
+  --params-file FILE            Read a JSON parameter object
+  --json-field FIELD JSON       Typed parameter
+  --field-file FIELD FILE       Read a UTF-8 string parameter
+  --save-request ABS_FILE       Sync a new exact retry file before sending
 
-Field names use hyphens or underscores. --workspace and --actor are aliases for
---workspace-id and --actor-id. Values are strings except known boolean flags.
-Use --json-field to set null or structured values. No automatic retries occur.
-After Outcome_unknown, retry the identical saved request or inspect its receipt.
+Field names use hyphens or underscores. --workspace-id and --actor-id specify
+scope and attribution; --actor and --text are literal payload fields.
+Context defaults never select a current ticket. Explicit fields override defaults.
+Reissuing generates a new identity when journaling; retry preserves the saved
+operation. No automatic retries or implicit workspace creation occur.
 |}
 ;;
 
@@ -35,19 +46,19 @@ type options =
   ; text : bool
   ; timeout_seconds : float
   ; save_request : string option
+  ; request_directory : string option
   }
 
-let field_name value =
-  let value = String.tr value ~target:'-' ~replacement:'_' in
-  match value with
-  | "workspace" -> "workspace_id"
-  | "actor" -> "actor_id"
-  | _ -> value
-;;
+let field_name value = String.tr value ~target:'-' ~replacement:'_'
 
 let parse_options ~fs arguments =
   let initial =
-    { fields = []; text = false; timeout_seconds = 30.; save_request = None }
+    { fields = []
+    ; text = false
+    ; timeout_seconds = 30.
+    ; save_request = None
+    ; request_directory = None
+    }
   in
   let add options key value =
     let key = field_name key in
@@ -57,7 +68,11 @@ let parse_options ~fs arguments =
   in
   let rec loop options = function
     | [] -> options
-    | "--text" :: rest -> loop { options with text = true } rest
+    | "--output" :: "text" :: rest -> loop { options with text = true } rest
+    | "--output" :: "json" :: rest -> loop { options with text = false } rest
+    | "--request-directory" :: directory :: rest ->
+      Disk.absolute directory;
+      loop { options with request_directory = Some directory } rest
     | "--json" :: rest -> loop { options with text = false } rest
     | "--timeout" :: value :: rest ->
       let timeout_seconds =
@@ -132,17 +147,10 @@ let render_text value =
 ;;
 
 let needs_mutation_id request =
-  Protocol.Request.equal_mode (Protocol.Request.mode request) Write
-  && not
-       (List.mem
-          [ "daemon.shutdown"
-          ; "upload.begin"
-          ; "upload.chunk"
-          ; "upload.abort"
-          ; "resource.download"
-          ]
-          (Protocol.Request.method_ request)
-          ~equal:String.equal)
+  match Api_catalog.find (Protocol.Request.method_ request) with
+  | Some (Api_method.Packed.Pack method_) ->
+    Api_method.Mode.equal (Api_method.mode method_) Mutation
+  | None -> String.equal (Protocol.Request.method_ request) "resource.upload"
 ;;
 
 let run ~env arguments =
@@ -150,6 +158,18 @@ let run ~env arguments =
   let output text = Platform.write_string (Eio.Stdenv.stdout env) (text ^ "\n") in
   let diagnostic text = Platform.write_string (Eio.Stdenv.stderr env) (text ^ "\n") in
   let execute socket options request =
+    let method_ = Protocol.Request.method_ request in
+    if
+      Option.is_none (Api_catalog.find method_)
+      && not
+           (List.mem
+              [ "resource.upload"; "resource.download" ]
+              method_
+              ~equal:String.equal)
+    then
+      Json.fail
+        Invalid_argument
+        ("unknown method: " ^ method_ ^ "; use workgraph methods to list methods");
     let client =
       Client.create
         ~net:(Eio.Stdenv.net env)
@@ -163,10 +183,10 @@ let run ~env arguments =
         needs_mutation_id request
         && Option.is_none (Json.optional (Protocol.Request.params request) "mutation_id")
       then (
-        match options.save_request with
-        | None ->
+        match options.save_request, options.request_directory with
+        | None, None ->
           Json.fail Invalid_argument "mutations require --mutation-id or --save-request"
-        | Some _ ->
+        | _ ->
           let bytes = Cstruct.create 32 in
           Eio.Flow.read_exact (Eio.Stdenv.secure_random env) bytes;
           let fields =
@@ -199,10 +219,22 @@ let run ~env arguments =
         Protocol.Request.with_params request (Transfer.Upload_plan.params plan)
         |> Disk.unwrap
     in
-    Option.iter options.save_request ~f:(fun file ->
+    let save_request =
+      match options.save_request, options.request_directory with
+      | Some path, _ -> Some path
+      | None, Some directory when needs_mutation_id request ->
+        Disk.require_directory Eio.Path.(fs / directory);
+        let bytes = Cstruct.create 32 in
+        Eio.Flow.read_exact (Eio.Stdenv.secure_random env) bytes;
+        Some (Filename.concat directory (Json.hash (Cstruct.to_string bytes) ^ ".json"))
+      | None, _ -> None
+    in
+    Option.iter save_request ~f:(fun file ->
+      Disk.absolute file;
       Disk.write_new
         Eio.Path.(fs / file)
-        (Json.canonical (Protocol.Request.to_json request)));
+        (Json.canonical (Protocol.Request.to_json request));
+      diagnostic ("saved_request: " ^ file));
     let response =
       match upload with
       | Some plan -> Protocol.Success (Transfer.upload plan ~client ~fs |> Disk.unwrap)
@@ -212,9 +244,16 @@ let run ~env arguments =
         in
         Protocol.Success
           (Transfer.download plan ~client ~fs ~random:(Eio.Stdenv.secure_random env)
-           |> Disk.unwrap)
+           |> Disk.unwrap
+           |> Api_response.project Value
+           |> Api_response.to_json)
       | None -> Client.execute client request |> Disk.unwrap
     in
+    (match response with
+     | Success value when needs_mutation_id request ->
+       let envelope = Api_response.of_json value |> Disk.unwrap in
+       Api_response.require_durable envelope |> Disk.unwrap
+     | Success _ | Failure _ -> ());
     if options.text
     then (
       match response with
@@ -225,7 +264,21 @@ let run ~env arguments =
     | Success _ -> 0
     | Failure _ -> 1
   in
+  let context = ref None in
   let request socket method_ options =
+    let fields =
+      Option.value_map !context ~default:options.fields ~f:(fun context ->
+        Cli_context.apply context ~method_ ~fields:options.fields)
+    in
+    let options =
+      { options with
+        fields
+      ; request_directory =
+          (match options.request_directory with
+           | Some _ as directory -> directory
+           | None -> Option.bind !context ~f:Cli_context.request_directory)
+      }
+    in
     let value =
       Protocol.Request.create ~id:"cli" ~method_ ~params:(Json.obj options.fields)
       |> Disk.unwrap
@@ -234,26 +287,221 @@ let run ~env arguments =
   in
   let result =
     Disk.protect (fun () ->
+      let rec select context_file socket reversed = function
+        | "--" :: rest -> context_file, socket, List.rev reversed @ ("--" :: rest)
+        | "--context" :: path :: rest ->
+          if Option.is_some context_file
+          then Json.fail Invalid_argument "duplicate context";
+          Disk.absolute path;
+          select (Some path) socket reversed rest
+        | "--socket" :: path :: rest ->
+          if Option.is_some socket then Json.fail Invalid_argument "duplicate socket";
+          Disk.absolute path;
+          select context_file (Some path) reversed rest
+        | (("--json-field" | "--field-file") as flag) :: key :: value :: rest ->
+          select context_file socket (value :: key :: flag :: reversed) rest
+        | (("--json" | "--help" | "--version") as flag) :: rest ->
+          select context_file socket (flag :: reversed) rest
+        | flag :: value :: rest when String.is_prefix flag ~prefix:"--" ->
+          select context_file socket (value :: flag :: reversed) rest
+        | value :: rest -> select context_file socket (value :: reversed) rest
+        | [] -> context_file, socket, List.rev reversed
+      in
+      let context_file, socket_override, arguments = select None None [] arguments in
+      context
+      := Option.bind context_file ~f:(fun path ->
+           if
+             List.mem
+               [ "init"; "bootstrap" ]
+               (Option.value (List.hd arguments) ~default:"")
+               ~equal:String.equal
+             &&
+             match Eio.Path.kind ~follow:false Eio.Path.(fs / path) with
+             | `Not_found -> true
+             | _ -> false
+           then None
+           else Some (Cli_context.load ~fs path |> Disk.unwrap));
+      let default_socket =
+        match socket_override with
+        | Some socket -> Some socket
+        | None -> Option.map !context ~f:Cli_context.socket
+      in
+      let with_socket rest =
+        match rest with
+        | socket :: rest when Filename.is_absolute socket ->
+          Option.value socket_override ~default:socket, rest
+        | rest ->
+          (match default_socket with
+           | Some socket -> socket, rest
+           | None ->
+             Json.fail Invalid_argument "supply an absolute socket or --context/--socket")
+      in
       match arguments with
+      | "evidence-run" :: rest ->
+        let plan = Execution_cli.of_arguments rest |> Disk.unwrap in
+        let summary, code = Execution_cli.run plan ~env |> Disk.unwrap in
+        output (Json.canonical summary);
+        code
+      | "evidence-publish" :: rest ->
+        let socket, rest = with_socket rest in
+        let options = parse_options ~fs rest in
+        if Option.is_some options.save_request || Option.is_some options.request_directory
+        then
+          Json.fail
+            Invalid_argument
+            "evidence publication saves its exact request inside --stage";
+        let directory =
+          match List.Assoc.find options.fields "stage" ~equal:String.equal with
+          | None -> Json.fail Invalid_argument "evidence-publish requires --stage"
+          | Some value -> Json.text value
+        in
+        Disk.absolute directory;
+        let fields = List.Assoc.remove options.fields "stage" ~equal:String.equal in
+        let saved = Filename.concat directory "publication.json" in
+        let publication =
+          match Eio.Path.kind ~follow:false Eio.Path.(fs / saved) with
+          | `Not_found ->
+            let fields =
+              Option.value_map !context ~default:fields ~f:(fun context ->
+                Cli_context.apply context ~method_:"resource.upload" ~fields)
+            in
+            let stage = Execution_stage.load ~fs ~directory |> Disk.unwrap in
+            Execution_publication.prepare
+              stage
+              ~fs
+              ~random:(Eio.Stdenv.secure_random env)
+              ~params:(Json.obj fields)
+            |> Disk.unwrap
+          | _ ->
+            if not (List.is_empty fields)
+            then
+              Json.fail
+                Invalid_argument
+                "publication already saved; retry with --stage and transport/output \
+                 options only";
+            Execution_publication.load ~fs ~directory |> Disk.unwrap
+        in
+        diagnostic ("saved_request: " ^ Execution_publication.saved_request publication);
+        let client =
+          Client.create
+            ~net:(Eio.Stdenv.net env)
+            ~clock:(Eio.Stdenv.mono_clock env)
+            ~socket
+            ~timeout_seconds:options.timeout_seconds
+          |> Disk.unwrap
+        in
+        let receipt =
+          Execution_publication.publish publication ~client ~fs |> Disk.unwrap
+        in
+        output (if options.text then render_text receipt else Json.canonical receipt);
+        0
       | [] | [ "--help" ] | [ "help" ] ->
         output usage;
         0
       | [ "version" ] | [ "--version" ] ->
         output Version.value;
         0
+      | "schema" :: rest ->
+        let method_name =
+          match rest with
+          | [] -> None
+          | [ name ] -> Some name
+          | _ -> Json.fail Invalid_argument "schema accepts at most one method name"
+        in
+        output (Cli_reference.schema ~method_name |> Disk.unwrap |> Json.canonical);
+        0
+      | "methods" :: _ | "help" :: _ ->
+        let method_name, options =
+          match arguments with
+          | "methods" :: rest -> None, rest
+          | "help" :: name :: rest -> Some name, rest
+          | _ -> Json.fail Invalid_argument "help requires a method name"
+        in
+        let json =
+          match options with
+          | [] | [ "--output"; "text" ] -> false
+          | [ "--output"; "json" ] -> true
+          | _ -> Json.fail Invalid_argument "reference options: --output json|text"
+        in
+        output
+          (if json
+           then Cli_reference.schema ~method_name |> Disk.unwrap |> Json.canonical
+           else Cli_reference.help ~method_name |> Disk.unwrap);
+        0
+      | ("init" | "bootstrap") :: rest ->
+        let options = parse_options ~fs rest in
+        if Option.is_some options.save_request
+        then
+          Json.fail
+            Invalid_argument
+            "init saves administrative requests beside its context; --save-request is \
+             not accepted";
+        let context_file =
+          match context_file with
+          | Some path -> path
+          | None -> Json.fail Invalid_argument "init requires --context"
+        in
+        let socket =
+          match default_socket with
+          | Some socket -> socket
+          | None -> Json.fail Invalid_argument "init requires --socket"
+        in
+        let plan =
+          Cli_bootstrap.create
+            ~context_file
+            ~socket
+            ~previous:!context
+            ~fields:options.fields
+            ~request_directory:options.request_directory
+            ~timeout_seconds:options.timeout_seconds
+          |> Disk.unwrap
+        in
+        let value =
+          Cli_bootstrap.run plan ~env ~on_saved_request:(fun path ->
+            diagnostic ("saved_request: " ^ path))
+          |> Disk.unwrap
+        in
+        output (if options.text then render_text value else Json.canonical value);
+        0
       | [ "serve"; registry; socket ] ->
         Service.run ~env ~registry ~socket;
         0
-      | [ "call"; socket; method_; params ] ->
-        let params = Json.parse params |> Disk.unwrap in
-        let options = parse_options ~fs [] in
-        execute
-          socket
-          options
-          (Protocol.Request.create ~id:"cli" ~method_ ~params |> Disk.unwrap)
-      | "retry" :: socket :: file :: rest ->
+      | "call" :: rest ->
+        let socket, rest = with_socket rest in
+        (match rest with
+         | method_ :: params :: rest ->
+           let fields =
+             match Json.parse params |> Disk.unwrap with
+             | `Object fields -> fields
+             | _ -> Json.fail Invalid_argument "call parameters require an object"
+           in
+           let options = parse_options ~fs rest in
+           if not (List.is_empty options.fields)
+           then
+             Json.fail Invalid_argument "call fields must be supplied in its JSON object";
+           request socket method_ { options with fields }
+         | _ -> Json.fail Invalid_argument "call requires method and JSON parameters")
+      | "retry" :: rest ->
+        let socket, rest =
+          match rest with
+          | socket :: file :: rest
+            when Filename.is_absolute socket && not (String.is_prefix file ~prefix:"--")
+            -> Option.value socket_override ~default:socket, file :: rest
+          | rest ->
+            (match default_socket with
+             | Some socket -> socket, rest
+             | None -> Json.fail Invalid_argument "retry requires a socket")
+        in
+        let file, rest =
+          match rest with
+          | file :: rest -> file, rest
+          | [] -> Json.fail Invalid_argument "retry requires a request file"
+        in
         let options = parse_options ~fs rest in
-        if (not (List.is_empty options.fields)) || Option.is_some options.save_request
+        if
+          (not (List.is_empty options.fields))
+          || Option.is_some options.save_request
+          || Option.is_some options.request_directory
         then Json.fail Invalid_argument "retry cannot change or resave request parameters";
         let request =
           Disk.read Eio.Path.(fs / file)
@@ -263,9 +511,13 @@ let run ~env arguments =
           |> Disk.unwrap
         in
         execute socket options request
-      | "request" :: socket :: method_ :: rest ->
-        request socket method_ (parse_options ~fs rest)
-      | family :: action :: socket :: rest ->
+      | "request" :: rest ->
+        let socket, rest = with_socket rest in
+        (match rest with
+         | method_ :: rest -> request socket method_ (parse_options ~fs rest)
+         | [] -> Json.fail Invalid_argument "request requires a method")
+      | family :: action :: rest ->
+        let socket, rest = with_socket rest in
         request socket (family ^ "." ^ action) (parse_options ~fs rest)
       | _ -> Json.fail Invalid_argument "invalid command; use --help")
   in

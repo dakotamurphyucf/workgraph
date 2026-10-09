@@ -1,6 +1,7 @@
 open Core
 
-(** Current domain-event envelope. Strictly validates each domain payload and
+(** Current domain-event envelope. Strictly validates each domain payload,
+    including comment version attribution against its transaction, and
     retains original JSON for receipt and hash-chain identity. No prototype
     compatibility readers are supported. *)
 type t

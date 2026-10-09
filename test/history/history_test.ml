@@ -90,11 +90,13 @@ let%expect_test "read bounds include empty capture metadata and final page flags
     in
     let capture = current store in
     let page = read capture ~anchor:0 ~max_bytes:65_536 |> Disk.unwrap in
-    let exact_bytes = String.length (Json.canonical page) in
+    let exact_bytes = Api_response.encoded_size History page in
     printf "metadata exceeds minimum budget: %b\n" (exact_bytes > 4096);
     show (read capture ~anchor:0 ~max_bytes:(exact_bytes - 1));
     let exact = read capture ~anchor:0 ~max_bytes:exact_bytes |> Disk.unwrap in
-    printf "exact boundary fits: %b\n" (String.length (Json.canonical exact) = exact_bytes);
+    printf
+      "exact boundary fits: %b\n"
+      (Api_response.encoded_size History exact = exact_bytes);
     for ordinal = 1 to 60 do
       let id = Printf.sprintf "other-%03d-%s" ordinal (String.make 70 'x') in
       let metadata =

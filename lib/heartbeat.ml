@@ -102,7 +102,7 @@ let get t ~run =
     in
     let durable = Map.find t.persisted run in
     Json.obj
-      [ "run_id", Id.Run.jsonaf_of_t run
+      [ "target_run_id", Id.Run.jsonaf_of_t run
       ; "observation", observation_json current
       ; "persisted", Option.value_map durable ~default:`Null ~f:observation_json
       ; ("durable", if Option.exists durable ~f:(same current) then `True else `False)

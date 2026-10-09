@@ -15,7 +15,10 @@ socket. Data stays in folders you choose. No database server, hosted account,
 model credentials, or MCP server is needed.
 
 Workgraph is written in OCaml with Jane Street Core and Eio, and is
-[MIT-licensed](LICENSE). **Version 0.1.0 is an early preview.**
+[MIT-licensed](LICENSE). **This checkout contains unreleased preview changes.**
+Its API and features differ from the published v0.1.0 release. Build this checkout
+to use the features documented here; when using an older package, use the guide
+bundled with that package.
 
 ## What you can do
 
@@ -36,6 +39,12 @@ Workgraph is written in OCaml with Jane Street Core and Eio, and is
   decisions, blockers, evidence, and next steps.
 - Read a ticket's context or a project brief to recover the relevant work and
   discussion. Search planning text and read the activity trail.
+- Get a bounded resume brief with current ownership, handoff notes, completion
+  requirements and changes since the handoff. Page through an activity digest;
+  follow version references to recover the original records.
+- Save small JSON facts under named keys on a workspace, project, milestone, or
+  ticket. Discover keys without loading values, update them with revision checks,
+  and inspect earlier versions. Readable exports group facts by scope.
 - Store research, specifications, logs, and other text or binary files as
   resources. Link them to work, update them, and retrieve earlier versions.
 - Record conversation sessions supplied by your agent system, including messages,
@@ -58,6 +67,10 @@ Workgraph is written in OCaml with Jane Street Core and Eio, and is
 - Save reusable task templates, including parallel tasks and follow-up tasks that
   wait for them. Record heartbeats and reported token/time usage for your
   orchestrator to inspect.
+- Declare which files or directories an attempt needs, and reserve overlapping
+  paths before starting. Record external conditions that must be satisfied.
+  Recover abandoned ownership with explicit checks and an audit trail after the
+  harness confirms the previous worker has stopped or been isolated.
 
 ### Communicate and request help
 
@@ -68,13 +81,22 @@ Workgraph is written in OCaml with Jane Street Core and Eio, and is
   the request was resolved or canceled.
 - Subscribe to relevant updates and read durable inboxes. Saved read positions let
   an agent resume checking notifications after a restart.
+- Run an optional notification watcher in your harness to invoke a callback with
+  structured data. It preserves pending acknowledgements across restarts;
+  callbacks use stable delivery IDs to handle duplicates.
 
 ### Review results and track decisions
 
+- Run a command locally with `evidence-run` to save its outcome, bounded output and
+  optional source identity. Publish that capture with `evidence-publish`; retrying
+  a failed upload never reruns the command. See the [execution guide](docs/agent/execution.md).
 - Record the exact input and output versions used by an attempt, including
   resources, comments, conversation events, and references to Git objects.
 - Require designated reviewers and recorded validation results before a ticket
   can be completed. Approval applies to the specific submitted result.
+- Set project-wide acceptance requirements and add ticket-specific requirements.
+  Check completion readiness before attempting to finish; record explicit,
+  attributed overrides when policy permits them.
 - Keep decisions with their reasons and supporting evidence. When a declared
   input changes, identify affected work and record whether it needs updating or
   can keep using the earlier input.
@@ -90,6 +112,9 @@ Workgraph is written in OCaml with Jane Street Core and Eio, and is
 - Put a workspace's portable data in Git and hand it to another machine or person.
   Git sharing uses **one writer at a time**, with an explicit close-and-handoff
   process.
+- Inspect status durations, completions, reported usage and storage admission
+  allowances with `workspace.metrics`. An optional external measurement helper
+  records client calls, failures and latency for workflow comparisons.
 
 ## How it fits into an agent system
 
@@ -97,6 +122,10 @@ Your agent system, or *harness*, starts agents, runs tools, calls models, and de
 what goes into each prompt. It sends Workgraph the information to retain, then
 uses Workgraph's queries to recover it. Conversation capture needs an integration;
 the included [history adapter](docs/history-integration.md) provides an example.
+Optional [notification and Codex hook examples](docs/agent/harness-hooks.md) help
+deliver inbox events, retrieve a resume brief on startup, and submit an explicitly
+written handoff before compaction or stopping. They make no model calls and do not
+create handoff notes on the agent's behalf.
 
 Workgraph stores and checks local coordination state. The harness still controls
 external file edits, process shutdown, context compaction, and model spending.
@@ -105,17 +134,20 @@ terminate an agent automatically.
 
 Use the JSON CLI from shell scripts or agent tools, or integrate through the
 [OCaml client and socket API](docs/api.md#cli-and-ocaml-client). Give agents the
-[self-contained agent guide](AGENT_GUIDE.md) along with their executable path,
-socket path, workspace ID, actor ID, and optional run ID. Give them the whole file:
-its XML sections include every API method, JSON schema, workflow, and recovery rule,
-so agents do not need to load other documents.
+[agent capability guide](AGENT_GUIDE.md) along with their executable path,
+socket path, workspace ID, actor ID, and optional run ID. Its compact XML overview
+explains what Workgraph can do and when to use it. Keep the accompanying
+[`docs/agent/`](docs/agent/) references accessible so agents can load exact API
+fields and workflows as needed.
 
 ## Install
 
 ### AlmaLinux 10 x86_64, including WSL
 
-The [v0.1.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.1.0)
+The published [v0.1.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.1.0)
 includes an RPM, native archive, source archive, checksums, and validation evidence.
+It predates the current checkout's API and new features. The following commands
+install that published preview; follow its bundled documentation after installation.
 The executable uses AlmaLinux's standard glibc libraries; no OCaml toolchain is
 needed to run it.
 
@@ -139,7 +171,14 @@ AlmaLinux 10.2 AMD64 containers. Actual WSL execution is a separate check on you
 Windows host. The [AlmaLinux and WSL guide](docs/almalinux.md) covers archive
 installation, CPU requirements, and checks to run on your own installation.
 
-### Build from source
+### macOS ARM64
+
+The [macOS guide](docs/macos-install.md) describes building and qualifying a native
+Apple Silicon archive, and installing an archive once available. Current packaging
+work does not publish a macOS release automatically. A qualified native archive
+runs without an OCaml or opam installation.
+
+### Build the current checkout from source
 
 Install opam, a C toolchain, make/pkg-config, and Python 3, Git, and jq for tests.
 If needed, initialize opam with `opam init --bare --no-setup`. From the repository
@@ -162,6 +201,17 @@ or path. Direct dependency versions are pinned in `dune-project` and
 
 ## Try it
 
+These commands use the current checkout's API. Build it using the steps above,
+or use a native package produced from the same source.
+
+Inspect API methods without starting a daemon:
+
+```sh
+workgraph methods
+workgraph help ticket.start
+workgraph schema ticket.start
+```
+
 Start the daemon as your normal user in one terminal. On WSL, keep managed data
 inside the Linux home filesystem rather than under `/mnt/c`.
 
@@ -178,21 +228,21 @@ WG_HOME="$HOME/.workgraph-demo"
 WG_SOCKET="$WG_HOME/wg.sock"
 mkdir -p -m 700 "$WG_HOME/requests"
 
-workgraph workspace create "$WG_SOCKET" --workspace demo --actor operator \
+workgraph workspace create "$WG_SOCKET" --workspace-id demo --actor-id operator \
   --name Demo --root "$WG_HOME/workspace" \
   --save-request "$WG_HOME/requests/create-workspace.json"
 
-workgraph project create "$WG_SOCKET" --workspace demo --actor operator \
+workgraph project create "$WG_SOCKET" --workspace-id demo --actor-id operator \
   --project-id first-project --title 'My first project' \
   --save-request "$WG_HOME/requests/create-project.json"
 
-workgraph ticket create "$WG_SOCKET" --workspace demo --actor worker \
+workgraph ticket create "$WG_SOCKET" --workspace-id demo --actor-id worker \
   --project-id first-project --ticket-id task --title 'Try Workgraph' \
   --description 'Create a task and inspect its saved context.' \
   --save-request "$WG_HOME/requests/create-task.json"
 
-workgraph ticket context "$WG_SOCKET" --workspace demo --ticket-id task --text
-workgraph workspace overview "$WG_SOCKET" --workspace demo
+workgraph ticket context "$WG_SOCKET" --workspace-id demo --ticket-id task --output text
+workgraph workspace overview "$WG_SOCKET" --workspace-id demo
 ```
 
 The creation commands are for a first run: the workspace folder and saved-request
@@ -200,7 +250,7 @@ files must be fresh, and their parents must exist. Change `--root` to choose a
 custom absolute workspace folder. Use a shorter private socket path if your home
 path exceeds the OS Unix socket limit.
 
-The CLI returns JSON by default; `--text` provides a human-readable view for
+The CLI returns JSON by default; `--output text` provides a human-readable view for
 supported queries. Each `--save-request` file records the write before sending it.
 If a reply is lost, retry that exact file:
 
@@ -216,16 +266,17 @@ workgraph daemon shutdown "$WG_SOCKET"
 
 Run the same `serve` command to recover your saved state; do not recreate the
 workspace. The [agent usage guide](AGENT_GUIDE.md) continues with claiming work,
-recording progress, and writing a handoff, followed by the complete API reference.
-The refreshed v0.1.0 packages include this complete guide. The RPM installs it at
-`/usr/share/doc/workgraph/AGENT_GUIDE.md`; the release also offers it as a separate
-`AGENT_GUIDE.md` download. Installing package revision 2 upgrades the earlier RPM.
+recording progress, and writing a handoff, with links to focused API references.
+Packages built from this checkout include the guide and its `docs/agent/` directory;
+the RPM places them under `/usr/share/doc/workgraph/`. Keep them together when
+sharing with an agent. Previously published preview packages contain their own
+matching guide; changes in this checkout do not update an existing release.
 
 ## Guides and examples
 
 | Goal | Start here |
 | --- | --- |
-| Give an agent the complete usage and API context in one file | [Self-contained XML agent guide](AGENT_GUIDE.md) |
+| Teach an agent the capabilities and where to find exact API details | [XML agent guide](AGENT_GUIDE.md) |
 | Follow the task lifecycle | [Task workflow](docs/agent-workflow.md) and [shell example](examples/agent-workflow.sh) |
 | Coordinate workers and reviewers | [Coordination guide](docs/coordination-guide.md) and [parallel-work example](examples/coordination-runner.py) |
 | Use boards, requests, teams, and inboxes | [Communication guide](docs/communication.md) |

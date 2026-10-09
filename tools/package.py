@@ -13,6 +13,10 @@ import json
 from pathlib import Path
 import re
 import tarfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "packaging"))
+from verify import NATIVE_SOURCE_FILES, validate_notices
 
 
 def sha(data):
@@ -46,7 +50,11 @@ def main():
     parser.add_argument("--platform", choices=["macos-arm64", "linux-aarch64", "almalinux-10-x86_64"])
     parser.add_argument("--notices", type=Path,
                         help="dependency license texts and inventory for this binary's toolchain")
+    parser.add_argument("--qualification", type=Path,
+                        help="JSON native inspection record embedded in the archive")
     args = parser.parse_args()
+    if args.qualification and not args.binary:
+        parser.error("--qualification requires --binary")
     if bool(args.binary) != bool(args.platform):
         parser.error("--binary and --platform must be provided together")
     if bool(args.binary) != bool(args.notices):
@@ -60,9 +68,12 @@ def main():
     names = ["README.md", "AGENTS.md", "AGENT_GUIDE.md", "engineering-standards.md", "LICENSE", ".gitignore", ".gitattributes", ".dockerignore", ".ocamlformat", "dune", "dune-project", "dev", "workgraph.opam"]
     for directory in ["bin", "lib", "test", "examples", "bench", "docs", "tools", "packaging", ".github"]:
         for path in sorted((root / directory).rglob("*")):
-            if (path.is_file() and "__pycache__" not in path.parts
-                    and not path.name.startswith("._")
-                    and not path.name.endswith((".corrected", ".pyc"))):
+            if ("__pycache__" in path.parts or path.name.startswith("._")
+                    or path.name.endswith((".corrected", ".pyc"))):
+                continue
+            if path.is_symlink() or not (path.is_file() or path.is_dir()):
+                raise SystemExit("source links and special files are not permitted: " + str(path))
+            if path.is_file():
                 names.append(path.relative_to(root).as_posix())
     files = {}
     for name in names:
@@ -86,6 +97,7 @@ def main():
                 parser.error("notices must contain only regular files and directories")
         if not notices:
             parser.error("--notices must contain dependency license texts and inventory")
+        validate_notices({name: data for name, (data, _) in notices.items()})
     args.destination.mkdir(mode=0o700)
     checksums = {}
     stem = "workgraph-" + version
@@ -95,10 +107,18 @@ def main():
     if binary is not None:
         name = stem + "-" + args.platform + ".tar.gz"
         native_files = {name: value for name, value in files.items()
-                        if name in {"README.md", "AGENT_GUIDE.md", "engineering-standards.md", "LICENSE"}
+                        if name in NATIVE_SOURCE_FILES
                         or name.startswith(("docs/", "examples/"))}
         native_files["bin/workgraph"] = (binary, 0o755)
         native_files.update(notices)
+        inspection = json.loads(args.qualification.read_text()) if args.qualification else {}
+        if not isinstance(inspection, dict):
+            parser.error("--qualification inspection record must be a JSON object")
+        record = {"schema": 1, "status": "inspection-only", "platform": args.platform,
+                  "source_identity": source_identity, "executable_sha256": sha(binary),
+                  "inspection": inspection,
+                  "runtime_qualification": "Recorded separately after installed-runtime checks"}
+        native_files["QUALIFICATION.json"] = (encode(record), 0o644)
         checksums[name] = archive(args.destination / name, stem + "-" + args.platform, native_files,
                                   {"version": version, "kind": "native", "platform": args.platform,
                                    "source_identity": source_identity})

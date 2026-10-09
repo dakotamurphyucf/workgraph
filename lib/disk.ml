@@ -28,7 +28,14 @@ let ensure_directory path =
   match Eio.Path.kind ~follow:false path with
   | `Directory -> ()
   | `Not_found ->
-    Eio.Path.mkdir ~perm:0o700 path;
+    (try Eio.Path.mkdir ~perm:0o700 path with
+     | Eio.Io (Eio.Fs.E (Already_exists _), _) ->
+       (* Concurrent explicit setup may have created this exact directory after
+          our observation. Accept only a real directory, and sync its parent
+          ourselves before acknowledging successful setup. *)
+       (match Eio.Path.kind ~follow:false path with
+        | `Directory -> ()
+        | _ -> Json.fail Invalid_argument "expected real directory, not symlink"));
     Platform.sync_directory (parent path)
   | _ -> Json.fail Invalid_argument "expected real directory, not symlink"
 ;;

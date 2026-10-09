@@ -1,0 +1,15 @@
+{
+  "description": "Optional Workgraph memory hooks. Replace absolute paths, then review/trust this definition in Codex.",
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "^(startup|resume|clear|compact)$",
+      "hooks": [{"type": "command", "command": "python3 /absolute/workgraph/examples/codex-hooks/workgraph-hook.py --config /absolute/agent/workgraph-hook.json", "timeout": 30, "additionalContextLimit": 5000}]
+    }],
+    "PreCompact": [{
+      "hooks": [{"type": "command", "command": "python3 /absolute/workgraph/examples/codex-hooks/workgraph-hook.py --config /absolute/agent/workgraph-hook.json", "timeout": 30}]
+    }],
+    "Stop": [{
+      "hooks": [{"type": "command", "command": "python3 /absolute/workgraph/examples/codex-hooks/workgraph-hook.py --config /absolute/agent/workgraph-hook.json", "timeout": 30}]
+    }]
+  }
+}

@@ -30,7 +30,7 @@ class Runner:
 
     def read(self, method, **params):
         response = adapter.body(self.client.call(method, {'workspace_id': self.workspace, **params}))
-        return response.get('record', response)
+        return response
 
     def write(self, step, method, *, actor='orchestrator', attribution=None, workspace_scope=True, **params):
         envelope = {'workspace_id': self.workspace} if workspace_scope else {}
@@ -45,29 +45,29 @@ class Runner:
         else:
             adapter.synced_save(path, request)
         response = self.client.call(request['method'], request['params'])
-        return response.get('result', adapter.body(response))
+        return adapter.body(response)
 
     def register(self, actor, run, capability, *, parent=None, cancel=False):
         return self.write('register-' + run, 'run.register', actor=actor,
-                          id=run, objective='Scripted ' + capability,
-                          capabilities=[capability], **({'parent': parent} if parent is not None else {}),
-                          parent_stop_policy=['Request_cancel' if cancel else 'Continue'])
+                          target_run_id=run, objective='Scripted ' + capability,
+                          capabilities=[capability], **({'parent_run_id': parent} if parent is not None else {}),
+                          parent_stop_policy='request_cancel' if cancel else 'continue')
 
     def claim(self, actor, run, attempt, ticket):
         selected = self.write('claim-' + attempt, 'ticket.claim_next', actor=actor,
-                              attribution=run, attempt_id=attempt, run=run)
+                              attribution=run, attempt_id=attempt, target_run_id=run)
         assert selected['kind'] == 'selected' and selected['claim']['ticket_id'] == ticket, selected
         return selected['claim']['token']
 
     def resource(self, name, text, *, revision='0', actor='orchestrator', run=None):
-        self.write('resource-' + name + '-' + revision, 'resource.put_text', actor=actor,
+        published = self.write('resource-' + name + '-' + revision, 'resource.put_text', actor=actor,
                    attribution=run, resource_id=name, expected_revision=revision, title=name, text=text)
-        return {'id': name, 'revision': str(int(revision) + 1), 'digest': digest(text)}
+        return {'resource_id': published['resource_id'], **published['version']}
 
     def transition(self, actor, run, status):
-        record = self.read('run.get', id=run)
+        record = self.read('run.get', target_run_id=run)
         self.write('transition-' + run + '-' + status, 'run.transition', actor=actor, attribution=run,
-                   id=run, expected_revision=record['revision'], status=[status],
+                   target_run_id=run, expected_revision=record['revision'], status=status.lower(),
                    evidence='Scripted runner observed ' + status)
 
     def complete(self, actor, run, ticket, token, evidence):
@@ -85,17 +85,17 @@ def run(client, *, workspace, root, state_dir):
     for alias, dependencies in [('left', []), ('right', []), ('join', ['left', 'right'])]:
         nodes.append({'alias': alias, 'title': '{{name}} ' + alias, 'description': 'Deterministic worker routine',
                       'depends_on': dependencies, 'parent': None, 'capabilities': [alias],
-                      'reviewers': ['reviewer'] if alias == 'join' else [],
+                      'reviewer_ids': ['reviewer'] if alias == 'join' else [],
                       'separate_actor': alias == 'join'})
     template = {'parameters': ['name'], 'nodes': nodes}
     text = adapter.canonical(template)
     runner.resource('fork-join-template', text)
-    w('template', 'template.register', resource='fork-join-template', resource_revision='1',
+    w('template', 'template.register', template_id='fork-join-template', template_revision='1',
       digest=digest(text), spec=template)
-    w('instantiate', 'template.instantiate', template='fork-join-template', template_revision='1',
-      id='fork-join', parameters={'name': 'fixture'})
-    instance = runner.read('template.instance_get', id='fork-join')
-    tickets = {node['alias']: node['ticket'] for node in instance['tickets']}
+    w('instantiate', 'template.instantiate', template_id='fork-join-template', template_revision='1',
+      instance_id='fork-join', parameters={'name': 'fixture'})
+    instance = runner.read('template.instance_get', instance_id='fork-join')
+    tickets = {node['alias']: node['ticket_id'] for node in instance['tickets']}
     runner.register('orchestrator', 'parent', 'join')
     w('session', 'session.create', actor='orchestrator', attribution='parent', session_id='runner-conversation',
       title='Fork join instructions', scopes=[{'kind': 'workspace'}])
@@ -105,19 +105,19 @@ def run(client, *, workspace, root, state_dir):
     w('record-requirement', 'session.append', actor='orchestrator', attribution='parent',
       session_id='runner-conversation', events=[event])
     w('link-session', 'run.link_session', actor='orchestrator', attribution='parent',
-      id='parent', expected_revision='1', session='runner-conversation')
+      target_run_id='parent', expected_revision='1', session_id='runner-conversation')
     runner.register('left-worker', 'left-run', 'left', parent='parent')
     runner.register('right-worker', 'right-failed', 'right', parent='parent')
     left = runner.claim('left-worker', 'left-run', 'left-attempt', tickets['left'])
     right = runner.claim('right-worker', 'right-failed', 'right-failed-attempt', tickets['right'])
     blocked_join = w('join-before-ready', 'ticket.claim_next', actor='orchestrator', attribution='parent',
-                     attempt_id='premature-join', run='parent')
+                     attempt_id='premature-join', target_run_id='parent')
     assert blocked_join['kind'] == 'empty', blocked_join
     # Both child routines hold claims before either finishes. Inject failure,
     # record it, release ownership, and invoke the replacement routine.
-    attempt = runner.read('attempt.get', id='right-failed-attempt')
+    attempt = runner.read('attempt.get', attempt_id='right-failed-attempt')
     w('failed-attempt', 'attempt.finish', actor='right-worker', attribution='right-failed',
-      id='right-failed-attempt', expected_revision=attempt['revision'], state=['Failed'],
+      attempt_id='right-failed-attempt', expected_revision=attempt['revision'], state='failed',
       evidence='External runner injected a child failure before publishing output')
     runner.transition('right-worker', 'right-failed', 'Failed')
     w('release-failed', 'ticket.release', actor='right-worker', attribution='right-failed',
@@ -128,21 +128,21 @@ def run(client, *, workspace, root, state_dir):
     left_pin = runner.resource('left-output', 'LEFT', actor='left-worker', run='left-run')
     right_pin = runner.resource('right-output', 'RIGHT', actor='replacement', run='right-replacement')
     child_schema = runner.resource('child-schema', 'A child produces one exact output')
-    w('child-contract', 'contract.put', id='child-contract', expected_revision='0', schema_version='1',
-      schema=child_schema, required_inputs=[], required_outputs=['output'])
+    w('child-contract', 'contract.put', contract_id='child-contract', expected_revision='0', schema_version='1',
+      schema={'resource_id': child_schema['resource_id'], 'revision': child_schema['revision'], 'digest': child_schema['digest']}, required_inputs=[], required_outputs=['output'])
     for alias, actor, run_id, attempt_id, pin in [
             ('left', 'left-worker', 'left-run', 'left-attempt', left_pin),
             ('right', 'replacement', 'right-replacement', 'right-attempt', right_pin)]:
         w(alias + '-manifest', 'manifest.publish', actor=actor, attribution=run_id,
-          id=alias + '-manifest', expected_revision='0', schema_version='1', attempt=attempt_id,
-          ticket=tickets[alias], contract={'id': 'child-contract', 'revision': '1'}, inputs=[],
-          outputs=[{'name': 'output', 'pin': ['Resource', pin]}])
+          manifest_id=alias + '-manifest', expected_revision='0', schema_version='1', attempt_id=attempt_id,
+          ticket_id=tickets[alias], contract={'contract_id': 'child-contract', 'revision': '1'}, inputs=[],
+          outputs=[{'name': 'output', 'pin': {'kind': 'resource', 'resource_id': pin['resource_id'], 'revision': pin['revision'], 'digest': pin['digest']}}])
     runner.complete('left-worker', 'left-run', tickets['left'], left, 'Published exact left-output v1')
     runner.complete('replacement', 'right-replacement', tickets['right'], replaced, 'Published exact right-output v1')
     joined = runner.claim('orchestrator', 'parent', 'join-attempt', tickets['join'])
     schema = runner.resource('artifact-schema', 'Join requires left and right inputs and one combined output')
-    w('contract', 'contract.put', id='join-contract', expected_revision='0', schema_version='1',
-      schema=schema, required_inputs=['left', 'right', 'conversation'], required_outputs=['combined'])
+    w('contract', 'contract.put', contract_id='join-contract', expected_revision='0', schema_version='1',
+      schema={'resource_id': schema['resource_id'], 'revision': schema['revision'], 'digest': schema['digest']}, required_inputs=['left', 'right', 'conversation'], required_outputs=['combined'])
     output = runner.resource('join-output', 'LEFT+WRONG', actor='orchestrator', run='parent')
     w('board', 'board.put', board_id='runner-board', expected_revision='0', scope={'kind': 'workspace'}, title='Runner review')
     w('thread', 'thread.put', thread_id='join-thread', expected_revision='0', board_id='runner-board',
@@ -155,36 +155,36 @@ def run(client, *, workspace, root, state_dir):
     runner.register('reviewer', 'reviewer-run', 'review', parent='parent')
     w('accept-review', 'request.accept', actor='reviewer', attribution='reviewer-run', request_id='join-review',
       expected_revision='1', recipient={'kind': 'actor', 'id': 'reviewer'})
-    inputs = [{'name': 'left', 'pin': ['Resource', left_pin]}, {'name': 'right', 'pin': ['Resource', right_pin]},
-              {'name': 'conversation', 'pin': ['Event', {'session_id': 'runner-conversation', 'sequence': '1'}]}]
+    inputs = [{'name': 'left', 'pin': {'kind': 'resource', 'resource_id': left_pin['resource_id'], 'revision': left_pin['revision'], 'digest': left_pin['digest']}}, {'name': 'right', 'pin': {'kind': 'resource', 'resource_id': right_pin['resource_id'], 'revision': right_pin['revision'], 'digest': right_pin['digest']}},
+              {'name': 'conversation', 'pin': {'kind': 'event', 'session_id': 'runner-conversation', 'sequence': '1'}}]
     def publish(revision, output_pin):
         w('manifest-' + revision, 'manifest.publish', actor='orchestrator', attribution='parent',
-          id='join-manifest', expected_revision=revision, schema_version='1', attempt='join-attempt',
-          ticket=tickets['join'], contract={'id': 'join-contract', 'revision': '1'}, inputs=inputs,
-          outputs=[{'name': 'combined', 'pin': ['Resource', output_pin]}])
+          manifest_id='join-manifest', expected_revision=revision, schema_version='1', attempt_id='join-attempt',
+          ticket_id=tickets['join'], contract={'contract_id': 'join-contract', 'revision': '1'}, inputs=inputs,
+          outputs=[{'name': 'combined', 'pin': {'kind': 'resource', 'resource_id': output_pin['resource_id'], 'revision': output_pin['revision'], 'digest': output_pin['digest']}}])
     def submit(step, manifest_revision):
         expected = '0' if manifest_revision == '1' else runner.read('review.submission.get', ticket_id=tickets['join'])['revision']
-        w(step, 'review.submit', actor='orchestrator', attribution='parent', ticket=tickets['join'],
-          expected_revision=expected, manifest={'id': 'join-manifest', 'revision': manifest_revision}, review_request='join-review')
+        w(step, 'review.submit', actor='orchestrator', attribution='parent', ticket_id=tickets['join'],
+          expected_revision=expected, manifest={'manifest_id': 'join-manifest', 'revision': manifest_revision}, review_request_id='join-review')
         return runner.read('review.submission.get', ticket_id=tickets['join'])
     publish('0', output)
     submission = submit('submit-first', '1')
-    reviewed = runner.read('resource.read_chunk', resource_id=output['id'], version=output['revision'], offset='0', length='4096')
+    reviewed = runner.read('resource.read_chunk', resource_id=output['resource_id'], version=output['revision'], offset='0', length='4096')
     assert reviewed['digest'] == output['digest'] and base64.b64decode(reviewed['data_base64']) == b'LEFT+WRONG', reviewed
-    w('reject', 'review.record', actor='reviewer', attribution='reviewer-run', id='rejected-review',
-      ticket=tickets['join'], generation=submission['generation'], verdict=['Request_changes'],
-      evidence='Pinned output is LEFT+WRONG, expected LEFT+RIGHT', comment=None)
+    w('reject', 'review.record', actor='reviewer', attribution='reviewer-run', review_id='rejected-review',
+      ticket_id=tickets['join'], generation=submission['generation'], verdict='request_changes',
+      evidence='Pinned output is LEFT+WRONG, expected LEFT+RIGHT')
     output = runner.resource('join-output', 'LEFT+RIGHT', revision='1', actor='orchestrator', run='parent')
     publish('1', output)
     submission = submit('submit-corrected', '2')
     assert int(submission['generation']) == 2, submission
-    reviewed = runner.read('resource.read_chunk', resource_id=output['id'], version=output['revision'], offset='0', length='4096')
+    reviewed = runner.read('resource.read_chunk', resource_id=output['resource_id'], version=output['revision'], offset='0', length='4096')
     assert reviewed['digest'] == output['digest'] and base64.b64decode(reviewed['data_base64']) == b'LEFT+RIGHT', reviewed
-    w('approve', 'review.record', actor='reviewer', attribution='reviewer-run', id='approved-review',
-      ticket=tickets['join'], generation=submission['generation'], verdict=['Approve'],
-      evidence='Reviewed exact join-output v2 digest ' + output['digest'], comment=None)
+    w('approve', 'review.record', actor='reviewer', attribution='reviewer-run', review_id='approved-review',
+      ticket_id=tickets['join'], generation=submission['generation'], verdict='approve',
+      evidence='Reviewed exact join-output v2 digest ' + output['digest'])
     submission = runner.read('review.submission.get', ticket_id=tickets['join'])
-    w('accept-join', 'review.accept', actor='orchestrator', attribution='parent', ticket=tickets['join'], expected_revision=submission['revision'])
+    w('accept-join', 'review.accept', actor='orchestrator', attribution='parent', ticket_id=tickets['join'], expected_revision=submission['revision'])
     request = runner.read('request.get', request_id='join-review')
     w('resolve-review', 'request.resolve', actor='reviewer', attribution='reviewer-run', request_id='join-review', expected_revision=request['revision'])
     runner.transition('reviewer', 'reviewer-run', 'Completed')
@@ -195,23 +195,23 @@ def run(client, *, workspace, root, state_dir):
     runner.register('cancel-child', 'cancel-child', 'cancel', parent='cancel-parent', cancel=True)
     runner.transition('canceller', 'cancel-parent', 'Cancelled')
     actions = runner.read('run.actions')['items']
-    action = next(action for action in actions if action['child'] == 'cancel-child')
-    assert action['policy'] == ['Request_cancel'], action
+    action = next(action for action in actions if action['child_run_id'] == 'cancel-child')
+    assert action['policy'] == 'request_cancel', action
     runner.transition('cancel-child', 'cancel-child', 'Cancelled')
     w('ack-cancel', 'run.action_acknowledge', actor='cancel-child', attribution='cancel-child',
-      child='cancel-child', evidence='External runner stopped the deterministic child routine')
-    assert not any(action['child'] == 'cancel-child' for action in runner.read('run.actions')['items'])
+      child_run_id='cancel-child', evidence='External runner stopped the deterministic child routine')
+    assert not any(action['child_run_id'] == 'cancel-child' for action in runner.read('run.actions')['items'])
     def retained_state():
-        return {'parent': runner.read('run.get', id='parent'),
-                'attempt': runner.read('attempt.get', id='join-attempt'),
-                'failed_attempt': runner.read('attempt.get', id='right-failed-attempt'),
-                'manifest': runner.read('manifest.get', id='join-manifest'),
+        return {'parent': runner.read('run.get', target_run_id='parent'),
+                'attempt': runner.read('attempt.get', attempt_id='join-attempt'),
+                'failed_attempt': runner.read('attempt.get', attempt_id='right-failed-attempt'),
+                'manifest': runner.read('manifest.get', manifest_id='join-manifest'),
                 'submission': runner.read('review.submission.get', ticket_id=tickets['join']),
                 'reviews': runner.read('review.list', ticket_id=tickets['join']),
                 'request': runner.read('request.get', request_id='join-review'),
                 'thread': runner.read('thread.get', thread_id='join-thread'),
-                'history': runner.read('history.get', ref={'session_id': 'runner-conversation', 'sequence': '1'}),
-                'output': runner.read('resource.read_chunk', resource_id=output['id'], version=output['revision'], offset='0', length='4096')}
+                'history': runner.read('history.get', event_ref={'session_id': 'runner-conversation', 'sequence': '1'}),
+                'output': runner.read('resource.read_chunk', resource_id=output['resource_id'], version=output['revision'], offset='0', length='4096')}
     before = retained_state()
     w('close-before-reopen', 'workspace.close')
     w('reopen', 'workspace.open')
@@ -223,7 +223,7 @@ def run(client, *, workspace, root, state_dir):
         if time.monotonic() > deadline:
             raise TimeoutError('coordination export did not finish')
         time.sleep(0.01)
-        exported = client.call('export.get', {'job_id': exported['job_id']})
+        exported = adapter.body(client.call('export.get', {'job_id': exported['job_id']}))
     assert exported['status'] == 'completed', exported
     w('close-before-restore', 'workspace.close')
     w('unregister', 'workspace.unregister')

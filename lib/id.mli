@@ -18,6 +18,12 @@ module Project : S
 module Milestone : S
 module Ticket : S
 module Actor : S
+
+(** A caller-selected identity for one mutation, distinct from actor attribution.
+    Retries reuse the exact identity and request. Scope is actor plus workspace
+    (or registry for administration); changing payload requires a new identity. *)
+module Mutation : S
+
 module Run : S
 module Label : S
 module Status : S

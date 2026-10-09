@@ -24,7 +24,7 @@ type t =
 
 let create kind message = { kind; message }
 
-(* Wire v1 names are intentionally independent of derived OCaml sexps. *)
+(* Current public wire names are intentionally independent of derived OCaml sexps. *)
 let wire_name = function
   | Invalid_argument -> "Invalid_argument"
   | Not_found -> "Not_found"

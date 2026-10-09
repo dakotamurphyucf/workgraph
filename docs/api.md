@@ -6,6 +6,16 @@ and a quickstart or the [agent context guide](../AGENT_GUIDE.md) for concise ope
 instructions. Coordination, communication, evidence and history have their own
 linked guides below.
 
+Every successful JSON-RPC response has `result.data` (the operation output) and
+`result.meta` (applicable durability, query revision, capture and budget metadata).
+Planning writes report `meta.durable` and `meta.workspace_revision`; domain query
+revisions and history positions remain distinct. See the exact
+[shared contract](agent/cli-contract.md) and [capability index](../AGENT_GUIDE.md)
+for discovery. Exact parameters, defaults, tagged alternatives and complete results
+are generated from the executable in the [per-method reference](api-reference/index.md).
+This guide explains operating rules and workflows rather than maintaining another
+copy of those schemas.
+
 Commands in the fresh-workspace example use known initial revisions and tokens.
 For existing work, read the current values and use the returned claim token.
 Run all examples from the repository root after building or installing Workgraph.
@@ -43,7 +53,7 @@ SOCKET="$PWD/.local/wg.sock"
   '{"workspace_id":"demo","actor_id":"agent","mutation_id":"claim-1","ticket_id":"task-1","expected_revision":"1"}'
 
 "$WG" call "$SOCKET" comment.add \
-  '{"workspace_id":"demo","actor_id":"agent","mutation_id":"progress-1","ticket_id":"task-1","body":"Created the test fixture. Next: restart and verify."}'
+  '{"workspace_id":"demo","actor_id":"agent","mutation_id":"progress-1","target":{"kind":"ticket","id":"task-1"},"body":"Created the test fixture. Next: restart and verify."}'
 
 "$WG" call "$SOCKET" handoff.set \
   '{"workspace_id":"demo","actor_id":"agent","mutation_id":"handoff-1","ticket_id":"task-1","expected_revision":"0","token":"1","summary":"Fixture ready","next_steps":"Restart the daemon and read ticket.context","evidence":"Workspace and ticket creation succeeded"}'
@@ -96,7 +106,7 @@ to use IDs. Display keys are preserved by durable replay.
 Domain mutations require `workspace_id`, `actor_id` and `mutation_id`.
 Optional `run_id` identifies an invocation separately from its actor. It is stored
 in the audit and participates in request identity: changing the run while reusing
-an actor/mutation key conflicts. Requests without a run retain their prior hashes.
+an actor/mutation key conflicts. Omitting a run is also part of that identity.
 Claims are owned by actor, optional run and fencing token together. Supply the same
 run on progress, release, completion and claimed handoffs; a new invocation must
 explicitly reassign using `claimant_id` and optional `claimant_run_id`.
@@ -104,8 +114,7 @@ Run IDs may remain unregistered invocation markers. When granting a claim to an
 existing registered run, its actor must match the claimant and its lifecycle must
 be nonterminal. Existing claims remain explicit ownership until released or
 reassigned. Reassignment comments preserve the complete reason as their body.
-Overview
-held-work queries can filter by actor/run. Saved resource upload plans retain run
+Held-work queries can filter by actor/run. Saved resource upload plans retain run
 attribution through their final durable publication.
 Administrative lifecycle and export start/cancel/retry calls require `actor_id` and
 `mutation_id` as well. Their receipt scope is the local registry, independent of
@@ -116,78 +125,19 @@ Receipts survive restart; changed parameters with an existing key fail with
 `Idempotency_conflict`. A request ID only correlates the response. Revisions,
 claim tokens, pagination offsets and limits are decimal strings in JSON.
 
-| Methods | Additional parameters |
-| --- | --- |
-| `initialize`, `daemon.health`, `workspace.list`, `daemon.shutdown` | None |
-| `workspace.create` | `name`, `root`, optional `workspace_id` |
-| `workspace.register` | `root` |
-| `workspace.open`, `workspace.close`, `workspace.unregister` | `workspace_id` |
-| `registry.receipt` | `actor_id`, `mutation_id` |
-| `workspace.receipt` | `workspace_id`, `actor_id`, `mutation_id` |
-| `workspace.get` | `workspace_id` |
-| `workspace.overview` | `workspace_id`, optional `actor_id` and `run_id` to filter held work |
-| `workspace.export` | `workspace_id`, `destination`, administrative actor/mutation IDs |
-| `daemon.export_all` | `destination`, optional `allow_partial`, administrative actor/mutation IDs |
-| `export.get` | `job_id` |
-| `export.list` | Optional `offset`, `limit`, `max_bytes`, `at_snapshot` |
-| `export.cancel`, `export.retry` | `job_id`, administrative actor/mutation IDs |
-| `export.verify` | Absolute export `directory` |
-| `project.create` | `title`, optional `project_id`, `description` |
-| `project.list` | `workspace_id`, optional pagination, `include_archived` |
-| `project.get`, `project.brief` | `workspace_id`, `project_id`, optional pagination for brief |
-| `project.update` | `project_id`, `expected_revision`, optional `title`, `description`, `status`, `priority`, `summary`, `acceptance_criteria`, `archived` |
-| `project.archive` | `project_id`, `expected_revision`, `archived` boolean |
-| `milestone.create` | `project_id`, `title`, optional `milestone_id`, `description`, `target_date` (YYYY-MM-DD) |
-| `milestone.update`, `milestone.archive` | `milestone_id`, `expected_revision`, optional `title`, `description`, `status`, `archived` (required for archive) |
-| `milestone.schedule` | `milestone_id`, `expected_revision`, `target_date` (date or null) |
-| `milestone.list`, `milestone.get` | `workspace_id`; list optionally filters `project_id`, get requires `milestone_id` |
-| `workspace.update` | Settings `expected_revision`, optional `name`, `description`, `instructions`, `summary`, `archived` |
-| `workspace.archive` | Settings `expected_revision`, `archived` boolean |
-| `actor.put` | `target_actor_id`, `expected_revision`, `name`, `kind` (`person` or `agent`), optional `archived` |
-| `label.put` | `label_id`, `expected_revision`, `name`, optional `description`, `archived` |
-| `status.put` | `status_id`, `expected_revision`, `name`, `category`, optional `archived` |
-| `actor.list`, `label.list`, `status.list` | `workspace_id`, optional pagination, `include_archived` |
-| `ticket.create` | `title`, optional `ticket_id`, `description`, `project_id`, `parent_id`, `milestone_id` |
-| `ticket.resolve` | `workspace_id`, `display_key` |
-| `related.add`, `related.remove` | `ticket_id`, `related_id`, `expected_revision`, `related_expected_revision` |
-| `ticket.update` | `ticket_id`, `expected_revision`, optional `title`, `description`, `status` |
-| `ticket.metadata` | `ticket_id`, `expected_revision`, optional `priority`, `assignee_id`, `label_ids`, `acceptance_criteria`, `status_id`; null clears assignee/status ID |
-| `ticket.move` | `ticket_id`, `expected_revision`, destination `project_id`, `milestone_id`, `parent_id` (each mandatory, nullable) |
-| `ticket.archive` | `ticket_id`, `expected_revision`, `archived` |
-| `ticket.hold` | `ticket_id`, `expected_revision`, `reason` (null clears) |
-| `dependency.waive` | `ticket_id`, `prerequisite_id`, `expected_revision`, `reason` (null revokes) |
-| `ticket.reassign` | `ticket_id`, `expected_revision`, `claimant_id` (null releases), nonempty `reason` |
-| `ticket.blockers` | `workspace_id`, `ticket_id`, optional pagination |
-| `ticket.readiness` | `workspace_id`, `ticket_id` |
-| `transaction.apply` | `operations`: 1–32 ordered `{method, params, as?}` objects |
-| `dependency.add`, `dependency.remove` | `ticket_id`, `prerequisite_id` |
-| `ticket.claim` | `ticket_id`, `expected_revision` |
-| `ticket.release` | `ticket_id`, `token` |
-| `ticket.complete` | `ticket_id`, `token`, nonempty `evidence` |
-| `comment.add` | `ticket_id` or typed `target`, `body`; optional `comment_id`, `reply_to`, `kind` |
-| `comment.edit` | `comment_id`, `expected_revision`, `body` |
-| `comment.tombstone` | `comment_id`, `expected_revision` |
-| `comment.get`, `comment.history` | `workspace_id`, `comment_id`; history accepts pagination |
-| `comment.list` | `workspace_id`, optional `target` or `ticket_id`, `include_tombstones`, pagination |
-| `ticket.progress` | `ticket_id`, current claim `token`, `body`, optional `kind` |
-| `handoff.set` | `ticket_id`, `expected_revision` for the handoff, `summary`, `next_steps`, `evidence`; optional `objective`, `completed`, `decisions`, `blockers`, `resource_ids`, `covers_through`; current `token` required when claimed |
-| `handoff.get`, `handoff.history` | `workspace_id`, `ticket_id`; history accepts pagination |
-| `ticket.context` | `workspace_id`, `ticket_id`, optional pagination for subsequent updates |
-| `ticket.list`, `ticket.ready` | `workspace_id`, optional `project_id`, `milestone_id`, `status`, `assignee_id`, `label_id`, `priority`, `text`, pagination |
-| `search.query` | `workspace_id`, nonempty `text`, optional `project_id`, typed `target`, `kinds`, pagination |
-| `activity.since` | `workspace_id`, optional `after` workspace revision, `target` or `project_id`, `actor_id`, pagination |
-| `resource.put_text` | `resource_id`, `expected_revision` (`"0"` for creation), `title`, `text`, optional `filename`, `mime_type` |
-| `resource.update` | `resource_id`, `expected_revision`, optional `title`, `filename`, `mime_type`, `description` |
-| `resource.archive` | `resource_id`, `expected_revision`, `archived` |
-| `resource.link`, `resource.unlink` | `resource_id`, `expected_revision`, typed `target` |
-| `resource.history` | `workspace_id`, `resource_id`, optional pagination |
-| `resource.read_chunk` | `workspace_id`, `resource_id`, optional content `version`, `offset`, `length` |
-| `upload.begin` | `workspace_id`, `actor_id`, `upload_id`, `size_bytes`, SHA-256 `digest` |
-| `upload.chunk` | `workspace_id`, `actor_id`, `upload_id`, `offset`, canonical `data_base64` |
-| `upload.status`, `upload.abort` | `workspace_id`, `actor_id`, `upload_id` |
-| `resource.finish_upload` | Mutation envelope plus `upload_id`, `resource_id`, `expected_revision`, `title`, `filename`, `mime_type` |
-| `resource.list`, `resource.get` | `workspace_id`; get needs `resource_id`; list accepts typed `target`, `include_archived`, pagination |
-| `resource.read` | `workspace_id`, `digest`; UTF-8 text up to 64 KiB only |
+Use the generated method contracts for request fields and result shapes:
+
+- [Workspace creation](api-reference/workspace.create.md), [registry receipts](api-reference/registry.receipt.md) and [health](api-reference/daemon.health.md).
+- [Ticket creation](api-reference/ticket.create.md), [claim](api-reference/ticket.claim.md), [start](api-reference/ticket.start.md), [finish](api-reference/ticket.finish.md) and [reopen](api-reference/ticket.reopen.md).
+- [Atomic transactions](api-reference/transaction.apply.md), including declared alias fields.
+- [Comments](api-reference/comment.add.md), [handoffs](api-reference/handoff.set.md) and [ticket context](api-reference/ticket.context.md).
+- [Resources](api-reference/resource.put_text.md), [upload admission](api-reference/upload.begin.md) and [publication](api-reference/resource.finish_upload.md).
+- [Export admission](api-reference/workspace.export.md), [job listing](api-reference/export.list.md), [verification](api-reference/export.verify.md) and [restore](api-reference/workspace.restore.md).
+
+The [full index](api-reference/index.md) covers the remaining planning, coordination,
+communication, evidence, history and administration methods. Tagged objects and
+ID field names are specific to each contract; use its schema rather than guessing
+from an internal or durable representation.
 
 Catalog `put` operations replace catalog metadata: expected revision `"0"` creates,
 subsequent replacements require the current revision. Names may change; a status's
@@ -217,7 +167,9 @@ Ticket completion checks prerequisites and children. Default claims persist unti
 release/completion; after a crash, resume with the recorded actor/run/token.
 Opt-in timed claims require explicit lease renewal; expiry does not stop the
 external worker. A trusted actor may explicitly reassign an observed claim with
-`ticket.reassign` and a reason; previous tokens become stale. While claimed,
+`ticket.reassign` and a reason after finishing its active attempt; previous tokens
+become stale. For a crashed worker, use guarded recovery only after confirming it
+is stopped or isolated. While claimed,
 title/description/status edits require release first; progress and handoff updates
 remain available. Protected `ticket.progress` and handoff updates require the
 current claim token; ordinary `comment.add` permits other trusted actors to discuss
@@ -243,25 +195,28 @@ omitting it covers that prior state. Scoped audit queries retain membership at
 the time of the event, including both projects when moving a ticket. Filtering by
 a workspace target includes all its events.
 
-Standard planning queries accept `max_bytes` from `"4096"` through `"1048576"`, default
-64 KiB. This bounds the canonical JSON result, excluding the transport envelope.
-The `budget` object reports exact returned bytes, truncated fields/items and a
-bounded list of JSON-pointer omission details. Text clipping preserves UTF-8; IDs
-and revisions remain intact. Omission details can themselves be incomplete, as
-reported by `details_complete`. Increase the budget or use a focused get/history
-query for complete text. If an item cannot fit, a page may be empty with its cursor
-unchanged; increase the budget before retrying. Clipped audit views are for reading,
-not replay/import; portable exports retain complete authoritative transactions.
+Bounded queries disclose byte and item omissions through `result.meta.budget`.
+Its returned-byte count covers the complete canonical `{data,meta}` result,
+excluding the JSON-RPC transport wrapper. Query views remain valid according to
+the method's public result codec. Some views clip prose or collections; proof,
+policy, binding and other complete records are fitted as whole records. When a
+complete record cannot fit, the method reports an error asking for a larger
+budget. Inspect the method's generated contract and omission details before
+treating a bounded response as complete. Portable exports retain authoritative
+transactions and complete referenced bytes.
 
-Standard planning list queries default to 50 items, maximum 100. Responses contain their workspace
-revision and `remaining`/`next_offset`. For the next page, supply `offset` and the
-same `at_revision`; any intervening mutation returns a conflict and requires a
-fresh query. Ready work sorts by priority, committed creation sequence and ID. Byte fitting
-adjusts page cursors to count only returned items, so no result is silently skipped.
-Workspace overview includes status counts, active projects, held/blocked work and
-recent changes. Project brief groups ready/in-progress/blocked tickets. Ticket
-context includes scoped activity since handoff coverage; `ticket.blockers` paginates
-prerequisites when the context's blocker list is truncated.
+For offset pages, retain the observed revision or snapshot fence and the returned
+next offset; an intervening change rejects the stale page. Cursors count returned
+items so byte fitting does not skip records. An explicitly empty, nonadvancing
+partial page requires a larger budget. Defaults and maximums are declared in each
+[query schema](api-reference/index.md).
+
+Ready work sorts by priority, committed creation sequence and ID. Workspace
+overview shows status counts, active projects, held/blocked work and recent
+changes. Project brief groups ready/in-progress/blocked tickets. Ticket context
+includes activity since handoff coverage. Use [ticket.resume](api-reference/ticket.resume.md)
+for a captured resume packet and [ticket.blockers](api-reference/ticket.blockers.md)
+for further prerequisite details.
 
 Search is an ASCII case-insensitive substring match over current workspace,
 project, milestone and ticket fields, comments, handoffs, resource metadata and
@@ -337,9 +292,9 @@ per workspace, and 512 MiB of distinct referenced blob bytes. Resource history a
 orphan blobs are retained; the referenced-byte limit is not a total disk quota.
 Streaming verification, export and downloads use buffers no larger than 256 KiB.
 Empty files and arbitrary non-UTF-8 bytes are supported. Multiple resources may
-reference identical bytes while retaining independent metadata. New dependencies
-`base64` 3.5.2 and `uutf` 1.0.4 reuse packages already installed in the repository's
-selected switch.
+reference identical bytes while retaining independent metadata. The generated
+[resource contracts](api-reference/resource.get.md) describe canonical public
+metadata and version records.
 
 Workspace metadata is portable transaction history. `workspace.update` applies a
 revision-checked patch; omitted fields are preserved. Renaming leaves the immutable
@@ -386,9 +341,10 @@ The OCaml library exposes `Client.create`, `execute`/`invoke`, typed `mutate` fo
 all public `Domain_command.t` operations, typed `administrate` for workspace
 lifecycle, and typed `query` selectors with workspace-revision/budget envelopes.
 `Wire_command.encode` preserves omitted patches versus nullable clears and rejects
-worker-internal resource publication. Query payloads remain versioned JSON because
-context budgets may omit fields; they are not full domain entity values. Client
-responses validate version, matching request ID and mutually exclusive result/error.
+worker-internal resource publication. Method codecs validate public requests and
+results, including bounded query projections and disclosed omissions. These views
+are not durable replay events. Client responses validate version, matching request
+ID and mutually exclusive result/error.
 The integration fixture `test/client_workflow.ml` demonstrates typed create, atomic
 project/ticket/comment creation, receipt retry and context inspection across restart.
 `resource upload` and `resource download` are local CLI workflows over the bounded
@@ -491,7 +447,10 @@ The original workspace ID must be unregistered in this registry before selecting
 its restored copy. Restore verifies the full manifest, copies only portable files,
 replays the transaction chain and validates every referenced blob and the exact
 canonical inventory. Only then does it publish the fresh root and register it
-**closed**. Open it explicitly with `workspace open`. No source `.local/` files
+**closed**. The result is the named `kind: installed` alternative with
+`open: false`; cancellation uses `kind: canceled`. See the
+[restore result](api-reference/workspace.restore.md). Open it explicitly with
+`workspace open`. No source `.local/` files
 are copied. Restoring preserves history, resource versions and workspace receipts.
 
 `daemon restore_all --directory EXPORT --json-field roots '{"demo":"/new/demo"}'`

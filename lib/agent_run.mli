@@ -4,84 +4,7 @@ module Parent_stop_policy = Agent_run_event.Parent_stop_policy
 module Runner_action = Agent_run_event.Runner_action
 module Record = Agent_run_event.Record
 module Change = Agent_run_event
-
-module Command : sig
-  type t =
-    | Pool_put of
-        { name : string
-        ; expected_revision : int
-        ; limit : int
-        }
-    | Ticket_policy_put of
-        { ticket : Id.Ticket.t
-        ; expected_revision : int
-        ; required_capabilities : string list
-        ; pools : string list
-        }
-    | Register of
-        { id : Id.Run.t
-        ; parent : Id.Run.t option
-        ; parent_stop_policy : Parent_stop_policy.t
-        ; objective : string
-        ; capabilities : string list
-        ; process_ref : string option
-        ; worktree_ref : string option
-        }
-    | Transition of
-        { id : Id.Run.t
-        ; expected_revision : int
-        ; status : Status.t
-        ; evidence : string
-        }
-    | Observe of
-        { id : Id.Run.t
-        ; expected_revision : int
-        ; observed_unix_ms : int64
-        }
-    | Link_session of
-        { id : Id.Run.t
-        ; expected_revision : int
-        ; session : Session_id.t
-        }
-    | Attempt_start of
-        { id : Attempt.Id.t
-        ; run : Id.Run.t
-        ; ticket : Id.Ticket.t
-        ; token : int
-        ; sessions : Session_id.t list
-        }
-    | Attempt_checkpoint of
-        { id : Attempt.Id.t
-        ; expected_revision : int
-        ; checkpoint : Attempt.Checkpoint.t
-        }
-    | Attempt_finish of
-        { id : Attempt.Id.t
-        ; expected_revision : int
-        ; state : Attempt.State.t
-        ; evidence : string
-        }
-    | Reservation_acquire of
-        { run : Id.Run.t
-        ; requests : Reservation.request list
-        }
-    | Reservation_renew of
-        { run : Id.Run.t
-        ; name : Reservation.Name.t
-        ; token : int
-        ; expected_lease_revision : int
-        }
-    | Reservation_release of
-        { run : Id.Run.t
-        ; name : Reservation.Name.t
-        ; token : int
-        }
-    | Action_acknowledge of
-        { child : Id.Run.t
-        ; evidence : string
-        }
-  [@@deriving sexp]
-end
+module Command = Agent_run_command
 
 type t
 type prepared
@@ -166,3 +89,88 @@ val attempts : t -> Attempt.t list
 val reservations : t -> Reservation.t list
 val pools : t -> Allocation.Definition.t list
 val ticket_policies : t -> Allocation.Ticket_policy.t list
+
+module Start_blocker : sig
+  type t =
+    | Run_required of Path_scope.t
+    | Path_conflict of
+        { target : Path_scope.t
+        ; reservation : Path_scope.t
+        ; holder : Reservation.Holder.t
+        }
+    | Expired_required_ownership of
+        { target : Path_scope.t
+        ; reservation : Path_scope.t
+        ; holder : Reservation.Holder.t
+        }
+    | Ownership_mode of
+        { target : Path_scope.t
+        ; holder : Reservation.Holder.t
+        }
+    | External_condition of External_condition.Blocker.t
+  [@@deriving sexp, equal]
+
+  val to_json : t -> Jsonaf.t
+end
+
+(** Required paths and current unsatisfied external declarations gate readiness.
+    Expiry never releases ownership. No run gives an actionable path blocker.
+    Live compatible covering holds are reused; upgrades are never implicit. *)
+val start_blockers
+  :  t
+  -> ticket:Id.Ticket.t
+  -> run:Id.Run.t option
+  -> now_unix_ms:int64
+  -> Start_blocker.t list
+
+(** Immutable preparation of all missing required paths. The lifecycle stages
+    these changes with claim/attempt changes in one serialized durable commit.
+    New automatic holds are indefinite; renew timed existing holds explicitly. *)
+val prepare_start_reservations
+  :  t
+  -> ticket:Id.Ticket.t
+  -> run:Id.Run.t
+  -> actor:Id.Actor.t
+  -> timestamp:string
+  -> sequence:int
+  -> now_unix_ms:int64
+  -> (prepared, Problem.t) Result.t
+
+val get_path_reservation : t -> Path_scope.t -> Path_reservation.t option
+val get_ticket_paths : t -> Id.Ticket.t -> Ticket_paths.t option
+val path_reservations : t -> Path_reservation.t list
+val ticket_paths : t -> Ticket_paths.t list
+val external_conditions : t -> External_condition.t
+val get_recovery : t -> Coordination_id.Recovery.t -> Ownership_recovery.t option
+val recoveries : t -> Ownership_recovery.t list
+
+(** Validate historical declaration/signal/recovery pins against the final staged
+    immutable capture, after all transaction operations have applied. *)
+val validate_coordination_references
+  :  t
+  -> ticket_exists:(Id.Ticket.t -> bool)
+  -> pin_exists:(Evidence_event.Pin.t -> bool)
+  -> (unit, Problem.t) Result.t
+
+val event_references : t -> Session.Event_ref.t list
+
+(** Most recently started attempt under the exact ticket claim token, including
+    terminal attempts. Ordering is its immutable coordination creation revision;
+    later updates and identifier spelling do not reorder attempts. *)
+val latest_attempt_for_ticket : t -> ticket:Id.Ticket.t -> token:int -> Attempt.t option
+
+(** Paths whose existing timed ownership needs an explicit observation clock. *)
+val start_clock_required
+  :  t
+  -> ticket:Id.Ticket.t
+  -> run:Id.Run.t option
+  -> Path_scope.t list
+
+(** Called only inside an enclosing guarded durable ticket-recovery transition.
+    Rechecks each active attempt's exact ticket/token/run and registered actor,
+    then cancels it with the recovery reason. Preserves terminal history and never
+    changes replacement ownership. The enclosing audit is the durable event. *)
+val cancel_recovered_attempts
+  :  t
+  -> Ticket_lifecycle.Recovery.t
+  -> (t, Problem.t) Result.t

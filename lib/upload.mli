@@ -39,3 +39,7 @@ val finish
 
 val forget : t -> id:Id.Upload.t -> unit
 val max_chunk_bytes : int
+
+(** Worker-owned snapshot of active entries and reserved declared byte sizes.
+    Completed-but-not-forgotten uploads continue to count. *)
+val admission : t -> Admission.t list

@@ -156,6 +156,14 @@ module Input = struct
       })
   ;;
 
+  let role t = t.role
+  let kind t = t.kind
+  let phase t = t.phase
+  let correlation t = t.correlation
+  let provenance t = t.provenance
+  let payload t = t.payload
+  let searchable_text t = t.searchable_text
+  let attachments t = t.attachments
   let client_id t = t.client_id
   let resource_versions t = t.resource_versions
   let contents t = t.payload :: Option.to_list t.searchable_text
@@ -270,6 +278,7 @@ let commit input ~ref_ ~actor ~run ~install =
   }
 ;;
 
+let input t = t.input
 let ref_ t = t.ref_
 let actor t = t.actor
 let run t = t.run

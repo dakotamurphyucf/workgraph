@@ -7,7 +7,7 @@ type direction =
 [@@deriving sexp, equal]
 
 let get capture ref_ =
-  Result.map (Session_store.Capture.event capture ref_) ~f:Session_event.to_json
+  Result.map (Session_store.Capture.event capture ref_) ~f:History_wire.event_json
 ;;
 
 let read capture ~session ~anchor ~direction ~limit ~max_bytes =
@@ -53,10 +53,10 @@ let read capture ~session ~anchor ~direction ~limit ~max_bytes =
     let rec fit acc last = function
       | [] -> render (List.rev acc) (List.length candidates > List.length selected) last 0
       | event :: rest ->
-        let item = Session_event.to_json event in
+        let item = History_wire.event_json event in
         let next_anchor = (Session_event.ref_ event).sequence in
         let trial = render (List.rev (item :: acc)) true next_anchor 0 in
-        if String.length (Json.canonical trial) > max_bytes
+        if Api_response.encoded_size History trial > max_bytes
         then
           if List.is_empty acc
           then
@@ -65,7 +65,7 @@ let read capture ~session ~anchor ~direction ~limit ~max_bytes =
         else fit (item :: acc) next_anchor rest
     in
     let result = fit [] anchor selected in
-    if String.length (Json.canonical result) > max_bytes
+    if Api_response.encoded_size History result > max_bytes
     then Json.fail Blocked "history read metadata exceeds budget; increase max_bytes";
     result)
 ;;

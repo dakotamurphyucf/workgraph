@@ -49,7 +49,7 @@ let invoke t request = Result.bind (execute t request) ~f:Protocol.result
 
 module Commit = struct
   type t =
-    { workspace_revision : int
+    { workspace_revision : Api_position.Workspace_revision.t
     ; result : Jsonaf.t
     }
 end
@@ -57,20 +57,11 @@ end
 let mutate t ?run ~workspace ~actor ~mutation_id command =
   Json.decode (fun () ->
     let method_, params = Wire_command.encode command |> Disk.unwrap in
-    let fields =
-      match params with
-      | `Object fields -> fields
-      | _ -> assert false
-    in
     let params =
-      Json.obj
-        ([ "workspace_id", Id.Workspace.jsonaf_of_t workspace
-         ; "actor_id", Id.Actor.jsonaf_of_t actor
-         ; "mutation_id", Id.Actor.jsonaf_of_t mutation_id
-         ]
-         @ Option.to_list
-             (Option.map run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run))
-         @ fields)
+      Mutation_request.params
+        { workspace; actor; mutation = mutation_id; run }
+        ~parameters:params
+      |> Disk.unwrap
     in
     let request =
       Protocol.Request.create ~id:"client-mutation" ~method_ ~params |> Disk.unwrap
@@ -78,13 +69,15 @@ let mutate t ?run ~workspace ~actor ~mutation_id command =
     let response = invoke t request |> Disk.unwrap in
     match
       Json.decode (fun () ->
-        Json.fields response ~allowed:[ "workspace_revision"; "durable"; "result" ];
-        (match Json.field response "durable" with
-         | `True -> ()
-         | _ -> Json.fail Outcome_unknown "mutation response is not durable");
+        let response = Api_response.of_json response |> Disk.unwrap in
+        let meta = Api_response.meta response in
+        Api_response.require_durable response |> Disk.unwrap;
         { Commit.workspace_revision =
-            Json.integer (Json.field response "workspace_revision")
-        ; result = Json.field response "result"
+            Api_codec.decode
+              Api_position.Workspace_revision.codec
+              (Json.field meta "workspace_revision")
+            |> Disk.unwrap
+        ; result = Api_response.data response
         })
     with
     | Ok value -> value
@@ -123,7 +116,7 @@ module Administration = struct
         }
     | Cancel_restore of
         { target_actor : Id.Actor.t
-        ; target_mutation : Id.Actor.t
+        ; target_mutation : Id.Mutation.t
         }
 end
 
@@ -168,25 +161,30 @@ let administrate t ~actor ~mutation_id command =
       | Cancel_restore { target_actor; target_mutation } ->
         ( "restore.cancel"
         , [ "target_actor_id", Id.Actor.jsonaf_of_t target_actor
-          ; "target_mutation_id", Id.Actor.jsonaf_of_t target_mutation
+          ; "target_mutation_id", Id.Mutation.jsonaf_of_t target_mutation
           ] )
     in
     let params =
       Json.obj
         ([ "actor_id", Id.Actor.jsonaf_of_t actor
-         ; "mutation_id", Id.Actor.jsonaf_of_t mutation_id
+         ; "mutation_id", Id.Mutation.jsonaf_of_t mutation_id
          ]
          @ fields)
     in
-    Protocol.Request.create ~id:"client-admin" ~method_ ~params
-    |> Disk.unwrap
-    |> invoke t
-    |> Disk.unwrap)
+    let response =
+      Protocol.Request.create ~id:"client-admin" ~method_ ~params
+      |> Disk.unwrap
+      |> invoke t
+      |> Disk.unwrap
+    in
+    let decoded = Api_response.of_json response |> Disk.unwrap in
+    Api_response.require_durable decoded |> Disk.unwrap;
+    response)
 ;;
 
 module Query_result = struct
   type t =
-    { workspace_revision : int
+    { workspace_revision : Api_position.Workspace_revision.t
     ; data : Jsonaf.t
     ; budget : Jsonaf.t
     }
@@ -196,10 +194,14 @@ let query t ~workspace ~parameters selector =
   Json.decode (fun () ->
     let request = Query_request.encode selector ~workspace ~parameters |> Disk.unwrap in
     let response = invoke t request |> Disk.unwrap in
-    Json.fields response ~allowed:[ "workspace_revision"; "data"; "budget" ];
+    let response = Api_response.of_json response |> Disk.unwrap in
+    let meta = Api_response.meta response in
     { Query_result.workspace_revision =
-        Json.integer (Json.field response "workspace_revision")
-    ; data = Json.field response "data"
-    ; budget = Json.field response "budget"
+        Api_codec.decode
+          Api_position.Workspace_revision.codec
+          (Json.field meta "workspace_revision")
+        |> Disk.unwrap
+    ; data = Api_response.data response
+    ; budget = Json.field meta "budget"
     })
 ;;

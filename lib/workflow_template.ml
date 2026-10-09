@@ -74,7 +74,7 @@ module Node = struct
       ; "depends_on", `Array (List.map t.depends_on ~f:Json.string)
       ; "parent", Option.value_map t.parent ~default:`Null ~f:Json.string
       ; "capabilities", `Array (List.map t.capabilities ~f:Json.string)
-      ; "reviewers", `Array (List.map t.reviewers ~f:Id.Actor.jsonaf_of_t)
+      ; "reviewer_ids", `Array (List.map t.reviewers ~f:Id.Actor.jsonaf_of_t)
       ; ("separate_actor", if t.separate_actor then `True else `False)
       ]
   ;;
@@ -89,7 +89,7 @@ module Node = struct
         ; "depends_on"
         ; "parent"
         ; "capabilities"
-        ; "reviewers"
+        ; "reviewer_ids"
         ; "separate_actor"
         ];
     let get = Json.field json in
@@ -99,7 +99,7 @@ module Node = struct
     ; depends_on = List.map (Json.list (get "depends_on")) ~f:Json.text
     ; parent = optional (get "parent") Json.text
     ; capabilities = List.map (Json.list (get "capabilities")) ~f:Json.text
-    ; reviewers = List.map (Json.list (get "reviewers")) ~f:Id.Actor.t_of_jsonaf
+    ; reviewers = List.map (Json.list (get "reviewer_ids")) ~f:Id.Actor.t_of_jsonaf
     ; separate_actor =
         (match get "separate_actor" with
          | `True -> true

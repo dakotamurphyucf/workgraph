@@ -4,6 +4,9 @@ if [ "$#" -ne 1 ]; then
   echo 'Usage: packaging/almalinux/qualify.sh BUILD_OUTPUT_DIRECTORY' >&2
   exit 2
 fi
+# A linux/amd64 container on ARM through emulation does not qualify native AMD64.
+[ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ]
+[ "$(docker info --format '{{.OSType}}/{{.Architecture}}')" = linux/x86_64 ]
 project=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 output=$(realpath "$1")
 test -f "$output/build-metadata.json"
@@ -32,6 +35,7 @@ assert ((out / 'runtime/tar/executable.sha256').read_text().split()[0]
         == (out / 'runtime/rpm/executable.sha256').read_text().split()[0]), 'RPM changed executable bytes'
 metadata['status'] = 'passed'
 metadata['runtime_checks'] = runtime
+metadata['executable_sha256'] = (out / 'runtime/tar/executable.sha256').read_text().split()[0]
 (out / 'qualification.json').write_text(json.dumps(metadata, indent=2, sort_keys=True) + '\n')
 print(json.dumps({'status': 'passed', 'qualification': str(out / 'qualification.json')}))
 PY

@@ -5,7 +5,7 @@ open Core
     before dispatch. Invalid envelopes receive -32600 with null ID. *)
 val validate_server_request : Jsonaf.t -> (unit, Problem.t) Result.t
 
-(** Version-one client envelope. Client request IDs are strings; the server also
+(** Current client envelope. Client request IDs are strings; the server also
     accepts numeric IDs from other clients. Unknown methods conservatively count
     as writes when reporting transport uncertainty. *)
 module Request : sig
@@ -22,6 +22,10 @@ module Request : sig
   val method_ : t -> string
   val params : t -> Jsonaf.t
   val with_params : t -> Jsonaf.t -> (t, Problem.t) Result.t
+
+  (** Known method effects come from their executable catalog descriptors.
+      Unknown methods conservatively count as writes for transport uncertainty;
+      the server rejects them without admitting an operation. *)
   val mode : t -> mode
 end
 
@@ -30,7 +34,7 @@ type response =
   | Failure of Problem.t
 
 (** Rejects mismatched IDs, ambiguous result/error envelopes, unknown error codes
-    (v1 permits -32000 application failure and -32600 invalid envelope) and error
+    (the current profile permits -32000 application failure and -32600 invalid envelope) and error
     discriminators. A received application failure is distinct from malformed
     protocol data or a transport failure. *)
 val decode_response : Request.t -> Jsonaf.t -> (response, Problem.t) Result.t

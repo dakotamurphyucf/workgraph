@@ -66,7 +66,7 @@ let%expect_test "client rejects ambiguous or mismatched response envelopes" =
       printf "remote %s\n" (Sexp.to_string (Problem.sexp_of_kind error.kind))
     | Error error -> print_s [%sexp (error.kind : Problem.kind)]
   in
-  report {|{"jsonrpc":"2.0","id":"mine","result":{}}|};
+  report {|{"jsonrpc":"2.0","id":"mine","result":{"data":{},"meta":{}}}|};
   report {|{"jsonrpc":"2.0","id":"other","result":{}}|};
   report {|{"jsonrpc":"2.0","id":"mine","result":{},"error":{}}|};
   report

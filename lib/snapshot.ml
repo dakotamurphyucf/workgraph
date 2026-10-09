@@ -85,6 +85,7 @@ let write t ~fs ~destination ~stage ~check_cancelled ~before_publish =
       ; "portable/transactions"
       ; "portable/blobs"
       ; "resources"
+      ; "facts"
       ]
       ~f:(fun name -> Disk.ensure_directory Eio.Path.(stage_path / name));
     let files = ref [] in

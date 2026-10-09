@@ -1,0 +1,9 @@
+{
+  "socket": "/absolute/workgraph.sock",
+  "workspace_id": "demo",
+  "actor_id": "agent",
+  "ticket_id": "task",
+  "max_bytes": 8192,
+  "handoff_request": "/absolute/agent/handoff.request.json",
+  "handoff_receipt": "/absolute/agent/handoff.receipt.json"
+}

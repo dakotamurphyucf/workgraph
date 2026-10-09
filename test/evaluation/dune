@@ -1,0 +1,14 @@
+(rule
+ (alias runtest)
+ (deps evaluation_test.py ../../examples/evaluation.py)
+ (action
+  (run python3 %{dep:evaluation_test.py} %{dep:../../examples/evaluation.py})))
+
+(rule
+ (alias runtest)
+ (deps
+  socket_test.py
+  ../../examples/evaluation.py
+  ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

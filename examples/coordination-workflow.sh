@@ -61,23 +61,23 @@ worker_params=$(jq -cn --arg ws "$workspace" --arg actor "$actor" \
   --arg mutation 'workflow-register-worker' --arg id "$worker_run" \
   --arg project "$project" \
   '{workspace_id:$ws,actor_id:$actor,mutation_id:$mutation,
-    id:$id,objective:"Implement and report one ready ticket",capabilities:[]}' )
+    target_run_id:$id,objective:"Implement and report one ready ticket",capabilities:[]}' )
 mutate register-worker run.register "$worker_params" >/dev/null
 
 reviewer_params=$(jq -cn --arg ws "$workspace" --arg actor "$reviewer" \
   --arg mutation 'workflow-register-reviewer' --arg id "$reviewer_run" \
   '{workspace_id:$ws,actor_id:$actor,mutation_id:$mutation,
-    id:$id,objective:"Review the worker report",capabilities:[]}' )
+    target_run_id:$id,objective:"Review the worker report",capabilities:[]}' )
 mutate register-reviewer run.register "$reviewer_params" >/dev/null
 
 claim_params=$(jq -cn --arg ws "$workspace" --arg actor "$actor" \
   --arg run "$worker_run" --arg mutation 'workflow-claim-next' \
   --arg attempt "$attempt_id" --arg project "$project" \
   '{workspace_id:$ws,actor_id:$actor,run_id:$run,mutation_id:$mutation,
-    attempt_id:$attempt,run:$run,project_id:$project}')
+    attempt_id:$attempt,target_run_id:$run,project_id:$project}')
 claim_response=$(mutate claim-next ticket.claim_next "$claim_params")
 printf '%s\n' "$claim_response" > "$state_dir/claim-next.response.json"
-claim=$(printf '%s' "$claim_response" | jq -ce '.result.result')
+claim=$(printf '%s' "$claim_response" | jq -ce '.result.data')
 if [ "$(printf '%s' "$claim" | jq -r '.kind')" = empty ]; then
   printf '%s\n' 'No eligible ticket was available.'
   exit 0
@@ -89,7 +89,7 @@ worker_comment=$(jq -cn --arg ws "$workspace" --arg actor "$actor" \
   --arg run "$worker_run" --arg mutation 'workflow-worker-comment' \
   --arg ticket "$ticket" \
   '{workspace_id:$ws,actor_id:$actor,run_id:$run,mutation_id:$mutation,
-    ticket_id:$ticket,kind:"progress",body:"Claimed this ticket; starting the work."}')
+    target:{kind:"ticket",id:$ticket},kind:"progress",body:"Claimed this ticket; starting the work."}')
 mutate worker-comment comment.add "$worker_comment" >/dev/null
 
 progress=$(jq -cn --arg ws "$workspace" --arg actor "$actor" \
@@ -99,11 +99,11 @@ progress=$(jq -cn --arg ws "$workspace" --arg actor "$actor" \
     ticket_id:$ticket,token:$token,kind:"progress",body:"Work is ready for review."}')
 mutate progress ticket.progress "$progress" >/dev/null
 
-# Heartbeats are observations. Supplying a mutation ID satisfies the CLI envelope;
-# the daemon does not deduplicate this observation and it never renews a lease.
+# Heartbeats are advisory observations without mutation IDs or exact retries.
+# They never renew a lease.
 heartbeat=$(jq -cn --arg ws "$workspace" --arg actor "$actor" \
-  --arg run "$worker_run" --arg mutation 'workflow-heartbeat-1' \
-  '{workspace_id:$ws,actor_id:$actor,run_id:$run,mutation_id:$mutation}')
+  --arg run "$worker_run" \
+  '{workspace_id:$ws,actor_id:$actor,target_run_id:$run}')
 printf '%s\n' "$heartbeat" > "$state_dir/heartbeat.params.json"
 "$wg" request "$socket" run.heartbeat --params-file "$state_dir/heartbeat.params.json" >/dev/null
 
@@ -111,7 +111,7 @@ review_comment=$(jq -cn --arg ws "$workspace" --arg actor "$reviewer" \
   --arg run "$reviewer_run" --arg mutation 'workflow-review-comment' \
   --arg ticket "$ticket" \
   '{workspace_id:$ws,actor_id:$actor,run_id:$run,mutation_id:$mutation,
-    ticket_id:$ticket,kind:"evidence",body:"Reviewed the reported work; follow the configured evidence gate before completion."}')
+    target:{kind:"ticket",id:$ticket},kind:"evidence",body:"Reviewed the reported work; follow the configured evidence gate before completion."}')
 mutate reviewer-comment comment.add "$review_comment" >/dev/null
 
 printf 'Worker run %s and reviewer run %s recorded comments on ticket %s.\n' \

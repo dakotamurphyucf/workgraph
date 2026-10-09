@@ -8,7 +8,9 @@ val run : env:Eio_unix.Stdenv.base -> registry:string -> socket:string -> unit
 (** Serve an already prepared listener using the same dispatcher and disk
     workers as [run]. The caller owns the listener's lifetime and endpoint
     permissions. Unlike [run], this does not install process signal handlers.
-    [daemon.shutdown] drains admitted work before returning.
+    A valid [daemon.shutdown] gets a bounded response-write attempt before
+    cancellation begins, including when its peer disconnects. Admitted work
+    drains before [serve] returns. A shutdown reply is not a process-exit signal.
     This also permits deterministic in-memory transport tests without binding
     an operating-system socket. *)
 val serve

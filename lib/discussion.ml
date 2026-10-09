@@ -38,6 +38,25 @@ module Kind = struct
   ;;
 end
 
+module Origin = struct
+  type t =
+    | Authored
+    | Completion
+  [@@deriving sexp, equal]
+
+  let jsonaf_of_t = function
+    | Authored -> Json.string "authored"
+    | Completion -> Json.string "completion"
+  ;;
+
+  let t_of_jsonaf value =
+    match Json.text value with
+    | "authored" -> Authored
+    | "completion" -> Completion
+    | _ -> Json.fail Invalid_argument "unknown comment origin"
+  ;;
+end
+
 module Version = struct
   type t =
     { revision : Revision.t
@@ -58,6 +77,7 @@ module Change = struct
         ; target : Entity_ref.t
         ; reply_to : Id.Comment.t option
         ; kind : Kind.t
+        ; origin : Origin.t
         ; version : Version.t
         }
     | Revise of
@@ -73,6 +93,7 @@ module Entry = struct
     ; target : Entity_ref.t
     ; reply_to : Id.Comment.t option
     ; kind : Kind.t
+    ; origin : Origin.t
     ; author : Id.Actor.t
     ; created_at : string
     ; current : Version.t
@@ -130,12 +151,24 @@ let apply t change ~sequence =
     "tombstone contains current text";
   let entry =
     match change with
-    | Change.Create { id; target; reply_to; kind; version } ->
+    | Change.Create { id; target; reply_to; kind; origin; version } ->
       require (not (Map.mem t.entries id)) Conflict "comment already exists";
       require
         (Int.equal version.revision 1 && not version.tombstone)
         Corrupt_store
         "invalid initial comment version";
+      (match origin with
+       | Origin.Authored -> ()
+       | Completion ->
+         require
+           (Kind.equal kind Evidence
+            && Option.is_none reply_to
+            &&
+            match target with
+            | Entity_ref.Ticket _ -> true
+            | Workspace | Project _ | Milestone _ | Resource _ -> false)
+           Corrupt_store
+           "completion origin requires ticket evidence without a reply");
       Option.iter reply_to ~f:(fun reply ->
         let parent = find t reply in
         require (Entity_ref.equal parent.target target) Conflict "reply target differs";
@@ -144,6 +177,7 @@ let apply t change ~sequence =
       ; target
       ; reply_to
       ; kind
+      ; origin
       ; author = version.actor
       ; created_at = version.timestamp
       ; current = version
@@ -151,6 +185,14 @@ let apply t change ~sequence =
       }
     | Revise { id; version } ->
       let old = find t id in
+      require
+        (Origin.equal old.origin Authored)
+        Conflict
+        "completion evidence is immutable; append a correction reply";
+      require
+        (Id.Actor.equal old.author version.actor)
+        Conflict
+        "only the original author may revise or tombstone a comment";
       require
         (Int.equal version.revision (old.current.revision + 1))
         Conflict
@@ -184,6 +226,7 @@ let version_json (entry : Entry.t) version =
      ; ( "reply_to"
        , Option.value_map entry.reply_to ~default:`Null ~f:Id.Comment.jsonaf_of_t )
      ; "kind", Kind.jsonaf_of_t entry.kind
+     ; "origin", Origin.jsonaf_of_t entry.origin
      ]
      @ fields)
 ;;

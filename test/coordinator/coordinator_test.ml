@@ -38,7 +38,41 @@ let ticket ?claim ?(ready = true) ?(deps = []) id title =
   ; status = Domain_command.Status.Todo
   ; prerequisites = List.map deps ~f:ticket_id
   ; ready
-  ; blockers = Json.obj []
+  ; blockers =
+      (let policy =
+         ok
+           (Acceptance_policy.Effective.resolve
+              ~ticket_id:(ticket_id id)
+              ~project_id:(Some project)
+              ~membership_revision:1
+              ~project:None
+              ~ticket:None
+              ~minimum_reopening_token:None
+              ~ownership_token:None)
+       in
+       { Planning_ticket_wire.Readiness.ready
+       ; reasons = (if ready then [] else [ Status Todo ])
+       ; reason_count = (if ready then 0 else 1)
+       ; reassessments = []
+       ; completion =
+           { can_complete = true
+           ; checks =
+               List.map
+                 [ Planning_ticket_wire.Completion.Check.Hold
+                 ; Prerequisites
+                 ; Children
+                 ; Configured_policy
+                 ]
+                 ~f:(fun kind ->
+                   { Planning_ticket_wire.Completion.Check.kind; passed = true })
+           ; policy
+           ; blocked_prerequisite_count = 0
+           ; unfinished_child_count = 0
+           ; blocked_prerequisite_ids = []
+           ; unfinished_child_ids = []
+           ; problem = None
+           }
+       })
   ; claim
   }
 ;;
@@ -111,8 +145,8 @@ let%expect_test
   print_endline (Json.text (Json.field result "critical_path_reason"));
   let params =
     Json.obj
-      [ "project", Id.Project.jsonaf_of_t project
-      ; "run", Id.Run.jsonaf_of_t run
+      [ "project_id", Id.Project.jsonaf_of_t project
+      ; "run_id", Id.Run.jsonaf_of_t run
       ; "kinds", `Array [ Json.string "active_attempt" ]
       ]
   in
@@ -148,7 +182,7 @@ let%expect_test
     [%sexp
       (List.map
          (Json.list (Json.field second "items"))
-         ~f:(fun item -> Json.text (Json.field (Json.field item "source") "id"))
+         ~f:(fun item -> Json.text (Json.field (Json.field item "source") "ticket_id"))
        : string list)];
   print_endline (Json.text (Json.field second "captured_now_unix_ms"));
   report (read ~revision:2 tickets page);
@@ -178,7 +212,20 @@ let%expect_test
 ;;
 
 let%expect_test "oversized rows keep their position until the budget increases" =
-  let tickets = [ ticket "large" (String.make 6000 'x'); ticket "next" "next" ] in
+  let large = ticket "large" "large" in
+  let reassessment : Planning_ticket_wire.Reassessment.t =
+    { prerequisite_ticket_id = ticket_id "source"
+    ; reopened_revision = 1
+    ; reason = String.make 6000 'x'
+    ; actor_id = actor
+    ; timestamp = "now"
+    }
+  in
+  let tickets =
+    [ { large with blockers = { large.blockers with reassessments = [ reassessment ] } }
+    ; ticket "next" "next"
+    ]
+  in
   let params =
     Json.obj [ "max_bytes", Json.int 4096; "kinds", `Array [ Json.string "ready_work" ] ]
   in
@@ -200,7 +247,7 @@ let%expect_test "oversized rows keep their position until the budget increases" 
     [%sexp
       (List.map
          (Json.list (Json.field second "items"))
-         ~f:(fun item -> Json.text (Json.field (Json.field item "source") "id"))
+         ~f:(fun item -> Json.text (Json.field (Json.field item "source") "ticket_id"))
        : string list)];
   [%expect
     {|
@@ -315,6 +362,15 @@ let%expect_test
          (Evidence.prepare
             t
             command
+            ~ticket_context:(fun _ ->
+              Some
+                { Evidence.Ticket_context.project = None
+                ; membership_revision = 1
+                ; minimum_reopening_token = None
+                ; current_token = Some 1
+                ; ownership = Some { token = 1; actor; run = Some run }
+                ; attempt = Some attempt
+                })
             ~actor
             ~run:(Some run)
             ~timestamp:"now"
@@ -357,6 +413,7 @@ let%expect_test
          ; reviewers = [ Named_actor actor ]
          ; separate_actor = false
          ; validators = []
+         ; weakening_reason = None
          })
   in
   let evidence =
@@ -417,8 +474,8 @@ let%expect_test
   in
   let params =
     Json.obj
-      [ "project", Id.Project.jsonaf_of_t project
-      ; "actor", Id.Actor.jsonaf_of_t actor
+      [ "project_id", Id.Project.jsonaf_of_t project
+      ; "actor_id", Id.Actor.jsonaf_of_t actor
       ; "kinds", `Array (List.map selected ~f:Json.string)
       ]
   in
@@ -430,7 +487,7 @@ let%expect_test
     [%sexp
       (List.for_all
          (Json.list (Json.field result "items"))
-         ~f:(fun item -> Option.is_some (Json.optional (Json.field item "source") "type"))
+         ~f:(fun item -> Option.is_some (Json.optional (Json.field item "source") "kind"))
        : bool)];
   [%expect
     {|
@@ -473,8 +530,8 @@ let%expect_test "run readiness uses capabilities, active pool counts and attempt
   in
   let params =
     Json.obj
-      [ "run", Id.Run.jsonaf_of_t run
-      ; "actor", Id.Actor.jsonaf_of_t actor
+      [ "run_id", Id.Run.jsonaf_of_t run
+      ; "actor_id", Id.Actor.jsonaf_of_t actor
       ; "kinds", `Array [ Json.string "ready_work"; Json.string "allocation_blocked" ]
       ]
   in
@@ -485,7 +542,7 @@ let%expect_test "run readiness uses capabilities, active pool counts and attempt
         print_s
           [%sexp
             (( Json.text (Json.field item "kind")
-             , Json.text (Json.field (Json.field item "source") "id")
+             , Json.text (Json.field (Json.field item "source") "ticket_id")
              , List.map
                  (Json.list
                     (Json.field (Json.field item "metadata") "allocation_reasons"))
@@ -534,7 +591,7 @@ let%expect_test "run readiness uses capabilities, active pool counts and attempt
          { id = run; expected_revision = 1; status = Completed; evidence = "done" })
   in
   show (ok (read ~runs [ ticket "free" "free" ] params));
-  report (read tickets (Json.obj [ "run", Json.string "unknown" ]));
+  report (read tickets (Json.obj [ "run_id", Json.string "unknown" ]));
   [%expect
     {|
     (allocation_blocked capability (missing_capability))
@@ -544,5 +601,339 @@ let%expect_test "run readiness uses capabilities, active pool counts and attempt
     (allocation_blocked free (run_budget))
     (allocation_blocked free (run_terminal))
     Not_found
+    |}]
+;;
+
+let%expect_test "public source metadata and oversized disclosure reject contradictions" =
+  let row =
+    Jsonaf.of_string
+      {|{"kind":"stale_ownership","source":{"kind":"ticket","ticket_id":"work"},"metadata":{"kind":"ticket","token":"1","lease_status":"expired","lease":{"epoch":"1","revision":"1","duration_ms":"1","last_unix_ms":"0","deadline_unix_ms":"1"},"run_id":null}}|}
+  in
+  let report codec json =
+    match Api_codec.decode codec json with
+    | Ok _ -> print_endline "ok"
+    | Error p -> print_s [%sexp (p.kind : Problem.kind)]
+  in
+  report Coordinator_wire.Item.codec row;
+  let expired =
+    match row with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           key, if String.equal key "kind" then Json.string "expired_ownership" else value))
+    | _ -> assert false
+  in
+  report Coordinator_wire.Item.codec expired;
+  let wrong_source =
+    match expired with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           ( key
+           , if String.equal key "source"
+             then Jsonaf.of_string {|{"kind":"reservation","name":"checkout"}|}
+             else value )))
+    | _ -> assert false
+  in
+  report Coordinator_wire.Item.codec wrong_source;
+  let valid =
+    ok
+      (read
+         [ ticket "a" "A" ]
+         (Json.obj [ "kinds", `Array [ Json.string "ready_work" ] ]))
+    |> Api_response.project Workspace_view
+    |> Api_response.data
+  in
+  report Coordinator_wire.Response.codec valid;
+  let contradiction =
+    match valid with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           key, if String.equal key "needs_larger_budget" then `True else value))
+    | _ -> assert false
+  in
+  report Coordinator_wire.Response.codec contradiction;
+  let duplicate =
+    match valid with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           ( key
+           , if String.equal key "items"
+             then `Array (Json.list value @ Json.list value)
+             else value )))
+    | _ -> assert false
+  in
+  report Coordinator_wire.Response.codec duplicate;
+  let wrong_clock =
+    match valid with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           ( key
+           , if String.equal key "items"
+             then `Array [ expired ]
+             else if String.equal key "captured_now_unix_ms"
+             then Json.int64 0L
+             else value )))
+    | _ -> assert false
+  in
+  report Coordinator_wire.Response.codec wrong_clock;
+  let request = Coordinator_api.Request.codec in
+  report request (Json.obj [ "run", Json.string "run" ]);
+  report
+    request
+    (Json.obj [ "kinds", `Array [ Json.string "ready_work"; Json.string "ready_work" ] ]);
+  [%expect
+    {|
+    Invalid_argument
+    ok
+    Invalid_argument
+    ok
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test "reported attention shares validated limit and saturation semantics" =
+  let values =
+    List.map
+      [ 0L, 0L; 10L, 10L; Int64.max_value, 1L ]
+      ~f:(fun (reported, limit) ->
+        ok (Run_budget.Attention.create ~run ~kind:Reported_tokens ~reported ~limit))
+  in
+  List.iter values ~f:(fun value ->
+    print_s [%sexp (value.reported_total_is_lower_bound : bool)]);
+  let sample =
+    Coordination_wire.encode_exn Run_budget.Attention.codec (List.last_exn values)
+  in
+  let bad =
+    match sample with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           key, if String.equal key "reported_total_is_lower_bound" then `False else value))
+    | _ -> assert false
+  in
+  List.iter
+    [ Api_codec.decode Run_budget.Attention.codec bad
+    ; Run_budget.Attention.create ~run ~kind:Reported_tokens ~reported:9L ~limit:10L
+    ]
+    ~f:(function
+      | Ok _ -> print_endline "unexpected"
+      | Error p -> print_s [%sexp (p.kind : Problem.kind)]);
+  [%expect
+    {|
+    false
+    false
+    true
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test "coordinator required bytes are the exact first whole public envelope" =
+  let large = ticket "large" "Large" in
+  let metadata : Planning_ticket_wire.Reassessment.t =
+    { prerequisite_ticket_id = ticket_id "source"
+    ; reopened_revision = 1
+    ; reason = String.make 6000 'x'
+    ; actor_id = actor
+    ; timestamp = "now"
+    }
+  in
+  let tickets =
+    [ { large with blockers = { large.blockers with reassessments = [ metadata ] } }
+    ; ticket "next" "Next"
+    ]
+  in
+  let fields max_bytes extra =
+    Json.obj
+      ([ "max_bytes", Json.int max_bytes; "kinds", `Array [ Json.string "ready_work" ] ]
+       @ extra)
+  in
+  let tiny = ok (read tickets (fields 4096 [])) in
+  let required = Json.integer (Json.field tiny "required_bytes") in
+  let cursor = "cursor", Json.field tiny "next_cursor" in
+  let exact = ok (read tickets (fields required [ cursor ])) in
+  let smaller = ok (read tickets (fields (required - 1) [ cursor ])) in
+  let maximum = ok (read tickets (fields 1048576 [ cursor ])) in
+  print_s
+    [%sexp
+      (( required > 4096
+       , Api_response.encoded_size Workspace_view exact = required
+       , List.length (Json.list (Json.field exact "items"))
+       , List.length (Json.list (Json.field smaller "items"))
+       , List.length (Json.list (Json.field maximum "items")) )
+       : bool * bool * int * int * int)];
+  let row = Json.field exact "items" |> Json.list |> List.hd_exn in
+  let projected = Coordination_wire.decode_exn Coordinator_wire.Item.codec row in
+  let full =
+    match projected with
+    | Coordinator_wire.Item.Ready_work { metadata; _ } ->
+      List.hd_exn metadata.blockers.reassessments
+      |> fun value -> String.length value.Planning_ticket_wire.Reassessment.reason
+    | _ -> assert false
+  in
+  print_s [%sexp (full : int)];
+  [%expect
+    {|
+    (true true 1 0 2)
+    6000
+    |}]
+;;
+
+let%expect_test "policy attention uses the actual saturating reported accumulator" =
+  let apply t command =
+    Agent_run_policy.candidate (ok (Agent_run_policy.prepare t command))
+  in
+  let budget : Run_budget.t =
+    { run
+    ; revision = 1
+    ; max_attempts = None
+    ; max_active_attempts = None
+    ; reported_token_limit = Some Int64.max_value
+    ; reported_elapsed_ms_limit = None
+    }
+  in
+  let policies = apply Agent_run_policy.empty (Budget_put budget) in
+  let usage id tokens : Usage_record.t =
+    { id = ok (Usage_record.Id.of_string id)
+    ; scope = Run run
+    ; actor
+    ; tokens
+    ; elapsed_ms = 0L
+    ; provenance = "external"
+    ; timestamp = "now"
+    }
+  in
+  let policies =
+    apply policies (Usage_report (usage "first" (Int64.pred Int64.max_value)))
+  in
+  print_s
+    [%sexp (List.length (Agent_run_policy.attention policies ~runs:registered) : int)];
+  let policies = apply policies (Usage_report (usage "overflow" 2L)) in
+  let attention = Agent_run_policy.attention policies ~runs:registered |> List.hd_exn in
+  print_s
+    [%sexp
+      (( Int64.equal attention.reported Int64.max_value
+       , attention.reported_total_is_lower_bound )
+       : bool * bool)];
+  ignore (Coordination_wire.encode_exn Run_budget.Attention.codec attention : Jsonaf.t);
+  [%expect
+    {|
+    0
+    (true true)
+    |}]
+;;
+
+let%expect_test "selected run readiness and allocation share required path context" =
+  let apply state method_ json =
+    let command = ok (Domain_command.decode ~method_ ~params:(Jsonaf.of_string json)) in
+    State.candidate
+      (ok (State.prepare state command ~actor ~now_unix_ms:100L ~timestamp:"now"))
+  in
+  let state = ok (State.empty ~workspace ~name:"Paths") in
+  let state = apply state "run.register" {|{"target_run_id":"run","objective":"Work"}|} in
+  let state = apply state "ticket.create" {|{"ticket_id":"work","title":"Work"}|} in
+  let state =
+    apply
+      state
+      "ticket.paths.put"
+      {|{"ticket_id":"work","expected_revision":"0","require_reservations":true,"declarations":[{"target":{"worktree_id":"tree","kind":"subtree","path":"src"},"mode":"exclusive"}]}|}
+  in
+  let inspect selected =
+    let params =
+      Json.obj
+        (Option.to_list
+           (Option.map selected ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run)))
+    in
+    let tickets = State.coordination_tickets ?run:selected ~now_unix_ms:100L state in
+    let response = ok (read ~runs:(State.agent_runs state) tickets params) in
+    let public =
+      Coordination_wire.decode_exn
+        Coordinator_wire.Response.codec
+        (Api_response.data (Api_response.project Workspace_view response))
+    in
+    let row =
+      List.find_exn public.items ~f:(function
+        | Ready_work _ | Allocation_blocked _ -> true
+        | _ -> false)
+    in
+    match row with
+    | Ready_work { metadata; _ } | Allocation_blocked { metadata; _ } ->
+      print_s
+        [%sexp
+          (( Coordinator_wire.Kind.to_string (Coordinator_wire.Item.kind row)
+           , metadata.blockers.ready
+           , metadata.blockers.reason_count
+           , List.length metadata.allocation_reasons )
+           : string * bool * int * int)]
+    | _ -> assert false
+  in
+  inspect None;
+  inspect (Some run);
+  [%expect
+    {|
+    (allocation_blocked false 1 1)
+    (ready_work true 0 0)
+    |}]
+;;
+
+let%expect_test "stale ownership and runner actions retain actual typed source records" =
+  let lease = ok (Allocation_lease.create ~epoch:1 ~now_unix_ms:0L ()) in
+  let claim = { Coordinator.Claim.actor; run = Some run; token = 1; lease } in
+  let stale =
+    ok
+      (read
+         [ ticket ~claim ~ready:false "work" "Work" ]
+         (Json.obj [ "kinds", `Array [ Json.string "stale_ownership" ] ]))
+  in
+  let child = ok (Id.Run.of_string "child") in
+  let runs =
+    prepare
+      registered
+      (Register
+         { id = child
+         ; parent = Some run
+         ; parent_stop_policy = Request_cancel
+         ; objective = "Child"
+         ; capabilities = []
+         ; process_ref = None
+         ; worktree_ref = None
+         })
+  in
+  let runs =
+    prepare
+      runs
+      (Transition
+         { id = run
+         ; expected_revision = 1
+         ; status = Cancelled
+         ; evidence = "Cancelled by harness"
+         })
+  in
+  let action =
+    ok (read ~runs [] (Json.obj [ "kinds", `Array [ Json.string "runner_action" ] ]))
+  in
+  List.iter [ stale; action ] ~f:(fun response ->
+    let decoded =
+      Coordination_wire.decode_exn
+        Coordinator_wire.Response.codec
+        (Api_response.data (Api_response.project Workspace_view response))
+    in
+    print_s
+      [%sexp
+        (List.map decoded.items ~f:(fun row ->
+           Coordinator_wire.Kind.to_string (Coordinator_wire.Item.kind row))
+         : string list)]);
+  [%expect
+    {|
+    (stale_ownership)
+    (runner_action)
     |}]
 ;;

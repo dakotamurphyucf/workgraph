@@ -1,0 +1,9 @@
+(rule
+ (alias runtest)
+ (deps reference_test.py ../../tools/generate_api_reference.py)
+ (action
+  (run
+   python3
+   %{dep:reference_test.py}
+   %{dep:../../tools/generate_api_reference.py}
+   %{exe:../../bin/main.exe})))

@@ -1,6 +1,6 @@
 open Core
 
-(** Explicit version-one wire encoder for typed domain commands. Patch omission
+(** Current public wire encoder for typed domain commands. Patch omission
     and nullable clears remain distinct. Aliases are already resolved in typed
     batches. Resource_publish is worker-internal and cannot be sent by a client;
     clients publish binary resources through the upload protocol instead.

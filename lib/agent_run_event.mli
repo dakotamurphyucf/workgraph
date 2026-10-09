@@ -55,13 +55,31 @@ module Record : sig
   val validate : t -> unit
 end
 
+module Recovery_snapshot : sig
+  type t =
+    | Named of Reservation.t
+    | Path of Path_reservation.t
+  [@@deriving sexp, equal, jsonaf]
+end
+
 module Update : sig
   type t =
     | Pool_put of Allocation.Definition.t
     | Ticket_policy_put of Allocation.Ticket_policy.t
     | Run_put of Record.t
+    | Attempt_started of
+        { attempt : Attempt.t
+        ; now_unix_ms : int64
+        }
     | Attempt_put of Attempt.t
     | Reservation_put of Reservation.t
+    | Path_reservation_put of Path_reservation.t
+    | Ticket_paths_put of Ticket_paths.t
+    | External_condition_changed of External_condition.Change.t
+    | Ownership_recovered of
+        { recovery : Ownership_recovery.t
+        ; after : Recovery_snapshot.t
+        }
     | Actions_set of
         { actions : Runner_action.t list
         ; evidence : string

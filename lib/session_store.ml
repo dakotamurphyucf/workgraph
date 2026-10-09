@@ -140,7 +140,7 @@ let validate_receipt ~key ~request_hash =
   (match String.split key ~on:':' with
    | [ actor; mutation ] ->
      ignore (Id.Actor.of_string actor |> Disk.unwrap : Id.Actor.t);
-     ignore (Id.Actor.of_string mutation |> Disk.unwrap : Id.Actor.t)
+     ignore (Id.Mutation.of_string mutation |> Disk.unwrap : Id.Mutation.t)
    | _ -> Json.fail Invalid_argument "history receipt requires actor:mutation");
   if
     String.is_empty key
@@ -418,7 +418,7 @@ let recover t ~sequence ~head =
           | value -> Some (Json.text value)
         in
         let bytes_seen = bytes_seen + String.length bytes in
-        if bytes_seen > 64 * 1024 * 1024
+        if bytes_seen > Admission.Limit.maximum History_batch_bytes
         then Json.fail Corrupt_store "history metadata exceeds 64MiB";
         collect (sequence - 1) previous ((digest, bytes, json) :: batches) bytes_seen)
   in
@@ -550,7 +550,7 @@ let install_content t = function
 let commit t ~key ~request_hash ~change ~response =
   require_open t;
   let sequence = t.current.sequence + 1 in
-  if sequence > 1_000_000
+  if sequence > Admission.Limit.maximum History_commits
   then Json.fail Blocked "history capacity exhausted (1000000 commits); nothing deleted";
   let candidate = apply t.current change in
   validate_response candidate ~change ~response;
@@ -569,7 +569,8 @@ let commit t ~key ~request_hash ~change ~response =
   let bytes = Json.canonical json in
   if
     String.length bytes > 4 * 1024 * 1024
-    || t.retained_bytes + String.length bytes > 64 * 1024 * 1024
+    || t.retained_bytes + String.length bytes
+       > Admission.Limit.maximum History_batch_bytes
   then Json.fail Blocked "history metadata capacity exhausted; nothing deleted";
   let digest = Json.hash bytes in
   let candidate = audit candidate ~change ~key ~sequence ~digest in
@@ -759,4 +760,12 @@ let read_capture_blob capture ~fs ~root ref_ ~offset ~length =
     if (not (String.equal digest ref_.digest)) || size <> ref_.size_bytes
     then Json.fail Corrupt_store "capture blob digest mismatch";
     Blob.read_range path ~offset ~length |> Disk.unwrap)
+;;
+
+let admission t =
+  Disk.protect (fun () ->
+    require_open t;
+    [ Admission.create History_commits ~used:t.current.sequence |> Disk.unwrap
+    ; Admission.create History_batch_bytes ~used:t.retained_bytes |> Disk.unwrap
+    ])
 ;;

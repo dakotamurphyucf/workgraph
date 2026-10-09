@@ -64,7 +64,7 @@ class Workgraph:
 
 
 def body(result):
-    return result.get("data", result)
+    return result["data"]
 
 
 def event_from_line(line, ordinal):
@@ -82,8 +82,8 @@ def event_from_line(line, ordinal):
         "phase": observed.get("phase", "completed"),
         "correlation": observed.get("correlation"),
         "provenance": {"adapter": "jsonl", "source_id": source_id},
-        "payload": {"bytes_base64": base64.b64encode(payload).decode()},
-        "searchable_text": None if text is None else {"bytes_base64": base64.b64encode(text.encode()).decode()},
+        "payload": {"kind": "inline", "bytes_base64": base64.b64encode(payload).decode()},
+        "searchable_text": None if text is None else {"kind": "inline", "bytes_base64": base64.b64encode(text.encode()).decode()},
         "attachments": observed.get("attachments", []),
     }
 
@@ -115,8 +115,9 @@ def ingest(client, *, source, state_path, workspace, session, actor, crash_after
             prefix.update(line)
             if prefix.hexdigest() != pending["prefix_sha256"]:
                 raise ValueError("pending source line changed")
-            result = body(client.call("session.append", pending["params"]))
-            if result.get("durable") is not True:
+            response = client.call("session.append", pending["params"])
+            result = body(response)
+            if response["meta"].get("durable") is not True:
                 raise RuntimeError("append did not acknowledge durability")
             state.update(next_line=pending["next_line"], prefix_sha256=pending["prefix_sha256"],
                          through=result["through"], pending=None)
@@ -131,8 +132,9 @@ def ingest(client, *, source, state_path, workspace, session, actor, crash_after
             state["pending"] = {"params": params, "next_line": ordinal + 1,
                                 "prefix_sha256": prefix.hexdigest()}
             synced_save(state_path, state)
-            result = body(client.call("session.append", params))
-            if result.get("durable") is not True:
+            response = client.call("session.append", params)
+            result = body(response)
+            if response["meta"].get("durable") is not True:
                 raise RuntimeError("append did not acknowledge durability")
             if crash_after_ack:
                 os._exit(75)  # External driver deliberately resets this adapter.

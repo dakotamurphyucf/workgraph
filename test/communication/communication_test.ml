@@ -17,6 +17,29 @@ let alice = actor "alice"
 let bob = actor "bob"
 let resolver = actor "coordinator"
 let recipient actor = C.Recipient.Actor actor
+let consumer = Communication_id.Consumer.of_string "test-consumer" |> unwrap
+
+let fixture_discussion =
+  Discussion.apply
+    Discussion.empty
+    (Discussion.Change.Create
+       { id = message
+       ; target = Entity_ref.Workspace
+       ; reply_to = None
+       ; kind = Comment
+       ; origin = Authored
+       ; version =
+           { revision = 1
+           ; serial = 1
+           ; sequence = 1
+           ; actor = alice
+           ; timestamp = "2026-10-07"
+           ; body = "Review this"
+           ; tombstone = false
+           }
+       })
+    ~sequence:1
+;;
 
 let step ?(actor = resolver) state command =
   let p =
@@ -97,13 +120,15 @@ let print_error outcome =
 let%expect_test "acknowledgement, reading, acceptance and resolution are independent" =
   let t, _ = fixture () in
   let original = request_exn t in
-  let read = C.inbox t ~recipient:(recipient alice) ~after:0 ~through:None in
+  let read =
+    C.inbox t ~consumer_id:consumer ~recipient:(recipient alice) ~after:0 ~through:None
+  in
   let unchanged = C.Request.equal original (request_exn t) in
   print_s
     [%sexp
       (List.length read : int)
     , (unchanged : bool)
-    , (C.inbox_position t (recipient alice) : int)];
+    , (Set.length (C.acknowledged t consumer (recipient alice)) : int)];
   let t, _ =
     step
       ~actor:alice
@@ -191,7 +216,19 @@ let%expect_test "resolved deliveries, subscriptions and read cursors survive rep
     step
       ~actor:bob
       t
-      (Inbox_mark_read { recipient = recipient bob; through = C.latest_serial t })
+      (Inbox_ack
+         { consumer_id = consumer
+         ; recipient = recipient bob
+         ; notification_ids =
+             List.map
+               (C.inbox
+                  t
+                  ~consumer_id:consumer
+                  ~recipient:(recipient bob)
+                  ~after:0
+                  ~through:None)
+               ~f:(fun n -> n.C.Notification.serial)
+         })
   in
   let events = events @ [ subscription_event; team_event; pin_event; cursor_event ] in
   let restored =
@@ -203,12 +240,13 @@ let%expect_test "resolved deliveries, subscriptions and read cursors survive rep
     [%sexp
       (String.equal (Json.canonical (C.to_json t)) (Json.canonical (C.to_json restored))
        : bool)
-    , (C.inbox_position restored (recipient bob) : int)
+    , (Set.length (C.acknowledged restored consumer (recipient bob)) : int)
     , (List.length
          (C.inbox
             restored
+            ~consumer_id:consumer
             ~recipient:(recipient bob)
-            ~after:(C.inbox_position restored (recipient bob))
+            ~after:0
             ~through:None)
        : int)];
   let bad = { pin_event with C.Change.notifications = [] } in
@@ -269,6 +307,7 @@ let%expect_test
          ; target = Entity_ref.Project (Id.Project.of_string "elsewhere" |> unwrap)
          ; reply_to = None
          ; kind = Comment
+         ; origin = Authored
          ; version =
              { revision = 1
              ; serial = 1
@@ -327,6 +366,7 @@ let%expect_test
   let result =
     C.query
       t
+      ~discussion:Discussion.empty
       ~method_:"request.list"
       ~params:(Json.obj [ "unanswered", `True; "overdue_at_unix_ms", Json.string "101" ])
     |> unwrap
@@ -335,6 +375,7 @@ let%expect_test
   let threads =
     C.query
       t
+      ~discussion:Discussion.empty
       ~method_:"thread.list"
       ~params:(Json.obj [ "actor_id", Id.Actor.jsonaf_of_t bob; "unresolved", `True ])
     |> unwrap
@@ -393,10 +434,12 @@ let%expect_test
   let read =
     C.query
       t
+      ~discussion:fixture_discussion
       ~method_:"inbox.read"
       ~params:
         (Json.obj
-           [ "recipient", C.Recipient.jsonaf_of_t (recipient watcher)
+           [ "consumer_id", Communication_id.Consumer.jsonaf_of_t consumer
+           ; "recipient", C.Recipient.jsonaf_of_t (recipient watcher)
            ; "after", Json.int before
            ; "through", Json.int capture
            ; "limit", Json.int 1
@@ -407,10 +450,16 @@ let%expect_test
     [%sexp
       (List.length (Json.list (Json.field read "items")) : int)
     , (Json.integer (Json.field read "next_after") : int)
-    , (C.inbox_position t (recipient watcher) : int)];
+    , (Set.length (C.acknowledged t consumer (recipient watcher)) : int)];
   print_s
     [%sexp
-      (List.length (C.inbox t ~recipient:(recipient watcher) ~after:capture ~through:None)
+      (List.length
+         (C.inbox
+            t
+            ~consumer_id:consumer
+            ~recipient:(recipient watcher)
+            ~after:capture
+            ~through:None)
        : int)];
   [%expect
     {|
@@ -497,4 +546,486 @@ let%expect_test "communication event wire round trips and replay match original 
       then failwith "replay differs");
   print_endline "50 deterministic replay properties passed";
   [%expect {| 50 deterministic replay properties passed |}]
+;;
+
+let%expect_test
+    "related direct reads expose current source versions and guard both captures"
+  =
+  let t, _ = fixture () in
+  let version ~revision ~serial ~body ~tombstone =
+    { Discussion.Version.revision
+    ; serial
+    ; sequence = serial
+    ; actor = alice
+    ; timestamp = "2026-10-08"
+    ; body
+    ; tombstone
+    }
+  in
+  let discussion =
+    Discussion.apply
+      Discussion.empty
+      ~sequence:1
+      (Create
+         { id = message
+         ; target = Entity_ref.Workspace
+         ; reply_to = None
+         ; kind = Comment
+         ; origin = Authored
+         ; version =
+             version ~revision:1 ~serial:1 ~body:"Original question" ~tombstone:false
+         })
+  in
+  let discussion =
+    Discussion.apply
+      discussion
+      ~sequence:2
+      (Revise
+         { id = message
+         ; version =
+             version ~revision:2 ~serial:2 ~body:"Corrected question" ~tombstone:false
+         })
+  in
+  let second = Id.Comment.of_string "second" |> unwrap in
+  let discussion =
+    Discussion.apply
+      discussion
+      ~sequence:3
+      (Create
+         { id = second
+         ; target = Entity_ref.Workspace
+         ; reply_to = None
+         ; kind = Comment
+         ; origin = Authored
+         ; version = version ~revision:1 ~serial:3 ~body:"Reply" ~tombstone:false
+         })
+  in
+  let thread_revision = (Option.value_exn (C.get_thread t thread)).revision in
+  let t, _ =
+    step
+      t
+      (Thread_attach
+         { id = thread; expected_revision = thread_revision; message = second })
+  in
+  let discussion =
+    Discussion.apply
+      discussion
+      ~sequence:4
+      (Revise
+         { id = second; version = version ~revision:2 ~serial:4 ~body:"" ~tombstone:true })
+  in
+  let first =
+    C.query
+      t
+      ~discussion
+      ~method_:"request.get"
+      ~params:
+        (Json.obj
+           [ "request_id", Communication_id.Request.jsonaf_of_t request
+           ; "include_messages", `True
+           ; "message_limit", Json.int 1
+           ])
+    |> unwrap
+  in
+  let related = Json.field (Json.field first "record") "related" in
+  let source = Json.field related "source_message" in
+  print_s
+    [%sexp
+      (Json.text (Json.field source "body") : string)
+    , (Json.integer (Json.field source "revision") : int)];
+  print_endline (Json.canonical (Json.field related "source_message_reference"));
+  let capture =
+    [ "thread_id", Communication_id.Thread.jsonaf_of_t thread
+    ; "include_messages", `True
+    ; "message_limit", Json.int 1
+    ; "message_offset", Json.int 1
+    ; "revision", Json.field first "revision"
+    ; "discussion_serial", Json.field related "discussion_serial"
+    ]
+  in
+  let page =
+    C.query t ~discussion ~method_:"thread.get" ~params:(Json.obj capture) |> unwrap
+  in
+  let page = Json.field (Json.field (Json.field page "record") "related") "messages" in
+  let item = List.hd_exn (Json.field page "items" |> Json.list) in
+  print_endline
+    (Json.canonical
+       (Json.obj
+          [ "comment_id", Json.field item "comment_id"
+          ; "revision", Json.field item "revision"
+          ; "tombstone", Json.field item "tombstone"
+          ; "next_offset", Json.field page "next_offset"
+          ]));
+  let changed_discussion =
+    Discussion.apply
+      discussion
+      ~sequence:5
+      (Revise
+         { id = message
+         ; version =
+             version ~revision:3 ~serial:5 ~body:"Another correction" ~tombstone:false
+         })
+  in
+  print_error
+    (C.query
+       t
+       ~discussion:changed_discussion
+       ~method_:"thread.get"
+       ~params:(Json.obj capture));
+  let changed, _ =
+    step
+      t
+      (Thread_pin_message
+         { id = thread
+         ; expected_revision = (Option.value_exn (C.get_thread t thread)).revision
+         ; message
+         ; pinned = true
+         })
+  in
+  print_error
+    (C.query changed ~discussion ~method_:"thread.get" ~params:(Json.obj capture));
+  [%expect
+    {|
+    ("Corrected question" 2)
+    {"comment_id":"message","revision":null}
+    {"comment_id":"second","next_offset":null,"revision":"2","tombstone":true}
+    Conflict
+    Conflict |}]
+;;
+
+let%expect_test
+    "related direct codecs reject malformed paging and disclose body omissions"
+  =
+  let codec = Communication_related.Query.thread_codec in
+  let base = [ "thread_id", Json.string "thread"; "include_messages", `True ] in
+  List.iter
+    [ [ "message_offset", Json.int 1 ]
+    ; [ "message_limit", Json.int 0 ]
+    ; [ "message_limit", Json.int 101 ]
+    ; [ "message_limit", `Number "1" ]
+    ; [ "discussion_serial", `Null ]
+    ; [ "unexpected", `True ]
+    ]
+    ~f:(fun fields -> print_error (Api_codec.decode codec (Json.obj (base @ fields))));
+  print_error
+    (Api_codec.decode
+       codec
+       (Json.obj
+          [ "thread_id", Json.string "thread"
+          ; "include_messages", `False
+          ; "message_offset", Json.int 0
+          ]));
+  let t, _ = fixture () in
+  let discussion =
+    Discussion.apply
+      Discussion.empty
+      ~sequence:1
+      (Create
+         { id = message
+         ; target = Entity_ref.Workspace
+         ; reply_to = None
+         ; kind = Comment
+         ; origin = Authored
+         ; version =
+             { revision = 1
+             ; serial = 1
+             ; sequence = 1
+             ; actor = alice
+             ; timestamp = "2026-10-08"
+             ; body = String.make 50_000 'x'
+             ; tombstone = false
+             }
+         })
+  in
+  let result =
+    C.query
+      t
+      ~discussion
+      ~method_:"thread.get"
+      ~params:
+        (Json.obj
+           [ "thread_id", Communication_id.Thread.jsonaf_of_t thread
+           ; "include_messages", `True
+           ; "max_bytes", Json.int 4096
+           ])
+    |> unwrap
+  in
+  let budget = Json.field result "budget" in
+  print_endline (Json.canonical (Json.obj [ "truncated", Json.field budget "truncated" ]));
+  let omissions = Json.field budget "details" |> Json.list in
+  print_s
+    [%sexp
+      (List.exists omissions ~f:(fun omission ->
+         String.is_suffix (Json.text (Json.field omission "path")) ~suffix:"/body")
+       : bool)];
+  [%expect
+    {|
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    {"truncated":true}
+    true |}]
+;;
+
+let%expect_test "direct messages pin bodies and consumer acknowledgements select IDs" =
+  let id = Communication_id.Message.of_string "direct-message" |> unwrap in
+  let prepared =
+    C.prepare_message
+      C.empty
+      { message_id = id
+      ; body = "initial body"
+      ; ticket_id = None
+      ; recipients = [ recipient alice; recipient alice; recipient bob ]
+      ; teams = []
+      ; reply_to_message_id = None
+      ; correlation_id = Some "correlation"
+      }
+      ~discussion:Discussion.empty
+      ~actor:resolver
+      ~run:None
+      ~timestamp:"2026-10-08"
+      ~sequence:1
+    |> unwrap
+  in
+  let state = C.Message_prepared.candidate prepared in
+  let discussion = C.Message_prepared.discussion prepared in
+  let stored = Option.value_exn (C.get_message state id) in
+  let discussion =
+    Discussion.apply
+      discussion
+      (Discussion.Change.Revise
+         { id = stored.comment_id
+         ; version =
+             { revision = 2
+             ; serial = 2
+             ; sequence = 2
+             ; actor = resolver
+             ; timestamp = "2026-10-09"
+             ; body = "edited body"
+             ; tombstone = false
+             }
+         })
+      ~sequence:2
+  in
+  let query consumer_id =
+    C.query
+      state
+      ~discussion
+      ~method_:"inbox.read"
+      ~params:
+        (Json.obj
+           [ "consumer_id", Communication_id.Consumer.jsonaf_of_t consumer_id
+           ; "recipient", C.Recipient.jsonaf_of_t (recipient alice)
+           ])
+    |> unwrap
+  in
+  let packet = List.hd_exn (Json.list (Json.field (query consumer) "items")) in
+  print_s
+    [%sexp
+      (List.length stored.recipients : int)
+    , (Json.text (Json.field (Json.field packet "body_source") "body") : string)
+    , (Json.text (Json.field (Json.field packet "body_source") "version_kind") : string)];
+  let state, event =
+    step
+      ~actor:alice
+      state
+      (Inbox_ack
+         { consumer_id = consumer; recipient = recipient alice; notification_ids = [ 1 ] })
+  in
+  let read consumer_id =
+    C.inbox state ~consumer_id ~recipient:(recipient alice) ~after:0 ~through:None
+  in
+  let other = Communication_id.Consumer.of_string "other" |> unwrap in
+  print_s [%sexp (List.length (read consumer) : int), (List.length (read other) : int)];
+  print_error
+    (C.prepare
+       state
+       (Inbox_ack
+          { consumer_id = consumer
+          ; recipient = recipient alice
+          ; notification_ids = [ 999 ]
+          })
+       ~actor:alice
+       ~run:None
+       ~timestamp:"2026-10-08"
+       ~sequence:3);
+  let forged =
+    { event with
+      C.Change.update =
+        Inbox_ack
+          { consumer_id = consumer
+          ; recipient = recipient (actor "outsider")
+          ; notification_ids = [ 1 ]
+          }
+    }
+  in
+  print_error (C.apply (C.Message_prepared.candidate prepared) forged);
+  let replay =
+    List.fold
+      (C.Message_prepared.changes prepared)
+      ~init:C.empty
+      ~f:(fun state -> function
+      | Discussion_change _ -> state
+      | Communication_change change ->
+        C.apply state (C.Change.decode (C.Change.jsonaf_of_t change) |> unwrap) |> unwrap)
+  in
+  print_s [%sexp (C.latest_serial replay : int)];
+  [%expect
+    {|
+    (2 "initial body" initial)
+    (0 1)
+    Invalid_argument
+    Conflict
+    1
+    |}]
+;;
+
+let%expect_test "inbox codecs reject malformed selectors and skipped response cursors" =
+  let params fields =
+    Json.obj
+      ([ "consumer_id", Json.string "consumer"
+       ; "recipient", Json.obj [ "kind", Json.string "actor"; "id", Json.string "alice" ]
+       ]
+       @ fields)
+  in
+  List.iter
+    [ [ "after", Json.int 2; "through", Json.int 1 ]
+    ; [ "kinds", `Array [ Json.string "made_up" ] ]
+    ; [ "limit", Json.int 101 ]
+    ]
+    ~f:(fun fields ->
+      print_error (Api_codec.decode Communication_inbox.Query.read_codec (params fields)));
+  print_error
+    (Api_codec.decode
+       Communication_inbox.Query.wait_codec
+       (params [ "timeout_ms", Json.int 25_001 ]));
+  print_error
+    (Api_codec.decode
+       Communication_inbox.Ack.codec
+       (params [ "notification_ids", `Array [] ]));
+  print_error
+    (Api_codec.decode
+       Communication_inbox.result_codec
+       (params
+          [ "after", Json.int 0
+          ; "through", Json.int 3
+          ; "next_after", Json.int 3
+          ; "remaining", Json.int 0
+          ; "items", `Array []
+          ]));
+  [%expect
+    {|
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test
+    "message team routes remain frozen and replies replay with one authored body"
+  =
+  let state, team_event =
+    step
+      C.empty
+      (Team_put
+         { id = team
+         ; expected_revision = 0
+         ; title = "Reviewers"
+         ; members = [ recipient alice ]
+         })
+  in
+  let send state discussion message_id reply_to_message_id recipients teams sequence =
+    C.prepare_message
+      state
+      { message_id
+      ; body = "Review reply"
+      ; ticket_id = None
+      ; recipients
+      ; teams
+      ; reply_to_message_id
+      ; correlation_id = Some "review"
+      }
+      ~discussion
+      ~actor:resolver
+      ~run:None
+      ~timestamp:"2026-10-08"
+      ~sequence
+    |> unwrap
+  in
+  let first_id = Communication_id.Message.of_string "first" |> unwrap in
+  let first = send state Discussion.empty first_id None [] [ team ] 2 in
+  let state, team_change =
+    step
+      (C.Message_prepared.candidate first)
+      (Team_put
+         { id = team
+         ; expected_revision = 1
+         ; title = "Reviewers"
+         ; members = [ recipient bob ]
+         })
+  in
+  let reply_id = Communication_id.Message.of_string "reply" |> unwrap in
+  let reply =
+    send
+      state
+      (C.Message_prepared.discussion first)
+      reply_id
+      (Some first_id)
+      []
+      [ team ]
+      4
+  in
+  let state = C.Message_prepared.candidate reply in
+  let original = Option.value_exn (C.get_message state first_id)
+  and response = Option.value_exn (C.get_message state reply_id) in
+  print_s
+    [%sexp
+      (original.recipients : C.Recipient.t list)
+    , (response.recipients : C.Recipient.t list)];
+  let events =
+    [ C.Message_prepared.Communication_change team_event ]
+    @ C.Message_prepared.changes first
+    @ [ C.Message_prepared.Communication_change team_change ]
+    @ C.Message_prepared.changes reply
+  in
+  let restored, discussion =
+    List.fold
+      events
+      ~init:(C.empty, Discussion.empty)
+      ~f:(fun (state, discussion) -> function
+      | Discussion_change change ->
+        ( state
+        , Discussion.apply
+            discussion
+            change
+            ~sequence:
+              (match change with
+               | Create { version; _ } | Revise { version; _ } -> version.sequence) )
+      | Communication_change change ->
+        ( C.apply state (C.Change.decode (C.Change.jsonaf_of_t change) |> unwrap) |> unwrap
+        , discussion ))
+  in
+  print_error (C.validate_references restored ~entity_exists:(fun _ -> true) ~discussion);
+  print_s
+    [%sexp
+      (Sequence.length (Discussion.ids discussion) : int)
+    , (C.Message.equal original (Option.value_exn (C.get_message restored first_id))
+       : bool)
+    , (Communication_id.Message.equal
+         (Option.value_exn response.reply_to_message_id)
+         first_id
+       : bool)];
+  [%expect
+    {|
+    (((Actor alice)) ((Actor bob)))
+    ok
+    (2 true true)
+    |}]
 ;;

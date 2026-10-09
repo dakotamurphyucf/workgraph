@@ -148,6 +148,7 @@ let of_json json =
 ;;
 
 let last_unix_ms t = t.last_unix_ms
+let deadline_unix_ms t = t.deadline_unix_ms
 let jsonaf_of_t = to_json
 
 let t_of_jsonaf json =

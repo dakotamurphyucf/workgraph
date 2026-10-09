@@ -28,7 +28,7 @@ class AdapterTest(unittest.TestCase):
                         raise ValueError("changed retry")
                     return result
                 self.events.extend(params["events"])
-                result = {"durable": True, "through": str(len(self.events))}
+                result = {"data": {"through": str(len(self.events))}, "meta": {"durable": True}}
                 self.receipts[identity] = encoded, result
                 if self.lose_ack:
                     self.lose_ack = False
@@ -47,7 +47,7 @@ class AdapterTest(unittest.TestCase):
             state = module.ingest(client, **params)
             self.assertEqual(state["through"], "1")
             self.assertEqual(len(client.events), 1)
-            self.assertEqual(client.events[0]["payload"]["bytes_base64"], "/wA=")
+            self.assertEqual(client.events[0]["payload"], {"kind": "inline", "bytes_base64": "/wA="})
             source.write_text(module.canonical({"source_id": "first", "payload": "changed"}) + "\n")
             with self.assertRaisesRegex(ValueError, "source changed"):
                 module.ingest(client, **params)

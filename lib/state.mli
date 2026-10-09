@@ -1,6 +1,9 @@
 open Core
 
+(** Public facade over private immutable snapshot, preparation, replay, query,
+    search and rendering modules. Clients cannot construct intermediate state. *)
 type t
+
 type prepared
 
 (** Validate a nonempty name of at most 512 bytes before creating a state. *)
@@ -17,7 +20,24 @@ val agent_runs : t -> Agent_run.t
 val evidence : t -> Evidence.t
 val communication : t -> Communication.t
 val policies : t -> Agent_run_policy.t
-val coordination_tickets : t -> Coordinator.Ticket.t list
+
+(** Planning/entity/fact admission accounting at this immutable snapshot. These
+    are enforced allowances, not physical disk usage or guaranteed future capacity. *)
+val admission : t -> Admission.t list
+
+(** Recorded transitions and UTC status intervals from retained planning audit.
+    Unknown/regressed time intervals remain explicitly unavailable. *)
+val metrics : t -> observed_unix_ms:int64 -> Workspace_metrics.Planning.t
+
+(** Coordinator graph candidates and exact typed readiness. [run] supplies the
+    same selector used for allocation diagnostics; omitting it retains actionable
+    run-required reasons. Supply current [now_unix_ms] for timed ownership; absent
+    time remains explicitly unavailable rather than inferred from a stored lease. *)
+val coordination_tickets
+  :  ?run:Id.Run.t
+  -> ?now_unix_ms:int64
+  -> t
+  -> Coordinator.Ticket.t list
 
 (** Pure preparation. State and receipt remain unpublished until durable commit.
     [actor] is attribution within the trusted local user, not authentication.
@@ -54,6 +74,8 @@ val result : prepared -> Jsonaf.t
 val blobs : prepared -> (string * string) list
 
 (** Replay resolved versioned changes, without running the original command.
+    Comment versions match transaction attribution. Claimed ticket completion
+    requires its adjacent immutable evidence; unrelated completion origins fail.
     New attempts recheck the allocation budget at their recorded event boundary.
     Terminal reconciliation acknowledgement/continued-use events retain their
     recorded consumer actor/run and cannot revise inputs.
@@ -70,10 +92,16 @@ val replay : t -> Jsonaf.t -> (t, Problem.t) Result.t
     [query] searches in-memory sources only; [query_with_texts] also uses bounded
     current resource prefixes supplied by the storage adapter, validating revision
     and digest identity. Both disclose excluded text and source/index revisions. *)
-val query : t -> method_:string -> params:Jsonaf.t -> (Jsonaf.t, Problem.t) Result.t
+val query
+  :  ?now_unix_ms:int64
+  -> t
+  -> method_:string
+  -> params:Jsonaf.t
+  -> (Jsonaf.t, Problem.t) Result.t
 
 val query_with_texts
-  :  t
+  :  ?now_unix_ms:int64
+  -> t
   -> resource_texts:Search.Text.t list
   -> method_:string
   -> params:Jsonaf.t

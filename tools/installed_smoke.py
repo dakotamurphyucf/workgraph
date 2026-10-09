@@ -32,11 +32,17 @@ def run(arguments):
 
 
 def call(method, params):
-    completed = run([str(exe), "call", address, method, json.dumps(params)])
+    try:
+        completed = run([str(exe), "call", address, method, json.dumps(params)])
+    except subprocess.CalledProcessError as error:
+        evidence.write(json.dumps({"method": method, "params": params, "exit_status": error.returncode,
+                                   "stdout": error.stdout, "stderr": error.stderr}) + "\n")
+        evidence.flush()
+        raise
     response = json.loads(completed.stdout)
     evidence.write(json.dumps({"method": method, "params": params, "response": response}) + "\n")
     evidence.flush()
-    return response["result"]
+    return response["result"]["data"]
 
 
 def admin(method, **params):
@@ -74,23 +80,50 @@ def stop():
 
 
 def context(ticket):
-    return call("ticket.context", {"workspace_id": "smoke", "ticket_id": ticket})["data"]
+    return call("ticket.context", {"workspace_id": "smoke", "ticket_id": ticket})
 
 
 def complete(ticket):
     observed = context(ticket)["ticket"]["revision"]
-    claim = mutate("ticket.claim", ticket_id=ticket, expected_revision=observed)
-    token = claim["result"]["token"]
+    claim = mutate("ticket.start", ticket_id=ticket, expected_revision=observed,
+                   initial_note="Started from the installed executable")
+    token = claim["token"]
+    resumed = call("ticket.resume", {"workspace_id": "smoke", "ticket_id": ticket, "max_bytes": "16384"})
+    assert resumed["ticket_id"] == ticket
+    assert "associated_run_missing" in {warning["code"] for warning in resumed["warnings"]}
+    resumed_claim = next(item["record"]["claim"] for item in resumed["items"] if item["kind"] == "task")
+    assert (resumed_claim["actor_id"], resumed_claim["run_id"], resumed_claim["token"]) == ("agent", "installed", token)
     mutate("ticket.progress", ticket_id=ticket, token=token, body="Installed binary validation passed")
     mutate("handoff.set", ticket_id=ticket, token=token, expected_revision="0",
            summary="Validated from a fresh runtime", next_steps="Read the next ready ticket",
            evidence="CLI workflow and durable receipt", resource_ids=["notes"])
-    mutate("ticket.complete", ticket_id=ticket, token=token, evidence="Installed CLI smoke passed")
+    mutate("ticket.finish", ticket_id=ticket, token=token, evidence="Installed CLI smoke passed")
     assert context(ticket)["ticket"]["status"] == "done"
 
 
 def git(directory, *args):
     return run(["git", "-C", str(directory), *args])
+
+
+def check_memory():
+    scope = {"kind": "ticket", "id": "first"}
+    params = {"workspace_id": "smoke", "scope": scope}
+    fact = call("fact.get", {**params, "key": "decision"})
+    assert fact["value"] == {"choice": "retain input digest", "literal": "$not-an-alias"}
+    keys = call("fact.keys", params)
+    assert [item["key"] for item in keys["items"]] == ["decision"]
+    assert all("value" not in item for item in keys["items"])
+    resume = call("ticket.resume", {"workspace_id": "smoke", "ticket_id": "first",
+                  "max_bytes": "65536", "fact_selections": [{"scope": scope, "key": "decision"}]})
+    selected = [item for item in resume["items"] if item["kind"] == "fact"]
+    assert len(selected) == 1 and selected[0]["record"]["value"] == fact["value"]
+    digest = call("activity.digest", {"workspace_id": "smoke",
+                  "scope": {"kind": "ticket", "ticket_id": "first"}, "after": "0", "max_bytes": "65536"})
+    assert any(item["category"] == "completion" for item in digest["entries"])
+    assert any(item["category"] == "fact" for item in digest["entries"])
+    metrics = call("workspace.metrics", {"workspace_id": "smoke", "max_bytes": "4096"})
+    assert metrics["completion_transitions"] == "1"
+    assert metrics["reported_usage"]["observations"] == "0"
 
 
 try:
@@ -103,6 +136,9 @@ try:
     mutate("dependency.add", ticket_id="second", prerequisite_id="first")
     mutate("resource.put_text", resource_id="notes", expected_revision="0", title="Evidence", text="Installed CLI only")
     complete("first")
+    mutate("fact.put", scope={"kind": "ticket", "id": "first"}, key="decision", expected_revision="0",
+           value={"choice": "retain input digest", "literal": "$not-an-alias"})
+    check_memory()
     job = admin("workspace.export", workspace_id="smoke", destination=str(root / "export"))
     deadline = time.monotonic() + 60
     while True:
@@ -126,6 +162,7 @@ try:
     start("registry-2")
     admin("workspace.register", root=str(clone))
     assert context("first")["ticket"]["status"] == "done"
+    check_memory()
     complete("second")
     admin("workspace.close", workspace_id="smoke")
     stop()
@@ -136,9 +173,11 @@ try:
     assert context("first")["ticket"]["status"] == "done"
     assert context("second")["ticket"]["status"] == "todo"
     assert context("first")["handoff"]["summary"] == "Validated from a fresh runtime"
+    check_memory()
     stop()
     print(json.dumps({"result": "passed", "executable": str(exe), "runtime": str(root),
-                      "checks": ["version", "create", "claim", "progress", "handoff", "complete",
+                      "checks": ["version", "create", "start", "claimed-resume", "progress", "handoff", "finish",
+                                 "facts-and-key-discovery", "resume-selected-facts", "activity-digest", "metrics",
                                  "resource", "export", "verify", "git-clone-resume", "restore"]}))
 finally:
     if process is not None and process.poll() is None:

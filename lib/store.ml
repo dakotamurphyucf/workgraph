@@ -343,7 +343,7 @@ let open_existing ~sw ~fs ~root =
                 let name = filename sequence digest in
                 let bytes = Disk.read Eio.Path.(root_path / "transactions" / name) in
                 let total_bytes = total_bytes + String.length bytes in
-                if total_bytes > 128 * 1024 * 1024
+                if total_bytes > Admission.Limit.maximum Planning_transaction_bytes
                 then
                   Json.fail Corrupt_store "MVP retained transaction bytes exceed 128 MiB";
                 if not (String.equal (Json.hash bytes) digest)
@@ -418,7 +418,7 @@ let open_existing ~sw ~fs ~root =
                 verified := Map.set !verified ~key:digest ~data:size);
             if
               Map.fold !verified ~init:0 ~f:(fun ~key:_ ~data:size total -> total + size)
-              > 512 * 1024 * 1024
+              > Admission.Limit.maximum Referenced_resource_bytes
             then Json.fail Corrupt_store "referenced blob storage exceeds 512MiB";
             validate_history_state state (Session_store.capture t.history |> Disk.unwrap);
             t, state)
@@ -449,7 +449,7 @@ let commit t ~prepared ~key ~request_hash =
         Json.fail Conflict "workspace identity changed externally");
       if State.revision (State.candidate prepared) <> t.sequence + 1
       then Json.fail Conflict "stale prepared transaction";
-      if t.sequence >= 100_000
+      if t.sequence >= Admission.Limit.maximum Planning_commits
       then Json.fail Invalid_argument "MVP transaction limit is 100000";
       validate_domain_history
         (State.candidate prepared)
@@ -481,7 +481,9 @@ let commit t ~prepared ~key ~request_hash =
       let bytes = Json.canonical tx in
       if String.length bytes > 4 * 1024 * 1024
       then Json.fail Invalid_argument "transaction exceeds 4 MiB";
-      if t.retained_bytes + String.length bytes > 128 * 1024 * 1024
+      if
+        t.retained_bytes + String.length bytes
+        > Admission.Limit.maximum Planning_transaction_bytes
       then Json.fail Invalid_argument "MVP retained transaction bytes exceed 128 MiB";
       List.iter (State.blobs prepared) ~f:(fun (digest, bytes) ->
         let target = path t ("blobs/" ^ digest) in
@@ -646,4 +648,14 @@ let flush_heartbeats t =
 
 let heartbeat_observations t =
   with_history t ~f:(fun _ -> Result.map (heartbeat_cache t) ~f:Heartbeat.observations)
+;;
+
+let admission t =
+  Disk.protect (fun () ->
+    require_storage_directories t;
+    [ Admission.create Planning_commits ~used:t.sequence |> Disk.unwrap
+    ; Admission.create Planning_transaction_bytes ~used:t.retained_bytes |> Disk.unwrap
+    ]
+    @ (Session_store.admission t.history |> Disk.unwrap)
+    @ Upload.admission t.uploads)
 ;;

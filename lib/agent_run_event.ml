@@ -164,13 +164,38 @@ module Record = struct
   ;;
 end
 
+module Recovery_snapshot = struct
+  type t =
+    | Named of Reservation.t
+    | Path of Path_reservation.t
+  [@@deriving sexp, equal, jsonaf]
+
+  let t_of_jsonaf json =
+    match Json.list json with
+    | [ `String "Named"; value ] -> Named (Reservation.t_of_jsonaf value)
+    | [ `String "Path"; value ] -> Path (Path_reservation.t_of_jsonaf value)
+    | [] | _ :: _ -> Json.fail Invalid_argument "Invalid recovery snapshot"
+  ;;
+end
+
 module Update = struct
   type t =
     | Pool_put of Allocation.Definition.t
     | Ticket_policy_put of Allocation.Ticket_policy.t
     | Run_put of Record.t
+    | Attempt_started of
+        { attempt : Attempt.t
+        ; now_unix_ms : int64
+        }
     | Attempt_put of Attempt.t
     | Reservation_put of Reservation.t
+    | Path_reservation_put of Path_reservation.t
+    | Ticket_paths_put of Ticket_paths.t
+    | External_condition_changed of External_condition.Change.t
+    | Ownership_recovered of
+        { recovery : Ownership_recovery.t
+        ; after : Recovery_snapshot.t
+        }
     | Actions_set of
         { actions : Runner_action.t list
         ; evidence : string
@@ -225,9 +250,27 @@ let t_of_jsonaf json =
         ; pools = List.map (Json.list (Json.field value "pools")) ~f:Json.text
         }
     | [ `String "Run_put"; value ] -> Update.Run_put (Record.t_of_jsonaf value)
+    | [ `String "Attempt_started"; value ] ->
+      Json.fields value ~allowed:[ "attempt"; "now_unix_ms" ];
+      Attempt_started
+        { attempt = Attempt.t_of_jsonaf (Json.field value "attempt")
+        ; now_unix_ms = Json.integer64 (Json.field value "now_unix_ms")
+        }
     | [ `String "Attempt_put"; value ] -> Attempt_put (Attempt.t_of_jsonaf value)
     | [ `String "Reservation_put"; value ] ->
       Reservation_put (Reservation.t_of_jsonaf value)
+    | [ `String "Path_reservation_put"; value ] ->
+      Path_reservation_put (Path_reservation.t_of_jsonaf value)
+    | [ `String "Ticket_paths_put"; value ] ->
+      Ticket_paths_put (Ticket_paths.t_of_jsonaf value)
+    | [ `String "External_condition_changed"; value ] ->
+      External_condition_changed (External_condition.Change.t_of_jsonaf value)
+    | [ `String "Ownership_recovered"; value ] ->
+      Json.fields value ~allowed:[ "recovery"; "after" ];
+      Ownership_recovered
+        { recovery = Ownership_recovery.t_of_jsonaf (Json.field value "recovery")
+        ; after = Recovery_snapshot.t_of_jsonaf (Json.field value "after")
+        }
     | [ `String "Actions_set"; value ] ->
       Json.fields value ~allowed:[ "actions"; "evidence" ];
       Actions_set

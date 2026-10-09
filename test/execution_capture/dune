@@ -1,0 +1,13 @@
+(library
+ (name workgraph_execution_capture_tests)
+ (modules execution_capture_test source_provenance_test)
+ (libraries workgraph core eio_main expect_test_helpers_core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(rule
+ (alias runtest)
+ (deps cli_test.py ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:cli_test.py} %{exe:../../bin/main.exe})))

@@ -69,10 +69,10 @@ let begin_upload t ~id ~actor ~size_bytes ~digest =
       response id entry
     | None ->
       if
-        Map.length t.entries >= 8
+        Map.length t.entries >= Admission.Limit.maximum Active_uploads
         || Map.fold t.entries ~init:size_bytes ~f:(fun ~key:_ ~data total ->
              total + data.Entry.size_bytes)
-           > 256 * 1024 * 1024
+           > Admission.Limit.maximum Reserved_upload_bytes
       then
         Json.fail Invalid_argument "upload admission limit: 8 uploads or 256MiB reserved";
       Disk.ensure_directory t.directory;
@@ -168,3 +168,14 @@ let abort t ~id ~actor =
 ;;
 
 let forget t ~id = t.entries <- Map.remove t.entries id
+
+let admission t =
+  [ Admission.create Active_uploads ~used:(Map.length t.entries) |> Disk.unwrap
+  ; Admission.create
+      Reserved_upload_bytes
+      ~used:
+        (Map.fold t.entries ~init:0 ~f:(fun ~key:_ ~data total ->
+           total + data.Entry.size_bytes))
+    |> Disk.unwrap
+  ]
+;;

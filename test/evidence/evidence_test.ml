@@ -1,6 +1,5 @@
 open Core
 open Workgraph
-module E = Evidence
 
 let unwrap = function
   | Ok x -> x
@@ -13,6 +12,32 @@ let ticket = Id.Ticket.of_string "ticket" |> unwrap
 let attempt = Attempt.Id.of_string "attempt" |> unwrap
 let contract_id = Evidence_id.Contract.of_string "contract" |> unwrap
 let manifest_id = Evidence_id.Manifest.of_string "manifest" |> unwrap
+
+let ticket_context _ =
+  Some
+    { Evidence.Ticket_context.project = None
+    ; membership_revision = 1
+    ; minimum_reopening_token = None
+    ; current_token = Some 1
+    ; ownership = Some { token = 1; actor; run = None }
+    ; attempt = Some attempt
+    }
+;;
+
+module E = struct
+  include Evidence
+
+  let prepare t command = Evidence.prepare t command ~ticket_context
+  let apply t event = Evidence.apply t event ~ticket_context
+  let query t = Evidence.query t ~ticket_context
+  let ensure_can_complete t = Evidence.ensure_can_complete t ~ticket_context
+
+  let ensure_attempt_can_complete t =
+    Evidence.ensure_attempt_can_complete t ~ticket_context
+  ;;
+
+  let review_recipients t = Evidence.review_recipients t ~ticket_context
+end
 
 let resource id revision digest =
   { E.Resource_pin.id = Id.Resource.of_string id |> unwrap
@@ -88,6 +113,7 @@ let fixture ?(reviewers = [ E.Policy.Requirement.Named_actor reviewer ]) () =
          ; reviewers
          ; separate_actor = true
          ; validators = [ "tests" ]
+         ; weakening_reason = None
          })
   in
   let t, s =
@@ -103,11 +129,14 @@ let print_error = function
   | Error (error : Problem.t) -> print_s [%sexp (error.kind : Problem.kind)]
 ;;
 
-let validation id manifest passed =
+let validation t id manifest passed =
   E.Command.Validate
     { id = Evidence_id.Validation.of_string id |> unwrap
     ; manifest
     ; name = "tests"
+    ; expected_policy_digest =
+        Acceptance_policy.Effective.digest
+          (Evidence.effective_policy t ~ticket_context ~ticket |> unwrap)
     ; passed
     ; evidence = "Exact-version test result"
     }
@@ -137,7 +166,7 @@ let%expect_test "approval binds exact output, contract and validator versions" =
        ~run:None
        ~timestamp:"now"
        ~sequence:6);
-  let t, _ = step t (validation "validation_1" (mref 1) true) in
+  let t, _ = step t (validation t "validation_1" (mref 1) true) in
   let t, _ = step t (Accept { ticket; expected_revision = 1 }) in
   print_error (E.ensure_can_complete t ~ticket);
   let t, _ = step t (publish ~output_revision:2 1) in
@@ -164,7 +193,7 @@ let%expect_test "approval binds exact output, contract and validator versions" =
        ~run:None
        ~timestamp:"now"
        ~sequence:11);
-  let t, _ = step t (validation "validation_2" (mref 2) true) in
+  let t, _ = step t (validation t "validation_2" (mref 2) true) in
   let t, _ = step t (Accept { ticket; expected_revision = 3 }) in
   print_error (E.ensure_can_complete t ~ticket);
   [%expect
@@ -208,10 +237,10 @@ let%expect_test "role membership, actor separation and rejection require a new s
       (Submit { ticket; expected_revision = 2; manifest = mref 1; review_request = None })
   in
   let t, _ = step ~actor:reviewer t (review "approve_again" 2 Approve) in
-  let t, _ = step t (validation "passing" (mref 1) true) in
+  let t, _ = step t (validation t "passing" (mref 1) true) in
   let t, _ = step t (Accept { ticket; expected_revision = 3 }) in
   print_error (E.ensure_can_complete t ~ticket);
-  let t, _ = step t (validation "later_failure" (mref 1) false) in
+  let t, _ = step t (validation t "later_failure" (mref 1) false) in
   print_error (E.ensure_can_complete t ~ticket);
   print_s [%sexp (E.review_recipients t ~ticket : Id.Actor.t list)];
   [%expect
@@ -287,7 +316,7 @@ let%expect_test
   =
   let t, _ = fixture () in
   let t, _ = step ~actor:reviewer t (review "approved" 1 Approve) in
-  let t, _ = step t (validation "passing" (mref 1) true) in
+  let t, _ = step t (validation t "passing" (mref 1) true) in
   let t, _ = step t (Accept { ticket; expected_revision = 1 }) in
   let t, event =
     step
@@ -519,7 +548,9 @@ let%expect_test
   [%expect {| 50 consumer/replay properties passed |}]
 ;;
 
-let%expect_test "attempt completion requires its own manifest even without a review gate" =
+let%expect_test
+    "ordinary attempts need no manifest; configured review binds the completing attempt"
+  =
   let t, events = fixture () in
   let ungated =
     List.take events 2
@@ -530,15 +561,15 @@ let%expect_test "attempt completion requires its own manifest even without a rev
   print_error (E.ensure_attempt_can_complete ungated ~attempt ~ticket);
   print_error (E.ensure_attempt_can_complete ungated ~attempt:replacement ~ticket);
   let t, _ = step ~actor:reviewer t (review "approved" 1 Approve) in
-  let t, _ = step t (validation "passed" (mref 1) true) in
+  let t, _ = step t (validation t "passed" (mref 1) true) in
   let t, _ = step t (Accept { ticket; expected_revision = 1 }) in
   print_error (E.ensure_attempt_can_complete t ~attempt ~ticket);
   print_error (E.ensure_attempt_can_complete t ~attempt:replacement ~ticket);
   [%expect
     {|
-    Blocked
     ok
-    Blocked
+    ok
+    ok
     ok
     Blocked
   |}]

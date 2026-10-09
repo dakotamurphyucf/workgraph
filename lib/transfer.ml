@@ -11,7 +11,7 @@ let digest value =
   value
 ;;
 
-let invoke client method_ fields =
+let invoke_result client method_ fields =
   let request =
     Protocol.Request.create ~id:"file-transfer" ~method_ ~params:(Json.obj fields)
     |> Disk.unwrap
@@ -19,12 +19,19 @@ let invoke client method_ fields =
   Client.invoke client request |> Disk.unwrap
 ;;
 
+let invoke client method_ fields =
+  invoke_result client method_ fields
+  |> Api_response.of_json
+  |> Disk.unwrap
+  |> Api_response.data
+;;
+
 module Upload_plan = struct
   type t =
     { workspace : Id.Workspace.t
     ; actor : Id.Actor.t
     ; run : Id.Run.t option
-    ; mutation : Id.Actor.t
+    ; mutation : Id.Mutation.t
     ; resource : Id.Resource.t
     ; expected_revision : int
     ; title : string
@@ -40,7 +47,7 @@ module Upload_plan = struct
       ([ "transfer_version", Json.int 1
        ; "workspace_id", Id.Workspace.jsonaf_of_t t.workspace
        ; "actor_id", Id.Actor.jsonaf_of_t t.actor
-       ; "mutation_id", Id.Actor.jsonaf_of_t t.mutation
+       ; "mutation_id", Id.Mutation.jsonaf_of_t t.mutation
        ; "resource_id", Id.Resource.jsonaf_of_t t.resource
        ; "expected_revision", Json.int t.expected_revision
        ; "title", Json.string t.title
@@ -77,7 +84,7 @@ module Upload_plan = struct
       let workspace = Id.Workspace.t_of_jsonaf (get "workspace_id") in
       let actor = Id.Actor.t_of_jsonaf (get "actor_id") in
       let run = Option.map (Json.optional params "run_id") ~f:Id.Run.t_of_jsonaf in
-      let mutation = Id.Actor.t_of_jsonaf (get "mutation_id") in
+      let mutation = Id.Mutation.t_of_jsonaf (get "mutation_id") in
       let resource = Id.Resource.t_of_jsonaf (get "resource_id") in
       let expected_revision = Json.integer (get "expected_revision") in
       let title = Json.text (get "title") in
@@ -146,7 +153,7 @@ let upload (plan : Upload_plan.t) ~client ~fs =
           (Json.canonical
              (Json.obj
                 [ "actor", Id.Actor.jsonaf_of_t plan.actor
-                ; "mutation", Id.Actor.jsonaf_of_t plan.mutation
+                ; "mutation", Id.Mutation.jsonaf_of_t plan.mutation
                 ; "resource", Id.Resource.jsonaf_of_t plan.resource
                 ; "digest", Json.string plan.digest
                 ; "size", Json.int plan.size_bytes
@@ -156,7 +163,7 @@ let upload (plan : Upload_plan.t) ~client ~fs =
       identity
       @ Option.to_list
           (Option.map plan.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run))
-      @ [ "mutation_id", Id.Actor.jsonaf_of_t plan.mutation
+      @ [ "mutation_id", Id.Mutation.jsonaf_of_t plan.mutation
         ; "upload_id", Json.string upload_id
         ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
         ; "expected_revision", Json.int plan.expected_revision
@@ -169,7 +176,7 @@ let upload (plan : Upload_plan.t) ~client ~fs =
       invoke
         client
         "workspace.receipt"
-        (identity @ [ "mutation_id", Id.Actor.jsonaf_of_t plan.mutation ])
+        (identity @ [ "mutation_id", Id.Mutation.jsonaf_of_t plan.mutation ])
     in
     (match Json.text (Json.field receipt "status") with
      | "committed" -> ()
@@ -231,10 +238,9 @@ let upload (plan : Upload_plan.t) ~client ~fs =
        in
        chunks offset
      | _ -> Json.fail Invalid_argument "invalid workspace receipt status");
-    let response = invoke client "resource.finish_upload" finish in
-    (match Json.optional response "durable" with
-     | Some `True -> ()
-     | _ -> Json.fail Outcome_unknown "finish response did not confirm durability");
+    let response = invoke_result client "resource.finish_upload" finish in
+    let decoded = Api_response.of_json response |> Disk.unwrap in
+    Api_response.require_durable decoded |> Disk.unwrap;
     response)
 ;;
 

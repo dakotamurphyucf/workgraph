@@ -303,6 +303,9 @@ let serve_with ~env ~registry ~listen ~handle_signals =
           Option.value (Json.optional request "params") ~default:(Json.obj [])
         in
         let get key = Json.field params key in
+        let observed_unix_ms =
+          Int64.of_float (Eio.Time.now (Eio.Stdenv.clock env) *. 1000.)
+        in
         (match Json.field request "id" with
          | `String _ | `Number _ | `Null -> ()
          | _ -> Json.fail Invalid_argument "invalid request ID");
@@ -314,99 +317,73 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                   method_
                   ~equal:String.equal)
         then Json.fail Outcome_unknown "registry requires daemon restart";
+        Option.iter (Api_catalog.validate_request ~method_ ~params) ~f:(fun result ->
+          ignore (Disk.unwrap result : unit));
+        let administrative_request () =
+          Administration_api.Request.decode ~method_ ~params |> Disk.unwrap
+        in
+        let administrative_result value =
+          Administration_api.validate_result ~method_ value;
+          value
+        in
         match method_ with
-        | "daemon.shutdown" ->
-          Json.fields params ~allowed:[];
-          Atomic.set stopping true;
-          Json.obj [ "stopping", `True ]
-        | "initialize" ->
-          Json.fields params ~allowed:[];
-          Json.obj
-            [ "protocol_version", Json.int 1
-            ; "max_frame_bytes", Json.int Framing.max_bytes
-            ; "name", Json.string "workgraph"
-            ; "version", Json.string Version.value
-            ; "administrative_receipts", `True
-            ; "workspace_receipts", `True
-            ; "registry_format_version", Json.int 1
-            ; "background_exports", `True
-            ]
+        | method_ when String.equal method_ (Api_method.name Daemon_methods.shutdown) ->
+          Api_method.invoke Daemon_methods.shutdown ~params ~f:(fun () -> Ok true)
+          |> Disk.unwrap
+        | method_ when String.equal method_ (Api_method.name Daemon_methods.initialize) ->
+          Api_method.invoke Daemon_methods.initialize ~params ~f:(fun () ->
+            Ok (Daemon_methods.Initialization.current ()))
+          |> Disk.unwrap
         | "daemon.health" | "workspace.list" ->
-          Json.fields params ~allowed:[];
-          Json.obj
-            [ ("registry_requires_restart", if !registry_failed then `True else `False)
-            ; "pending_creates", Json.int (Map.length !registry_state.creates)
-            ; "pending_restores", Json.int (Map.length !registry_state.restores)
-            ; "active_exports", Json.int (Map.length !active_exports)
-            ; ( "workspaces"
-              , `Array
-                  (Map.to_alist !registry_state.registrations
-                   |> List.map ~f:(fun (id, r) ->
-                     Json.obj
-                       [ "workspace_id", Json.string id
-                       ; "root", Json.string r.root
-                       ; ( "archived"
-                         , Option.value_map
-                             (Map.find !loaded id)
-                             ~default:`Null
-                             ~f:(fun v ->
-                               if State.archived v.state then `True else `False) )
-                       ; ("open", if Map.mem !loaded id then `True else `False)
-                       ; ("open_intent", if r.is_open then `True else `False)
-                       ; ( "error"
-                         , Option.value_map
-                             (Map.find !failures id)
-                             ~default:`Null
-                             ~f:Problem.to_json )
-                       ])) )
-            ]
+          ignore (administrative_request () : Administration_api.Request.t);
+          Administration_wire.Health.capture
+            !registry_state
+            ~registry_requires_restart:!registry_failed
+            ~active_exports:(Map.length !active_exports)
+            ~workspace_status:(fun workspace ->
+              let id = Id.Workspace.to_string workspace in
+              ( Option.map (Map.find !loaded id) ~f:(fun v -> State.archived v.state)
+              , Map.mem !loaded id
+              , Map.find !failures id ))
+          |> Api_codec.encode Administration_wire.Health.codec
+          |> Disk.unwrap
         | "workspace.receipt" ->
-          Json.fields
-            params
-            ~allowed:[ "workspace_id"; "actor_id"; "mutation_id"; "run_id" ];
-          let value = get_loaded (Json.text (get "workspace_id")) in
-          let key, _ = Registry.request ~method_:"lookup" ~params |> Disk.unwrap in
+          let identity =
+            match administrative_request () with
+            | Workspace_receipt identity -> identity
+            | _ -> failwith "workspace receipt request differs"
+          in
+          let value = get_loaded (Id.Workspace.to_string identity.workspace) in
+          let key = Mutation_request.key identity in
           (match
              worker (fun () -> Store.lookup_receipt value.store ~key) |> Disk.unwrap
            with
-           | None -> Json.obj [ "status", Json.string "absent" ]
+           | None -> Administration_wire.Receipt.Absent
            | Some r ->
-             Json.obj
-               [ "status", Json.string "committed"
-               ; "request_hash", Json.string r.request_hash
-               ; "response", r.response
-               ])
+             Administration_wire.Receipt.planning
+               ~request_hash:r.request_hash
+               ~response:r.response)
+          |> Api_codec.encode Administration_wire.Receipt.planning_codec
+          |> Disk.unwrap
         | "registry.receipt" ->
-          Json.fields params ~allowed:[ "actor_id"; "mutation_id" ];
-          let key, _ = Registry.request ~method_:"lookup" ~params |> Disk.unwrap in
-          (match Map.find !registry_state.receipts key with
-           | Some receipt ->
-             Json.obj
-               [ "status", Json.string "committed"
-               ; "request_hash", Json.string receipt.request_hash
-               ; "response", receipt.response
-               ]
-           | None ->
-             Json.obj
-               [ ( "status"
-                 , Json.string
-                     (if
-                        Map.mem !registry_state.creates key
-                        || Map.mem !registry_state.restores key
-                      then "pending"
-                      else "absent") )
-               ])
-        | "restore.cancel" ->
-          Json.fields
-            params
-            ~allowed:
-              [ "actor_id"; "mutation_id"; "target_actor_id"; "target_mutation_id" ];
-          let key, request_hash = Registry.request ~method_ ~params |> Disk.unwrap in
-          let target_actor = Id.Actor.t_of_jsonaf (get "target_actor_id") in
-          let target_mutation = Id.Actor.t_of_jsonaf (get "target_mutation_id") in
-          let target_key =
-            Id.Actor.to_string target_actor ^ ":" ^ Id.Actor.to_string target_mutation
+          let identity =
+            match administrative_request () with
+            | Registry_receipt identity -> identity
+            | _ -> failwith "registry receipt request differs"
           in
+          Administration_wire.Receipt.registry
+            !registry_state
+            ~key:(Administration_api.Identity.key identity)
+          |> Api_codec.encode Administration_wire.Receipt.codec
+          |> Disk.unwrap
+        | "restore.cancel" ->
+          let target =
+            match administrative_request () with
+            | Restore_cancel { target; _ } -> target
+            | _ -> failwith "restore cancellation request differs"
+          in
+          let key, request_hash = Registry.request ~method_ ~params |> Disk.unwrap in
+          let target_key = Administration_api.Identity.key target in
           (match Map.find !registry_state.receipts key with
            | Some receipt ->
              if not (String.equal receipt.request_hash request_hash)
@@ -435,8 +412,11 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                        "restore has an installed or occupied target; complete the \
                         original retry")))
              |> Disk.unwrap;
-             let canceled = Json.obj [ "restored", `False; "canceled", `True ] in
-             let response = Json.obj [ "canceled", `True ] in
+             let canceled =
+               Api_codec.encode Administration_wire.Restore.codec Canceled |> Disk.unwrap
+             in
+             Administration_api.validate_result ~method_:"workspace.restore" canceled;
+             let response = administrative_result canceled in
              let receipts =
                Map.set
                  !registry_state.receipts
@@ -454,10 +434,19 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                };
              response)
         | "workspace.restore" | "daemon.restore_all" ->
-          let extra =
-            if String.equal method_ "workspace.restore" then [ "root" ] else [ "roots" ]
+          let restore_request = administrative_request () in
+          let source =
+            match restore_request with
+            | Workspace_restore { directory; _ } | Restore_all { directory; _ } ->
+              directory
+            | _ -> failwith "restore request differs"
           in
-          Json.fields params ~allowed:([ "actor_id"; "mutation_id"; "directory" ] @ extra);
+          let restore_response plan =
+            Administration_wire.Restore.of_plan plan
+            |> Api_codec.encode Administration_wire.Restore.codec
+            |> Disk.unwrap
+            |> administrative_result
+          in
           let key, request_hash = Registry.request ~method_ ~params |> Disk.unwrap in
           let check_hash previous =
             if not (String.equal previous request_hash)
@@ -478,36 +467,27 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                Eio.Flow.read_exact (Eio.Stdenv.secure_random env) bytes;
                Json.hash (Cstruct.to_string bytes)
              in
-             let plan =
+             let plan, response =
                match Map.find !registry_state.restores key with
                | Some plan ->
                  check_hash plan.request_hash;
-                 plan
+                 plan, restore_response plan
                | None ->
-                 let source = Json.text (get "directory") in
                  let targets =
-                   if String.equal method_ "workspace.restore"
-                   then (
-                     let root = canonical_root (Json.text (get "root")) in
+                   match restore_request with
+                   | Workspace_restore { root; _ } ->
+                     let root = canonical_root root in
                      [ worker (fun () -> Restore.inspect ~fs ~source ~root) |> Disk.unwrap
-                     ])
-                   else (
+                     ]
+                   | Restore_all { roots; _ } ->
                      let roots =
-                       match get "roots" with
-                       | `Object pairs ->
-                         String.Map.of_alist_exn
-                           (List.map pairs ~f:(fun (id, value) ->
-                              ignore
-                                (Id.Workspace.of_string id |> Disk.unwrap
-                                 : Id.Workspace.t);
-                              id, canonical_root (Json.text value)))
-                       | _ ->
-                         Json.fail
-                           Invalid_argument
-                           "roots must map workspace IDs to fresh absolute paths"
+                       String.Map.of_alist_exn
+                         (List.map roots ~f:(fun (id, root) ->
+                            Id.Workspace.to_string id, canonical_root root))
                      in
                      worker (fun () -> Restore.inspect_all ~fs ~source ~roots)
-                     |> Disk.unwrap)
+                     |> Disk.unwrap
+                   | _ -> failwith "restore request differs"
                  in
                  let plan =
                    { Restore_plan.request_hash; token = secure_token (); targets }
@@ -558,11 +538,12 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                               "restore parent must be an existing real directory")
                        | None -> Json.fail Invalid_argument "restore path has no parent"))
                    |> Disk.unwrap);
+                 let response = restore_response plan in
                  save_registry
                    { !registry_state with
                      restores = Map.set !registry_state.restores ~key ~data:plan
                    };
-                 plan
+                 plan, response
              in
              let attempt = secure_token () in
              worker (fun () -> Restore.install plan ~sw:worker_sw ~fs ~attempt)
@@ -582,19 +563,6 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                        ; known_history_head = target.capture.history_head
                        })
              in
-             let response =
-               Json.obj
-                 [ "restored", `True
-                 ; "open", `False
-                 ; ( "workspaces"
-                   , `Array
-                       (List.map plan.targets ~f:(fun target ->
-                          Json.obj
-                            [ "root", Json.string target.root
-                            ; "capture", Export_job.Capture.to_json target.capture
-                            ])) )
-                 ]
-             in
              save_registry
                { !registry_state with
                  registrations
@@ -611,13 +579,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
         | "workspace.open"
         | "workspace.close"
         | "workspace.unregister" ->
-          let extra =
-            match method_ with
-            | "workspace.create" -> [ "workspace_id"; "root"; "name" ]
-            | "workspace.register" -> [ "root" ]
-            | _ -> [ "workspace_id" ]
-          in
-          Json.fields params ~allowed:([ "actor_id"; "mutation_id" ] @ extra);
+          let lifecycle_request = administrative_request () in
           let key, request_hash = Registry.request ~method_ ~params |> Disk.unwrap in
           let verify_hash previous =
             if not (String.equal previous request_hash)
@@ -636,6 +598,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
              Option.iter (Map.find !registry_state.creates key) ~f:(fun intent ->
                verify_hash intent.request_hash);
              let complete registrations response =
+               let response = administrative_result response in
                let candidate =
                  { Registry.registrations
                  ; exports = !registry_state.exports
@@ -658,7 +621,12 @@ let serve_with ~env ~registry ~listen ~handle_signals =
              in
              (match method_ with
               | "workspace.create" | "workspace.register" ->
-                let root = canonical_root (Json.text (get "root")) in
+                let root =
+                  match lifecycle_request with
+                  | Workspace_create { root; _ } | Workspace_register { root; _ } ->
+                    canonical_root root
+                  | _ -> failwith "workspace root request differs"
+                in
                 ensure_disjoint ~key root;
                 if
                   Map.exists !registry_state.registrations ~f:(fun r ->
@@ -676,15 +644,24 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                 if String.equal method_ "workspace.create"
                 then (
                   let workspace =
-                    match Json.optional params "workspace_id" with
-                    | Some value -> Id.Workspace.t_of_jsonaf value
-                    | None ->
+                    match lifecycle_request with
+                    | Workspace_create { workspace = Some workspace; _ } -> workspace
+                    | Workspace_create { workspace = None; _ } ->
                       (match Map.find !registry_state.creates key with
                        | Some intent -> intent.workspace
                        | None -> Id.Workspace.of_string (fresh_id "ws_") |> Disk.unwrap)
+                    | _ -> failwith "workspace creation request differs"
                   in
                   let id = Id.Workspace.to_string workspace in
-                  let name = Json.text (get "name") in
+                  let name =
+                    match lifecycle_request with
+                    | Workspace_create { name; _ } -> name
+                    | _ -> failwith "workspace creation name differs"
+                  in
+                  ignore
+                    (administrative_result
+                       (Json.obj [ "workspace_id", Id.Workspace.jsonaf_of_t workspace ])
+                     : Jsonaf.t);
                   ignore (State.empty ~workspace ~name |> Disk.unwrap : State.t);
                   if
                     Map.mem !registry_state.registrations id
@@ -793,7 +770,9 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                    response)
               | "workspace.open" ->
                 let id =
-                  Id.Workspace.t_of_jsonaf (get "workspace_id") |> Id.Workspace.to_string
+                  match lifecycle_request with
+                  | Workspace_open { workspace; _ } -> Id.Workspace.to_string workspace
+                  | _ -> failwith "workspace open request differs"
                 in
                 if Map.mem !loaded id then Json.fail Conflict "workspace already open";
                 let r = registration id in
@@ -822,7 +801,11 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                    response)
               | "workspace.close" | "workspace.unregister" ->
                 let id =
-                  Id.Workspace.t_of_jsonaf (get "workspace_id") |> Id.Workspace.to_string
+                  match lifecycle_request with
+                  | Workspace_close { workspace; _ }
+                  | Workspace_unregister { workspace; _ } ->
+                    Id.Workspace.to_string workspace
+                  | _ -> failwith "workspace close request differs"
                 in
                 ensure_unpinned id;
                 let r = registration id in
@@ -864,74 +847,36 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                 response
               | _ -> assert false))
         | "export.verify" ->
-          Json.fields params ~allowed:[ "directory" ];
-          let directory = Json.text (get "directory") in
-          let verified =
-            worker (fun () -> Snapshot.verify ~fs ~directory) |> Disk.unwrap
+          let directory =
+            match administrative_request () with
+            | Export_verify directory -> directory
+            | _ -> failwith "export verification request differs"
           in
-          Json.obj
-            [ ( "workspace_id"
-              , Id.Workspace.jsonaf_of_t (Snapshot.Verified.workspace verified) )
-            ; "revision", Json.int (Snapshot.Verified.revision verified)
-            ; ( "head"
-              , Option.value_map
-                  (Snapshot.Verified.head verified)
-                  ~default:`Null
-                  ~f:Json.string )
-            ; "verified", `True
-            ; "canonical_state_validated", `False
-            ]
+          worker (fun () -> Snapshot.verify ~fs ~directory)
+          |> Disk.unwrap
+          |> Administration_wire.Verification.of_verified
+          |> Api_codec.encode Administration_wire.Verification.codec
+          |> Disk.unwrap
         | "export.get" ->
-          Json.fields params ~allowed:[ "job_id" ];
-          find_export (Json.text (get "job_id")) |> Export_job.to_json
+          let id =
+            match administrative_request () with
+            | Export_get id -> id
+            | _ -> failwith "export get request differs"
+          in
+          find_export id |> Api_codec.encode Administration_wire.export_job |> Disk.unwrap
         | "export.list" ->
-          Json.fields params ~allowed:[ "offset"; "limit"; "max_bytes"; "at_snapshot" ];
-          let snapshot =
-            Json.hash
-              (Json.canonical
-                 (Json.obj
-                    (Map.to_alist !registry_state.exports
-                     |> List.map ~f:(fun (id, job) -> id, Export_job.to_json job))))
-          in
-          let offset =
-            Option.value_map (Json.optional params "offset") ~default:0 ~f:Json.integer
-          in
-          let limit =
-            Option.value_map (Json.optional params "limit") ~default:50 ~f:Json.integer
-          in
-          if limit = 0 || limit > 100
-          then Json.fail Invalid_argument "export limit must be 1..100";
-          (match Json.optional params "at_snapshot" with
-           | None when offset > 0 ->
-             Json.fail Invalid_argument "export pagination requires at_snapshot"
-           | Some value when not (String.equal (Json.text value) snapshot) ->
-             Json.fail Conflict "export listing changed; restart pagination"
-           | None | Some _ -> ());
-          let jobs = List.drop (Map.data !registry_state.exports) offset in
-          Query_budget.fit
-            ~max_bytes:(Query_budget.of_params params)
-            (Json.obj
-               [ "snapshot", Json.string snapshot
-               ; ( "data"
-                 , Json.obj
-                     [ ( "items"
-                       , `Array (List.take jobs limit |> List.map ~f:Export_job.to_json) )
-                     ; "offset", Json.int offset
-                     ; "remaining", Json.int (Int.max 0 (List.length jobs - limit))
-                     ; ( "next_offset"
-                       , if List.length jobs > limit
-                         then Json.int (offset + limit)
-                         else `Null )
-                     ] )
-               ])
+          (match administrative_request () with
+           | Export_list { offset; limit; max_bytes; at_snapshot } ->
+             Administration_wire.Export_page.response
+               !registry_state
+               ~offset
+               ~limit
+               ~max_bytes
+               ~at_snapshot
+             |> Disk.unwrap
+           | _ -> failwith "export list request differs")
         | "workspace.export" | "daemon.export_all" | "export.cancel" | "export.retry" ->
-          let allowed =
-            match method_ with
-            | "workspace.export" -> [ "workspace_id"; "destination" ]
-            | "daemon.export_all" -> [ "destination"; "allow_partial" ]
-            | _ -> [ "job_id" ]
-          in
-          Json.fields params ~allowed:([ "actor_id"; "mutation_id" ] @ allowed);
+          let export_request = administrative_request () in
           let key, request_hash = Registry.request ~method_ ~params |> Disk.unwrap in
           (match Map.find !registry_state.receipts key with
            | Some receipt ->
@@ -944,7 +889,11 @@ let serve_with ~env ~registry ~listen ~handle_signals =
              then
                Json.fail Idempotency_conflict "mutation ID belongs to a pending creation";
              let commit_job job =
-               let response = Export_job.to_json job in
+               let response =
+                 Api_codec.encode Administration_wire.export_job job
+                 |> Disk.unwrap
+                 |> administrative_result
+               in
                save_registry
                  { !registry_state with
                    exports = Map.set !registry_state.exports ~key:job.id ~data:job
@@ -958,23 +907,40 @@ let serve_with ~env ~registry ~listen ~handle_signals =
              in
              if String.equal method_ "export.cancel"
              then (
-               let job = find_export (Json.text (get "job_id")) in
+               let id =
+                 match export_request with
+                 | Export_cancel { job; _ } -> job
+                 | _ -> failwith "export cancellation request differs"
+               in
+               let job = find_export id in
                let control =
                  match Map.find !active_exports job.id with
                  | None -> Json.fail Conflict "export is not running"
                  | Some control -> control
                in
+               if not (Export_job.equal_status job.status Running)
+               then Json.fail Conflict "export is not running";
+               let next = { job with cancel_requested = true } in
+               ignore
+                 (administrative_result
+                    (Api_codec.encode Administration_wire.export_job next |> Disk.unwrap)
+                  : Jsonaf.t);
                if not (Export_run.Control.cancel control)
                then
                  Json.fail Conflict "export has begun publication and cannot be canceled";
-               commit_job { job with cancel_requested = true })
+               commit_job next)
              else (
                if Map.length !active_exports >= 8
                then Json.fail Conflict "export admission limit is 8 active jobs";
                let job, snapshots =
                  if String.equal method_ "export.retry"
                  then (
-                   let previous = find_export (Json.text (get "job_id")) in
+                   let id =
+                     match export_request with
+                     | Export_retry { job; _ } -> job
+                     | _ -> failwith "export retry request differs"
+                   in
+                   let previous = find_export id in
                    if
                      Map.mem !active_exports previous.id
                      || Export_job.equal_status previous.status Completed
@@ -1015,21 +981,30 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                      then Export_job.Single
                      else All
                    in
-                   let destination = canonical_root (Json.text (get "destination")) in
+                   let destination =
+                     match export_request with
+                     | Workspace_export { destination; _ } | Export_all { destination; _ }
+                       -> canonical_root destination
+                     | _ -> failwith "export destination request differs"
+                   in
                    let sources, omitted =
                      match kind with
-                     | Single -> [ get_loaded (Json.text (get "workspace_id")) ], []
+                     | Single ->
+                       let workspace =
+                         match export_request with
+                         | Workspace_export { workspace; _ } -> workspace
+                         | _ -> failwith "workspace export request differs"
+                       in
+                       [ get_loaded (Id.Workspace.to_string workspace) ], []
                      | All ->
                        let omitted =
                          Map.keys !registry_state.registrations
                          |> List.filter ~f:(fun id -> not (Map.mem !loaded id))
                        in
                        let allow_partial =
-                         match Json.optional params "allow_partial" with
-                         | None | Some `False -> false
-                         | Some `True -> true
-                         | Some _ ->
-                           Json.fail Invalid_argument "allow_partial requires boolean"
+                         match export_request with
+                         | Export_all { allow_partial; _ } -> allow_partial
+                         | _ -> failwith "all workspace export request differs"
                        in
                        if (not allow_partial) && not (List.is_empty omitted)
                        then
@@ -1082,91 +1057,102 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                active_exports := Map.set !active_exports ~key:job.id ~data:control;
                Eio.Stream.add exports (Export (job, snapshots, control));
                response))
-        | "upload.begin" | "upload.chunk" | "upload.status" | "upload.abort" ->
-          let extra =
-            match method_ with
-            | "upload.begin" -> [ "size_bytes"; "digest" ]
-            | "upload.chunk" -> [ "offset"; "data_base64" ]
-            | _ -> []
-          in
-          Json.fields params ~allowed:([ "workspace_id"; "actor_id"; "upload_id" ] @ extra);
-          let value = get_loaded (Json.text (get "workspace_id")) in
-          let actor = Id.Actor.t_of_jsonaf (get "actor_id") in
-          let id = Id.Upload.t_of_jsonaf (get "upload_id") in
-          (match method_ with
-           | "upload.begin" ->
-             let size_bytes = Json.integer (get "size_bytes") in
-             let digest = Json.text (get "digest") in
-             worker (fun () ->
-               Store.begin_upload value.store ~id ~actor ~size_bytes ~digest)
-             |> Disk.unwrap
-           | "upload.chunk" ->
-             let offset = Json.integer (get "offset") in
-             let encoded =
-               Json.bounded_text
-                 (get "data_base64")
-                 ~max_bytes:((Upload.max_chunk_bytes + 2) / 3 * 4)
-             in
-             let bytes =
-               match Base64.decode encoded with
-               | Ok bytes when String.equal encoded (Base64.encode_string bytes) -> bytes
-               | Ok _ | Error _ -> Json.fail Invalid_argument "invalid canonical base64"
-             in
-             worker (fun () -> Store.upload_chunk value.store ~id ~actor ~offset ~bytes)
-             |> Disk.unwrap
-           | "upload.status" ->
-             worker (fun () -> Store.upload_status value.store ~id ~actor) |> Disk.unwrap
-           | _ ->
-             worker (fun () -> Store.abort_upload value.store ~id ~actor) |> Disk.unwrap;
-             Json.obj [ "aborted", `True ])
-        | "resource.read_chunk" ->
-          Json.fields
-            params
-            ~allowed:[ "workspace_id"; "resource_id"; "version"; "offset"; "length" ];
-          let value = get_loaded (Json.text (get "workspace_id")) in
-          let id = Id.Resource.t_of_jsonaf (get "resource_id") in
-          let revision = Option.map (Json.optional params "version") ~f:Json.integer in
-          let version = State.resource_version value.state id ~revision |> Disk.unwrap in
-          let offset =
-            Option.value_map (Json.optional params "offset") ~default:0 ~f:Json.integer
-          in
-          let length =
-            Option.value_map
-              (Json.optional params "length")
-              ~default:65_536
-              ~f:Json.integer
-          in
-          if length = 0 then Json.fail Invalid_argument "read length must be positive";
-          let bytes, total =
+        | "upload.begin" ->
+          Api_method.invoke Upload_api.begin_method ~params ~f:(fun request ->
+            let identity = Upload_api.Begin_request.identity request in
+            let value =
+              get_loaded (Id.Workspace.to_string (Upload_api.Identity.workspace identity))
+            in
             worker (fun () ->
-              Store.read_blob_range value.store ~digest:version.digest ~offset ~length)
-            |> Disk.unwrap
-          in
-          Option.iter version.size_bytes ~f:(fun expected ->
-            if not (Int.equal total expected)
-            then Json.fail Corrupt_store "blob size differs from metadata");
-          let next = offset + String.length bytes in
-          Json.obj
-            [ "resource_id", Id.Resource.jsonaf_of_t id
-            ; "version", Json.int version.revision
-            ; "digest", Json.string version.digest
-            ; "size_bytes", Json.int total
-            ; "offset", Json.int offset
-            ; "data_base64", Json.string (Base64.encode_string bytes)
-            ; "chunk_digest", Json.string (Json.hash bytes)
-            ; ("next_offset", if next = total then `Null else Json.int next)
-            ; ("eof", if next = total then `True else `False)
-            ]
+              Store.begin_upload
+                value.store
+                ~id:(Upload_api.Identity.upload identity)
+                ~actor:(Upload_api.Identity.actor identity)
+                ~size_bytes:(Upload_api.Begin_request.size_bytes request)
+                ~digest:(Upload_api.Begin_request.digest request))
+            |> Result.map ~f:(Upload_api.Status.of_result identity ~method_))
+          |> Disk.unwrap
+        | "upload.chunk" ->
+          Api_method.invoke Upload_api.chunk_method ~params ~f:(fun request ->
+            let identity = Upload_api.Chunk_request.identity request in
+            let value =
+              get_loaded (Id.Workspace.to_string (Upload_api.Identity.workspace identity))
+            in
+            worker (fun () ->
+              Store.upload_chunk
+                value.store
+                ~id:(Upload_api.Identity.upload identity)
+                ~actor:(Upload_api.Identity.actor identity)
+                ~offset:(Upload_api.Chunk_request.offset request)
+                ~bytes:(Upload_api.Chunk_request.bytes request))
+            |> Result.map ~f:(Upload_api.Status.of_result identity ~method_))
+          |> Disk.unwrap
+        | "upload.status" ->
+          Api_method.invoke Upload_api.status_method ~params ~f:(fun identity ->
+            let value =
+              get_loaded (Id.Workspace.to_string (Upload_api.Identity.workspace identity))
+            in
+            worker (fun () ->
+              Store.upload_status
+                value.store
+                ~id:(Upload_api.Identity.upload identity)
+                ~actor:(Upload_api.Identity.actor identity))
+            |> Result.map ~f:(Upload_api.Status.of_result identity ~method_))
+          |> Disk.unwrap
+        | "upload.abort" ->
+          Api_method.invoke Upload_api.abort_method ~params ~f:(fun identity ->
+            let value =
+              get_loaded (Id.Workspace.to_string (Upload_api.Identity.workspace identity))
+            in
+            worker (fun () ->
+              Store.abort_upload
+                value.store
+                ~id:(Upload_api.Identity.upload identity)
+                ~actor:(Upload_api.Identity.actor identity))
+            |> Result.map ~f:(fun () -> Upload_api.Aborted.confirmed))
+          |> Disk.unwrap
+        | "resource.read_chunk" ->
+          Api_method.invoke Resource_read.chunk_method ~params ~f:(fun request ->
+            let open Result.Let_syntax in
+            let selector = Resource_read.Chunk_request.request request in
+            let value =
+              get_loaded
+                (Id.Workspace.to_string (Resource_read.Request.workspace selector))
+            in
+            let%bind version =
+              State.resource_version
+                value.state
+                (Resource_read.Request.resource selector)
+                ~revision:(Resource_read.Request.version selector)
+            in
+            let%bind bytes, total_bytes =
+              worker (fun () ->
+                Store.read_blob_range
+                  value.store
+                  ~digest:version.digest
+                  ~offset:(Resource_read.Chunk_request.byte_offset request)
+                  ~length:(Resource_read.Chunk_request.max_bytes request))
+            in
+            Resource_read.Chunk.create request ~version ~bytes ~total_bytes)
+          |> Disk.unwrap
         | "resource.read" ->
-          Json.fields params ~allowed:[ "workspace_id"; "digest" ];
-          let value = get_loaded (Json.text (get "workspace_id")) in
-          let digest = Json.text (get "digest") in
-          if not (List.mem (State.blob_digests value.state) digest ~equal:String.equal)
-          then Json.fail Not_found "unreferenced blob";
-          let text =
-            worker (fun () -> Store.read_blob value.store ~digest) |> Disk.unwrap
-          in
-          Json.obj [ "text", Json.string text ]
+          Api_method.invoke Resource_read.text_method ~params ~f:(fun request ->
+            let open Result.Let_syntax in
+            let value =
+              get_loaded
+                (Id.Workspace.to_string (Resource_read.Request.workspace request))
+            in
+            let%bind version =
+              State.resource_version
+                value.state
+                (Resource_read.Request.resource request)
+                ~revision:(Resource_read.Request.version request)
+            in
+            let%bind text =
+              worker (fun () -> Store.read_blob value.store ~digest:version.digest)
+            in
+            Resource_read.Text.create request ~version ~text)
+          |> Disk.unwrap
         | "search.query" ->
           let value = get_loaded (Json.text (get "workspace_id")) in
           let resources = State.search_resources value.state ~params |> Disk.unwrap in
@@ -1174,26 +1160,29 @@ let serve_with ~env ~registry ~listen ~handle_signals =
             worker (fun () -> Store.extract_search_texts value.store ~resources)
             |> Disk.unwrap
           in
-          State.query_with_texts value.state ~resource_texts ~method_ ~params
+          State.query_with_texts
+            ~now_unix_ms:observed_unix_ms
+            value.state
+            ~resource_texts
+            ~method_
+            ~params
           |> Disk.unwrap
         | "run.heartbeat" ->
-          Json.fields
-            params
-            ~allowed:[ "workspace_id"; "run_id"; "actor_id"; "mutation_id" ];
-          let value = get_loaded (Json.text (get "workspace_id")) in
-          let run = Id.Run.t_of_jsonaf (get "run_id") in
-          let actor = Id.Actor.t_of_jsonaf (get "actor_id") in
-          State.validate_run_actor value.state ~run ~actor |> Disk.unwrap;
-          let now_unix_ms =
-            Int64.of_float (Eio.Time.now (Eio.Stdenv.clock env) *. 1000.)
-          in
-          worker (fun () -> Store.heartbeat value.store ~run ~actor ~now_unix_ms)
+          Api_method.invoke Heartbeat_api.observe ~params ~f:(fun request ->
+            let open Result.Let_syntax in
+            let value = get_loaded (Id.Workspace.to_string request.workspace_id) in
+            let run = request.target_run_id in
+            let actor = request.actor_id in
+            let%bind () = State.validate_run_actor value.state ~run ~actor in
+            let now_unix_ms =
+              Int64.of_float (Eio.Time.now (Eio.Stdenv.clock env) *. 1000.)
+            in
+            worker (fun () -> Store.heartbeat value.store ~run ~actor ~now_unix_ms))
           |> Disk.unwrap
         | "run.heartbeat_get" ->
-          Json.fields params ~allowed:[ "workspace_id"; "run_id" ];
-          let value = get_loaded (Json.text (get "workspace_id")) in
-          worker (fun () ->
-            Store.heartbeat_get value.store ~run:(Id.Run.t_of_jsonaf (get "run_id")))
+          Api_method.invoke Heartbeat_api.read ~params ~f:(fun request ->
+            let value = get_loaded (Id.Workspace.to_string request.workspace_id) in
+            worker (fun () -> Store.heartbeat_get value.store ~run:request.target_run_id))
           |> Disk.unwrap
         | method_
           when List.mem History_command.mutation_methods method_ ~equal:String.equal ->
@@ -1242,6 +1231,8 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                  (Communication.query_methods
                   @ Agent_run.query_methods
                   @ Evidence.query_methods
+                  @ Ticket_recovery.query_methods
+                  @ Resume_api.query_methods
                   @ Agent_run_policy.query_methods)
                  method_
                  ~equal:String.equal ->
@@ -1254,9 +1245,56 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                    not (String.equal key "workspace_id")))
             | _ -> Json.fail Invalid_argument "params must be an object"
           in
-          State.query value.state ~method_ ~params:query_params |> Disk.unwrap
+          State.query
+            ~now_unix_ms:observed_unix_ms
+            value.state
+            ~method_
+            ~params:query_params
+          |> Disk.unwrap
+        | "workspace.metrics" ->
+          let value = get_loaded (Json.text (get "workspace_id")) in
+          let fields =
+            match params with
+            | `Object fields ->
+              List.filter fields ~f:(fun (key, _) ->
+                not (String.equal key "workspace_id"))
+            | _ -> Json.fail Invalid_argument "params must be an object"
+          in
+          let request =
+            Api_codec.decode Workspace_metrics.Request.codec (Json.obj fields)
+            |> Disk.unwrap
+          in
+          Option.iter request.at_revision ~f:(fun expected ->
+            if not (Int.equal expected (State.revision value.state))
+            then Json.fail Conflict "Planning capture changed");
+          let planning = State.metrics value.state ~observed_unix_ms in
+          let storage_admission, history_head =
+            worker (fun () ->
+              let admission = Store.admission value.store |> Disk.unwrap in
+              admission, Store.known_history_head value.store)
+          in
+          let metrics =
+            Workspace_metrics.create
+              planning
+              ~observed_unix_ms
+              ~history_head
+              ~storage_admission
+            |> Disk.unwrap
+          in
+          Workspace_metrics.response metrics ~max_bytes:request.max_bytes |> Disk.unwrap
         | "coordinator.overview" ->
           let value = get_loaded (Json.text (get "workspace_id")) in
+          let params =
+            match params with
+            | `Object fields ->
+              Json.obj
+                (List.filter fields ~f:(fun (key, _) ->
+                   not (String.equal key "workspace_id")))
+            | _ -> Json.fail Invalid_argument "params must be an object"
+          in
+          let selected =
+            Disk.unwrap (Api_codec.decode Coordinator_api.Request.codec params)
+          in
           let heartbeats =
             worker (fun () -> Store.heartbeat_observations value.store) |> Disk.unwrap
           in
@@ -1264,13 +1302,17 @@ let serve_with ~env ~registry ~listen ~handle_signals =
             ~workspace:(State.workspace value.state)
             ~revision:(State.revision value.state)
             ~head:(Store.head value.store)
-            ~tickets:(State.coordination_tickets value.state)
+            ~tickets:
+              (State.coordination_tickets
+                 ?run:(Coordinator_api.Request.run selected)
+                 ~now_unix_ms:observed_unix_ms
+                 value.state)
             ~runs:(State.agent_runs value.state)
             ~evidence:(State.evidence value.state)
             ~communication:(State.communication value.state)
             ~policies:(State.policies value.state)
             ~heartbeats
-            ~now_unix_ms:(Int64.of_float (Eio.Time.now (Eio.Stdenv.clock env) *. 1000.))
+            ~now_unix_ms:observed_unix_ms
             ~params
           |> Disk.unwrap
         | "changes.read" ->
@@ -1292,7 +1334,13 @@ let serve_with ~env ~registry ~listen ~handle_signals =
               ~activity:(Session_store.Capture.activity capture)
               ~params
             |> Disk.unwrap)
-          else State.query value.state ~method_ ~params |> Disk.unwrap
+          else
+            State.query ~now_unix_ms:observed_unix_ms value.state ~method_ ~params
+            |> Disk.unwrap
+        | method_ when List.mem Facts.query_methods method_ ~equal:String.equal ->
+          let value = get_loaded (Json.text (get "workspace_id")) in
+          State.query ~now_unix_ms:observed_unix_ms value.state ~method_ ~params
+          |> Disk.unwrap
         | "workspace.get"
         | "workspace.overview"
         | "actor.list"
@@ -1319,28 +1367,17 @@ let serve_with ~env ~registry ~listen ~handle_signals =
         | "resource.history"
         | "resource.get" ->
           let value = get_loaded (Json.text (get "workspace_id")) in
-          State.query value.state ~method_ ~params |> Disk.unwrap
+          State.query ~now_unix_ms:observed_unix_ms value.state ~method_ ~params
+          |> Disk.unwrap
         | _ ->
-          let id =
-            Id.Workspace.t_of_jsonaf (get "workspace_id") |> Id.Workspace.to_string
+          let identity, command_params =
+            Mutation_request.of_params params |> Disk.unwrap
           in
+          let id = Id.Workspace.to_string identity.workspace in
           let value = get_loaded id in
-          let actor = Id.Actor.t_of_jsonaf (get "actor_id") in
-          let run = Option.map (Json.optional params "run_id") ~f:Id.Run.t_of_jsonaf in
-          let mutation = Id.Actor.t_of_jsonaf (get "mutation_id") |> Id.Actor.to_string in
-          let key = Id.Actor.to_string actor ^ ":" ^ mutation in
-          let command_params =
-            match params with
-            | `Object fields ->
-              Json.obj
-                (List.filter fields ~f:(fun (key, _) ->
-                   not
-                     (List.mem
-                        [ "workspace_id"; "actor_id"; "mutation_id"; "run_id" ]
-                        key
-                        ~equal:String.equal)))
-            | _ -> Json.fail Invalid_argument "params must be object"
-          in
+          let actor = identity.actor in
+          let run = identity.run in
+          let key = Mutation_request.key identity in
           let request_hash =
             Json.hash
               (Json.canonical
@@ -1372,31 +1409,22 @@ let serve_with ~env ~registry ~listen ~handle_signals =
              let command, upload =
                if String.equal method_ "resource.finish_upload"
                then (
-                 Json.fields
-                   command_params
-                   ~allowed:
-                     [ "upload_id"
-                     ; "resource_id"
-                     ; "expected_revision"
-                     ; "title"
-                     ; "filename"
-                     ; "mime_type"
-                     ];
-                 let get key = Json.field command_params key in
-                 let upload = Id.Upload.t_of_jsonaf (get "upload_id") in
-                 let id = Id.Resource.t_of_jsonaf (get "resource_id") in
-                 let expected_revision = Json.integer (get "expected_revision") in
-                 let title = Json.text (get "title") in
-                 let filename = Json.text (get "filename") in
-                 let mime_type = Json.text (get "mime_type") in
-                 Resource.validate_metadata
-                   { title
-                   ; filename
-                   ; mime_type
-                   ; description = ""
-                   ; targets = []
-                   ; archived = false
-                   };
+                 let request =
+                   Api_codec.decode Resource_api.Finish_request.codec command_params
+                   |> Disk.unwrap
+                 in
+                 let upload = Resource_api.Finish_request.upload request in
+                 let id =
+                   match Resource_api.Finish_request.resource request with
+                   | Some id -> id
+                   | None -> failwith "resource.finish_upload ID was not resolved"
+                 in
+                 let expected_revision =
+                   Resource_api.Finish_request.expected_revision request
+                 in
+                 let title = Resource_api.Finish_request.title request in
+                 let filename = Resource_api.Finish_request.filename request in
+                 let mime_type = Resource_api.Finish_request.mime_type request in
                  let digest, size_bytes =
                    worker (fun () -> Store.finish_upload value.store ~id:upload ~actor)
                    |> Disk.unwrap
@@ -1464,6 +1492,10 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                    Conflict
                    "history worker queue is full; retry after a query completes";
                let params = Json.field request "params" in
+               let method_ = Json.text (Json.field request "method") in
+               Option.iter
+                 (Api_catalog.validate_request ~method_ ~params)
+                 ~f:(fun result -> ignore (Disk.unwrap result : unit));
                let workspace = Json.text (Json.field params "workspace_id") in
                let value = get_loaded workspace in
                let capture =
@@ -1579,6 +1611,59 @@ let serve_with ~env ~registry ~listen ~handle_signals =
       let wait_feed request =
         Json.decode (fun () ->
           let params = Json.field request "params" in
+          let decoded =
+            Disk.unwrap
+              (Api_codec.decode
+                 (Option.value_exn
+                    (Change_feed_api.Request.codec ~method_:"changes.wait"))
+                 params)
+          in
+          let timeout_ms = Change_feed_api.Request.timeout_ms decoded in
+          let current = ref decoded in
+          let latest = ref None in
+          let poll () =
+            let query =
+              Json.obj
+                [ "jsonrpc", Json.string "2.0"
+                ; "id", Json.field request "id"
+                ; "method", Json.string "changes.read"
+                ; "params", Disk.unwrap (Change_feed_api.Request.read_params !current)
+                ]
+            in
+            let result = submit query |> Disk.unwrap in
+            latest := Some result;
+            let needs_larger_budget =
+              match Json.field result "needs_larger_budget" with
+              | `True -> true
+              | _ -> false
+            in
+            if Change_feed.has_items result || needs_larger_budget
+            then Some result
+            else (
+              current
+              := Change_feed_api.Request.with_cursor
+                   !current
+                   ~cursor:(Json.text (Json.field result "cursor"));
+              None)
+          in
+          try
+            Eio.Time.with_timeout_exn
+              (Eio.Stdenv.clock env)
+              (Float.of_int timeout_ms /. 1000.)
+              (fun () -> Eio.Condition.loop_no_mutex changes_changed poll)
+          with
+          | Eio.Time.Timeout ->
+            (match !latest with
+             | Some response -> response
+             | None ->
+               Json.fail Storage_unavailable "feed read did not complete before timeout"))
+      in
+      let wait_inbox request =
+        Json.decode (fun () ->
+          let params = Json.field request "params" in
+          Option.iter
+            (Api_catalog.validate_request ~method_:"inbox.wait" ~params)
+            ~f:(fun result -> ignore (Disk.unwrap result : unit));
           let timeout_ms =
             Option.value_map
               (Json.optional params "timeout_ms")
@@ -1593,33 +1678,28 @@ let serve_with ~env ~registry ~listen ~handle_signals =
               List.filter fields ~f:(fun (key, _) -> not (String.equal key "timeout_ms"))
             | _ -> Json.fail Invalid_argument "params must be an object"
           in
-          let current = ref fields in
+          let query =
+            Json.obj
+              [ "jsonrpc", Json.string "2.0"
+              ; "id", Json.field request "id"
+              ; "method", Json.string "inbox.read"
+              ; "params", Json.obj fields
+              ]
+          in
           let latest = ref None in
           let poll () =
-            let query =
-              Json.obj
-                [ "jsonrpc", Json.string "2.0"
-                ; "id", Json.field request "id"
-                ; "method", Json.string "changes.read"
-                ; "params", Json.obj !current
-                ]
-            in
             let result = submit query |> Disk.unwrap in
             latest := Some result;
-            let needs_larger_budget =
-              match Json.field result "needs_larger_budget" with
-              | `True -> true
-              | _ -> false
-            in
-            if Change_feed.has_items result || needs_larger_budget
+            if
+              (not (List.is_empty (Json.list (Json.field result "items"))))
+              || Json.integer (Json.field result "remaining") > 0
             then Some result
-            else (
-              current
-              := ("cursor", Json.field result "cursor")
-                 :: List.filter !current ~f:(fun (key, _) ->
-                   not (String.equal key "after" || String.equal key "cursor"));
-              None)
+            else None
           in
+          (* A read never acknowledges delivery. Keep the caller's filters and
+             lower bound unchanged across polls; a filtered empty page must not
+             advance over unseen messages. An omitted upper bound is recaptured
+             by each serialized read; an explicit bound remains fixed. *)
           try
             Eio.Time.with_timeout_exn
               (Eio.Stdenv.clock env)
@@ -1630,7 +1710,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
             (match !latest with
              | Some response -> response
              | None ->
-               Json.fail Storage_unavailable "feed read did not complete before timeout"))
+               Json.fail Storage_unavailable "inbox read did not complete before timeout"))
       in
       let write_response response =
         try
@@ -1648,33 +1728,59 @@ let serve_with ~env ~registry ~listen ~handle_signals =
         | None -> ()
         | Some id ->
           Protocol.validate_server_request request |> Disk.unwrap;
+          let method_ = Json.text (Json.field request "method") in
           let result =
-            if String.equal (Json.text (Json.field request "method")) "changes.wait"
-            then
-              Eio.Fiber.first
-                (fun () -> wait_feed request)
-                (fun () ->
-                   ignore (Eio.Flow.single_read flow (Cstruct.create 1) : int);
-                   Error (Problem.create Invalid_argument "one request per connection"))
-            else submit request
+            match Api_catalog.find method_ with
+            | None ->
+              Error (Problem.create Invalid_argument ("unknown method: " ^ method_))
+            | Some _ ->
+              (match method_ with
+               | "changes.wait" | "inbox.wait" ->
+                 Eio.Fiber.first
+                   (fun () ->
+                      if String.equal method_ "changes.wait"
+                      then wait_feed request
+                      else wait_inbox request)
+                   (fun () ->
+                      ignore (Eio.Flow.single_read flow (Cstruct.create 1) : int);
+                      Error (Problem.create Invalid_argument "one request per connection"))
+               | _ -> submit request)
           in
-          let response =
-            match result with
-            | Ok result ->
-              Json.obj [ "jsonrpc", Json.string "2.0"; "id", id; "result", result ]
-            | Error error ->
-              Json.obj
-                [ "jsonrpc", Json.string "2.0"
-                ; "id", id
-                ; ( "error"
-                  , Json.obj
-                      [ "code", `Number "-32000"
-                      ; "message", Json.string error.message
-                      ; "data", Problem.to_json error
-                      ] )
-                ]
-          in
-          write_response response
+          (* Starting cancellation in the dispatcher can race this connection's
+             reply. Stop after its bounded write attempt, even if the peer has
+             disconnected; other admitted work still drains through the barrier. *)
+          Exn.protect
+            ~finally:(fun () ->
+              if
+                Result.is_ok result
+                && String.equal
+                     (Json.text (Json.field request "method"))
+                     "daemon.shutdown"
+              then Atomic.set stopping true)
+            ~f:(fun () ->
+              let response =
+                match result with
+                | Ok result ->
+                  let method_ = Json.text (Json.field request "method") in
+                  let result =
+                    Api_response.project (Service_response.layout method_) result
+                  in
+                  ignore (Api_catalog.validate_response ~method_ result : unit option);
+                  let result = Api_response.to_json result in
+                  Json.obj [ "jsonrpc", Json.string "2.0"; "id", id; "result", result ]
+                | Error error ->
+                  Json.obj
+                    [ "jsonrpc", Json.string "2.0"
+                    ; "id", id
+                    ; ( "error"
+                      , Json.obj
+                          [ "code", `Number "-32000"
+                          ; "message", Json.string error.message
+                          ; "data", Problem.to_json error
+                          ] )
+                    ]
+              in
+              write_response response)
       with
       | Json.Decode_error error ->
         write_response

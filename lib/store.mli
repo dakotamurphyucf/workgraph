@@ -129,6 +129,10 @@ val with_history
 
 val history_capture : t -> (Session_store.Capture.t, Problem.t) Result.t
 
+(** Worker-only guarded snapshot of transaction, journal and private upload
+    admission counters. Does not walk disk or report physical free space. *)
+val admission : t -> (Admission.t list, Problem.t) Result.t
+
 val capture_at_history
   :  t
   -> revision:int

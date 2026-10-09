@@ -1,101 +1,183 @@
 open Core
+
+let unwrap = function
+  | Ok value -> value
+  | Error error -> raise (Json.Decode_error error)
+;;
+
 module Recipient = Communication_event.Recipient
 module Scope = Communication_event.Scope
 module Board = Communication_event.Board
 module Thread = Communication_event.Thread
 module Team = Communication_event.Team
 module Request = Communication_event.Request
+module Message = Communication_event.Message
 module Notification = Communication_event.Notification
 module Subscription = Communication_event.Subscription
 module Change = Communication_event
+module Attribution = Communication_event.Attribution
+module Update = Communication_event.Update
 
-module Command = struct
+module Message_send = struct
   type t =
-    | Board_put of
-        { id : Communication_id.Board.t
-        ; expected_revision : int
-        ; scope : Scope.t
-        ; title : string
-        }
-    | Thread_put of
-        { id : Communication_id.Thread.t
-        ; expected_revision : int
-        ; board : Communication_id.Board.t
-        ; title : string
-        ; participants : Id.Actor.t list
-        ; mentions : Id.Actor.t list
-        ; links : Entity_ref.t list
-        ; state : Thread.State.t
-        ; pinned : bool
-        }
-    | Thread_attach of
-        { id : Communication_id.Thread.t
-        ; expected_revision : int
-        ; message : Id.Comment.t
-        }
-    | Thread_pin_message of
-        { id : Communication_id.Thread.t
-        ; expected_revision : int
-        ; message : Id.Comment.t
-        ; pinned : bool
-        }
-    | Team_put of
-        { id : Communication_id.Team.t
-        ; expected_revision : int
-        ; title : string
-        ; members : Recipient.t list
-        }
-    | Request_create of
-        { id : Communication_id.Request.t
-        ; thread : Communication_id.Thread.t
-        ; kind : Request.Kind.t
-        ; message : Id.Comment.t
-        ; recipients : Recipient.t list
-        ; teams : Communication_id.Team.t list
-        ; resolver : Id.Actor.t
-        ; correlation_id : string option
-        ; reply_to : Communication_id.Request.t option
-        ; deadline_unix_ms : string option
-        }
-    | Request_acknowledge of
-        { id : Communication_id.Request.t
-        ; expected_revision : int
-        ; recipient : Recipient.t
-        }
-    | Request_accept of
-        { id : Communication_id.Request.t
-        ; expected_revision : int
-        ; recipient : Recipient.t
-        }
-    | Request_reassign of
-        { id : Communication_id.Request.t
-        ; expected_revision : int
-        ; recipient : Recipient.t option
-        }
-    | Request_resolve of
-        { id : Communication_id.Request.t
-        ; expected_revision : int
-        }
-    | Request_cancel of
-        { id : Communication_id.Request.t
-        ; expected_revision : int
-        }
-    | Subscription_put of
-        { id : Communication_id.Subscription.t
-        ; expected_revision : int
-        ; recipient : Recipient.t
-        ; filter : Subscription.Filter.t
-        ; active : bool
-        }
-    | Inbox_mark_read of
-        { recipient : Recipient.t
-        ; through : int
-        }
+    { message_id : Communication_id.Message.t
+    ; body : string
+    ; ticket_id : Id.Ticket.t option
+    ; recipients : Recipient.t list
+    ; teams : Communication_id.Team.t list
+    ; reply_to_message_id : Communication_id.Message.t option
+    ; correlation_id : string option
+    }
   [@@deriving sexp]
+
+  module Fields = Api_codec.Fields
+
+  let identifier decode encode =
+    Api_codec.map
+      (Api_codec.text ~max_bytes:96)
+      ~decode
+      ~encode
+      ~description:"Opaque validated identity."
+  ;;
+
+  let message =
+    identifier Communication_id.Message.of_string Communication_id.Message.to_string
+  ;;
+
+  let team = identifier Communication_id.Team.of_string Communication_id.Team.to_string
+  let ticket = identifier Id.Ticket.of_string Id.Ticket.to_string
+  let recipient = Communication_recipient.codec
+
+  let nonblank max_bytes description =
+    Api_codec.map
+      (Api_codec.text ~max_bytes)
+      ~decode:(fun text ->
+        if String.is_empty (String.strip text)
+        then Error (Problem.create Invalid_argument description)
+        else Ok text)
+      ~encode:Fn.id
+      ~description
+  ;;
+
+  let codec =
+    let identity =
+      Fields.both
+        (Fields.required "message_id" message)
+        (Fields.required
+           "body"
+           (nonblank 65_536 "Message body must be nonblank UTF-8, up to 65536 bytes."))
+    in
+    let routing =
+      Fields.both
+        (Fields.optional "recipients" (Api_codec.list recipient ~max_items:256))
+        (Fields.optional "teams" (Api_codec.list team ~max_items:256))
+    in
+    let linkage =
+      Fields.both
+        (Fields.optional "ticket_id" ticket)
+        (Fields.optional "reply_to_message_id" message)
+    in
+    let fields =
+      Fields.both
+        (Fields.both identity routing)
+        (Fields.both
+           linkage
+           (Fields.optional
+              "correlation_id"
+              (nonblank 512 "Correlation ID must be nonblank UTF-8, up to 512 bytes.")))
+    in
+    Api_codec.map
+      (Api_codec.object_ fields)
+      ~decode:
+        (fun
+          ( ((message_id, body), (recipients, teams))
+          , ((ticket_id, reply_to_message_id), correlation_id) ) ->
+        let recipients = Option.value recipients ~default:[] in
+        let teams = Option.value teams ~default:[] in
+        if List.is_empty recipients && List.is_empty teams
+        then
+          Error
+            (Problem.create Invalid_argument "message.send requires recipients or teams")
+        else
+          Ok
+            { message_id
+            ; body
+            ; ticket_id
+            ; recipients
+            ; teams
+            ; reply_to_message_id
+            ; correlation_id
+            })
+      ~encode:(fun t ->
+        ( ((t.message_id, t.body), (Some t.recipients, Some t.teams))
+        , ((t.ticket_id, t.reply_to_message_id), t.correlation_id) ))
+      ~description:
+        "An immutable-body informal exchange. Routing freezes actual actor/run \
+         deliveries at commit; reply IDs name existing messages."
+  ;;
+
+  let receipt_codec =
+    let revision =
+      Api_codec.map
+        (Api_codec.decimal ~max:1)
+        ~decode:(fun value ->
+          if value = 1
+          then Ok value
+          else Error (Problem.create Invalid_argument "message receipt pins revision 1"))
+        ~encode:Fn.id
+        ~description:"Pinned initial comment revision."
+    in
+    let positive_serial =
+      Api_codec.map
+        (Api_codec.decimal ~max:Int.max_value)
+        ~decode:(fun value ->
+          if value > 0
+          then Ok value
+          else Error (Problem.create Invalid_argument "notification ID must be positive"))
+        ~encode:Fn.id
+        ~description:"Workspace-local notification serial."
+    in
+    let notification_ids =
+      Api_codec.map
+        (Api_codec.list positive_serial ~max_items:1)
+        ~decode:(fun ids ->
+          if List.length ids = 1
+          then Ok ids
+          else
+            Error
+              (Problem.create
+                 Invalid_argument
+                 "message receipt requires one notification ID"))
+        ~encode:Fn.id
+        ~description:"Stable notification ID for the frozen delivery."
+    in
+    let fields =
+      Fields.both
+        (Fields.both
+           (Fields.required "message_id" message)
+           (Fields.required
+              "comment_id"
+              (identifier Id.Comment.of_string Id.Comment.to_string)))
+        (Fields.both
+           (Fields.required "comment_revision" revision)
+           (Fields.both
+              (Fields.required "recipients" (Api_codec.list recipient ~max_items:2048))
+              (Fields.required "notification_ids" notification_ids)))
+    in
+    Api_codec.as_json (Api_codec.object_ fields)
+  ;;
 end
 
-module Attribution = Change.Attribution
-module Update = Change.Update
+let message_method =
+  Api_method.create
+    ~name:"message.send"
+    ~summary:"Send an immutable-body informal message with frozen actor/run/team routing."
+    ~mode:Mutation
+    ~request:Message_send.codec
+    ~response:Message_send.receipt_codec
+;;
+
+module Command = Communication_command
 
 type t =
   { revision : int
@@ -103,8 +185,9 @@ type t =
   ; threads : Thread.t Communication_id.Thread.Map.t
   ; teams : Team.t Communication_id.Team.Map.t
   ; requests : Request.t Communication_id.Request.Map.t
+  ; messages : Message.t Communication_id.Message.Map.t
   ; subscriptions : Subscription.t Communication_id.Subscription.Map.t
-  ; positions : int Recipient.Map.t
+  ; acknowledgements : Int.Set.t Recipient.Map.t Communication_id.Consumer.Map.t
   ; notifications : Notification.t list
   ; history : Change.t list
   ; serial : int
@@ -122,8 +205,9 @@ let empty =
   ; threads = Communication_id.Thread.Map.empty
   ; teams = Communication_id.Team.Map.empty
   ; requests = Communication_id.Request.Map.empty
+  ; messages = Communication_id.Message.Map.empty
   ; subscriptions = Communication_id.Subscription.Map.empty
-  ; positions = Recipient.Map.empty
+  ; acknowledgements = Communication_id.Consumer.Map.empty
   ; notifications = []
   ; history = []
   ; serial = 0
@@ -135,10 +219,17 @@ let candidate p = p.candidate
 let changes p = p.changes
 let result p = p.result
 let latest_serial t = t.serial
-let inbox_position t recipient = Option.value (Map.find t.positions recipient) ~default:0
+
+let acknowledged t consumer_id recipient =
+  Map.find t.acknowledgements consumer_id
+  |> Option.bind ~f:(fun recipients -> Map.find recipients recipient)
+  |> Option.value ~default:Int.Set.empty
+;;
+
 let get_board t id = Map.find t.boards id
 let get_thread t id = Map.find t.threads id
 let get_request t id = Map.find t.requests id
+let get_message t id = Map.find t.messages id
 let require condition kind message = if not condition then Json.fail kind message
 
 let find map id =
@@ -440,7 +531,7 @@ let request_valid t attribution (request : Request.t) kind =
            | Accepted { recipient; _ } -> Some recipient)
       | Request_resolved -> resolve old attribution
       | Request_cancelled -> cancel old attribution
-      | Thread_changed | Request_created ->
+      | Thread_changed | Message_received | Request_created ->
         Json.fail Corrupt_store "invalid request transition kind"
     in
     require
@@ -471,10 +562,102 @@ let subscription_valid t attribution (subscription : Subscription.t) =
       "subscription recipient is immutable")
 ;;
 
+let message_comment_id id =
+  Id.Comment.of_string ("message-" ^ Json.hash (Communication_id.Message.to_string id))
+  |> function
+  | Ok id -> id
+  | Error error -> raise (Json.Decode_error error)
+;;
+
+let message_recipients t direct teams =
+  let members = List.concat_map teams ~f:(fun id -> (find t.teams id).Team.members) in
+  let subscribed =
+    Map.data t.subscriptions
+    |> List.filter_map ~f:(fun subscription ->
+      if
+        subscription.Subscription.active
+        && Option.value_map
+             subscription.filter.scope
+             ~default:true
+             ~f:(Scope.equal Scope.Workspace)
+        && Option.is_none subscription.filter.thread
+        && (List.is_empty subscription.filter.kinds
+            || List.mem
+                 subscription.filter.kinds
+                 Notification.Kind.Message_received
+                 ~equal:Notification.Kind.equal)
+      then Some subscription.recipient
+      else None)
+  in
+  unique (direct @ members @ subscribed) ~compare:Recipient.compare
+;;
+
+let message_valid t attribution (message : Message.t) =
+  require
+    (not (Map.mem t.messages message.message_id))
+    Conflict
+    "message ID already exists";
+  require
+    (message.revision = 1 && message.comment_revision = 1)
+    Corrupt_store
+    "message references must pin the initial revision";
+  require
+    (Id.Comment.equal message.comment_id (message_comment_id message.message_id))
+    Corrupt_store
+    "message comment identity differs from its stable source";
+  require
+    (Attribution.equal message.created attribution)
+    Corrupt_store
+    "message creation attribution differs from event";
+  require
+    (not (List.is_empty message.direct_recipients && List.is_empty message.teams))
+    Invalid_argument
+    "message requires direct recipients or teams";
+  require
+    (List.equal
+       Recipient.equal
+       message.direct_recipients
+       (unique message.direct_recipients ~compare:Recipient.compare))
+    Corrupt_store
+    "message direct recipients are not canonical";
+  require
+    (List.equal
+       Communication_id.Team.equal
+       message.teams
+       (unique message.teams ~compare:Communication_id.Team.compare))
+    Corrupt_store
+    "message teams are not canonical";
+  require
+    ((not (List.is_empty message.recipients)) && List.length message.recipients <= 2048)
+    Invalid_argument
+    "message routing must resolve 1..2048 recipients";
+  require
+    (List.equal
+       Recipient.equal
+       message.recipients
+       (message_recipients t message.direct_recipients message.teams))
+    Corrupt_store
+    "message routing differs from frozen deliveries";
+  Option.iter message.reply_to_message_id ~f:(fun id ->
+    let previous = find t.messages id in
+    require
+      (Option.equal Id.Ticket.equal previous.ticket_id message.ticket_id)
+      Conflict
+      "message reply targets another ticket");
+  Option.iter message.correlation_id ~f:(fun id ->
+    require
+      ((not (String.is_empty (String.strip id))) && String.length id <= 512)
+      Invalid_argument
+      "invalid message correlation ID")
+;;
+
 let update t attribution = function
   | Update.Board_put board ->
     board_valid t board;
     { t with boards = Map.set t.boards ~key:board.id ~data:board }
+  | Message_put message ->
+    message_valid t attribution message;
+    { t with messages = Map.set t.messages ~key:message.message_id ~data:message }
   | Thread_put thread ->
     thread_valid t thread;
     { t with threads = Map.set t.threads ~key:thread.id ~data:thread }
@@ -489,64 +672,104 @@ let update t attribution = function
     { t with
       subscriptions = Map.set t.subscriptions ~key:subscription.id ~data:subscription
     }
-  | Cursor_advanced { recipient; through } ->
+  | Inbox_ack { consumer_id; recipient; notification_ids } ->
     recipient_allowed attribution recipient;
     require
-      (through >= inbox_position t recipient && through <= t.serial)
-      Conflict
-      "inbox read cursor is outside retained activity";
-    { t with positions = Map.set t.positions ~key:recipient ~data:through }
+      ((not (List.is_empty notification_ids)) && List.length notification_ids <= 100)
+      Invalid_argument
+      "notification_ids must contain 1..100 IDs";
+    List.iter notification_ids ~f:(fun id ->
+      require
+        (List.exists t.notifications ~f:(fun n ->
+           Int.equal n.Notification.serial id
+           && List.mem n.recipients recipient ~equal:Recipient.equal))
+        Invalid_argument
+        "notification ID was not addressed to recipient");
+    let recipients =
+      Option.value (Map.find t.acknowledgements consumer_id) ~default:Recipient.Map.empty
+    in
+    let ids =
+      List.fold notification_ids ~init:(acknowledged t consumer_id recipient) ~f:Set.add
+    in
+    { t with
+      acknowledgements =
+        Map.set
+          t.acknowledgements
+          ~key:consumer_id
+          ~data:(Map.set recipients ~key:recipient ~data:ids)
+    }
 ;;
 
 let notification t event_update ~sequence ~attribution =
-  let info =
-    match event_update with
-    | Update.Thread_put thread ->
-      Some
-        ( thread
-        , Notification.Source.Thread thread.id
-        , thread.revision
-        , Notification.Kind.Thread_changed
-        , List.map (thread.participants @ thread.mentions) ~f:(fun id ->
-            Recipient.Actor id) )
-    | Request_put { request; kind } ->
-      Some
-        ( find t.threads request.thread
-        , Notification.Source.Request request.id
-        , request.revision
-        , kind
-        , List.map request.deliveries ~f:(fun d -> d.Request.Delivery.recipient) )
-    | Board_put _ | Team_put _ | Subscription_put _ | Cursor_advanced _ -> None
-  in
-  match info with
-  | None -> []
-  | Some (thread, source, source_revision, kind, direct) ->
-    let scope = scope t thread in
-    let recipients =
-      Map.data t.subscriptions
-      |> List.filter_map ~f:(fun s ->
-        if
-          s.Subscription.active
-          && Option.value_map s.filter.scope ~default:true ~f:(Scope.equal scope)
-          && Option.value_map
-               s.filter.thread
-               ~default:true
-               ~f:(Communication_id.Thread.equal thread.id)
-          && (List.is_empty s.filter.kinds
-              || List.mem s.filter.kinds kind ~equal:Notification.Kind.equal)
-        then Some s.recipient
-        else None)
-    in
+  match event_update with
+  | Update.Message_put message ->
     [ { Notification.serial = t.serial + 1
       ; sequence
-      ; scope
-      ; source
-      ; source_revision
-      ; kind
+      ; scope = Scope.Workspace
+      ; source = Notification.Source.Message message.message_id
+      ; source_revision = message.revision
+      ; kind = Message_received
       ; attribution
-      ; recipients = unique (direct @ recipients) ~compare:Recipient.compare
+      ; recipients = message.recipients
       }
     ]
+  | Board_put _
+  | Thread_put _
+  | Team_put _
+  | Request_put _
+  | Subscription_put _
+  | Inbox_ack _ ->
+    let info =
+      match event_update with
+      | Update.Thread_put thread ->
+        Some
+          ( thread
+          , Notification.Source.Thread thread.id
+          , thread.revision
+          , Notification.Kind.Thread_changed
+          , List.map (thread.participants @ thread.mentions) ~f:(fun id ->
+              Recipient.Actor id) )
+      | Request_put { request; kind } ->
+        Some
+          ( find t.threads request.thread
+          , Notification.Source.Request request.id
+          , request.revision
+          , kind
+          , Recipient.Actor request.created.actor
+            :: Recipient.Actor request.resolver
+            :: List.map request.deliveries ~f:(fun d -> d.Request.Delivery.recipient) )
+      | Board_put _ | Team_put _ | Subscription_put _ | Inbox_ack _ | Message_put _ ->
+        None
+    in
+    (match info with
+     | None -> []
+     | Some (thread, source, source_revision, kind, direct) ->
+       let scope = scope t thread in
+       let recipients =
+         Map.data t.subscriptions
+         |> List.filter_map ~f:(fun s ->
+           if
+             s.Subscription.active
+             && Option.value_map s.filter.scope ~default:true ~f:(Scope.equal scope)
+             && Option.value_map
+                  s.filter.thread
+                  ~default:true
+                  ~f:(Communication_id.Thread.equal thread.id)
+             && (List.is_empty s.filter.kinds
+                 || List.mem s.filter.kinds kind ~equal:Notification.Kind.equal)
+           then Some s.recipient
+           else None)
+       in
+       [ { Notification.serial = t.serial + 1
+         ; sequence
+         ; scope
+         ; source
+         ; source_revision
+         ; kind
+         ; attribution
+         ; recipients = unique (direct @ recipients) ~compare:Recipient.compare
+         }
+       ])
 ;;
 
 let apply_exn t (change : Change.t) =
@@ -731,22 +954,31 @@ let command_update t command attribution =
       ; filter = { filter with kinds }
       ; active
       }
-  | Inbox_mark_read { recipient; through } ->
-    Update.Cursor_advanced { recipient; through }
+  | Inbox_ack ack ->
+    Update.Inbox_ack
+      { consumer_id = ack.consumer_id
+      ; recipient = ack.recipient
+      ; notification_ids = ack.notification_ids
+      }
 ;;
 
 let update_json = function
-  | Update.Board_put x -> Board.jsonaf_of_t x
-  | Thread_put x -> Thread.jsonaf_of_t x
-  | Team_put x -> Team.jsonaf_of_t x
-  | Request_put { request; _ } -> Request.jsonaf_of_t request
-  | Subscription_put x -> Subscription.jsonaf_of_t x
-  | Cursor_advanced { recipient; through } ->
-    Json.obj [ "recipient", Recipient.jsonaf_of_t recipient; "through", Json.int through ]
+  | Update.Board_put x -> Communication_wire.board_json x
+  | Message_put x -> Message.jsonaf_of_t x
+  | Thread_put x -> Communication_wire.thread_json x
+  | Team_put x -> Communication_wire.team_json x
+  | Request_put { request; _ } -> Communication_wire.request_json request
+  | Subscription_put x -> Communication_wire.subscription_json x
+  | Inbox_ack { consumer_id; recipient; notification_ids } ->
+    unwrap
+      (Api_codec.encode
+         Communication_inbox.Ack.codec
+         { consumer_id; recipient; notification_ids })
 ;;
 
 let prepare t command ~actor ~run ~timestamp ~sequence =
   Json.decode (fun () ->
+    let method_, _ = Communication_command.encode command |> unwrap in
     let attribution = { Attribution.actor; run; timestamp } in
     attribution_valid attribution;
     let event_update = command_update t command attribution in
@@ -761,7 +993,127 @@ let prepare t command ~actor ~run ~timestamp ~sequence =
       }
     in
     let candidate = apply_exn t change in
-    { candidate; changes = [ change ]; result = update_json event_update })
+    let result = update_json event_update in
+    if not (String.equal method_ "inbox.ack")
+    then Communication_wire.validate_result ~method_ result;
+    { candidate; changes = [ change ]; result })
+;;
+
+module Message_prepared = struct
+  type state = t
+
+  type change =
+    | Discussion_change of Discussion.Change.t
+    | Communication_change of Change.t
+
+  type nonrec t =
+    { candidate : t
+    ; discussion : Discussion.t
+    ; changes : change list
+    ; result : Jsonaf.t
+    }
+
+  let candidate t = t.candidate
+  let discussion t = t.discussion
+  let changes t = t.changes
+  let result t = t.result
+end
+
+let prepare_message
+      t
+      (command : Message_send.t)
+      ~discussion
+      ~actor
+      ~run
+      ~timestamp
+      ~sequence
+  =
+  Json.decode (fun () ->
+    let unwrap = function
+      | Ok value -> value
+      | Error error -> raise (Json.Decode_error error)
+    in
+    let command =
+      Api_codec.encode Message_send.codec command
+      |> unwrap
+      |> Api_codec.decode Message_send.codec
+      |> unwrap
+    in
+    let attribution = { Attribution.actor; run; timestamp } in
+    attribution_valid attribution;
+    let comment_id = message_comment_id command.message_id in
+    let target =
+      Option.value_map command.ticket_id ~default:Entity_ref.Workspace ~f:(fun id ->
+        Entity_ref.Ticket id)
+    in
+    let reply_to =
+      Option.map command.reply_to_message_id ~f:(fun id ->
+        (find t.messages id).Message.comment_id)
+    in
+    let discussion_change =
+      Discussion.Change.Create
+        { id = comment_id
+        ; target
+        ; reply_to
+        ; kind = Comment
+        ; origin = Authored
+        ; version =
+            { revision = 1
+            ; serial = Discussion.next_serial discussion
+            ; sequence
+            ; actor
+            ; timestamp
+            ; body = command.body
+            ; tombstone = false
+            }
+        }
+    in
+    let discussion = Discussion.apply discussion discussion_change ~sequence in
+    let direct_recipients = unique command.recipients ~compare:Recipient.compare in
+    let teams = unique command.teams ~compare:Communication_id.Team.compare in
+    let message =
+      { Message.message_id = command.message_id
+      ; revision = 1
+      ; comment_id
+      ; comment_revision = 1
+      ; ticket_id = command.ticket_id
+      ; direct_recipients
+      ; teams
+      ; recipients = message_recipients t direct_recipients teams
+      ; reply_to_message_id = command.reply_to_message_id
+      ; correlation_id = command.correlation_id
+      ; created = attribution
+      }
+    in
+    let event_update = Update.Message_put message in
+    let updated = update t attribution event_update in
+    let change =
+      { Change.version = 1
+      ; revision = t.revision + 1
+      ; sequence
+      ; attribution
+      ; update = event_update
+      ; notifications = notification updated event_update ~sequence ~attribution
+      }
+    in
+    let candidate = apply_exn t change in
+    { Message_prepared.candidate
+    ; discussion
+    ; changes = [ Discussion_change discussion_change; Communication_change change ]
+    ; result =
+        Json.obj
+          [ "message_id", Communication_id.Message.jsonaf_of_t message.message_id
+          ; "comment_id", Id.Comment.jsonaf_of_t message.comment_id
+          ; "comment_revision", Json.int message.comment_revision
+          ; "recipients", `Array (List.map message.recipients ~f:Recipient.jsonaf_of_t)
+          ; ( "notification_ids"
+            , `Array
+                (List.map change.notifications ~f:(fun n ->
+                   Json.int n.Notification.serial)) )
+          ]
+        |> Api_codec.decode Message_send.receipt_codec
+        |> unwrap
+    })
 ;;
 
 let validate_references t ~entity_exists ~discussion =
@@ -778,6 +1130,40 @@ let validate_references t ~entity_exists ~discussion =
           (Entity_ref.equal target (Discussion.target discussion comment))
           Conflict
           "thread comment targets another scope"));
+    Map.iter t.messages ~f:(fun message ->
+      let target =
+        Option.value_map
+          message.Message.ticket_id
+          ~default:Entity_ref.Workspace
+          ~f:(fun id -> Entity_ref.Ticket id)
+      in
+      check target;
+      require
+        (Entity_ref.equal target (Discussion.target discussion message.comment_id))
+        Conflict
+        "message body targets another entity";
+      let initial =
+        Discussion.history discussion message.comment_id
+        |> List.find ~f:(fun value ->
+          Int.equal (Json.integer (Json.field value "revision")) message.comment_revision)
+      in
+      let initial =
+        match initial with
+        | Some value -> value
+        | None -> Json.fail Corrupt_store "pinned message comment version missing"
+      in
+      require
+        (Id.Actor.equal
+           (Id.Actor.t_of_jsonaf (Json.field initial "actor"))
+           message.created.actor)
+        Corrupt_store
+        "message author differs from pinned comment";
+      require
+        (String.equal
+           (Json.text (Json.field initial "timestamp"))
+           message.created.timestamp)
+        Corrupt_store
+        "message timestamp differs from pinned comment");
     Map.iter t.subscriptions ~f:(fun s ->
       Option.iter s.Subscription.filter.scope ~f:(fun scope -> check (Scope.target scope))))
 ;;
@@ -788,11 +1174,12 @@ let thread_history t id =
     match change.Change.update with
     | Thread_put thread when Communication_id.Thread.equal thread.id id -> Some thread
     | Board_put _
+    | Message_put _
     | Thread_put _
     | Team_put _
     | Request_put _
     | Subscription_put _
-    | Cursor_advanced _ -> None)
+    | Inbox_ack _ -> None)
 ;;
 
 let request_history t id =
@@ -802,18 +1189,20 @@ let request_history t id =
     | Request_put { request; _ } when Communication_id.Request.equal request.id id ->
       Some request
     | Board_put _
+    | Message_put _
     | Thread_put _
     | Team_put _
     | Request_put _
     | Subscription_put _
-    | Cursor_advanced _ -> None)
+    | Inbox_ack _ -> None)
 ;;
 
-let inbox t ~recipient ~after ~through =
+let inbox t ~consumer_id ~recipient ~after ~through =
   let through = Option.value through ~default:t.serial in
   List.rev t.notifications
   |> List.filter ~f:(fun n ->
     n.Notification.serial > after
+    && (not (Set.mem (acknowledged t consumer_id recipient) n.serial))
     && n.serial <= through
     && List.mem n.recipients recipient ~equal:Recipient.equal)
 ;;
@@ -826,40 +1215,8 @@ let to_json t =
     ]
 ;;
 
-let mutation_methods =
-  [ "board.put"
-  ; "thread.put"
-  ; "thread.attach"
-  ; "thread.pin_message"
-  ; "team.put"
-  ; "request.create"
-  ; "request.acknowledge"
-  ; "request.accept"
-  ; "request.reassign"
-  ; "request.resolve"
-  ; "request.cancel"
-  ; "subscription.put"
-  ; "inbox.mark_read"
-  ]
-;;
-
-let query_methods =
-  [ "board.get"
-  ; "board.list"
-  ; "thread.get"
-  ; "thread.list"
-  ; "thread.history"
-  ; "thread.search"
-  ; "team.get"
-  ; "team.list"
-  ; "request.get"
-  ; "request.list"
-  ; "request.history"
-  ; "subscription.get"
-  ; "subscription.list"
-  ; "inbox.read"
-  ]
-;;
+let mutation_methods = Communication_command.methods
+let query_methods = Communication_api.query_methods @ [ "inbox.read"; "inbox.wait" ]
 
 let boolean = function
   | `True -> true
@@ -873,169 +1230,164 @@ let optional params key f =
   | Some json -> Some (f json)
 ;;
 
-let list_field params key f =
-  Option.value_map (Json.optional params key) ~default:[] ~f:(fun json ->
-    List.map (Json.list json) ~f)
-;;
+let decode = Communication_command.decode
 
-let filter_decode json =
-  Json.fields json ~allowed:[ "scope"; "thread_id"; "kinds" ];
-  let kind = function
-    | "thread_changed" -> Notification.Kind.Thread_changed
-    | "request_created" -> Request_created
-    | "request_acknowledged" -> Request_acknowledged
-    | "request_accepted" -> Request_accepted
-    | "request_reassigned" -> Request_reassigned
-    | "request_resolved" -> Request_resolved
-    | "request_cancelled" -> Request_cancelled
-    | _ -> Json.fail Invalid_argument "unknown notification kind"
+let notification_ticket_ids t (notification : Notification.t) =
+  let links =
+    match notification.source with
+    | Message id ->
+      Option.to_list (find t.messages id).Message.ticket_id
+      |> List.map ~f:(fun id -> Entity_ref.Ticket id)
+    | Thread id -> (find t.threads id).Thread.links
+    | Request id -> (find t.threads (find t.requests id).Request.thread).Thread.links
   in
-  { Subscription.Filter.scope = optional json "scope" Scope.t_of_jsonaf
-  ; thread = optional json "thread_id" Communication_id.Thread.t_of_jsonaf
-  ; kinds = list_field json "kinds" (fun value -> kind (Json.text value))
-  }
+  List.filter_map links ~f:(function
+    | Entity_ref.Ticket id -> Some id
+    | _ -> None)
+  |> List.dedup_and_sort ~compare:Id.Ticket.compare
 ;;
 
-let decode ~method_ ~params =
-  Json.decode (fun () ->
-    let get key = Json.field params key in
-    let expected_revision () = Json.integer (get "expected_revision") in
-    let thread () = Communication_id.Thread.t_of_jsonaf (get "thread_id") in
-    let request () = Communication_id.Request.t_of_jsonaf (get "request_id") in
-    let recipient () = Recipient.t_of_jsonaf (get "recipient") in
-    let allow fields = Json.fields params ~allowed:fields in
-    match method_ with
-    | "board.put" ->
-      allow [ "board_id"; "expected_revision"; "scope"; "title" ];
-      Command.Board_put
-        { id = Communication_id.Board.t_of_jsonaf (get "board_id")
-        ; expected_revision = expected_revision ()
-        ; scope = Scope.t_of_jsonaf (get "scope")
-        ; title = Json.text (get "title")
-        }
-    | "thread.put" ->
-      allow
-        [ "thread_id"
-        ; "expected_revision"
-        ; "board_id"
-        ; "title"
-        ; "participants"
-        ; "mentions"
-        ; "links"
-        ; "state"
-        ; "pinned"
-        ];
-      Command.Thread_put
-        { id = thread ()
-        ; expected_revision = expected_revision ()
-        ; board = Communication_id.Board.t_of_jsonaf (get "board_id")
-        ; title = Json.text (get "title")
-        ; participants = list_field params "participants" Id.Actor.t_of_jsonaf
-        ; mentions = list_field params "mentions" Id.Actor.t_of_jsonaf
-        ; links = list_field params "links" Entity_ref.t_of_jsonaf
-        ; state = Thread.State.t_of_jsonaf (get "state")
-        ; pinned = Option.value (optional params "pinned" boolean) ~default:false
-        }
-    | "thread.attach" ->
-      allow [ "thread_id"; "expected_revision"; "comment_id" ];
-      Command.Thread_attach
-        { id = thread ()
-        ; expected_revision = expected_revision ()
-        ; message = Id.Comment.t_of_jsonaf (get "comment_id")
-        }
-    | "thread.pin_message" ->
-      allow [ "thread_id"; "expected_revision"; "comment_id"; "pinned" ];
-      Command.Thread_pin_message
-        { id = thread ()
-        ; expected_revision = expected_revision ()
-        ; message = Id.Comment.t_of_jsonaf (get "comment_id")
-        ; pinned = boolean (get "pinned")
-        }
-    | "team.put" ->
-      allow [ "team_id"; "expected_revision"; "title"; "members" ];
-      Command.Team_put
-        { id = Communication_id.Team.t_of_jsonaf (get "team_id")
-        ; expected_revision = expected_revision ()
-        ; title = Json.text (get "title")
-        ; members = list_field params "members" Recipient.t_of_jsonaf
-        }
-    | "request.create" ->
-      allow
-        [ "request_id"
-        ; "thread_id"
-        ; "kind"
-        ; "comment_id"
-        ; "recipients"
-        ; "teams"
-        ; "resolver_id"
-        ; "correlation_id"
-        ; "reply_to"
-        ; "deadline_unix_ms"
-        ];
-      Command.Request_create
-        { id = request ()
-        ; thread = thread ()
-        ; kind = Request.Kind.t_of_jsonaf (get "kind")
-        ; message = Id.Comment.t_of_jsonaf (get "comment_id")
-        ; recipients = list_field params "recipients" Recipient.t_of_jsonaf
-        ; teams = list_field params "teams" Communication_id.Team.t_of_jsonaf
-        ; resolver = Id.Actor.t_of_jsonaf (get "resolver_id")
-        ; correlation_id = optional params "correlation_id" Json.text
-        ; reply_to = optional params "reply_to" Communication_id.Request.t_of_jsonaf
-        ; deadline_unix_ms =
-            optional params "deadline_unix_ms" (fun json ->
-              ignore (Json.integer64 json : int64);
-              Json.text json)
-        }
-    | "request.acknowledge" | "request.accept" ->
-      allow [ "request_id"; "expected_revision"; "recipient" ];
-      let id = request ()
-      and expected_revision = expected_revision ()
-      and recipient = recipient () in
-      if String.equal method_ "request.acknowledge"
-      then Command.Request_acknowledge { id; expected_revision; recipient }
-      else Request_accept { id; expected_revision; recipient }
-    | "request.reassign" ->
-      allow [ "request_id"; "expected_revision"; "recipient" ];
-      Command.Request_reassign
-        { id = request ()
-        ; expected_revision = expected_revision ()
-        ; recipient = optional params "recipient" Recipient.t_of_jsonaf
-        }
-    | "request.resolve" | "request.cancel" ->
-      allow [ "request_id"; "expected_revision" ];
-      let id = request ()
-      and expected_revision = expected_revision () in
-      if String.equal method_ "request.resolve"
-      then Command.Request_resolve { id; expected_revision }
-      else Request_cancel { id; expected_revision }
-    | "subscription.put" ->
-      allow [ "subscription_id"; "expected_revision"; "recipient"; "filter"; "active" ];
-      Command.Subscription_put
-        { id = Communication_id.Subscription.t_of_jsonaf (get "subscription_id")
-        ; expected_revision = expected_revision ()
-        ; recipient = recipient ()
-        ; filter = filter_decode (get "filter")
-        ; active = boolean (get "active")
-        }
-    | "inbox.mark_read" ->
-      allow [ "recipient"; "through" ];
-      Command.Inbox_mark_read
-        { recipient = recipient (); through = Json.integer (get "through") }
-    | _ -> Json.fail Invalid_argument "unknown communication mutation")
+let notification_packet t ~discussion (notification : Notification.t) =
+  let source, current_revision, body =
+    match notification.source with
+    | Message id ->
+      let message = find t.messages id in
+      let version =
+        List.find_exn
+          (Discussion.history discussion message.comment_id)
+          ~f:(fun version ->
+            Int.equal
+              (Json.integer (Json.field version "revision"))
+              message.comment_revision)
+      in
+      "message", message.revision, Some (version, "initial")
+    | Request id ->
+      let request = find t.requests id in
+      ( "request"
+      , request.revision
+      , Some (Discussion.get discussion request.message, "current") )
+    | Thread id ->
+      let thread = find t.threads id in
+      ( "thread"
+      , thread.revision
+      , Option.map (List.last thread.messages) ~f:(fun id ->
+          Discussion.get discussion id, "current") )
+  in
+  let id =
+    match notification.source with
+    | Message id -> Communication_id.Message.jsonaf_of_t id
+    | Request id -> Communication_id.Request.jsonaf_of_t id
+    | Thread id -> Communication_id.Thread.jsonaf_of_t id
+  in
+  let kind =
+    match notification.kind with
+    | Message_received -> "message_received"
+    | Thread_changed -> "thread_changed"
+    | Request_created -> "request_created"
+    | Request_acknowledged -> "request_acknowledged"
+    | Request_accepted -> "request_accepted"
+    | Request_reassigned -> "request_reassigned"
+    | Request_resolved -> "request_resolved"
+    | Request_cancelled -> "request_cancelled"
+  in
+  let scope =
+    match notification.scope with
+    | Scope.Workspace -> Json.obj [ "kind", Json.string "workspace" ]
+    | Project id ->
+      Json.obj [ "kind", Json.string "project"; "id", Id.Project.jsonaf_of_t id ]
+  in
+  let body_source =
+    Option.value_map body ~default:`Null ~f:(fun (version, version_kind) ->
+      Json.obj
+        (List.map
+           [ "comment_id"; "revision"; "serial"; "timestamp"; "body"; "tombstone" ]
+           ~f:(fun key -> key, Json.field version key)
+         @ [ "actor_id", Json.field version "actor"
+           ; "version_kind", Json.string version_kind
+           ]))
+  in
+  let attribution = notification.attribution in
+  let packet =
+    Json.obj
+      [ "notification_id", Json.int notification.serial
+      ; "sequence", Json.int notification.sequence
+      ; "kind", Json.string kind
+      ; "scope", scope
+      ; "source", Json.obj [ "kind", Json.string source; "id", id ]
+      ; "source_revision", Json.int notification.source_revision
+      ; "source_current_revision", Json.int current_revision
+      ; ( "ticket_ids"
+        , `Array
+            (List.map (notification_ticket_ids t notification) ~f:Id.Ticket.jsonaf_of_t) )
+      ; ( "attribution"
+        , Json.obj
+            [ "actor_id", Id.Actor.jsonaf_of_t attribution.actor
+            ; ( "run_id"
+              , Option.value_map attribution.run ~default:`Null ~f:Id.Run.jsonaf_of_t )
+            ; "timestamp", Json.string attribution.timestamp
+            ] )
+      ; "body_source", body_source
+      ]
+  in
+  unwrap (Api_codec.decode Communication_inbox.item_codec packet)
 ;;
 
-let query t ~method_ ~params =
+let read_inbox t ~discussion ~method_ ~params =
+  let module Q = Communication_inbox.Query in
+  let query =
+    unwrap
+      (Api_codec.decode
+         (if String.equal method_ "inbox.wait" then Q.wait_codec else Q.read_codec)
+         params)
+  in
+  let after = Q.after query in
+  let through = Option.value (Q.through query) ~default:t.serial in
+  require
+    (after <= through && through <= t.serial)
+    Invalid_argument
+    "inbox cursor outside retained activity";
+  let records =
+    inbox
+      t
+      ~consumer_id:(Q.consumer_id query)
+      ~recipient:(Q.recipient query)
+      ~after
+      ~through:(Some through)
+    |> List.filter ~f:(fun notification ->
+      Option.value_map (Q.kinds query) ~default:true ~f:(fun kinds ->
+        List.mem kinds notification.Notification.kind ~equal:Notification.Kind.equal)
+      && Option.value_map (Q.ticket_id query) ~default:true ~f:(fun id ->
+        List.mem (notification_ticket_ids t notification) id ~equal:Id.Ticket.equal))
+  in
+  let selected = List.take records (Q.limit query) in
+  let next_after =
+    Option.value_map (List.last selected) ~default:after ~f:(fun n ->
+      n.Notification.serial)
+  in
+  Json.obj
+    [ "revision", Json.int t.revision
+    ; "consumer_id", Communication_id.Consumer.jsonaf_of_t (Q.consumer_id query)
+    ; ( "recipient"
+      , unwrap (Api_codec.encode Communication_recipient.codec (Q.recipient query)) )
+    ; "after", Json.int after
+    ; "through", Json.int through
+    ; "next_after", Json.int next_after
+    ; "remaining", Json.int (List.length records - List.length selected)
+    ; "items", `Array (List.map selected ~f:(notification_packet t ~discussion))
+    ]
+;;
+
+let query t ~discussion ~method_ ~params =
   Json.decode (fun () ->
     let get key = Json.field params key in
-    let allowed fields = Json.fields params ~allowed:("max_bytes" :: fields) in
+    if List.mem Communication_api.query_methods method_ ~equal:String.equal
+    then Communication_api.validate_query ~method_ ~params |> unwrap;
     let scope_filter = optional params "scope" Scope.t_of_jsonaf in
     let scope_matches scope =
       Option.value_map scope_filter ~default:true ~f:(Scope.equal scope)
     in
     let recipient = optional params "recipient" Recipient.t_of_jsonaf in
-    let page fields records =
-      allowed (fields @ [ "offset"; "limit"; "revision" ]);
+    let page records =
       let offset = Option.value (optional params "offset" Json.integer) ~default:0 in
       let limit = Option.value (optional params "limit" Json.integer) ~default:50 in
       require
@@ -1054,37 +1406,55 @@ let query t ~method_ ~params =
           , if remaining > 0 then Json.int (offset + List.length items) else `Null )
         ]
     in
-    let direct fields json =
-      allowed fields;
-      Json.obj [ "revision", Json.int t.revision; "record", json ]
-    in
+    let direct json = Json.obj [ "revision", Json.int t.revision; "record", json ] in
     let output =
       match method_ with
       | "board.get" ->
         direct
-          [ "board_id" ]
-          (Board.jsonaf_of_t
+          (Communication_wire.board_json
              (find t.boards (Communication_id.Board.t_of_jsonaf (get "board_id"))))
       | "board.list" ->
         Map.data t.boards
         |> List.filter ~f:(fun b -> scope_matches b.Board.scope)
-        |> List.map ~f:Board.jsonaf_of_t
-        |> page [ "scope" ]
+        |> List.map ~f:Communication_wire.board_json
+        |> page
       | "team.get" ->
         direct
-          [ "team_id" ]
-          (Team.jsonaf_of_t
+          (Communication_wire.team_json
              (find t.teams (Communication_id.Team.t_of_jsonaf (get "team_id"))))
-      | "team.list" -> page [] (List.map (Map.data t.teams) ~f:Team.jsonaf_of_t)
+      | "team.list" -> page (List.map (Map.data t.teams) ~f:Communication_wire.team_json)
       | "thread.get" ->
-        direct
-          [ "thread_id" ]
-          (Thread.jsonaf_of_t
-             (find t.threads (Communication_id.Thread.t_of_jsonaf (get "thread_id"))))
+        let query =
+          Api_codec.decode Communication_related.Query.thread_codec params |> Disk.unwrap
+        in
+        let thread =
+          find
+            t.threads
+            (Communication_id.Thread.of_string (Communication_related.Query.id query)
+             |> Disk.unwrap)
+        in
+        let record = Communication_wire.thread_json thread in
+        let record =
+          if Communication_related.Query.include_messages query
+          then (
+            let related =
+              Communication_related.thread
+                query
+                ~communication_revision:t.revision
+                ~discussion
+                thread
+              |> Disk.unwrap
+            in
+            match record with
+            | `Object fields -> Json.obj (fields @ [ "related", related ])
+            | _ -> assert false)
+          else record
+        in
+        Json.obj [ "revision", Json.int t.revision; "record", record ]
       | "thread.history" ->
         let id = Communication_id.Thread.t_of_jsonaf (get "thread_id") in
         ignore (find t.threads id : Thread.t);
-        page [ "thread_id" ] (List.map (thread_history t id) ~f:Thread.jsonaf_of_t)
+        page (List.map (thread_history t id) ~f:Communication_wire.thread_json)
       | "thread.list" | "thread.search" ->
         let board = optional params "board_id" Communication_id.Board.t_of_jsonaf in
         let actor = optional params "actor_id" Id.Actor.t_of_jsonaf in
@@ -1110,17 +1480,41 @@ let query t ~method_ ~params =
           && ((not unresolved) || not (Thread.State.equal thread.state Resolved))
           && Option.value_map text ~default:true ~f:(fun text ->
             String.is_substring (String.lowercase thread.title) ~substring:text))
-        |> List.map ~f:Thread.jsonaf_of_t
-        |> page [ "scope"; "board_id"; "actor_id"; "state"; "unresolved"; "text" ]
+        |> List.map ~f:Communication_wire.thread_json
+        |> page
       | "request.get" ->
-        direct
-          [ "request_id" ]
-          (Request.jsonaf_of_t
-             (find t.requests (Communication_id.Request.t_of_jsonaf (get "request_id"))))
+        let query =
+          Api_codec.decode Communication_related.Query.request_codec params |> Disk.unwrap
+        in
+        let request =
+          find
+            t.requests
+            (Communication_id.Request.of_string (Communication_related.Query.id query)
+             |> Disk.unwrap)
+        in
+        let record = Communication_wire.request_json request in
+        let record =
+          if Communication_related.Query.include_messages query
+          then (
+            let related =
+              Communication_related.request
+                query
+                ~communication_revision:t.revision
+                ~discussion
+                ~thread:(find t.threads request.thread)
+                request
+              |> Disk.unwrap
+            in
+            match record with
+            | `Object fields -> Json.obj (fields @ [ "related", related ])
+            | _ -> assert false)
+          else record
+        in
+        Json.obj [ "revision", Json.int t.revision; "record", record ]
       | "request.history" ->
         let id = Communication_id.Request.t_of_jsonaf (get "request_id") in
         ignore (find t.requests id : Request.t);
-        page [ "request_id" ] (List.map (request_history t id) ~f:Request.jsonaf_of_t)
+        page (List.map (request_history t id) ~f:Communication_wire.request_json)
       | "request.list" ->
         let thread = optional params "thread_id" Communication_id.Thread.t_of_jsonaf in
         let kind = optional params "kind" Request.Kind.t_of_jsonaf in
@@ -1157,21 +1551,11 @@ let query t ~method_ ~params =
             Request.Status.equal request.status Open
             && Option.value_map request.deadline_unix_ms ~default:false ~f:(fun ms ->
               Int64.(Json.integer64 (Json.string ms) < now))))
-        |> List.map ~f:Request.jsonaf_of_t
+        |> List.map ~f:Communication_wire.request_json
         |> page
-             [ "scope"
-             ; "thread_id"
-             ; "kind"
-             ; "recipient"
-             ; "open_only"
-             ; "unanswered"
-             ; "responsible"
-             ; "overdue_at_unix_ms"
-             ]
       | "subscription.get" ->
         direct
-          [ "subscription_id" ]
-          (Subscription.jsonaf_of_t
+          (Communication_wire.subscription_json
              (find
                 t.subscriptions
                 (Communication_id.Subscription.t_of_jsonaf (get "subscription_id"))))
@@ -1182,197 +1566,26 @@ let query t ~method_ ~params =
             recipient
             ~default:true
             ~f:(Recipient.equal s.Subscription.recipient))
-        |> List.map ~f:Subscription.jsonaf_of_t
-        |> page [ "recipient" ]
-      | "inbox.read" ->
-        allowed [ "recipient"; "after"; "through"; "limit" ];
-        let recipient = Recipient.t_of_jsonaf (get "recipient") in
-        let after =
-          Option.value
-            (optional params "after" Json.integer)
-            ~default:(inbox_position t recipient)
-        in
-        let through =
-          Option.value (optional params "through" Json.integer) ~default:t.serial
-        in
-        require
-          (after <= through && through <= t.serial)
-          Invalid_argument
-          "inbox cursor outside retained activity";
-        let limit = Option.value (optional params "limit" Json.integer) ~default:50 in
-        require (limit > 0 && limit <= 100) Invalid_argument "inbox limit must be 1..100";
-        let records = inbox t ~recipient ~after ~through:(Some through) in
-        let items = List.take records limit in
-        let remaining = List.length records - List.length items in
-        let last =
-          Option.value_map (List.last items) ~default:after ~f:(fun n ->
-            n.Notification.serial)
-        in
-        let max_bytes = Query_budget.of_params params in
-        let rec fit items =
-          let remaining = List.length records - List.length items in
-          let last =
-            Option.value_map (List.last items) ~default:after ~f:(fun n ->
-              n.Notification.serial)
-          in
-          let value =
-            Json.obj
-              [ "revision", Json.int t.revision
-              ; "items", `Array (List.map items ~f:Notification.jsonaf_of_t)
-              ; "through", Json.int through
-              ; "next_after", Json.int (if remaining > 0 then last else through)
-              ; "remaining", Json.int remaining
-              ; "read_position", Json.int (inbox_position t recipient)
-              ; "max_bytes", Json.int max_bytes
-              ]
-          in
-          if String.length (Json.canonical value) <= max_bytes
-          then value
-          else (
-            match List.drop_last items with
-            | Some rest when not (List.is_empty rest) -> fit rest
-            | None | Some _ ->
-              Json.fail
-                Invalid_argument
-                "inbox notification exceeds byte budget; increase max_bytes")
-        in
-        ignore ((remaining, last) : int * int);
-        fit items
+        |> List.map ~f:Communication_wire.subscription_json
+        |> page
+      | "inbox.read" | "inbox.wait" -> read_inbox t ~discussion ~method_ ~params
       | _ -> Json.fail Invalid_argument "unknown communication query"
     in
-    if String.equal method_ "inbox.read"
-    then output
-    else Query_budget.fit ~max_bytes:(Query_budget.of_params params) output)
+    let fitted =
+      Query_budget.fit
+        ~measure:(Api_response.encoded_size (Domain_query Communication))
+        ~max_bytes:(Query_budget.of_params params)
+        output
+    in
+    if List.mem Communication_api.query_methods method_ ~equal:String.equal
+    then
+      Communication_api.validate_result
+        ~method_
+        (Api_response.project (Domain_query Communication) fitted |> Api_response.data);
+    fitted)
 ;;
 
-let kind_wire = function
-  | Notification.Kind.Thread_changed -> "thread_changed"
-  | Request_created -> "request_created"
-  | Request_acknowledged -> "request_acknowledged"
-  | Request_accepted -> "request_accepted"
-  | Request_reassigned -> "request_reassigned"
-  | Request_resolved -> "request_resolved"
-  | Request_cancelled -> "request_cancelled"
-;;
-
-let encode command =
-  let optional f = Option.value_map ~default:`Null ~f in
-  let array f xs = `Array (List.map xs ~f) in
-  let bool b = if b then `True else `False in
-  let common id expected_revision =
-    [ "request_id", Communication_id.Request.jsonaf_of_t id
-    ; "expected_revision", Json.int expected_revision
-    ]
-  in
-  let method_, fields =
-    match command with
-    | Command.Board_put { id; expected_revision; scope; title } ->
-      ( "board.put"
-      , [ "board_id", Communication_id.Board.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "scope", Scope.jsonaf_of_t scope
-        ; "title", Json.string title
-        ] )
-    | Thread_put
-        { id
-        ; expected_revision
-        ; board
-        ; title
-        ; participants
-        ; mentions
-        ; links
-        ; state
-        ; pinned
-        } ->
-      ( "thread.put"
-      , [ "thread_id", Communication_id.Thread.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "board_id", Communication_id.Board.jsonaf_of_t board
-        ; "title", Json.string title
-        ; "participants", array Id.Actor.jsonaf_of_t participants
-        ; "mentions", array Id.Actor.jsonaf_of_t mentions
-        ; "links", array Entity_ref.jsonaf_of_t links
-        ; "state", Thread.State.jsonaf_of_t state
-        ; "pinned", bool pinned
-        ] )
-    | Thread_attach { id; expected_revision; message } ->
-      ( "thread.attach"
-      , [ "thread_id", Communication_id.Thread.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "comment_id", Id.Comment.jsonaf_of_t message
-        ] )
-    | Thread_pin_message { id; expected_revision; message; pinned } ->
-      ( "thread.pin_message"
-      , [ "thread_id", Communication_id.Thread.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "comment_id", Id.Comment.jsonaf_of_t message
-        ; "pinned", bool pinned
-        ] )
-    | Team_put { id; expected_revision; title; members } ->
-      ( "team.put"
-      , [ "team_id", Communication_id.Team.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "title", Json.string title
-        ; "members", array Recipient.jsonaf_of_t members
-        ] )
-    | Request_create
-        { id
-        ; thread
-        ; kind
-        ; message
-        ; recipients
-        ; teams
-        ; resolver
-        ; correlation_id
-        ; reply_to
-        ; deadline_unix_ms
-        } ->
-      ( "request.create"
-      , [ "request_id", Communication_id.Request.jsonaf_of_t id
-        ; "thread_id", Communication_id.Thread.jsonaf_of_t thread
-        ; "kind", Request.Kind.jsonaf_of_t kind
-        ; "comment_id", Id.Comment.jsonaf_of_t message
-        ; "recipients", array Recipient.jsonaf_of_t recipients
-        ; "teams", array Communication_id.Team.jsonaf_of_t teams
-        ; "resolver_id", Id.Actor.jsonaf_of_t resolver
-        ; "correlation_id", optional Json.string correlation_id
-        ; "reply_to", optional Communication_id.Request.jsonaf_of_t reply_to
-        ; "deadline_unix_ms", optional Json.string deadline_unix_ms
-        ] )
-    | Request_acknowledge { id; expected_revision; recipient } ->
-      ( "request.acknowledge"
-      , common id expected_revision @ [ "recipient", Recipient.jsonaf_of_t recipient ] )
-    | Request_accept { id; expected_revision; recipient } ->
-      ( "request.accept"
-      , common id expected_revision @ [ "recipient", Recipient.jsonaf_of_t recipient ] )
-    | Request_reassign { id; expected_revision; recipient } ->
-      ( "request.reassign"
-      , common id expected_revision
-        @ [ "recipient", optional Recipient.jsonaf_of_t recipient ] )
-    | Request_resolve { id; expected_revision } ->
-      "request.resolve", common id expected_revision
-    | Request_cancel { id; expected_revision } ->
-      "request.cancel", common id expected_revision
-    | Subscription_put { id; expected_revision; recipient; filter; active } ->
-      ( "subscription.put"
-      , [ "subscription_id", Communication_id.Subscription.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "recipient", Recipient.jsonaf_of_t recipient
-        ; ( "filter"
-          , Json.obj
-              [ "scope", optional Scope.jsonaf_of_t filter.scope
-              ; "thread_id", optional Communication_id.Thread.jsonaf_of_t filter.thread
-              ; "kinds", array (fun kind -> Json.string (kind_wire kind)) filter.kinds
-              ] )
-        ; "active", bool active
-        ] )
-    | Inbox_mark_read { recipient; through } ->
-      ( "inbox.mark_read"
-      , [ "recipient", Recipient.jsonaf_of_t recipient; "through", Json.int through ] )
-  in
-  let params = Json.obj fields in
-  Result.map (decode ~method_ ~params) ~f:(fun _ -> method_, params)
-;;
+let encode = Communication_command.encode
 
 let change_targets t (change : Change.t) =
   let thread_targets (thread : Thread.t) =
@@ -1386,6 +1599,9 @@ let change_targets t (change : Change.t) =
   let targets =
     match change.update with
     | Update.Board_put board -> [ Scope.target board.scope ]
+    | Message_put message ->
+      Option.value_map message.ticket_id ~default:[ Entity_ref.Workspace ] ~f:(fun id ->
+        [ Entity_ref.Ticket id ])
     | Thread_put thread ->
       thread_targets thread
       @ Option.value_map (get_thread t thread.id) ~default:[] ~f:thread_targets
@@ -1397,7 +1613,7 @@ let change_targets t (change : Change.t) =
               (Map.find t.subscriptions subscription.id)
               ~default:[]
               ~f:subscription_targets)
-    | Team_put _ | Cursor_advanced _ -> [ Entity_ref.Workspace ]
+    | Team_put _ | Inbox_ack _ -> [ Entity_ref.Workspace ]
   in
   unique targets ~compare:Entity_ref.compare
 ;;

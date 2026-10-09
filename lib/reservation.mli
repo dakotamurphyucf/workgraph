@@ -19,6 +19,37 @@ module Holder : sig
   [@@deriving sexp, equal, jsonaf]
 end
 
+(** Shared pure holder/lease rules used by named and path reservations. *)
+module Ownership : sig
+  type t =
+    { epoch : int
+    ; holders : Holder.t list
+    }
+  [@@deriving sexp, equal]
+
+  val validate : t -> unit
+
+  val acquire
+    :  t
+    -> run:Id.Run.t
+    -> actor:Id.Actor.t
+    -> mode:Mode.t
+    -> now_unix_ms:int64
+    -> lease_duration_ms:int64 option
+    -> t
+
+  val release : t -> run:Id.Run.t -> token:int -> t
+  val validate_owner : t -> now_unix_ms:int64 option -> run:Id.Run.t -> token:int -> unit
+
+  val renew
+    :  t
+    -> run:Id.Run.t
+    -> token:int
+    -> expected_lease_revision:int
+    -> now_unix_ms:int64
+    -> t
+end
+
 type t =
   { name : Name.t
   ; epoch : int

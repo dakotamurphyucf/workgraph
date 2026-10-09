@@ -1,13 +1,11 @@
 # Validation and limits
 
-Current macOS validation on 2026-10-07 passed the repository's formatting, build,
-test and installation-target checks. The executed tests included:
-
-- 127 OCaml expect tests, including randomized domain/replay checks.
-- 64 Python integration tests using real daemon processes, Unix sockets and
-  local storage.
-- Three focused Python suites for the history adapter, service driver and socket
-  workflows.
+The integrated macOS ARM64 run on 2026-10-09 passed formatting, build, test and
+installation-target checks. It includes OCaml expect and randomized domain/replay
+tests, the main 68-case Python process/socket suite, focused feature suites and
+generated-reference checks for all 238 public methods. See the
+[integration evidence](acceptance/integrated-validation.md) for scope and review
+findings. Earlier 2026-10-07 counts describe an older source state.
 
 Run the standard checks from the repository root with a matching toolchain:
 

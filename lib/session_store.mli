@@ -43,6 +43,10 @@ val open_existing
     recording a close/recovery baseline. Does not verify current disk state. *)
 val last_committed_head : t -> string option
 
+(** On the persistence owner, check open/fenced state and capture exact journal
+    admission counters. Independent from planning transaction revisions. *)
+val admission : t -> (Admission.t list, Problem.t) Result.t
+
 val capture : t -> (Capture.t, Problem.t) Result.t
 val capture_at : t -> head:string option -> (Capture.t, Problem.t) Result.t
 val get : t -> session:Session_id.t -> (Session.t, Problem.t) Result.t

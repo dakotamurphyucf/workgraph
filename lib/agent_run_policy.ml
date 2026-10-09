@@ -13,79 +13,8 @@ let optional json f =
   | j -> Some (f j)
 ;;
 
-module Budget = struct
-  type t =
-    { run : Id.Run.t
-    ; revision : int
-    ; max_attempts : int option
-    ; max_active_attempts : int option
-    ; reported_token_limit : int64 option
-    ; reported_elapsed_ms_limit : int64 option
-    }
-  [@@deriving sexp, equal]
-
-  let validate t =
-    require (t.revision > 0) Invalid_argument "Budget revision must be positive";
-    List.iter [ t.max_attempts; t.max_active_attempts ] ~f:(fun n ->
-      Option.iter n ~f:(fun n ->
-        require (n > 0) Invalid_argument "Attempt limit must be positive"));
-    List.iter [ t.reported_token_limit; t.reported_elapsed_ms_limit ] ~f:(fun n ->
-      Option.iter n ~f:(fun n ->
-        require
-          Int64.(n >= zero)
-          Invalid_argument
-          "Reported usage limit cannot be negative"))
-  ;;
-
-  let to_json t =
-    Json.obj
-      [ "run", Id.Run.jsonaf_of_t t.run
-      ; "revision", Json.int t.revision
-      ; "max_attempts", Option.value_map t.max_attempts ~default:`Null ~f:Json.int
-      ; ( "max_active_attempts"
-        , Option.value_map t.max_active_attempts ~default:`Null ~f:Json.int )
-      ; ( "reported_token_limit"
-        , Option.value_map t.reported_token_limit ~default:`Null ~f:Json.int64 )
-      ; ( "reported_elapsed_ms_limit"
-        , Option.value_map t.reported_elapsed_ms_limit ~default:`Null ~f:Json.int64 )
-      ]
-  ;;
-
-  let of_json json =
-    Json.fields
-      json
-      ~allowed:
-        [ "run"
-        ; "revision"
-        ; "max_attempts"
-        ; "max_active_attempts"
-        ; "reported_token_limit"
-        ; "reported_elapsed_ms_limit"
-        ];
-    let get = Json.field json in
-    let t =
-      { run = Id.Run.t_of_jsonaf (get "run")
-      ; revision = Json.integer (get "revision")
-      ; max_attempts = optional (get "max_attempts") Json.integer
-      ; max_active_attempts = optional (get "max_active_attempts") Json.integer
-      ; reported_token_limit = optional (get "reported_token_limit") Json.integer64
-      ; reported_elapsed_ms_limit =
-          optional (get "reported_elapsed_ms_limit") Json.integer64
-      }
-    in
-    validate t;
-    t
-  ;;
-end
-
-module Command = struct
-  type t =
-    | Template_register of Workflow_template.t
-    | Instance_register of Workflow_template.Instance.t
-    | Budget_put of Budget.t
-    | Usage_report of Usage_record.t
-  [@@deriving sexp]
-end
+module Budget = Run_budget
+module Command = Agent_run_policy_command
 
 let mutation_methods =
   [ "template.register"; "template.instance_register"; "run.budget_put"; "usage.report" ]
@@ -102,7 +31,7 @@ let query_methods =
   ]
 ;;
 
-let encode = function
+let storage_encode = function
   | Command.Template_register t -> "template.register", Workflow_template.to_json t
   | Instance_register t ->
     "template.instance_register", Workflow_template.Instance.to_json t
@@ -110,17 +39,20 @@ let encode = function
   | Usage_report t -> "usage.report", Usage_record.to_json t
 ;;
 
-let decode ~method_ ~params =
+let storage_decode ~method_ ~params =
   Json.decode (fun () ->
     match method_ with
     | "template.register" ->
       Command.Template_register (checked (Workflow_template.of_json params))
     | "template.instance_register" ->
       Instance_register (checked (Workflow_template.Instance.of_json params))
-    | "run.budget_put" -> Budget_put (Budget.of_json params)
+    | "run.budget_put" -> Budget_put (Budget.of_json_exn params)
     | "usage.report" -> Usage_report (checked (Usage_record.of_json params))
     | _ -> Json.fail Invalid_argument "Unknown policy mutation")
 ;;
+
+let encode command = checked (Agent_run_policy_api.encode command)
+let decode = Agent_run_policy_api.decode
 
 module Change = struct
   type t =
@@ -130,7 +62,7 @@ module Change = struct
   [@@deriving sexp]
 
   let to_json t =
-    let method_, params = encode t.command in
+    let method_, params = storage_encode t.command in
     Json.obj
       [ "revision", Json.int t.revision; "kind", Json.string method_; "record", params ]
   ;;
@@ -141,7 +73,7 @@ module Change = struct
       { revision = Json.integer (Json.field json "revision")
       ; command =
           checked
-            (decode
+            (storage_decode
                ~method_:(Json.text (Json.field json "kind"))
                ~params:(Json.field json "record"))
       })
@@ -185,6 +117,7 @@ let get_instance t id = Map.find t.instances id
 let budget t id = Map.find t.budgets id
 
 let apply_exn t change =
+  ignore (checked (Agent_run_policy_api.encode change.Change.command) : string * Jsonaf.t);
   require
     (Int.equal change.Change.revision (t.revision + 1))
     Conflict
@@ -236,7 +169,7 @@ let apply_exn t change =
         "Workflow plan differs from template";
       { t with instances = Map.set t.instances ~key:instance.id ~data:instance }
     | Budget_put next ->
-      Budget.validate next;
+      Budget.validate_exn next;
       let revision =
         Option.value_map (budget t next.run) ~default:1 ~f:(fun b ->
           b.Budget.revision + 1)
@@ -258,6 +191,7 @@ let apply t change = Json.decode (fun () -> apply_exn t change)
 
 let prepare t command =
   Json.decode (fun () ->
+    let method_, _ = checked (Agent_run_policy_api.encode command) in
     let same =
       match command with
       | Command.Template_register x ->
@@ -281,19 +215,29 @@ let prepare t command =
            true)
       | Budget_put _ -> false
     in
-    if same
-    then
-      { candidate = t
-      ; changes = []
-      ; result = Json.obj [ "revision", Json.int t.revision; "duplicate", `True ]
-      }
-    else (
-      let change = { Change.revision = t.revision + 1; command } in
-      let candidate = apply_exn t change in
-      { candidate
-      ; changes = [ change ]
-      ; result = Json.obj [ "revision", Json.int candidate.revision; "duplicate", `False ]
-      }))
+    let prepared =
+      if same
+      then
+        { candidate = t
+        ; changes = []
+        ; result = Json.obj [ "revision", Json.int t.revision; "duplicate", `True ]
+        }
+      else (
+        let change = { Change.revision = t.revision + 1; command } in
+        let candidate = apply_exn t change in
+        { candidate
+        ; changes = [ change ]
+        ; result =
+            Json.obj [ "revision", Json.int candidate.revision; "duplicate", `False ]
+        })
+    in
+    ignore
+      (checked
+         (Api_codec.decode
+            (Option.value_exn (Agent_run_policy_api.response_codec ~method_))
+            prepared.result)
+       : Jsonaf.t);
+    prepared)
 ;;
 
 let validate_allocation t run ~runs =
@@ -329,15 +273,7 @@ let total t run ~runs field =
 let attention t ~runs =
   List.concat_map (Map.data t.budgets) ~f:(fun budget ->
     let entry kind reported limit =
-      Json.obj
-        [ "run", Id.Run.jsonaf_of_t budget.Budget.run
-        ; "kind", Json.string kind
-        ; "reported", Json.int64 reported
-        ; ( "reported_total_is_lower_bound"
-          , if Int64.equal reported Int64.max_value then `True else `False )
-        ; "limit", Json.int64 limit
-        ; "provenance", Json.string "externally_reported"
-        ]
+      checked (Run_budget.Attention.create ~run:budget.Budget.run ~kind ~reported ~limit)
     in
     let check kind reported limit =
       Option.to_list
@@ -345,11 +281,11 @@ let attention t ~runs =
            if Int64.(reported >= limit) then Some (entry kind reported limit) else None))
     in
     check
-      "reported_tokens"
+      Run_budget.Attention.Kind.Reported_tokens
       (total t budget.run ~runs (fun u -> u.Usage_record.tokens))
       budget.reported_token_limit
     @ check
-        "reported_elapsed_ms"
+        Run_budget.Attention.Kind.Reported_elapsed_ms
         (total t budget.run ~runs (fun u -> u.Usage_record.elapsed_ms))
         budget.reported_elapsed_ms_limit)
 ;;
@@ -400,82 +336,103 @@ let to_json t =
 
 let query t ~runs ~method_ ~params =
   Json.decode (fun () ->
+    let request =
+      match Agent_run_policy_api.request_codec ~method_ with
+      | Some codec when List.mem query_methods method_ ~equal:String.equal -> codec
+      | _ -> Json.fail Invalid_argument "unknown policy query"
+    in
+    ignore (checked (Api_codec.decode request params) : Jsonaf.t);
     let get = Json.field params in
+    let max_bytes = Query_budget.of_params params in
+    let measure = Api_response.encoded_size (Domain_query Policy) in
+    let bounded result =
+      require
+        (measure result <= max_bytes)
+        Invalid_argument
+        "complete policy record cannot fit; increase max_bytes";
+      result
+    in
+    let direct value =
+      bounded (Json.obj [ "revision", Json.int t.revision; "record", value ])
+    in
     let page values =
       let limit =
         Option.value_map (Json.optional params "limit") ~default:50 ~f:Json.integer
       in
-      let max_bytes =
-        Option.value_map (Json.optional params "max_bytes") ~default:65536 ~f:Json.integer
-      in
-      require
-        (limit > 0 && limit <= 100 && max_bytes >= 4096 && max_bytes <= 1048576)
-        Invalid_argument
-        "Policy query bounds are invalid";
       let offset =
         Option.value_map (Json.optional params "offset") ~default:0 ~f:Json.integer
       in
       if offset > 0
       then
         require
-          (Int.equal t.revision (Json.integer (get "expected_revision")))
+          (t.revision = Json.integer (get "expected_revision"))
           Conflict
-          "Policy pagination revision changed";
+          "policy pagination revision changed";
       let selected = List.take (List.drop values offset) limit in
+      let result items =
+        let next = offset + List.length items in
+        Json.obj
+          [ "revision", Json.int t.revision
+          ; "items", `Array items
+          ; ("next_offset", if next < List.length values then Json.int next else `Null)
+          ; "omitted", Json.int (Int.max 0 (List.length values - next))
+          ]
+      in
       let rec fit reversed = function
         | [] -> List.rev reversed
         | item :: rest ->
-          if
-            String.length (Json.canonical (`Array (List.rev (item :: reversed)))) + 512
-            > max_bytes
+          let candidate = List.rev (item :: reversed) in
+          if measure (result candidate) > max_bytes
           then List.rev reversed
           else fit (item :: reversed) rest
       in
       let items = fit [] selected in
-      let next = offset + List.length items in
-      Json.obj
-        [ "revision", Json.int t.revision
-        ; "items", `Array items
-        ; ("next_offset", if next < List.length values then Json.int next else `Null)
-        ; "omitted", Json.int (Int.max 0 (List.length values - next))
-        ]
+      require
+        (List.is_empty selected || not (List.is_empty items))
+        Invalid_argument
+        "one complete policy record cannot fit; increase max_bytes";
+      bounded (result items)
     in
     let find = function
-      | Some x -> x
-      | None -> Json.fail Not_found "Policy record not found"
+      | Some v -> v
+      | None -> Json.fail Not_found "policy record not found"
     in
+    let json codec value = checked (Api_codec.encode codec value) in
     match method_ with
     | "template.get" ->
-      Json.fields params ~allowed:[ "resource"; "resource_revision" ];
-      Workflow_template.to_json
-        (find
-           (get_template
-              t
-              (Id.Resource.t_of_jsonaf (get "resource"))
-              ~revision:(Json.integer (get "resource_revision"))))
+      direct
+        (json
+           Workflow_template_wire.template
+           (find
+              (get_template
+                 t
+                 (Id.Resource.t_of_jsonaf (get "template_id"))
+                 ~revision:(Json.integer (get "template_revision")))))
     | "template.instance_get" ->
-      Json.fields params ~allowed:[ "id" ];
-      Workflow_template.Instance.to_json
-        (find (get_instance t (Workflow_template.Instance_id.t_of_jsonaf (get "id"))))
+      direct
+        (json
+           Workflow_template_wire.instance
+           (find
+              (get_instance
+                 t
+                 (Workflow_template.Instance_id.t_of_jsonaf (get "instance_id")))))
     | "run.budget_get" ->
-      Json.fields params ~allowed:[ "run" ];
-      Budget.to_json (find (budget t (Id.Run.t_of_jsonaf (get "run"))))
+      direct
+        (json
+           Agent_run_policy_api.budget
+           (find (budget t (Id.Run.t_of_jsonaf (get "target_run_id")))))
     | "template.list" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
       page
         (List.concat_map
            (Map.data t.templates)
-           ~f:(List.map ~f:Workflow_template.to_json))
+           ~f:(List.map ~f:(json Workflow_template_wire.template)))
     | "template.instance_list" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (List.map (Map.data t.instances) ~f:Workflow_template.Instance.to_json)
+      page (List.map (Map.data t.instances) ~f:(json Workflow_template_wire.instance))
     | "usage.list" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (List.map (Map.data t.usage) ~f:Usage_record.to_json)
+      page (List.map (Map.data t.usage) ~f:(json Usage_record_wire.record))
     | "run.budget_attention" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (attention t ~runs)
-    | _ -> Json.fail Invalid_argument "Unknown policy query")
+      page (List.map (attention t ~runs) ~f:(json Run_budget.Attention.codec))
+    | _ -> Json.fail Invalid_argument "unknown policy query")
 ;;
 
 let usage_records t = Map.data t.usage

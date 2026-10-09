@@ -18,30 +18,34 @@ retried after an uncertain response.
 
 Use a stable, distinct `run_id` for each invocation. A run record is an
 attribution and lifecycle record; the harness owns the process that it describes.
-`run.register` stores its actor, objective, capabilities, optional parent and
-process/worktree references. Use `ticket.claim_next` with a fresh stable
-`attempt_id` and the registered worker `run_id` to atomically choose the highest
-priority eligible ready ticket, claim it and start its attempt. The result is
-`{ "kind": "selected", "claim": {"ticket_id", "token"}, "attempt": {"revision"} }`,
-or `{ "kind": "empty" }`. The caller already knows the attempt ID it supplied.
+[run.register](api-reference/run.register.md) stores its actor, objective,
+capabilities and optional process/worktree references. Use
+[ticket.claim_next](api-reference/ticket.claim_next.md) with a fresh stable attempt
+ID and the registered worker's `target_run_id` to atomically choose eligible ready
+work, claim it and start its attempt. The result's named alternative tells you
+whether work was selected; use its complete claim and attempt records.
 The ticket claim token fences protected progress, handoffs, completion and
 attempt ownership. Include the same `actor_id` and `run_id` on those operations.
 
 Claims have no expiry by default. Timed leases are opt-in through
-`lease_duration_ms` on `ticket.claim` or `ticket.claim_next` (1 ms through 24
+`lease_duration_ms` on `ticket.claim`, `ticket.start` or `ticket.claim_next` (1 ms through 24
 hours). Renew a timed claim using `ticket.renew_lease` with its token and exact
 `expected_lease_revision`.
 Reservation leases are also opt-in; `reservation.acquire` defaults to indefinite
 ownership, and renewal requires the run, token and expected lease revision.
 `run.heartbeat` and `run.observe` are observations only; neither renews a ticket
-claim or reservation. `run.heartbeat` takes `workspace_id`, `run_id` and
-`actor_id` (an optional `mutation_id` is ignored). It returns an advisory
+claim or reservation. `run.heartbeat` takes `workspace_id`, `target_run_id` and
+`actor_id`; it does not accept a `mutation_id`. It returns an advisory
 observation, the last persisted observation if any, and a `durable` flag.
 Heartbeats are coalesced to at most one flush per workspace every ten seconds;
 shutdown flushes the latest value. A repeated heartbeat is a new server-time
 observation rather than an exact-once retry. An expired lease means the fencing
 token is no longer valid; it does not show that a process stopped or that its
-checkout is safe to reuse. Workgraph cannot prevent a process from writing
+checkout is safe to reuse. Before replacing work, confirm the old process is
+stopped or isolated and use an exact guarded [ticket recovery](api-reference/ticket.recover.md)
+or [reservation recovery](api-reference/reservation.recover.md). Required checkout
+paths and external conditions participate in start readiness; their records do
+not fence filesystem writes. Workgraph cannot prevent a process from writing
 directly to external files.
 
 Attempts can record session links and versioned resource or handoff checkpoints.
@@ -50,8 +54,9 @@ evidence. Completing a ticket also needs its current claim token and nonempty
 evidence. A completed attempt/ticket is durable planning state, not proof that
 the harness's external worktree or provider state was committed.
 
-Templates are registered with `template.register` against a versioned resource
-and instantiated with a stable instance ID plus string parameters. Instantiation
+Templates are [registered](api-reference/template.register.md) against a versioned
+resource and [instantiated](api-reference/template.instance_register.md) with a
+stable instance ID plus string parameters. Instantiation
 validates dependency aliases and cycles, then stages the planned tickets and
 instance record together. `allocation.pool_put` and
 `allocation.ticket_policy_put` can constrain active attempts, capabilities and
@@ -62,18 +67,16 @@ eligible pools; `ticket.claim_next` applies those allocation rules to ready work
 Use `comment.add` for discussion on a ticket (or a typed `target`), and
 `ticket.progress` for token-fenced progress while holding a claim. A reviewer
 can add a `kind: "evidence"` comment with its own actor and run; comments remain
-ordinary discussion records. For a formal approval gate, configure
-`review.policy.put` with `ticket`, `expected_revision`, `enabled`, `reviewers`,
-`separate_actor` and `validators`; publish an evidence manifest with
-`manifest.publish` (`id`, `expected_revision`, `schema_version`, `attempt`,
-`ticket`, `contract`, `inputs` and `outputs`); then submit it using
-`review.submit` (`ticket`, `expected_revision`, `manifest`). An eligible separate
-actor records a `review.record` verdict (`id`, `ticket`, `generation`, `verdict`,
-`evidence`, optional `comment`) for that submission generation. `validation.add`
-records validator outcomes against the exact manifest (`id`, `manifest`, `name`,
-`passed`, `evidence`). `review.accept` uses `ticket` and the current
-`expected_revision`; a ticket completion policy can require the accepted
-submission, required approvals and passing validators.
+ordinary discussion records. For a formal approval gate, configure the scoped
+[acceptance policy](api-reference/acceptance.policy.put.md) or its narrow
+[review-policy operation](api-reference/review.policy.put.md). Read the
+[effective policy](api-reference/acceptance.policy.effective.md) before starting.
+Publish an exact [manifest](api-reference/manifest.publish.md), then
+[submit it](api-reference/review.submit.md). Eligible reviewers record a
+[verdict](api-reference/review.record.md), named validators add
+[results](api-reference/validation.add.md), and [review.accept](api-reference/review.accept.md)
+checks the current requirements. Required criteria additionally need exact
+[acceptance assertions](api-reference/acceptance.assert.md).
 
 Manifests and reviews pin exact versions. A contract pins a published resource
 version by resource ID, revision and digest. A manifest names its attempt,
@@ -83,11 +86,11 @@ those makes old approval insufficient for the new submission. `evidence.context`
 and `review.gate` explain current evidence state and blockers. See
 [`docs/evidence.md`](evidence.md) for the evidence model and pin forms.
 
-Communication threads are separate typed records. `thread.reply` requires
-`thread_id`, its observed `expected_revision`, and `body`, with optional stable
-`comment_id`, attached `reply_to`, and discussion `kind`. It creates the comment
-and attaches it to the thread in one transaction. Replies must point to a message
-already attached to that same thread. Thread mutations use the same workspace,
+Communication threads are separate typed records. [thread.reply](api-reference/thread.reply.md)
+creates a discussion comment and attaches it atomically using the observed thread
+revision. A reply parent must already be attached to that thread. Use the generated
+contract for canonical input names, including `reply_to_id`; output comment
+provenance uses `reply_to_comment_id`. Thread changes use the same workspace,
 actor, mutation ID and optional run attribution as other planning mutations.
 
 ## Stable CLI requests and recovery
@@ -125,11 +128,11 @@ against a captured history head when assembling context. The Python reference
 adapter demonstrates a durable input cursor and exact append retries:
 [`docs/history-integration.md`](history-integration.md).
 
-`run.budget_put` may set maximum total and active attempts plus reported token
+[run.budget_put](api-reference/run.budget_put.md) may set maximum total and active attempts plus reported token
 and elapsed-time limits. Attempt limits are enforced by allocation. Token and
 elapsed-time values are externally reported observations; Workgraph does not
-measure provider spending or stop inference. `usage.report` stores nonnegative
-attributed totals with stable IDs, and `run.budget_attention` reports when those
+measure provider spending or stop inference. [usage.report](api-reference/usage.report.md) stores nonnegative
+attributed totals with stable IDs, and [run.budget_attention](api-reference/run.budget_attention.md) reports when those
 reported limits are reached. The harness must decide whether to stop or continue.
 
 ## Scope and recovery limits
@@ -164,6 +167,7 @@ allocation eligibility. `allocation_blocked` entries identify missing capabiliti
 full pools, terminal runs or allocation budget limits. Without a run filter,
 `ready_work` reports graph readiness only.
 
-Registered attempt completion requires that attempt's latest input/output
-manifest. When a review gate is enabled, acceptance must bind the same manifest;
-a replacement attempt cannot inherit an earlier attempt's approval.
+Ordinary registered attempts can complete with evidence and no manifest. When
+configured review or validation gates require a manifest, acceptance must bind
+that attempt's current inputs and outputs. A replacement attempt cannot inherit
+an earlier attempt's approval.

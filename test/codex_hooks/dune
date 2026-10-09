@@ -1,0 +1,22 @@
+(rule
+ (alias runtest)
+ (deps
+  hook_test.py
+  ../../examples/codex-hooks/workgraph-hook.py
+  ../../examples/notification-watcher.py
+  ../../examples/history-adapter.py)
+ (action
+  (run
+   python3
+   %{dep:hook_test.py}
+   %{dep:../../examples/codex-hooks/workgraph-hook.py})))
+
+(rule
+ (alias runtest)
+ (deps
+  socket_test.py
+  ../../examples/codex-hooks/workgraph-hook.py
+  ../../examples/notification-watcher.py
+  ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

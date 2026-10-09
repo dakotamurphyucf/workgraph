@@ -2,1108 +2,625 @@ open Core
 open Workgraph
 
 let unwrap = function
-  | Ok value -> value
-  | Error error -> failwith (Sexp.to_string_hum (Problem.sexp_of_t error))
+  | Ok x -> x
+  | Error p -> failwith (Sexp.to_string_hum (Problem.sexp_of_t p))
 ;;
 
-let actor = Id.Actor.of_string "worker" |> unwrap
-let run = Id.Run.of_string "runner" |> unwrap
-let ticket id = Id.Ticket.of_string id |> unwrap
-let timestamp = "2026-10-07T00:00:00Z"
+let actor = unwrap (Id.Actor.of_string "actor")
+let other_actor = unwrap (Id.Actor.of_string "other")
+let run = unwrap (Id.Run.of_string "run")
+let other_run = unwrap (Id.Run.of_string "other-run")
+let ticket = unwrap (Id.Ticket.of_string "ticket")
+let worktree = unwrap (Coordination_id.Worktree.of_string "tree")
 
-let empty () =
-  State.empty ~workspace:(Id.Workspace.of_string "test" |> unwrap) ~name:"Test" |> unwrap
+let target ?(tree = worktree) kind path =
+  unwrap (Path_scope.create ~worktree_id:tree ~kind ~path)
 ;;
 
-let prepare ?(actor = actor) ?run ?now state command =
-  let method_, params = Wire_command.encode command |> unwrap in
-  let decoded = Domain_command.decode ~method_ ~params |> unwrap in
-  assert (Sexp.equal (Domain_command.sexp_of_t command) (Domain_command.sexp_of_t decoded));
-  State.prepare state decoded ~actor ?run ?now_unix_ms:now ~timestamp
-;;
-
-let step ?actor ?run ?now state command =
-  let p = prepare ?actor ?run ?now state command |> unwrap in
-  let replayed = State.replay state (State.events p) |> unwrap in
-  assert (
-    String.equal
-      (Json.canonical (State.to_json replayed))
-      (Json.canonical (State.to_json (State.candidate p))));
-  State.candidate p
-;;
-
-let outcome = function
+let report = function
   | Ok _ -> print_endline "ok"
   | Error p -> print_s [%sexp (p.Problem.kind : Problem.kind)]
 ;;
 
-let create id =
-  Domain_command.Ticket_create
-    { id = ticket id
-    ; title = id
-    ; description = ""
-    ; project = None
-    ; parent = None
-    ; milestone = None
-    }
+let prepare t ?(actor = actor) ?(run = None) ?(now = 0L) command =
+  Agent_run.prepare t ~now_unix_ms:now command ~actor ~run ~timestamp:"now" ~sequence:1
 ;;
 
-let claim id revision =
-  Domain_command.Ticket_claim { id = ticket id; expected_revision = revision }
+let step t ?actor ?run ?now c =
+  Agent_run.candidate (unwrap (prepare t ?actor ?run ?now c))
 ;;
 
-let progress id token =
-  Domain_command.Ticket_progress
-    { ticket = ticket id; token; kind = Discussion.Kind.Progress; body = "working" }
-;;
-
-let register =
-  Domain_command.Agent_run
+let register t id actor =
+  step
+    t
+    ~actor
     (Agent_run.Command.Register
-       { id = run
+       { id
        ; parent = None
        ; parent_stop_policy = Continue
        ; objective = "work"
-       ; capabilities = [ "ocaml" ]
+       ; capabilities = []
        ; process_ref = None
        ; worktree_ref = None
        })
 ;;
 
-let%expect_test "claim leases fence protected writes and persist exact renewal" =
-  let state = step (empty ()) (create "timed") in
-  let command =
-    Domain_command.Ticket_claim_with_lease
-      { id = ticket "timed"; expected_revision = 1; lease_duration_ms = 100L }
-  in
-  outcome (prepare state command);
-  let state = step ~now:1000L state command in
-  outcome (prepare ~now:999L state (progress "timed" 1));
-  outcome (prepare ~now:1100L state (progress "timed" 1));
-  let renew revision =
-    Domain_command.Ticket_renew_lease
-      { id = ticket "timed"; token = 1; expected_lease_revision = revision }
-  in
-  let state = step ~now:1050L state (renew 1) in
-  outcome (prepare ~now:1051L state (renew 1));
-  outcome (prepare ~now:1100L state (progress "timed" 1));
-  outcome (prepare ~now:1150L state (progress "timed" 1));
-  let state = step ~now:1200L state (Ticket_release { id = ticket "timed"; token = 1 }) in
-  let state = step state (claim "timed" 4) in
-  outcome (prepare state (progress "timed" 1));
-  outcome (prepare state (progress "timed" 2));
-  [%expect
-    {|
-    Invalid_argument
-    Stale_claim
-    Stale_claim
-    Conflict
-    ok
-    Stale_claim
-    Stale_claim
-    ok
-    |}]
+let runs () = register (register Agent_run.empty run actor) other_run other_actor
+
+let acquire t run actor requests =
+  prepare
+    t
+    ~actor
+    ~run:(Some run)
+    (Agent_run.Command.Coordination (Paths_acquire { run; requests }))
 ;;
 
-let%expect_test "claim next enforces durable pools and never overwrites an attempt" =
-  let state =
-    step (empty ()) register
-    |> fun s -> step s (create "a") |> fun s -> step s (create "b")
-  in
-  let state =
-    step state (Agent_run (Pool_put { name = "build"; expected_revision = 0; limit = 1 }))
-  in
-  let policy id =
-    Domain_command.Agent_run
-      (Ticket_policy_put
-         { ticket = ticket id
-         ; expected_revision = 0
-         ; required_capabilities = [ "ocaml" ]
-         ; pools = [ "build" ]
-         })
-  in
-  let state = step state (policy "a") |> fun s -> step s (policy "b") in
-  let next id =
-    Domain_command.Claim_next
-      { attempt = Attempt.Id.of_string id |> unwrap
-      ; run
-      ; project = None
-      ; lease_duration_ms = None
-      }
-  in
-  let p = prepare ~run state (next "first") |> unwrap in
-  print_endline (Json.text (Json.field (State.result p) "kind"));
-  let state = State.candidate p in
-  outcome (prepare ~run state (next "first"));
-  let p = prepare ~run state (next "second") |> unwrap in
-  print_endline (Json.text (Json.field (State.result p) "kind"));
-  let state = step ~run state (Ticket_release { id = ticket "a"; token = 1 }) in
-  let first =
-    Agent_run.get_attempt (State.agent_runs state) (Attempt.Id.of_string "first" |> unwrap)
-    |> Option.value_exn
-  in
-  print_s [%sexp (first.state : Attempt.State.t)];
-  let p = prepare ~run state (next "third") |> unwrap in
-  print_endline (Json.text (Json.field (State.result p) "kind"));
-  [%expect
-    {|
-    selected
-    Conflict
-    empty
-    Cancelled
-    selected
-    |}]
+let request target mode duration =
+  { Path_reservation.Request.target; mode; lease_duration_ms = duration }
 ;;
 
-let%expect_test "raw completion and later batch changes respect review gates" =
-  let state = step (empty ()) (create "reviewed") in
-  let policy =
-    Domain_command.Evidence
-      (Policy_put
-         { ticket = ticket "reviewed"
-         ; expected_revision = 0
-         ; enabled = true
-         ; reviewers = [ Named_actor actor ]
-         ; separate_actor = false
-         ; validators = []
-         })
-  in
-  let complete =
-    Domain_command.Ticket_update
-      { id = ticket "reviewed"
-      ; expected_revision = 1
-      ; title = None
-      ; description = None
-      ; status = Some Done
-      }
-  in
-  outcome (prepare state (Batch [ complete; policy ]));
-  let state = step state policy in
-  outcome (prepare state complete);
-  print_s [%sexp (State.revision state : int)];
-  [%expect
-    {|
-    Blocked
-    Blocked
-    2
-    |}]
+let pin =
+  Evidence_event.Pin.Checksum { source = "deployment"; digest = String.make 64 'a' }
 ;;
 
-let%expect_test
-    "thread reply creates and attaches one scoped immutable discussion comment"
-  =
-  let board = Communication_id.Board.of_string "board" |> unwrap in
-  let thread = Communication_id.Thread.of_string "thread" |> unwrap in
-  let comment = Id.Comment.of_string "reply" |> unwrap in
-  let state =
-    step
-      (empty ())
-      (Communication
-         (Board_put
-            { id = board; expected_revision = 0; scope = Workspace; title = "Board" }))
-  in
-  let state =
-    step
-      state
-      (Communication
-         (Thread_put
-            { id = thread
-            ; expected_revision = 0
-            ; board
-            ; title = "Thread"
-            ; participants = []
-            ; mentions = []
-            ; links = []
-            ; state = Open
-            ; pinned = false
-            }))
-  in
-  let state =
-    step
-      state
-      (Thread_reply
-         { id = thread
-         ; expected_revision = 1
-         ; comment_id = Some comment
-         ; reply_to = None
-         ; kind = Comment
-         ; body = "hello"
-         })
-  in
-  let thread_record =
-    Communication.get_thread (State.communication state) thread |> Option.value_exn
-  in
-  print_s [%sexp (thread_record.messages : Id.Comment.t list)];
-  outcome
-    (prepare
-       state
-       (Thread_reply
-          { id = thread
-          ; expected_revision = 2
-          ; comment_id = None
-          ; reply_to = Some (Id.Comment.of_string "missing" |> unwrap)
-          ; kind = Comment
-          ; body = "bad"
-          }));
-  [%expect
-    {|
-    (reply)
-    Conflict
-    |}]
-;;
+let condition_id = unwrap (Coordination_id.Condition.of_string "ready")
+let operation_id = unwrap (Coordination_id.Operation.of_string "deploy-1")
+let signal_id = unwrap (Coordination_id.Signal.of_string "signal-1")
 
-let%expect_test "template expansion is atomic, deterministic and budgets block allocation"
-  =
-  let resource = Id.Resource.of_string "workflow" |> unwrap in
-  let spec =
-    { Workflow_template.Spec.parameters = [ "name" ]
-    ; nodes =
-        [ { Workflow_template.Node.alias = "code"
-          ; title = "Build {{name}}"
-          ; description = ""
-          ; depends_on = []
-          ; parent = None
-          ; capabilities = [ "ocaml" ]
-          ; reviewers = []
-          ; separate_actor = false
-          }
-        ]
+let declaration expected_revision =
+  External_condition.Command.Put
+    { condition_id
+    ; expected_revision
+    ; ticket_id = ticket
+    ; operation_id
+    ; artifact = pin
+    ; required = true
+    ; label = "deployment ready"
+    ; recipients = []
     }
+;;
+
+let signal ?(summary = "confirmed") () =
+  External_condition.Command.Signal
+    { signal_id
+    ; condition_id
+    ; expected_revision = 1
+    ; operation_id
+    ; artifact = pin
+    ; evidence = [ pin ]
+    ; summary
+    }
+;;
+
+let condition_prepare t ?(actor = actor) command =
+  External_condition.prepare t command ~actor ~run:None ~timestamp:"now" ~sequence:1
+;;
+
+let%expect_test "lexical scopes normalize; boundary and worktree identities remain exact" =
+  let subtree = target Subtree "./src//./"
+  and file = target File "src/main.ml" in
+  print_s
+    [%sexp
+      (Path_scope.path subtree : string)
+    , (Path_scope.overlaps subtree file : bool)
+    , (Path_scope.overlaps subtree (target File "src-extra/main.ml") : bool)
+    , (Path_scope.overlaps
+         subtree
+         (target
+            ~tree:(unwrap (Coordination_id.Worktree.of_string "other"))
+            File
+            "src/main.ml")
+       : bool)];
+  List.iter
+    [ "../escape"; "a/../../escape"; "/absolute"; "a\\b"; "a*"; "\000"; "\255" ]
+    ~f:(fun path -> report (Path_scope.create ~worktree_id:worktree ~kind:File ~path));
+  report
+    (Json.decode (fun () ->
+       Path_scope.t_of_jsonaf
+         (Json.obj
+            [ "worktree_id", Json.string "tree"
+            ; "kind", Json.string "file"
+            ; "path", Json.string "./src/main.ml"
+            ])));
+  [%expect
+    {|
+    (src true false false)
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test "path overlap algebra stays symmetric over varied component boundaries" =
+  let scopes =
+    List.concat_map [ "."; "a"; "a/b"; "ab"; "a/bb"; "a/b/c" ] ~f:(fun path ->
+      if String.equal path "."
+      then [ target Subtree path ]
+      else [ target File path; target Subtree path ])
   in
-  let template =
-    Workflow_template.create ~resource ~resource_revision:1 ~spec |> unwrap
+  List.iter scopes ~f:(fun a ->
+    List.iter scopes ~f:(fun b ->
+      assert (Bool.equal (Path_scope.overlaps a b) (Path_scope.overlaps b a));
+      if Path_scope.covers a b then assert (Path_scope.overlaps a b)));
+  print_endline "all scope pairs passed";
+  [%expect {| all scope pairs passed |}]
+;;
+
+let%expect_test "shared overlap cooperates; exclusive conflicts retain expired owners" =
+  let t = runs () in
+  let subtree = target Subtree "src"
+  and file = target File "src/main.ml" in
+  let t =
+    Agent_run.candidate
+      (unwrap (acquire t run actor [ request subtree Shared (Some 1L) ]))
   in
-  let state =
+  let t =
+    Agent_run.candidate
+      (unwrap (acquire t other_run other_actor [ request file Shared None ]))
+  in
+  report
+    (acquire
+       t
+       other_run
+       other_actor
+       [ request (target File "src/other.ml") Exclusive None ]);
+  let held = Option.value_exn (Agent_run.get_path_reservation t subtree) in
+  print_s
+    [%sexp
+      (List.length held.holders : int)
+    , (Allocation_lease.status (List.hd_exn held.holders).lease ~now_unix_ms:100L
+       : Allocation_lease.Status.t)];
+  [%expect
+    {|
+    Already_claimed
+    (1 Expired)
+    |}]
+;;
+
+let%expect_test "an unavailable path aborts every earlier grant in the batch" =
+  let t = runs () in
+  let blocked = target Subtree "z"
+  and free = target File "a" in
+  let t =
+    Agent_run.candidate (unwrap (acquire t run actor [ request blocked Exclusive None ]))
+  in
+  report
+    (acquire
+       t
+       other_run
+       other_actor
+       [ request free Exclusive None; request (target File "z/file") Exclusive None ]);
+  print_s [%sexp (Option.is_none (Agent_run.get_path_reservation t free) : bool)];
+  [%expect
+    {|
+    Already_claimed
+    true
+    |}]
+;;
+
+let%expect_test "required paths demand a run and prepare atomic reusable ownership" =
+  let t = runs ()
+  and path = target Subtree "src" in
+  let t =
     step
-      (empty ())
-      (Resource_put
-         { id = resource
-         ; expected_revision = 0
-         ; title = "Workflow"
-         ; text = Json.canonical (Workflow_template.Spec.to_json spec)
-         ; filename = None
-         ; mime_type = None
-         })
-  in
-  let state = step state (Policy (Template_register template)) in
-  let command =
-    Domain_command.Template_instantiate
-      { template = resource
-      ; template_revision = 1
-      ; id = Workflow_template.Instance_id.of_string "instance" |> unwrap
-      ; parameters = [ "name", "demo" ]
-      }
-  in
-  let state = step state command in
-  let state = step state command in
-  let instance =
-    Agent_run_policy.get_instance
-      (State.policies state)
-      (Workflow_template.Instance_id.of_string "instance" |> unwrap)
-    |> Option.value_exn
-  in
-  print_s [%sexp (List.length instance.tickets : int)];
-  let state = step state register in
-  let state =
-    step
-      state
-      (Policy
-         (Budget_put
-            { run
-            ; revision = 1
-            ; max_attempts = Some 1
-            ; max_active_attempts = Some 1
-            ; reported_token_limit = None
-            ; reported_elapsed_ms_limit = None
+      t
+      (Coordination
+         (Ticket_paths_put
+            { ticket_id = ticket
+            ; expected_revision = 0
+            ; declarations =
+                [ { Ticket_paths.Declaration.target = path; mode = Exclusive } ]
+            ; require_reservations = true
             }))
   in
-  let next id =
-    Domain_command.Claim_next
-      { attempt = Attempt.Id.of_string id |> unwrap
-      ; run
-      ; project = None
-      ; lease_duration_ms = None
-      }
+  print_s
+    [%sexp
+      (List.length (Agent_run.start_blockers t ~ticket ~run:None ~now_unix_ms:0L) : int)];
+  let p =
+    unwrap
+      (Agent_run.prepare_start_reservations
+         t
+         ~ticket
+         ~run
+         ~actor
+         ~timestamp:"now"
+         ~sequence:1
+         ~now_unix_ms:0L)
   in
-  let state = step ~run state (next "first") in
-  outcome (prepare ~run state (next "second"));
+  print_s
+    [%sexp
+      (List.length (Agent_run.changes p) : int)
+    , (List.length
+         (Agent_run.start_blockers
+            (Agent_run.candidate p)
+            ~ticket
+            ~run:(Some run)
+            ~now_unix_ms:0L)
+       : int)];
+  let p =
+    unwrap
+      (Agent_run.prepare_start_reservations
+         (Agent_run.candidate p)
+         ~ticket
+         ~run
+         ~actor
+         ~timestamp:"now"
+         ~sequence:2
+         ~now_unix_ms:0L)
+  in
+  print_s [%sexp (List.length (Agent_run.changes p) : int)];
   [%expect
     {|
     1
-    Blocked
+    (1 0)
+    0
     |}]
 ;;
 
 let%expect_test
-    "review routing and published inputs share the immutable domain transaction"
+    "recovery matches old actor epoch lease and fence, with durable admin attribution"
   =
-  let attempt = Attempt.Id.of_string "attempt" |> unwrap in
-  let reviewer = Id.Actor.of_string "reviewer" |> unwrap in
-  let resource id = Id.Resource.of_string id |> unwrap in
-  let state =
-    step (empty ()) register
-    |> fun s -> step s (create "evidence") |> fun s -> step ~run s (claim "evidence" 1)
+  let path = target File "src/main.ml" in
+  let t =
+    Agent_run.candidate
+      (unwrap (acquire (runs ()) run actor [ request path Exclusive (Some 1L) ]))
   in
-  let state =
-    step
-      ~run
-      state
-      (Agent_run
-         (Attempt_start
-            { id = attempt; run; ticket = ticket "evidence"; token = 1; sessions = [] }))
+  let recovery =
+    { Ownership_recovery.Request.recovery_id =
+        unwrap (Coordination_id.Recovery.of_string "recover-1")
+    ; target = Path path
+    ; expected_epoch = 1
+    ; old_run_id = run
+    ; old_actor_id = actor
+    ; token = 1
+    ; expected_lease_revision = 1
+    ; confirmation = Isolated
+    ; reason = "old sandbox quarantined"
+    ; evidence = [ pin ]
+    }
   in
-  let put id revision text =
-    Domain_command.Resource_put
-      { id = resource id
-      ; expected_revision = revision
-      ; title = id
-      ; text
-      ; filename = None
-      ; mime_type = None
-      }
-  in
-  let state =
-    step state (put "schema" 0 "schema")
-    |> fun s ->
-    step s (put "input" 0 "source") |> fun s -> step s (put "output" 0 "result")
-  in
-  let pin id =
-    let v = State.resource_version state (resource id) ~revision:None |> unwrap in
-    { Evidence.Resource_pin.id = resource id; revision = v.revision; digest = v.digest }
-  in
-  let contract = Evidence_id.Contract.of_string "contract" |> unwrap in
-  let manifest = Evidence_id.Manifest.of_string "manifest" |> unwrap in
-  let cref = { Evidence.Contract_ref.id = contract; revision = 1 } in
-  let mref = { Evidence.Manifest_ref.id = manifest; revision = 1 } in
-  let state =
-    step
-      state
-      (Evidence
-         (Contract_put
-            { id = contract
-            ; expected_revision = 0
-            ; schema_version = 1
-            ; schema = pin "schema"
-            ; required_inputs = [ "source" ]
-            ; required_outputs = [ "result" ]
-            }))
-  in
-  let state =
-    step
-      ~run
-      state
-      (Evidence
-         (Manifest_publish
-            { id = manifest
-            ; expected_revision = 0
-            ; schema_version = 1
-            ; attempt
-            ; ticket = ticket "evidence"
-            ; contract = cref
-            ; inputs = [ { name = "source"; pin = Resource (pin "input") } ]
-            ; outputs = [ { name = "result"; pin = Resource (pin "output") } ]
-            }))
-  in
-  let state =
-    step
-      state
-      (Evidence
-         (Policy_put
-            { ticket = ticket "evidence"
-            ; expected_revision = 0
-            ; enabled = true
-            ; reviewers = [ Role { name = "quality"; members = [ reviewer ] } ]
-            ; separate_actor = true
-            ; validators = []
-            }))
-  in
-  let state =
-    step
-      ~run
-      state
-      (Evidence
-         (Submit
-            { ticket = ticket "evidence"
-            ; expected_revision = 0
-            ; manifest = mref
-            ; review_request = None
-            }))
-  in
-  let submission =
-    Evidence.get_submission (State.evidence state) (ticket "evidence") |> Option.value_exn
-  in
-  let request =
-    Communication.get_request
-      (State.communication state)
-      (Option.value_exn submission.review_request)
-    |> Option.value_exn
-  in
-  print_s
-    [%sexp
-      (List.map request.deliveries ~f:(fun d -> d.recipient)
-       : Communication.Recipient.t list)];
-  let rejection = String.make 65_536 'x' in
-  let state =
-    step
-      ~actor:reviewer
-      state
-      (Evidence
-         (Review
-            { id = Evidence_id.Review.of_string "reject" |> unwrap
-            ; ticket = ticket "evidence"
-            ; generation = 1
-            ; verdict = Request_changes
-            ; evidence = rejection
-            ; comment = None
-            }))
-  in
-  print_s [%sexp (List.length (Communication.requests (State.communication state)) : int)];
-  let change_request =
-    Communication.requests (State.communication state)
-    |> List.find_exn ~f:(fun request ->
-      Communication.Request.Kind.equal request.kind Blocker_resolution)
-  in
-  let comment =
-    State.query
-      state
-      ~method_:"comment.get"
-      ~params:
-        (Json.obj
-           [ "comment_id", Id.Comment.jsonaf_of_t change_request.message
-           ; "max_bytes", Json.int (1024 * 1024)
-           ])
-    |> unwrap
-  in
-  let body = Json.text (Json.field (Json.field comment "data") "body") in
-  print_s [%sexp (String.length body : int), (String.equal body rejection : bool)];
-  outcome
+  report
     (prepare
-       ~run
-       state
-       (Ticket_complete { id = ticket "evidence"; token = 1; evidence = "done" }));
-  let state =
-    step
-      ~run
-      state
-      (Evidence
-         (Submit
-            { ticket = ticket "evidence"
-            ; expected_revision = 2
-            ; manifest = mref
-            ; review_request = None
-            }))
+       t
+       ~actor:other_actor
+       (Coordination (Recover { recovery with old_actor_id = other_actor })));
+  let p =
+    unwrap (prepare t ~actor:other_actor ~now:100L (Coordination (Recover recovery)))
   in
-  let state =
-    step
-      ~actor:reviewer
-      state
-      (Evidence
-         (Review
-            { id = Evidence_id.Review.of_string "approve" |> unwrap
-            ; ticket = ticket "evidence"
-            ; generation = 2
-            ; verdict = Approve
-            ; evidence = "accepted exact output"
-            ; comment = None
-            }))
-  in
-  let state =
-    step
-      ~run
-      state
-      (Evidence (Accept { ticket = ticket "evidence"; expected_revision = 3 }))
-  in
-  let submission =
-    Evidence.get_submission (State.evidence state) (ticket "evidence") |> Option.value_exn
-  in
-  let resolved =
-    Communication.get_request
-      (State.communication state)
-      (Option.value_exn submission.review_request)
-    |> Option.value_exn
-  in
+  let t = Agent_run.candidate p in
+  let audit = Option.value_exn (Agent_run.get_recovery t recovery.recovery_id) in
   print_s
     [%sexp
-      ((match resolved.status with
-        | Resolved _ -> true
-        | Open | Cancelled _ -> false)
+      (Id.Actor.equal audit.actor_id other_actor : bool)
+    , (List.is_empty (Option.value_exn (Agent_run.get_path_reservation t path)).holders
        : bool)];
-  let reconcile disposition =
-    Domain_command.Evidence (Reconcile { serial = 1; expected_revision = 1; disposition })
+  let t =
+    Agent_run.candidate
+      (unwrap (acquire t other_run other_actor [ request path Exclusive None ]))
   in
-  let unrelated_run = Id.Run.of_string "unrelated-run" |> unwrap in
-  let live_changed = step state (put "input" 1 "live source update") in
-  outcome (prepare ~actor:reviewer ~run live_changed (reconcile Acknowledge));
-  outcome (prepare live_changed (reconcile Acknowledge));
-  outcome (prepare ~run:unrelated_run live_changed (reconcile Acknowledge));
-  outcome
+  report
     (prepare
-       ~run
-       live_changed
-       (reconcile (Continue "Keep the reviewed historical input")));
-  let state =
-    step
-      ~run
-      state
-      (Ticket_complete { id = ticket "evidence"; token = 1; evidence = "accepted" })
+       t
+       ~actor:other_actor
+       (Coordination
+          (Recover
+             { recovery with
+               recovery_id = unwrap (Coordination_id.Recovery.of_string "recover-2")
+             })));
+  let replayed =
+    List.fold
+      (Agent_run.changes p)
+      ~init:
+        (Agent_run.candidate
+           (unwrap (acquire (runs ()) run actor [ request path Exclusive (Some 1L) ])))
+      ~f:(fun t c ->
+        unwrap
+          (Agent_run.apply
+             t
+             (Agent_run_event.t_of_jsonaf (Agent_run_event.jsonaf_of_t c))))
   in
-  let publication = prepare state (put "input" 1 "updated source") |> unwrap in
-  let corrupt =
-    match State.events publication with
+  print_s [%sexp (List.length (Agent_run.recoveries replayed) : int)];
+  [%expect
+    {|
+    Stale_claim
+    (true true)
+    Stale_claim
+    1
+    |}]
+;;
+
+let%expect_test
+    "signal identity binds full content and attribution; declaration revision resets \
+     satisfaction"
+  =
+  let t =
+    External_condition.candidate
+      (unwrap (condition_prepare External_condition.empty (declaration 0)))
+  in
+  print_s [%sexp (List.length (External_condition.blockers t ~ticket) : int)];
+  let p = unwrap (condition_prepare t (signal ())) in
+  let t = External_condition.candidate p in
+  print_s [%sexp (List.length (External_condition.blockers t ~ticket) : int)];
+  let duplicate =
+    unwrap
+      (External_condition.prepare
+         t
+         (signal ())
+         ~actor
+         ~run:None
+         ~timestamp:"later"
+         ~sequence:99)
+  in
+  print_s
+    [%sexp
+      (List.length (External_condition.changes duplicate) : int)
+    , (Json.integer (Json.field (External_condition.result duplicate) "sequence") : int)];
+  report (condition_prepare t ~actor:other_actor (signal ()));
+  report (condition_prepare t (signal ~summary:"different" ()));
+  let t = External_condition.candidate (unwrap (condition_prepare t (declaration 1))) in
+  print_s [%sexp (List.length (External_condition.blockers t ~ticket) : int)];
+  report
+    (External_condition.validate_references
+       t
+       ~ticket_exists:(fun _ -> true)
+       ~pin_exists:(fun _ -> false));
+  [%expect
+    {|
+    1
+    0
+    (0 1)
+    Conflict
+    Conflict
+    1
+    Not_found
+    |}]
+;;
+
+let%expect_test "resolved replay refuses forged signal revision and recovery evidence" =
+  let t =
+    External_condition.candidate
+      (unwrap (condition_prepare External_condition.empty (declaration 0)))
+  in
+  let p = unwrap (condition_prepare t (signal ())) in
+  let s =
+    Option.value_exn
+      (External_condition.signal (External_condition.candidate p) signal_id)
+  in
+  report
+    (External_condition.apply
+       t
+       (Signal { s with condition_revision = 2 })
+       ~actor
+       ~run:None
+       ~timestamp:"now"
+       ~sequence:1);
+  report
+    (Api_codec.decode
+       Evidence_wire.pin
+       (Json.obj
+          [ "kind", Json.string "checksum"
+          ; "source", Json.string "external"
+          ; "digest", Json.string "broken"
+          ]));
+  [%expect
+    {|
+    Conflict
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test
+    "required reservations retain expiry and never upgrade same target implicitly"
+  =
+  let path = target File "src/main.ml" in
+  let with_policy t =
+    step
+      t
+      (Coordination
+         (Ticket_paths_put
+            { ticket_id = ticket
+            ; expected_revision = 0
+            ; declarations =
+                [ { Ticket_paths.Declaration.target = path; mode = Exclusive } ]
+            ; require_reservations = true
+            }))
+  in
+  let shared =
+    with_policy
+      (Agent_run.candidate
+         (unwrap (acquire (runs ()) run actor [ request path Shared None ])))
+  in
+  print_s
+    [%sexp
+      (Agent_run.start_blockers shared ~ticket ~run:(Some run) ~now_unix_ms:0L
+       : Agent_run.Start_blocker.t list)];
+  let expired =
+    with_policy
+      (Agent_run.candidate
+         (unwrap (acquire (runs ()) run actor [ request path Exclusive (Some 1L) ])))
+  in
+  report
+    (Agent_run.prepare_start_reservations
+       expired
+       ~ticket
+       ~run
+       ~actor
+       ~timestamp:"now"
+       ~sequence:1
+       ~now_unix_ms:1L);
+  print_s
+    [%sexp
+      (List.length
+         (Option.value_exn (Agent_run.get_path_reservation expired path)).holders
+       : int)];
+  [%expect
+    {|
+    ((Ownership_mode (target ((worktree_id tree) (kind File) (path src/main.ml)))
+      (holder
+       ((run run) (actor actor) (token 1) (mode Shared)
+        (lease
+         ((epoch 1) (revision 1) (policy Indefinite) (last_unix_ms 0)
+          (deadline_unix_ms ())))))))
+    Blocked
+    1
+    |}]
+;;
+
+let%expect_test
+    "path algebra matches a component reference model across generated targets"
+  =
+  Quickcheck.test
+    ~trials:100
+    (Quickcheck.Generator.list_with_length 4 (Int.gen_incl 0 30))
+    ~f:(fun values ->
+      let make a b =
+        let path =
+          if a mod 7 = 0
+          then "."
+          else
+            String.concat
+              ~sep:"/"
+              (List.init ((a mod 4) + 1) ~f:(fun n -> Int.to_string ((b + n) mod 3)))
+        in
+        let kind =
+          if a mod 2 = 0 || String.equal path "." then Path_scope.Kind.Subtree else File
+        in
+        target
+          ~tree:
+            (unwrap
+               (Coordination_id.Worktree.of_string
+                  (if b mod 2 = 0 then "tree" else "other")))
+          kind
+          path
+      in
+      match values with
+      | [ a; b; c; d ] ->
+        let x = make a b
+        and y = make c d in
+        let components p =
+          if String.equal (Path_scope.path p) "."
+          then []
+          else String.split (Path_scope.path p) ~on:'/'
+        in
+        let covers a b =
+          Coordination_id.Worktree.equal
+            (Path_scope.worktree_id a)
+            (Path_scope.worktree_id b)
+          &&
+          match Path_scope.kind a with
+          | File ->
+            Path_scope.Kind.equal (Path_scope.kind b) File
+            && List.equal String.equal (components a) (components b)
+          | Subtree ->
+            List.is_prefix (components b) ~prefix:(components a) ~equal:String.equal
+        in
+        assert (Bool.equal (Path_scope.overlaps x y) (covers x y || covers y x))
+      | _ -> assert false);
+  print_endline "100 generated reference comparisons passed";
+  [%expect {| 100 generated reference comparisons passed |}]
+;;
+
+let%expect_test
+    "latest ticket attempt orders immutable creation revisions, including terminal \
+     attempts"
+  =
+  let t = runs () in
+  let older = unwrap (Attempt.Id.of_string "z-old")
+  and newer = unwrap (Attempt.Id.of_string "a-new") in
+  let start t id =
+    unwrap
+      (prepare
+         t
+         ~run:(Some run)
+         (Attempt_start { id; run; ticket; token = 1; sessions = [] }))
+  in
+  let finish t id =
+    unwrap
+      (prepare
+         t
+         ~run:(Some run)
+         (Attempt_finish { id; expected_revision = 1; state = Failed; evidence = "done" }))
+  in
+  let p1 = start t older in
+  let p2 = finish (Agent_run.candidate p1) older in
+  let p3 = start (Agent_run.candidate p2) newer in
+  let p4 = finish (Agent_run.candidate p3) newer in
+  let replayed =
+    List.fold
+      (List.concat_map [ p1; p2; p3; p4 ] ~f:Agent_run.changes)
+      ~init:t
+      ~f:(fun t c ->
+        unwrap
+          (Agent_run.apply
+             t
+             (Agent_run_event.t_of_jsonaf (Agent_run_event.jsonaf_of_t c))))
+  in
+  let latest =
+    Option.value_exn (Agent_run.latest_attempt_for_ticket replayed ~ticket ~token:1)
+  in
+  print_s [%sexp (latest.id : Attempt.Id.t)];
+  print_s
+    [%sexp
+      (Option.is_none (Agent_run.latest_attempt_for_ticket replayed ~ticket ~token:2)
+       : bool)];
+  [%expect
+    {|
+    a-new
+    true
+    |}]
+;;
+
+let%expect_test
+    "raw coordination references share fields and resolved commands reject aliases"
+  =
+  let params =
+    unwrap
+      (Json.parse
+         {|{"ticket_id":"$ticket","expected_revision":"0","declarations":[],"require_reservations":false}|})
+  in
+  let codec =
+    Option.value_exn (Agent_coordination_api.request_codec ~method_:"ticket.paths.put")
+  in
+  print_s [%sexp (Result.is_ok (Api_codec.decode codec params) : bool)];
+  print_s
+    [%sexp
+      (Result.is_error
+         (Agent_coordination_api.decode_command ~method_:"ticket.paths.put" ~params)
+       : bool)];
+  let signal =
+    unwrap
+      (Json.parse
+         (Printf.sprintf
+            {|{"signal_id":"signal","condition_id":"condition","expected_revision":"1","operation_id":"operation","artifact":{"kind":"comment","comment_id":"$note","revision":"1"},"evidence":[{"kind":"checksum","source":"$literal","digest":"%s"}],"summary":"$literal"}|}
+            (String.make 64 'a')))
+  in
+  let codec =
+    Option.value_exn (Agent_coordination_api.request_codec ~method_:"condition.signal")
+  in
+  let decoded = unwrap (Api_codec.decode codec signal) in
+  print_s [%sexp (Json.text (Json.field decoded "summary") : string)];
+  let bad =
+    match signal with
     | `Object fields ->
-      Json.obj
-        (List.map fields ~f:(fun (key, value) ->
-           ( key
-           , if String.equal key "changes"
-             then `Array (List.take (Json.list value) 1)
-             else value )))
+      `Object
+        (List.Assoc.add
+           fields
+           ~equal:String.equal
+           "operation_id"
+           (Json.string "$operation"))
     | _ -> assert false
   in
-  outcome (State.replay state corrupt);
-  let state = State.candidate publication in
-  let completed =
-    List.find_exn (State.coordination_tickets state) ~f:(fun t ->
-      Id.Ticket.equal t.Coordinator.Ticket.id (ticket "evidence"))
-  in
-  print_s [%sexp (completed.status : Domain_command.Status.t)];
-  print_s
-    [%sexp
-      (List.length
-         (Evidence.pending_reconciliations (State.evidence state) ~attempt:(Some attempt))
-       : int)];
-  let original = Evidence.get_manifest (State.evidence state) mref |> Option.value_exn in
-  print_s
-    [%sexp
-      ((match (List.hd_exn original.inputs).pin with
-        | Resource p -> p.revision
-        | _ -> 0)
-       : int)];
-  outcome (prepare ~actor:reviewer ~run state (reconcile Acknowledge));
-  outcome (prepare state (reconcile Acknowledge));
-  outcome (prepare ~run:unrelated_run state (reconcile Acknowledge));
-  outcome (prepare ~run state (reconcile (Revised mref)));
-  outcome (prepare ~run state (reconcile Acknowledge));
-  let replacement_run = Id.Run.of_string "replacement-run" |> unwrap in
-  let replacement_attempt = Attempt.Id.of_string "replacement-attempt" |> unwrap in
-  let state =
-    step
-      state
-      (Agent_run
-         (Register
-            { id = replacement_run
-            ; parent = None
-            ; parent_stop_policy = Continue
-            ; objective = "replacement"
-            ; capabilities = []
-            ; process_ref = None
-            ; worktree_ref = None
-            }))
-    |> fun state ->
-    step
-      state
-      (Ticket_update
-         { id = ticket "evidence"
-         ; expected_revision = 3
-         ; title = None
-         ; description = None
-         ; status = Some Todo
-         })
-    |> fun state ->
-    step
-      ~run:replacement_run
-      state
-      (Claim_next
-         { attempt = replacement_attempt
-         ; run = replacement_run
-         ; project = None
-         ; lease_duration_ms = None
-         })
-  in
-  let claim state =
-    List.find_exn (State.coordination_tickets state) ~f:(fun item ->
-      Id.Ticket.equal item.id (ticket "evidence"))
-    |> fun item -> Option.value_exn item.Coordinator.Ticket.claim
-  in
-  let previous_claim = claim state in
-  let state =
-    step ~run state (reconcile (Continue "Preserve the completed historical result"))
-  in
-  let current_claim = claim state in
-  print_s
-    [%sexp
-      (List.length
-         (Evidence.pending_reconciliations (State.evidence state) ~attempt:(Some attempt))
-       : int)
-    , (Int.equal previous_claim.token current_claim.token
-       && Option.equal Id.Run.equal previous_claim.run current_claim.run
-       && Id.Actor.equal previous_claim.actor current_claim.actor
-       : bool)];
+  print_s [%sexp (Result.is_error (Api_codec.decode codec bad) : bool)];
   [%expect
     {|
-    ((Actor reviewer))
-    2
-    (65536 true)
-    Blocked
     true
-    Conflict
-    Stale_claim
-    Stale_claim
-    ok
-    Corrupt_store
-    Done
-    1
-    1
-    Stale_claim
-    Stale_claim
-    Stale_claim
-    Stale_claim
-    ok
-    (0 true)
+    true
+    $literal
+    true
     |}]
-;;
-
-let%expect_test "batch aliases preserve typed nested references and ordinary prose" =
-  let params =
-    Json.parse
-      {|
-    {"operations":[
-      {"method":"board.put","as":"board","params":{"board_id":"b","expected_revision":"0","scope":{"kind":"workspace"},"title":"$board"}},
-      {"method":"ticket.create","as":"task","params":{"ticket_id":"t","title":"$board"}},
-      {"method":"thread.put","as":"thread","params":{"thread_id":"h","expected_revision":"0","board_id":"$board","title":"$task","participants":[],"mentions":[],"links":[{"kind":"ticket","id":"$task"}],"state":"open","pinned":false}},
-      {"method":"thread.reply","as":"message","params":{"thread_id":"$thread","expected_revision":"1","comment_id":"c","body":"$task"}},
-      {"method":"request.create","params":{"request_id":"q","thread_id":"$thread","kind":"review","comment_id":"$message","recipients":[{"kind":"actor","id":"worker"}],"teams":[],"resolver_id":"worker"}}
-    ]}
-  |}
-    |> unwrap
-  in
-  let command = Domain_command.decode ~method_:"transaction.apply" ~params |> unwrap in
-  let state = step (empty ()) command in
-  let thread =
-    Communication.get_thread
-      (State.communication state)
-      (Communication_id.Thread.of_string "h" |> unwrap)
-    |> Option.value_exn
-  in
-  print_s [%sexp (thread.title : string), (thread.links : Entity_ref.t list)];
-  let params =
-    Json.parse
-      {|
-    {"operations":[
-      {"method":"resource.put_text","as":"schema","params":{"resource_id":"r","expected_revision":"0","title":"R","text":"schema"}},
-      {"method":"contract.put","params":{"id":"k","expected_revision":"0","schema_version":"1","schema":{"id":"$schema","revision":"1","digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"required_inputs":[],"required_outputs":[]}}
-    ]}
-  |}
-    |> unwrap
-  in
-  outcome (Domain_command.decode ~method_:"transaction.apply" ~params);
-  [%expect
-    {|
-    ($task ((Ticket t)))
-    ok
-    |}]
-;;
-
-let%expect_test "registered attempts cannot complete without pinned provenance" =
-  let state = step (empty ()) register |> fun s -> step s (create "provenance") in
-  let attempt = Attempt.Id.of_string "provenance-attempt" |> unwrap in
-  let state =
-    step
-      ~run
-      state
-      (Claim_next { attempt; run; project = None; lease_duration_ms = None })
-  in
-  outcome
-    (prepare
-       ~run
-       state
-       (Agent_run
-          (Attempt_finish
-             { id = attempt; expected_revision = 1; state = Completed; evidence = "done" })));
-  outcome
-    (prepare
-       ~run
-       state
-       (Ticket_complete { id = ticket "provenance"; token = 1; evidence = "done" }));
-  let plain = step (empty ()) (create "plain") |> fun s -> step s (claim "plain" 1) in
-  outcome
-    (prepare
-       plain
-       (Ticket_complete { id = ticket "plain"; token = 1; evidence = "done" }));
-  [%expect
-    {|
-    Blocked
-    Blocked
-    ok
-  |}]
-;;
-
-let%expect_test "tagged evidence pins and revised manifests resolve creation aliases" =
-  let params =
-    Json.parse
-      {|
-    {"operations":[
-      {"method":"resource.put_text","as":"source","params":{"resource_id":"source-resource","expected_revision":"0","title":"Source","text":"source"}},
-      {"method":"contract.put","as":"contract","params":{"id":"contract-id","expected_revision":"0","schema_version":"1","schema":{"id":"$source","revision":"1","digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"required_inputs":[],"required_outputs":[]}},
-      {"method":"decision.put","params":{"id":"decision","expected_revision":"0","scope":{"kind":"workspace"},"title":"Decision","rationale":["Resource",{"id":"$source","revision":"1","digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],"evidence":[["Contract",{"id":"$contract","revision":"1"}]],"affected":[],"supersedes":[]}},
-      {"method":"input.changed","params":{"previous":["Resource",{"id":"$source","revision":"1","digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],"current":["Resource",{"id":"$source","revision":"2","digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}]}},
-      {"method":"manifest.publish","as":"manifest","params":{"id":"manifest-id","expected_revision":"0","schema_version":"1","attempt":"attempt","ticket":"ticket","contract":{"id":"$contract","revision":"1"},"inputs":[],"outputs":[]}},
-      {"method":"reconciliation.record","params":{"serial":"1","expected_revision":"1","disposition":["Revised",{"id":"$manifest","revision":"1"}]}}
-    ]}
-  |}
-    |> unwrap
-  in
-  let command = Domain_command.decode ~method_:"transaction.apply" ~params |> unwrap in
-  let _, params = Wire_command.encode command |> unwrap in
-  let operations = Json.list (Json.field params "operations") in
-  let params index = Json.field (List.nth_exn operations index) "params" in
-  let pin_id value =
-    match Json.list value with
-    | [ _; record ] -> Json.text (Json.field record "id")
-    | _ -> failwith "expected tagged pin"
-  in
-  print_s
-    [%sexp
-      (pin_id (Json.field (params 2) "rationale") : string)
-    , (pin_id (List.hd_exn (Json.list (Json.field (params 2) "evidence"))) : string)
-    , (pin_id (Json.field (params 3) "previous") : string)
-    , (pin_id (Json.field (params 3) "current") : string)
-    , (pin_id (Json.field (params 5) "disposition") : string)];
-  [%expect
-    {| (source-resource contract-id source-resource source-resource manifest-id) |}]
-;;
-
-let%expect_test "subscription activity retains both replaced scope and thread links" =
-  let project name = Id.Project.of_string name |> unwrap in
-  let board name = Communication_id.Board.of_string name |> unwrap in
-  let thread name = Communication_id.Thread.of_string name |> unwrap in
-  let subscription = Communication_id.Subscription.of_string "subscription" |> unwrap in
-  let state = step (empty ()) (create "old-linked") in
-  let state = step state (create "new-linked") in
-  let state =
-    List.fold [ "old"; "new" ] ~init:state ~f:(fun state name ->
-      let state =
-        step state (Project_create { id = project name; title = name; description = "" })
-      in
-      let state =
-        step
-          state
-          (Communication
-             (Board_put
-                { id = board name
-                ; expected_revision = 0
-                ; scope = Project (project name)
-                ; title = name
-                }))
-      in
-      step
-        state
-        (Communication
-           (Thread_put
-              { id = thread name
-              ; expected_revision = 0
-              ; board = board name
-              ; title = name
-              ; participants = []
-              ; mentions = []
-              ; links = [ Ticket (ticket (name ^ "-linked")) ]
-              ; state = Open
-              ; pinned = false
-              })))
-  in
-  let put name revision =
-    Domain_command.Communication
-      (Subscription_put
-         { id = subscription
-         ; expected_revision = revision
-         ; recipient = Actor actor
-         ; filter =
-             { scope = Some (Project (project name))
-             ; thread = Some (thread name)
-             ; kinds = []
-             }
-         ; active = true
-         })
-  in
-  let state = step state (put "old" 0) in
-  let after = State.revision state in
-  let state = step state (put "new" 1) in
-  List.iter
-    [ Entity_ref.Project (project "old")
-    ; Project (project "new")
-    ; Ticket (ticket "old-linked")
-    ; Ticket (ticket "new-linked")
-    ]
-    ~f:(fun target ->
-      let result =
-        State.query
-          state
-          ~method_:"activity.since"
-          ~params:
-            (Json.obj
-               [ "target", Entity_ref.jsonaf_of_t target; "after", Json.int after ])
-        |> unwrap
-      in
-      print_s
-        [%sexp
-          (target : Entity_ref.t)
-        , (List.length (Json.list (Json.field (Json.field result "data") "items")) : int)]);
-  [%expect
-    {|
-    ((Project old) 1)
-    ((Project new) 1)
-    ((Ticket old-linked) 1)
-    ((Ticket new-linked) 1)
-  |}]
-;;
-
-let%expect_test
-    "new claims validate known run ownership and retain full reassignment reasons"
-  =
-  let other = Id.Actor.of_string "other" |> unwrap in
-  let other_run = Id.Run.of_string "other-run" |> unwrap in
-  let state =
-    step (empty ()) (create "owned") |> fun state -> step state (claim "owned" 1)
-  in
-  let state = step state register in
-  let state =
-    step
-      ~actor:other
-      state
-      (Agent_run
-         (Register
-            { id = other_run
-            ; parent = None
-            ; parent_stop_policy = Continue
-            ; objective = "other"
-            ; capabilities = []
-            ; process_ref = None
-            ; worktree_ref = None
-            }))
-  in
-  let reassign claimant_run reason =
-    Domain_command.Ticket_reassign
-      { id = ticket "owned"
-      ; expected_revision = 2
-      ; claimant = Some actor
-      ; claimant_run = Some claimant_run
-      ; reason
-      }
-  in
-  outcome (prepare state (reassign other_run "wrong actor"));
-  let unclaimed = step state (create "direct-claim") in
-  outcome (prepare ~run:other_run unclaimed (claim "direct-claim" 1));
-  let terminal =
-    step
-      state
-      (Agent_run
-         (Transition
-            { id = run; expected_revision = 1; status = Completed; evidence = "finished" }))
-  in
-  outcome (prepare terminal (reassign run "terminal"));
-  let unclaimed = step terminal (create "direct-claim") in
-  outcome (prepare ~run unclaimed (claim "direct-claim" 1));
-  let reason = String.make 65_536 'x' in
-  let prepared = prepare state (reassign run reason) |> unwrap in
-  let corrupt =
-    match State.events prepared with
-    | `Object fields ->
-      Json.obj
-        (List.map fields ~f:(fun (key, value) ->
-           if String.equal key "changes"
-           then
-             ( key
-             , `Array
-                 (List.map (Json.list value) ~f:(function
-                    | `Array [ `String "Ticket_put"; `Object fields ] ->
-                      `Array
-                        [ Json.string "Ticket_put"
-                        ; Json.obj
-                            (List.map fields ~f:(fun (key, value) ->
-                               if String.equal key "claim"
-                               then
-                                 ( key
-                                 , Json.obj
-                                     (match value with
-                                      | `Object fields ->
-                                        List.Assoc.add
-                                          fields
-                                          ~equal:String.equal
-                                          "run_id"
-                                          (Id.Run.jsonaf_of_t other_run)
-                                      | _ -> failwith "expected claim") )
-                               else key, value))
-                        ]
-                    | value -> value)) )
-           else key, value))
-    | _ -> failwith "expected event object"
-  in
-  outcome (State.replay state corrupt);
-  let result =
-    State.query
-      (State.candidate prepared)
-      ~method_:"comment.list"
-      ~params:
-        (Json.obj
-           [ "ticket_id", Id.Ticket.jsonaf_of_t (ticket "owned")
-           ; "max_bytes", Json.int (1024 * 1024)
-           ])
-    |> unwrap
-  in
-  let body =
-    Json.list (Json.field (Json.field result "data") "items")
-    |> List.hd_exn
-    |> fun comment -> Json.text (Json.field comment "body")
-  in
-  print_s [%sexp (String.length body : int), (String.equal body reason : bool)];
-  [%expect
-    {|
-    Conflict
-    Conflict
-    Conflict
-    Conflict
-    Conflict
-    (65536 true)
-  |}]
-;;
-
-let%expect_test "typed tombstones reject supplied text before wire encoding" =
-  let comment = Id.Comment.of_string "tombstone" |> unwrap in
-  let state =
-    step
-      (empty ())
-      (Comment_add
-         { id = Some comment
-         ; target = Workspace
-         ; reply_to = None
-         ; kind = Comment
-         ; body = "original"
-         })
-  in
-  let command =
-    Domain_command.Comment_edit
-      { id = comment; expected_revision = 1; body = "discarded"; tombstone = true }
-  in
-  outcome (Wire_command.encode command);
-  outcome (State.prepare state command ~actor ~timestamp);
-  outcome
-    (Wire_command.encode
-       (Comment_edit { id = comment; expected_revision = 1; body = ""; tombstone = true }));
-  [%expect
-    {|
-    Invalid_argument
-    Corrupt_store
-    ok
-  |}]
-;;
-
-let%expect_test "attempt replay checks allocation budgets before each new attempt" =
-  let first = Attempt.Id.of_string "budget-first" |> unwrap in
-  let second = Attempt.Id.of_string "budget-second" |> unwrap in
-  let state =
-    step (empty ()) register
-    |> fun state ->
-    step state (create "budget-a")
-    |> fun state ->
-    step state (create "budget-b")
-    |> fun state ->
-    step
-      ~run
-      state
-      (Claim_next { attempt = first; run; project = None; lease_duration_ms = None })
-    |> fun state -> step ~run state (claim "budget-b" 1)
-  in
-  let budget max_attempts max_active_attempts =
-    Domain_command.Policy
-      (Budget_put
-         { run
-         ; revision = 1
-         ; max_attempts = Some max_attempts
-         ; max_active_attempts = Some max_active_attempts
-         ; reported_token_limit = None
-         ; reported_elapsed_ms_limit = None
-         })
-  in
-  let start =
-    Domain_command.Agent_run
-      (Attempt_start
-         { id = second; run; ticket = ticket "budget-b"; token = 1; sessions = [] })
-  in
-  let permitted = step state (budget 2 2) in
-  let prepared = prepare ~run permitted start |> unwrap in
-  List.iter
-    [ 1, 2; 2, 1 ]
-    ~f:(fun (max_attempts, max_active_attempts) ->
-      let exhausted = step state (budget max_attempts max_active_attempts) in
-      outcome (prepare ~run exhausted start);
-      outcome (State.replay exhausted (State.events prepared)));
-  outcome
-    (prepare
-       ~run
-       (State.candidate prepared)
-       (Agent_run
-          (Attempt_finish
-             { id = second
-             ; expected_revision = 1
-             ; state = Cancelled
-             ; evidence = "stopped"
-             })));
-  [%expect
-    {|
-    Blocked
-    Blocked
-    Blocked
-    Blocked
-    ok
-  |}]
-;;
-
-let%expect_test "workflow capabilities remain valid in any declared order" =
-  let resource = Id.Resource.of_string "unordered-template" |> unwrap in
-  let spec =
-    { Workflow_template.Spec.parameters = []
-    ; nodes =
-        [ { Workflow_template.Node.alias = "node"
-          ; title = "Work"
-          ; description = ""
-          ; depends_on = []
-          ; parent = None
-          ; capabilities = [ "z"; "a" ]
-          ; reviewers = []
-          ; separate_actor = false
-          }
-        ]
-    }
-  in
-  let template =
-    Workflow_template.create ~resource ~resource_revision:1 ~spec |> unwrap
-  in
-  let state =
-    step
-      (empty ())
-      (Resource_put
-         { id = resource
-         ; expected_revision = 0
-         ; title = "Template"
-         ; text = Json.canonical (Workflow_template.Spec.to_json spec)
-         ; filename = None
-         ; mime_type = None
-         })
-    |> fun state -> step state (Policy (Template_register template))
-  in
-  let id = Workflow_template.Instance_id.of_string "unordered-instance" |> unwrap in
-  let command =
-    Domain_command.Template_instantiate
-      { template = resource; template_revision = 1; id; parameters = [] }
-  in
-  let state = step state command |> fun state -> step state command in
-  let instance =
-    Agent_run_policy.get_instance (State.policies state) id |> Option.value_exn
-  in
-  let planned = List.hd_exn instance.tickets in
-  let policy =
-    Agent_run.get_ticket_policy (State.agent_runs state) planned.ticket
-    |> Option.value_exn
-  in
-  print_s [%sexp (policy.required_capabilities : string list)];
-  [%expect {| (z a) |}]
 ;;

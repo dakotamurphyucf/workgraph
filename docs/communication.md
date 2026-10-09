@@ -1,7 +1,8 @@
 # Boards, requests and inboxes
 
 Communication is shared workspace metadata. Discussion bodies retain the existing
-versioned comment representation; session recording does not publish a comment or
+versioned comment storage; public comment views use author_id, actor_id and
+reply_to_comment_id. Session recording does not publish a comment or
 notify collaborators automatically. Actor and run IDs are local attribution,
 not authentication identities. A team is an explicit addressable membership list,
 not a permission role.
@@ -42,7 +43,7 @@ message order remains publication order.
 
 ## Requests
 
-`request.create` names a thread and its attached source comment, request kind
+[request.create](api-reference/request.create.md) names a thread and its attached source comment, request kind
 (`clarification`, `review`, `help`, `blocker_resolution`, `handoff`), direct
 actor/run recipients, optional teams, and one designated actor resolver. Team
 members are expanded and deduplicated at creation; later membership edits never
@@ -51,8 +52,8 @@ correlation IDs use 1..128 bytes, reply-to requests must be in the same thread,
 and deadlines use canonical nonnegative Unix-millisecond decimal strings within
 the signed 64-bit range.
 
-`request.acknowledge` changes only the attributed recipient's acknowledgement.
-`request.accept` independently accepts responsibility and requires no existing
+[request.acknowledge](api-reference/request.acknowledge.md) changes only the attributed recipient's acknowledgement.
+[request.accept](api-reference/request.accept.md) independently accepts responsibility and requires no existing
 responsible recipient. Actor recipients require matching actor attribution; run
 recipients require matching run attribution. `request.reassign` is restricted to
 the resolver and either records the named delivery recipient as responsible or
@@ -80,27 +81,56 @@ ownership requires matching recipient attribution. Its recipient remains
 immutable, while its filter and active status are revision guarded.
 
 Thread changes notify participants/mentions plus matching subscribers. Request
-changes notify the frozen request delivery set plus matching subscribers. Each
+changes notify the frozen request delivery set, creator and designated resolver, plus matching subscribers. Each
 notification stores a source reference and revision, workspace sequence, activity
 serial, actor/run/timestamp attribution and resolved recipients, without copying
 a discussion body. Matching recipients are deduplicated. Events with no recipients
 remain valid source notifications but appear in no recipient inbox.
 
-`inbox.read` is a side-effect-free bounded read. It captures a fixed `through`
-serial and returns `next_after`; if the last page exhausts matching records, the
-cursor advances through unrelated notifications to the capture bound. Concurrent
-later publications belong to a new capture. Reads do not acknowledge requests,
-accept responsibility, resolve requests or advance durable read positions.
-`inbox.mark_read` explicitly advances only its attributed recipient's persisted
-read position, monotonically within retained notification activity. No notification
-retention/deletion operation is provided in this version.
+`message.send` creates one authored discussion comment and a direct message,
+without requiring a board or thread. Explicit message IDs, correlation IDs and
+optional ticket/reply references support durable workflows. Direct actor/run,
+team and subscription routes are deduplicated and frozen at commit. Its delivery
+body references the exact initial comment revision; later edits do not rewrite it.
+
+`inbox.read` enumerates unread notifications for an explicit `consumer_id` and
+actor/run `recipient`, with optional kind and linked-ticket filters. It captures
+`through` and returns `next_after` as the last actually returned notification ID,
+or the supplied `after` when no item is returned. Reading never consumes IDs.
+`inbox.wait` uses the same fields and a bounded timeout, waits outside serialized
+transaction dispatch, and preserves filters across polls. Without explicit
+`through`, polls capture later activity; an explicit bound remains pinned.
+
+`inbox.ack` acknowledges a selected nonempty list of workspace-local decimal
+notification IDs for that exact consumer and recipient. Attribution must match
+the recipient, and every selected ID must have been addressed to it. Other
+consumers retain unread state. Exact mutation retries recover durable receipts.
+Inbox acknowledgement never accepts responsibility or acknowledges/resolves a
+formal request.
 
 Lists default to 50 records, at most 100. Offset pages require the observed
 communication revision. Query byte budgets default to 64KiB and accept 4KiB..1MiB.
-Ordinary metadata results reuse the existing explicit omission reporting; inbox
-pages preserve complete notification records and adjust their cursor to the
-records actually returned. A single notification exceeding the inbox budget
-returns an explicit error requesting a larger budget.
+Inbox packets include canonical source references, original and current source
+revisions, linked ticket IDs and an explicitly initial/current discussion body.
+Budget omissions identify clipped text/items and adjust remaining and next_after
+to the IDs actually returned. When remaining is positive but no item fits,
+increase max_bytes without advancing after.
+
+## Public contracts
+
+The [generated per-method index](api-reference/index.md) contains the executable
+request and result contracts. Start with [board.put](api-reference/board.put.md),
+[thread.put](api-reference/thread.put.md), [request.create](api-reference/request.create.md),
+[subscription.put](api-reference/subscription.put.md) and
+[comment.add](api-reference/comment.add.md). Use [request.get](api-reference/request.get.md)
+and [thread.get](api-reference/thread.get.md) for their complete public records.
+
+These contracts use canonical entity IDs, named tagged alternatives and lowercase
+enums. Input fields and provenance fields can differ: for example, thread replies
+accept `reply_to_id`, while comment views report `reply_to_comment_id`. Use the
+method schema rather than its private domain or durable event representation.
+Budgeted public query views disclose prose/collection omissions while preserving
+identity, revision and source provenance. Durable replay uses separate encodings.
 
 ## Persistence and integration
 
@@ -129,9 +159,9 @@ export/restore, CLI/client exposure and atomic direct reply composition. See
 
 ## Shared command composition
 
-`thread.reply` accepts thread_id, expected_revision, body, optional comment_id,
-reply_to and Discussion kind (default Comment). It stages one scoped discussion
-comment and attachment atomically and returns the complete updated thread record.
+[thread.reply](api-reference/thread.reply.md) stages one scoped discussion comment
+and attachment atomically using the observed thread revision, and returns the
+complete updated thread record.
 A reply parent must already be attached to that thread. Ticket contexts and project
 briefs include bounded linked/scoped thread and request pages. The explicit
 thread.search title/metadata query supplements the ordinary discussion search.

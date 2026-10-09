@@ -18,7 +18,7 @@ let () =
     in
     let workspace = Id.Workspace.of_string "sdk" |> Disk.unwrap in
     let actor = Id.Actor.of_string "sdk-agent" |> Disk.unwrap in
-    let mutation_id value = Id.Actor.of_string value |> Disk.unwrap in
+    let mutation_id value = Id.Mutation.of_string value |> Disk.unwrap in
     let create =
       Client.Administration.Create { workspace; name = "Typed client"; root }
     in
@@ -69,12 +69,20 @@ let () =
         commands
       |> Disk.unwrap
     in
-    if not (Int.equal commit.workspace_revision duplicate.workspace_revision)
+    if
+      not
+        (Api_position.Workspace_revision.equal
+           commit.workspace_revision
+           duplicate.workspace_revision)
     then failwith "retry committed twice";
     let context =
       Client.query client ~workspace ~parameters:[] (Ticket_context ticket) |> Disk.unwrap
     in
-    if not (Int.equal context.workspace_revision commit.workspace_revision)
+    if
+      not
+        (Api_position.Workspace_revision.equal
+           context.workspace_revision
+           commit.workspace_revision)
     then failwith "query revision differs";
     let audit =
       Client.query client ~workspace ~parameters:[] (Activity_since 0) |> Disk.unwrap
@@ -83,7 +91,7 @@ let () =
     if not (Id.Run.equal run (Id.Run.t_of_jsonaf (Json.field event "run_id")))
     then failwith "typed mutation lost run attribution";
     let id =
-      Json.field (Json.field context.data "ticket") "id" |> Id.Ticket.t_of_jsonaf
+      Json.field (Json.field context.data "ticket") "ticket_id" |> Id.Ticket.t_of_jsonaf
     in
     if not (Id.Ticket.equal id ticket) then failwith "query selected wrong ticket";
     let administer id command =
@@ -93,7 +101,7 @@ let () =
     let exported =
       administer "export" (Export { workspace; destination = root ^ ".snapshot" })
     in
-    let job_id = Json.text (Json.field exported "job_id") in
+    let job_id = Json.text (Json.field (Json.field exported "data") "job_id") in
     let status =
       Protocol.Request.create
         ~id:"status"
@@ -103,7 +111,13 @@ let () =
     in
     let rec wait remaining =
       if remaining = 0 then failwith "export did not complete";
-      let current = Client.invoke client status |> Disk.unwrap in
+      let current =
+        Client.invoke client status
+        |> Disk.unwrap
+        |> Api_response.of_json
+        |> Disk.unwrap
+        |> Api_response.data
+      in
       match Json.text (Json.field current "status") with
       | "completed" -> ()
       | "running" ->

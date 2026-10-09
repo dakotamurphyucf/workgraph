@@ -1,0 +1,13 @@
+(rule
+ (alias runtest)
+ (deps direct_reads_test.py)
+ (action
+  (run python3 %{dep:direct_reads_test.py} %{exe:../../bin/main.exe})))
+
+(library
+ (name workgraph_resource_read_tests)
+ (modules resource_read_test)
+ (libraries workgraph core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))

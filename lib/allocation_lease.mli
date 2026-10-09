@@ -54,5 +54,9 @@ val heartbeat_due
 val to_json : t -> Jsonaf.t
 val of_json : Jsonaf.t -> (t, Problem.t) Result.t
 val last_unix_ms : t -> int64
+
+(** Exact durable expiry boundary; None denotes indefinite ownership. *)
+val deadline_unix_ms : t -> int64 option
+
 val jsonaf_of_t : t -> Jsonaf.t
 val t_of_jsonaf : Jsonaf.t -> t

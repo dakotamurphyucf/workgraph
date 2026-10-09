@@ -4,92 +4,19 @@ module Parent_stop_policy = Agent_run_event.Parent_stop_policy
 module Runner_action = Agent_run_event.Runner_action
 module Record = Agent_run_event.Record
 module Change = Agent_run_event
-
-module Command = struct
-  type t =
-    | Pool_put of
-        { name : string
-        ; expected_revision : int
-        ; limit : int
-        }
-    | Ticket_policy_put of
-        { ticket : Id.Ticket.t
-        ; expected_revision : int
-        ; required_capabilities : string list
-        ; pools : string list
-        }
-    | Register of
-        { id : Id.Run.t
-        ; parent : Id.Run.t option
-        ; parent_stop_policy : Parent_stop_policy.t
-        ; objective : string
-        ; capabilities : string list
-        ; process_ref : string option
-        ; worktree_ref : string option
-        }
-    | Transition of
-        { id : Id.Run.t
-        ; expected_revision : int
-        ; status : Status.t
-        ; evidence : string
-        }
-    | Observe of
-        { id : Id.Run.t
-        ; expected_revision : int
-        ; observed_unix_ms : int64
-        }
-    | Link_session of
-        { id : Id.Run.t
-        ; expected_revision : int
-        ; session : Session_id.t
-        }
-    | Attempt_start of
-        { id : Attempt.Id.t
-        ; run : Id.Run.t
-        ; ticket : Id.Ticket.t
-        ; token : int
-        ; sessions : Session_id.t list
-        }
-    | Attempt_checkpoint of
-        { id : Attempt.Id.t
-        ; expected_revision : int
-        ; checkpoint : Attempt.Checkpoint.t
-        }
-    | Attempt_finish of
-        { id : Attempt.Id.t
-        ; expected_revision : int
-        ; state : Attempt.State.t
-        ; evidence : string
-        }
-    | Reservation_acquire of
-        { run : Id.Run.t
-        ; requests : Reservation.request list
-        }
-    | Reservation_renew of
-        { run : Id.Run.t
-        ; name : Reservation.Name.t
-        ; token : int
-        ; expected_lease_revision : int
-        }
-    | Reservation_release of
-        { run : Id.Run.t
-        ; name : Reservation.Name.t
-        ; token : int
-        }
-    | Action_acknowledge of
-        { child : Id.Run.t
-        ; evidence : string
-        }
-  [@@deriving sexp]
-end
-
+module Command = Agent_run_command
 module Update = Change.Update
 
 type t =
   { revision : int
   ; runs : Record.t Id.Run.Map.t
   ; attempts : Attempt.t Attempt.Id.Map.t
+  ; attempt_started : int Attempt.Id.Map.t
   ; reservations : Reservation.t Reservation.Name.Map.t
+  ; path_reservations : Path_reservation.t Path_scope.Map.t
+  ; ticket_paths : Ticket_paths.t Id.Ticket.Map.t
+  ; conditions : External_condition.t
+  ; recoveries : Ownership_recovery.t Coordination_id.Recovery.Map.t
   ; pools : Allocation.Definition.t String.Map.t
   ; ticket_policies : Allocation.Ticket_policy.t Id.Ticket.Map.t
   ; actions : Runner_action.t list
@@ -105,7 +32,12 @@ let empty =
   { revision = 0
   ; runs = Id.Run.Map.empty
   ; attempts = Attempt.Id.Map.empty
+  ; attempt_started = Attempt.Id.Map.empty
   ; reservations = Reservation.Name.Map.empty
+  ; path_reservations = Path_scope.Map.empty
+  ; ticket_paths = Id.Ticket.Map.empty
+  ; conditions = External_condition.empty
+  ; recoveries = Coordination_id.Recovery.Map.empty
   ; pools = String.Map.empty
   ; ticket_policies = Id.Ticket.Map.empty
   ; actions = []
@@ -170,7 +102,138 @@ let children_actions t parent =
     else None)
 ;;
 
-let apply_exn t (change : Change.t) =
+module Start_blocker = struct
+  type t =
+    | Run_required of Path_scope.t
+    | Path_conflict of
+        { target : Path_scope.t
+        ; reservation : Path_scope.t
+        ; holder : Reservation.Holder.t
+        }
+    | Expired_required_ownership of
+        { target : Path_scope.t
+        ; reservation : Path_scope.t
+        ; holder : Reservation.Holder.t
+        }
+    | Ownership_mode of
+        { target : Path_scope.t
+        ; holder : Reservation.Holder.t
+        }
+    | External_condition of External_condition.Blocker.t
+  [@@deriving sexp, equal]
+
+  let to_json blocker =
+    let target t = Path_scope.jsonaf_of_t t in
+    let holder h = Coordination_wire.encode_exn Agent_run_wire.holder h in
+    let kind name fields = Json.obj (("kind", Json.string name) :: fields) in
+    match blocker with
+    | Run_required t -> kind "run_required" [ "target", target t ]
+    | Path_conflict p ->
+      kind
+        "path_conflict"
+        [ "target", target p.target
+        ; "reservation", target p.reservation
+        ; "holder", holder p.holder
+        ]
+    | Expired_required_ownership p ->
+      kind
+        "expired_required_ownership"
+        [ "target", target p.target
+        ; "reservation", target p.reservation
+        ; "holder", holder p.holder
+        ]
+    | Ownership_mode p ->
+      kind "ownership_mode" [ "target", target p.target; "holder", holder p.holder ]
+    | External_condition c ->
+      kind
+        "external_condition"
+        [ "condition_id", Coordination_id.Condition.jsonaf_of_t c.condition_id
+        ; "revision", Json.int c.revision
+        ; "operation_id", Coordination_id.Operation.jsonaf_of_t c.operation_id
+        ; "artifact", Coordination_wire.encode_exn Evidence_wire.pin c.artifact
+        ; "label", Json.string c.label
+        ]
+  ;;
+end
+
+let required_declarations t ticket =
+  match Map.find t.ticket_paths ticket with
+  | Some p when p.require_reservations -> p.declarations
+  | Some _ | None -> []
+;;
+
+let compatible held required =
+  Reservation.Mode.equal required Shared || Reservation.Mode.equal held Exclusive
+;;
+
+let owned_covering t (declaration : Ticket_paths.Declaration.t) run =
+  Map.data t.path_reservations
+  |> List.concat_map ~f:(fun reservation ->
+    if Path_scope.covers reservation.Path_reservation.target declaration.target
+    then
+      List.filter_map reservation.holders ~f:(fun holder ->
+        if
+          Id.Run.equal holder.Reservation.Holder.run run
+          && compatible holder.mode declaration.mode
+        then Some (reservation.target, holder)
+        else None)
+    else [])
+;;
+
+let live holder now =
+  Allocation_lease.Status.equal
+    (Allocation_lease.status holder.Reservation.Holder.lease ~now_unix_ms:now)
+    Valid
+;;
+
+let start_blockers t ~ticket ~run ~now_unix_ms =
+  let path_blockers =
+    List.concat_map (required_declarations t ticket) ~f:(fun declaration ->
+      let conflicts =
+        Map.data t.path_reservations
+        |> List.concat_map ~f:(fun reservation ->
+          Path_reservation.conflicts
+            reservation
+            ~target:declaration.target
+            ~mode:declaration.mode
+            ~excluding_run:run
+          |> List.map ~f:(fun holder ->
+            Start_blocker.Path_conflict
+              { target = declaration.target; reservation = reservation.target; holder }))
+      in
+      let ownership =
+        match run with
+        | None -> [ Start_blocker.Run_required declaration.target ]
+        | Some run ->
+          let covering = owned_covering t declaration run in
+          if List.exists covering ~f:(fun (_, h) -> live h now_unix_ms)
+          then []
+          else if not (List.is_empty covering)
+          then
+            List.map covering ~f:(fun (reservation, holder) ->
+              Start_blocker.Expired_required_ownership
+                { target = declaration.target; reservation; holder })
+          else (
+            match Map.find t.path_reservations declaration.target with
+            | None -> []
+            | Some reservation ->
+              List.filter_map reservation.holders ~f:(fun holder ->
+                if
+                  Id.Run.equal holder.Reservation.Holder.run run
+                  && not (compatible holder.mode declaration.mode)
+                then
+                  Some
+                    (Start_blocker.Ownership_mode { target = declaration.target; holder })
+                else None))
+      in
+      ownership @ conflicts)
+  in
+  path_blockers
+  @ List.map (External_condition.blockers t.conditions ~ticket) ~f:(fun b ->
+    Start_blocker.External_condition b)
+;;
+
+let rec apply_exn ?started_at t (change : Change.t) =
   Change.validate change;
   expected change.revision (t.revision + 1);
   let next =
@@ -303,12 +366,37 @@ let apply_exn t (change : Change.t) =
           else t.actions
       in
       { t with runs = Map.set t.runs ~key:record.id ~data:record; actions }
+    | Attempt_started { attempt; now_unix_ms } ->
+      require
+        Int64.(now_unix_ms >= 0L)
+        Invalid_argument
+        "Attempt start clock must be nonnegative";
+      require
+        (Option.is_none (Map.find t.attempts attempt.id))
+        Conflict
+        "Attempt already exists";
+      require
+        (List.is_empty
+           (start_blockers t ~ticket:attempt.ticket ~run:(Some attempt.run) ~now_unix_ms))
+        Blocked
+        "Required paths or external conditions block attempt start";
+      List.iter (required_declarations t attempt.ticket) ~f:(fun d ->
+        require
+          (List.exists (owned_covering t d attempt.run) ~f:(fun (_, h) ->
+             live h now_unix_ms))
+          Blocked
+          "Attempt start requires committed path ownership");
+      apply_exn ~started_at:now_unix_ms t { change with update = Attempt_put attempt }
     | Attempt_put attempt ->
       let record = find t.runs attempt.run in
       let previous = Map.find t.attempts attempt.id in
       Attempt.validate_transition ~previous attempt;
       (match previous with
        | None ->
+         require
+           (Option.is_some started_at)
+           Corrupt_store
+           "New attempt requires recorded start clock";
          active record;
          Option.iter (Map.find t.ticket_policies attempt.ticket) ~f:(fun policy ->
            require
@@ -341,7 +429,13 @@ let apply_exn t (change : Change.t) =
            "Ticket has an active attempt"
        | Some _ -> ());
       owner record change.actor change.actor_run;
-      { t with attempts = Map.set t.attempts ~key:attempt.id ~data:attempt }
+      { t with
+        attempts = Map.set t.attempts ~key:attempt.id ~data:attempt
+      ; attempt_started =
+          (match previous with
+           | None -> Map.set t.attempt_started ~key:attempt.id ~data:change.revision
+           | Some _ -> t.attempt_started)
+      }
     | Reservation_put reservation ->
       Reservation.validate reservation;
       let old =
@@ -416,6 +510,186 @@ let apply_exn t (change : Change.t) =
       { t with
         reservations = Map.set t.reservations ~key:reservation.name ~data:reservation
       }
+    | Path_reservation_put reservation ->
+      Path_reservation.validate reservation;
+      let old =
+        Option.value
+          (Map.find t.path_reservations reservation.target)
+          ~default:
+            { Path_reservation.target = reservation.target; epoch = 0; holders = [] }
+      in
+      let added =
+        List.filter reservation.holders ~f:(fun h ->
+          not (List.mem old.holders h ~equal:Reservation.Holder.equal))
+      in
+      let removed =
+        List.filter old.holders ~f:(fun h ->
+          not (List.mem reservation.holders h ~equal:Reservation.Holder.equal))
+      in
+      (match added, removed with
+       | [ h ], [] ->
+         let record = find t.runs h.run in
+         active record;
+         owner record change.actor change.actor_run;
+         require
+           (Id.Actor.equal h.actor change.actor)
+           Conflict
+           "Path reservation actor differs";
+         Map.iter t.path_reservations ~f:(fun other ->
+           require
+             (List.is_empty
+                (Path_reservation.conflicts
+                   other
+                   ~target:reservation.target
+                   ~mode:h.mode
+                   ~excluding_run:(Some h.run)))
+             Already_claimed
+             "Overlapping path reservation is unavailable");
+         let reconstructed =
+           Path_reservation.acquire
+             old
+             ~run:h.run
+             ~actor:h.actor
+             ~mode:h.mode
+             ~now_unix_ms:(Allocation_lease.last_unix_ms h.lease)
+             ~lease_duration_ms:
+               (match Allocation_lease.policy h.lease with
+                | Indefinite -> None
+                | Duration_ms n -> Some n)
+         in
+         require
+           (Path_reservation.equal reconstructed reservation)
+           Conflict
+           "Invalid path acquisition"
+       | [], [ h ] ->
+         owner (find t.runs h.run) change.actor change.actor_run;
+         require
+           (Path_reservation.equal
+              (Path_reservation.release old ~run:h.run ~token:h.token)
+              reservation)
+           Conflict
+           "Invalid path release"
+       | [ next ], [ previous ] ->
+         owner (find t.runs next.run) change.actor change.actor_run;
+         require
+           (Id.Run.equal next.run previous.run
+            && Int.equal next.token previous.token
+            && Id.Actor.equal next.actor previous.actor
+            && Reservation.Mode.equal next.mode previous.mode)
+           Conflict
+           "Path renewal cannot change ownership";
+         let reconstructed =
+           Path_reservation.renew
+             old
+             ~run:next.run
+             ~token:next.token
+             ~expected_lease_revision:(Allocation_lease.revision previous.lease)
+             ~now_unix_ms:(Allocation_lease.last_unix_ms next.lease)
+         in
+         require
+           (Path_reservation.equal reconstructed reservation)
+           Conflict
+           "Invalid path renewal"
+       | [], [] | _ :: _, _ :: _ | [], _ :: _ :: _ | _ :: _ :: _, [] ->
+         Json.fail Conflict "Path event must grant, renew or release one holder");
+      { t with
+        path_reservations =
+          Map.set t.path_reservations ~key:reservation.target ~data:reservation
+      }
+    | Ticket_paths_put policy ->
+      Ticket_paths.validate policy;
+      let old = Map.find t.ticket_paths policy.ticket_id in
+      let previous_revision =
+        Option.value_map old ~default:0 ~f:(fun p -> p.Ticket_paths.revision)
+      in
+      require
+        (previous_revision < Int.max_value)
+        Conflict
+        "Ticket paths revision exhausted";
+      expected policy.revision (previous_revision + 1);
+      { t with ticket_paths = Map.set t.ticket_paths ~key:policy.ticket_id ~data:policy }
+    | External_condition_changed condition ->
+      Option.iter change.actor_run ~f:(fun run ->
+        owner (find t.runs run) change.actor (Some run));
+      let conditions =
+        match
+          External_condition.apply
+            t.conditions
+            condition
+            ~actor:change.actor
+            ~run:change.actor_run
+            ~timestamp:change.timestamp
+            ~sequence:change.sequence
+        with
+        | Ok conditions -> conditions
+        | Error e -> raise (Json.Decode_error e)
+      in
+      { t with conditions }
+    | Ownership_recovered { recovery; after } ->
+      ignore (Ownership_recovery.jsonaf_of_t recovery : Jsonaf.t);
+      let request = recovery.request in
+      require
+        (not (Map.mem t.recoveries request.recovery_id))
+        Conflict
+        "Recovery ID already exists";
+      require
+        (Id.Actor.equal recovery.actor_id change.actor
+         && Option.equal Id.Run.equal recovery.run_id change.actor_run
+         && String.equal recovery.timestamp change.timestamp
+         && Int.equal recovery.sequence change.sequence)
+        Conflict
+        "Recovery attribution differs";
+      Option.iter recovery.run_id ~f:(fun run ->
+        owner (find t.runs run) recovery.actor_id (Some run));
+      require
+        (Id.Actor.equal (find t.runs request.old_run_id).actor request.old_actor_id)
+        Stale_claim
+        "Recovery old run actor differs";
+      let next =
+        match request.target, after with
+        | Ownership_recovery.Target.Named name, Change.Recovery_snapshot.Named reservation
+          ->
+          require
+            (Reservation.Name.equal name reservation.name)
+            Conflict
+            "Recovery named target differs";
+          let old = find t.reservations name in
+          Ownership_recovery.Request.validate_holder
+            request
+            ~epoch:old.epoch
+            ~holders:old.holders;
+          require
+            (Reservation.equal
+               (Reservation.release old ~run:request.old_run_id ~token:request.token)
+               reservation)
+            Conflict
+            "Recovery release snapshot differs";
+          { t with reservations = Map.set t.reservations ~key:name ~data:reservation }
+        | Path target, Path reservation ->
+          require
+            (Path_scope.equal target reservation.target)
+            Conflict
+            "Recovery path target differs";
+          let old = find t.path_reservations target in
+          Ownership_recovery.Request.validate_holder
+            request
+            ~epoch:old.epoch
+            ~holders:old.holders;
+          require
+            (Path_reservation.equal
+               (Path_reservation.release old ~run:request.old_run_id ~token:request.token)
+               reservation)
+            Conflict
+            "Recovery path release snapshot differs";
+          { t with
+            path_reservations = Map.set t.path_reservations ~key:target ~data:reservation
+          }
+        | Named _, Path _ | Path _, Named _ ->
+          Json.fail Conflict "Recovery snapshot target kind differs"
+      in
+      { next with
+        recoveries = Map.set next.recoveries ~key:request.recovery_id ~data:recovery
+      }
     | Actions_set { actions; evidence } ->
       nonempty evidence 65536;
       let removed =
@@ -450,6 +724,7 @@ let apply t change = Json.decode (fun () -> apply_exn t change)
 let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
   Json.decode (fun () ->
     let emitted = ref [] in
+    let domain_result = ref [] in
     let current = ref t in
     let emit update =
       let change =
@@ -476,6 +751,139 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
       a
     in
     (match command with
+     | Command.Coordination command ->
+       (match Agent_coordination_api.encode_command command with
+        | Ok _ -> ()
+        | Error e -> raise (Json.Decode_error e));
+       (match command with
+        | Agent_coordination_command.Paths_acquire { run = owner_run; requests } ->
+          List.iter
+            (List.sort requests ~compare:(fun a b ->
+               Path_scope.compare a.Path_reservation.Request.target b.target))
+            ~f:(fun request ->
+              let old =
+                Option.value
+                  (Map.find !current.path_reservations request.target)
+                  ~default:
+                    { Path_reservation.target = request.target; epoch = 0; holders = [] }
+              in
+              let now =
+                match now_unix_ms, request.lease_duration_ms with
+                | Some now, _ -> now
+                | None, None -> 0L
+                | None, Some _ ->
+                  Json.fail
+                    Invalid_argument
+                    "Timed path reservation requires server clock"
+              in
+              emit
+                (Path_reservation_put
+                   (Path_reservation.acquire
+                      old
+                      ~run:owner_run
+                      ~actor
+                      ~mode:request.mode
+                      ~now_unix_ms:now
+                      ~lease_duration_ms:request.lease_duration_ms)))
+        | Path_renew { run = owner_run; target; token; expected_lease_revision } ->
+          let now =
+            match now_unix_ms with
+            | Some now -> now
+            | None -> Json.fail Invalid_argument "Path renewal requires server clock"
+          in
+          emit
+            (Path_reservation_put
+               (Path_reservation.renew
+                  (find t.path_reservations target)
+                  ~run:owner_run
+                  ~token
+                  ~expected_lease_revision
+                  ~now_unix_ms:now))
+        | Path_release { run = owner_run; target; token } ->
+          emit
+            (Path_reservation_put
+               (Path_reservation.release
+                  (find t.path_reservations target)
+                  ~run:owner_run
+                  ~token))
+        | Ticket_paths_put
+            { ticket_id; expected_revision; declarations; require_reservations } ->
+          let actual =
+            Option.value_map (Map.find t.ticket_paths ticket_id) ~default:0 ~f:(fun p ->
+              p.Ticket_paths.revision)
+          in
+          expected actual expected_revision;
+          require
+            (actual < Int.max_value)
+            Conflict
+            "Ticket path policy revision exhausted";
+          let declarations =
+            match Ticket_paths.canonicalize declarations with
+            | Ok d -> d
+            | Error e -> raise (Json.Decode_error e)
+          in
+          emit
+            (Ticket_paths_put
+               { Ticket_paths.ticket_id
+               ; revision = actual + 1
+               ; declarations
+               ; require_reservations
+               })
+        | Condition command ->
+          let p =
+            match
+              External_condition.prepare
+                t.conditions
+                command
+                ~actor
+                ~run
+                ~timestamp
+                ~sequence
+            with
+            | Ok p -> p
+            | Error e -> raise (Json.Decode_error e)
+          in
+          List.iter (External_condition.changes p) ~f:(fun c ->
+            emit (External_condition_changed c));
+          let field =
+            match command with
+            | External_condition.Command.Put _ -> "condition"
+            | Signal _ -> "signal"
+          in
+          domain_result := [ field, External_condition.result p ]
+        | Recover request ->
+          let recovery =
+            { Ownership_recovery.request
+            ; actor_id = actor
+            ; run_id = run
+            ; timestamp
+            ; sequence
+            }
+          in
+          let after =
+            match request.target with
+            | Ownership_recovery.Target.Named name ->
+              let old = find t.reservations name in
+              Ownership_recovery.Request.validate_holder
+                request
+                ~epoch:old.epoch
+                ~holders:old.holders;
+              Change.Recovery_snapshot.Named
+                (Reservation.release old ~run:request.old_run_id ~token:request.token)
+            | Path target ->
+              let old = find t.path_reservations target in
+              Ownership_recovery.Request.validate_holder
+                request
+                ~epoch:old.epoch
+                ~holders:old.holders;
+              Change.Recovery_snapshot.Path
+                (Path_reservation.release
+                   old
+                   ~run:request.old_run_id
+                   ~token:request.token)
+          in
+          emit (Ownership_recovered { recovery; after });
+          domain_result := [ "recovery", Ownership_recovery.jsonaf_of_t recovery ])
      | Command.Pool_put { name; expected_revision; limit } ->
        expected
          (Option.value_map (Map.find t.pools name) ~default:0 ~f:(fun p ->
@@ -544,16 +952,19 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
      | Attempt_start { id; run = attempt_run; ticket; token; sessions } ->
        require (not (Map.mem t.attempts id)) Conflict "Attempt ID already exists";
        emit
-         (Attempt_put
-            { Attempt.id
-            ; revision = 1
-            ; run = attempt_run
-            ; ticket
-            ; token
-            ; state = Running
-            ; sessions
-            ; checkpoints = []
-            ; evidence = ""
+         (Attempt_started
+            { now_unix_ms = Option.value now_unix_ms ~default:0L
+            ; attempt =
+                { Attempt.id
+                ; revision = 1
+                ; run = attempt_run
+                ; ticket
+                ; token
+                ; state = Running
+                ; sessions
+                ; checkpoints = []
+                ; evidence = ""
+                }
             })
      | Attempt_checkpoint { id; expected_revision; checkpoint } ->
        let a = attempt_record id expected_revision in
@@ -641,8 +1052,110 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
             }));
     { candidate = !current
     ; changes = List.rev !emitted
-    ; result = Json.obj [ "revision", Json.int !current.revision ]
+    ; result = Json.obj ([ "revision", Json.int !current.revision ] @ !domain_result)
     })
+;;
+
+let start_clock_required t ~ticket ~run =
+  match run with
+  | None -> []
+  | Some run ->
+    required_declarations t ticket
+    |> List.filter_map ~f:(fun d ->
+      let covering = owned_covering t d run in
+      let indefinite =
+        List.exists covering ~f:(fun (_, h) ->
+          match Allocation_lease.policy h.lease with
+          | Indefinite -> true
+          | Duration_ms _ -> false)
+      in
+      let timed =
+        List.exists covering ~f:(fun (_, h) ->
+          match Allocation_lease.policy h.lease with
+          | Indefinite -> false
+          | Duration_ms _ -> true)
+      in
+      if timed && not indefinite then Some d.target else None)
+;;
+
+let prepare_start_reservations t ~ticket ~run ~actor ~timestamp ~sequence ~now_unix_ms =
+  match start_blockers t ~ticket ~run:(Some run) ~now_unix_ms with
+  | _ :: _ ->
+    Error
+      (Problem.create Blocked "Required paths or external conditions block ticket start")
+  | [] ->
+    let missing =
+      required_declarations t ticket
+      |> List.filter ~f:(fun d ->
+        not (List.exists (owned_covering t d run) ~f:(fun (_, h) -> live h now_unix_ms)))
+    in
+    (* Acquisition batches stay within the public 32-target bound; one prepared
+       value combines every batch, so the lifecycle commits all or none. *)
+    let rec acquire current changes = function
+      | [] ->
+        Ok
+          { candidate = current
+          ; changes = List.rev changes
+          ; result = Json.obj [ "revision", Json.int current.revision ]
+          }
+      | remaining ->
+        let batch = List.take remaining 32 in
+        let rest = List.drop remaining 32 in
+        let requests =
+          List.map batch ~f:(fun d ->
+            { Path_reservation.Request.target = d.Ticket_paths.Declaration.target
+            ; mode = d.mode
+            ; lease_duration_ms = None
+            })
+        in
+        Result.bind
+          (prepare
+             current
+             ~now_unix_ms
+             (Command.Coordination (Paths_acquire { run; requests }))
+             ~actor
+             ~run:(Some run)
+             ~timestamp
+             ~sequence)
+          ~f:(fun p -> acquire p.candidate (List.rev_append p.changes changes) rest)
+    in
+    acquire t [] missing
+;;
+
+let get_path_reservation t target = Map.find t.path_reservations target
+let get_ticket_paths t ticket = Map.find t.ticket_paths ticket
+let path_reservations t = Map.data t.path_reservations
+let ticket_paths t = Map.data t.ticket_paths
+let external_conditions t = t.conditions
+let get_recovery t id = Map.find t.recoveries id
+let recoveries t = Map.data t.recoveries
+
+let coordination_pins t =
+  External_condition.pins t.conditions
+  @ List.concat_map (recoveries t) ~f:(fun r -> r.Ownership_recovery.request.evidence)
+;;
+
+let event_references t =
+  List.filter_map (coordination_pins t) ~f:(function
+    | Evidence_event.Pin.Event ref_ -> Some ref_
+    | Resource _ | Commit _ | Checksum _ | Comment _ | Contract _ | Decision _ -> None)
+  |> List.dedup_and_sort ~compare:Session.Event_ref.compare
+;;
+
+let validate_coordination_references t ~ticket_exists ~pin_exists =
+  Json.decode (fun () ->
+    Map.iter t.ticket_paths ~f:(fun p ->
+      require
+        (ticket_exists p.Ticket_paths.ticket_id)
+        Not_found
+        "Ticket paths ticket missing");
+    (match
+       External_condition.validate_references t.conditions ~ticket_exists ~pin_exists
+     with
+     | Ok () -> ()
+     | Error e -> raise (Json.Decode_error e));
+    List.iter (coordination_pins t) ~f:(fun p ->
+      require (pin_exists p) Not_found "Recovery or condition evidence missing"))
 ;;
 
 let validate_references
@@ -714,6 +1227,15 @@ let to_json t =
     ; "attempts", `Array (List.map (Map.data t.attempts) ~f:Attempt.jsonaf_of_t)
     ; ( "reservations"
       , `Array (List.map (Map.data t.reservations) ~f:Reservation.jsonaf_of_t) )
+    ; ( "path_reservations"
+      , `Array (List.map (path_reservations t) ~f:Path_reservation.jsonaf_of_t) )
+    ; "ticket_paths", `Array (List.map (ticket_paths t) ~f:Ticket_paths.jsonaf_of_t)
+    ; ( "conditions"
+      , `Array
+          (List.map
+             (External_condition.declarations t.conditions)
+             ~f:(Agent_coordination_api.condition_json t.conditions)) )
+    ; "recoveries", `Array (List.map (recoveries t) ~f:Ownership_recovery.jsonaf_of_t)
     ; "pending_actions", `Array (List.map t.actions ~f:Runner_action.jsonaf_of_t)
     ]
 ;;
@@ -725,431 +1247,194 @@ let session_references t =
     ~compare:Session_id.compare
 ;;
 
-let mutation_methods =
-  [ "allocation.pool_put"
-  ; "allocation.ticket_policy_put"
-  ; "run.register"
-  ; "run.transition"
-  ; "run.observe"
-  ; "run.link_session"
-  ; "attempt.start"
-  ; "attempt.checkpoint"
-  ; "attempt.finish"
-  ; "reservation.acquire"
-  ; "reservation.renew"
-  ; "reservation.release"
-  ; "run.action_acknowledge"
-  ]
+let mutation_methods = Agent_run_api.mutation_methods
+let query_methods = Agent_run_api.query_methods
+let decode = Agent_run_api.decode_command
+
+let encode command =
+  match Agent_run_api.encode_command command with
+  | Ok wire -> wire
+  | Error error -> raise (Json.Decode_error error)
 ;;
 
-let query_methods =
-  [ "allocation.pools"
-  ; "allocation.ticket_policies"
-  ; "run.get"
-  ; "run.list"
-  ; "attempt.get"
-  ; "attempt.list"
-  ; "reservation.get"
-  ; "reservation.list"
-  ; "run.actions"
-  ]
-;;
-
-let encode = function
-  | Command.Pool_put { name; expected_revision; limit } ->
-    ( "allocation.pool_put"
-    , Json.obj
-        [ "name", Json.string name
-        ; "expected_revision", Json.int expected_revision
-        ; "limit", Json.int limit
-        ] )
-  | Ticket_policy_put { ticket; expected_revision; required_capabilities; pools } ->
-    ( "allocation.ticket_policy_put"
-    , Json.obj
-        [ "ticket", Id.Ticket.jsonaf_of_t ticket
-        ; "expected_revision", Json.int expected_revision
-        ; "required_capabilities", `Array (List.map required_capabilities ~f:Json.string)
-        ; "pools", `Array (List.map pools ~f:Json.string)
-        ] )
-  | Command.Register
-      { id
-      ; parent
-      ; parent_stop_policy
-      ; objective
-      ; capabilities
-      ; process_ref
-      ; worktree_ref
-      } ->
-    ( "run.register"
-    , Json.obj
-        ([ "id", Id.Run.jsonaf_of_t id
-         ; "parent_stop_policy", Parent_stop_policy.jsonaf_of_t parent_stop_policy
-         ; "objective", Json.string objective
-         ; "capabilities", `Array (List.map capabilities ~f:Json.string)
-         ]
-         @ Option.to_list
-             (Option.map parent ~f:(fun id -> "parent", Id.Run.jsonaf_of_t id))
-         @ Option.to_list
-             (Option.map process_ref ~f:(fun s -> "process_ref", Json.string s))
-         @ Option.to_list
-             (Option.map worktree_ref ~f:(fun s -> "worktree_ref", Json.string s))) )
-  | Transition { id; expected_revision; status; evidence } ->
-    ( "run.transition"
-    , Json.obj
-        [ "id", Id.Run.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "status", Status.jsonaf_of_t status
-        ; "evidence", Json.string evidence
-        ] )
-  | Observe { id; expected_revision; observed_unix_ms } ->
-    ( "run.observe"
-    , Json.obj
-        [ "id", Id.Run.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "observed_unix_ms", Json.int64 observed_unix_ms
-        ] )
-  | Link_session { id; expected_revision; session } ->
-    ( "run.link_session"
-    , Json.obj
-        [ "id", Id.Run.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "session", Session_id.jsonaf_of_t session
-        ] )
-  | Attempt_start { id; run; ticket; token; sessions } ->
-    ( "attempt.start"
-    , Json.obj
-        [ "id", Attempt.Id.jsonaf_of_t id
-        ; "run", Id.Run.jsonaf_of_t run
-        ; "ticket", Id.Ticket.jsonaf_of_t ticket
-        ; "token", Json.int token
-        ; "sessions", `Array (List.map sessions ~f:Session_id.jsonaf_of_t)
-        ] )
-  | Attempt_checkpoint { id; expected_revision; checkpoint } ->
-    ( "attempt.checkpoint"
-    , Json.obj
-        [ "id", Attempt.Id.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "checkpoint", Attempt.Checkpoint.jsonaf_of_t checkpoint
-        ] )
-  | Attempt_finish { id; expected_revision; state; evidence } ->
-    ( "attempt.finish"
-    , Json.obj
-        [ "id", Attempt.Id.jsonaf_of_t id
-        ; "expected_revision", Json.int expected_revision
-        ; "state", Attempt.State.jsonaf_of_t state
-        ; "evidence", Json.string evidence
-        ] )
-  | Reservation_acquire { run; requests } ->
-    ( "reservation.acquire"
-    , Json.obj
-        [ "run", Id.Run.jsonaf_of_t run
-        ; ( "requests"
-          , `Array
-              (List.map requests ~f:(fun request ->
-                 Json.obj
-                   [ "name", Reservation.Name.jsonaf_of_t request.Reservation.name
-                   ; "mode", Reservation.Mode.jsonaf_of_t request.mode
-                   ; ( "lease_duration_ms"
-                     , Option.value_map
-                         request.lease_duration_ms
-                         ~default:`Null
-                         ~f:Json.int64 )
-                   ])) )
-        ] )
-  | Reservation_renew { run; name; token; expected_lease_revision } ->
-    ( "reservation.renew"
-    , Json.obj
-        [ "run", Id.Run.jsonaf_of_t run
-        ; "name", Reservation.Name.jsonaf_of_t name
-        ; "token", Json.int token
-        ; "expected_lease_revision", Json.int expected_lease_revision
-        ] )
-  | Reservation_release { run; name; token } ->
-    ( "reservation.release"
-    , Json.obj
-        [ "run", Id.Run.jsonaf_of_t run
-        ; "name", Reservation.Name.jsonaf_of_t name
-        ; "token", Json.int token
-        ] )
-  | Action_acknowledge { child; evidence } ->
-    ( "run.action_acknowledge"
-    , Json.obj [ "child", Id.Run.jsonaf_of_t child; "evidence", Json.string evidence ] )
-;;
-
-let status_decode json =
-  match Json.list json with
-  | [ `String "Running" ] -> Status.Running
-  | [ `String "Waiting" ] -> Waiting
-  | [ `String "Completed" ] -> Completed
-  | [ `String "Failed" ] -> Failed
-  | [ `String "Cancelled" ] -> Cancelled
-  | [] | _ :: _ -> Json.fail Invalid_argument "Unknown run status"
-;;
-
-let policy_decode json =
-  match Json.list json with
-  | [ `String "Continue" ] -> Parent_stop_policy.Continue
-  | [ `String "Request_cancel" ] -> Request_cancel
-  | [ `String "Request_wait" ] -> Request_wait
-  | [] | _ :: _ -> Json.fail Invalid_argument "Unknown parent-stop policy"
-;;
-
-let mode_decode json =
-  match Json.list json with
-  | [ `String "Exclusive" ] -> Reservation.Mode.Exclusive
-  | [ `String "Shared" ] -> Shared
-  | [] | _ :: _ -> Json.fail Invalid_argument "Unknown reservation mode"
-;;
-
-let attempt_state_decode json =
-  match status_decode json with
-  | Running -> Attempt.State.Running
-  | Waiting -> Waiting
-  | Completed -> Completed
-  | Failed -> Failed
-  | Cancelled -> Cancelled
-;;
-
-let checkpoint_decode json =
-  match Json.list json with
-  | [ `String "Resource"; payload ] ->
-    Json.fields payload ~allowed:[ "id"; "revision" ];
-    Attempt.Checkpoint.Resource
-      { id = Id.Resource.t_of_jsonaf (Json.field payload "id")
-      ; revision = Json.integer (Json.field payload "revision")
-      }
-  | [ `String "Handoff"; payload ] ->
-    Json.fields payload ~allowed:[ "ticket"; "revision" ];
-    Handoff
-      { ticket = Id.Ticket.t_of_jsonaf (Json.field payload "ticket")
-      ; revision = Json.integer (Json.field payload "revision")
-      }
-  | [] | _ :: _ -> Json.fail Invalid_argument "Invalid checkpoint"
-;;
-
-let decode ~method_ ~params =
-  Json.decode (fun () ->
-    let field key = Json.field params key in
-    let id () = Id.Run.t_of_jsonaf (field "id") in
-    let aid () = Attempt.Id.t_of_jsonaf (field "id") in
-    let rev () = Json.integer (field "expected_revision") in
-    let text key = Json.bounded_text (field key) ~max_bytes:65536 in
-    let optional key f = Option.map (Json.optional params key) ~f in
-    let sessions () =
-      Option.value_map (Json.optional params "sessions") ~default:[] ~f:(fun json ->
-        List.map (Json.list json) ~f:Session_id.t_of_jsonaf)
-    in
-    match method_ with
-    | "allocation.pool_put" ->
-      Json.fields params ~allowed:[ "name"; "expected_revision"; "limit" ];
-      Command.Pool_put
-        { name = text "name"
-        ; expected_revision = rev ()
-        ; limit = Json.integer (field "limit")
-        }
-    | "allocation.ticket_policy_put" ->
-      Json.fields
-        params
-        ~allowed:[ "ticket"; "expected_revision"; "required_capabilities"; "pools" ];
-      Ticket_policy_put
-        { ticket = Id.Ticket.t_of_jsonaf (field "ticket")
-        ; expected_revision = rev ()
-        ; required_capabilities =
-            List.map (Json.list (field "required_capabilities")) ~f:Json.text
-        ; pools = List.map (Json.list (field "pools")) ~f:Json.text
-        }
-    | "run.register" ->
-      Json.fields
-        params
-        ~allowed:
-          [ "id"
-          ; "parent"
-          ; "parent_stop_policy"
-          ; "objective"
-          ; "capabilities"
-          ; "process_ref"
-          ; "worktree_ref"
-          ];
-      Command.Register
-        { id = id ()
-        ; parent = optional "parent" Id.Run.t_of_jsonaf
-        ; parent_stop_policy =
-            Option.value_map
-              (Json.optional params "parent_stop_policy")
-              ~default:Parent_stop_policy.Continue
-              ~f:policy_decode
-        ; objective = text "objective"
-        ; capabilities =
-            Option.value_map
-              (Json.optional params "capabilities")
-              ~default:[]
-              ~f:(fun j -> List.map (Json.list j) ~f:Json.text)
-        ; process_ref = optional "process_ref" Json.text
-        ; worktree_ref = optional "worktree_ref" Json.text
-        }
-    | "run.transition" ->
-      Json.fields params ~allowed:[ "id"; "expected_revision"; "status"; "evidence" ];
-      Transition
-        { id = id ()
-        ; expected_revision = rev ()
-        ; status = status_decode (field "status")
-        ; evidence = text "evidence"
-        }
-    | "run.observe" ->
-      Json.fields params ~allowed:[ "id"; "expected_revision"; "observed_unix_ms" ];
-      Observe
-        { id = id ()
-        ; expected_revision = rev ()
-        ; observed_unix_ms = Json.integer64 (field "observed_unix_ms")
-        }
-    | "run.link_session" ->
-      Json.fields params ~allowed:[ "id"; "expected_revision"; "session" ];
-      Link_session
-        { id = id ()
-        ; expected_revision = rev ()
-        ; session = Session_id.t_of_jsonaf (field "session")
-        }
-    | "attempt.start" ->
-      Json.fields params ~allowed:[ "id"; "run"; "ticket"; "token"; "sessions" ];
-      Attempt_start
-        { id = aid ()
-        ; run = Id.Run.t_of_jsonaf (field "run")
-        ; ticket = Id.Ticket.t_of_jsonaf (field "ticket")
-        ; token = Json.integer (field "token")
-        ; sessions = sessions ()
-        }
-    | "attempt.checkpoint" ->
-      Json.fields params ~allowed:[ "id"; "expected_revision"; "checkpoint" ];
-      Attempt_checkpoint
-        { id = aid ()
-        ; expected_revision = rev ()
-        ; checkpoint = checkpoint_decode (field "checkpoint")
-        }
-    | "attempt.finish" ->
-      Json.fields params ~allowed:[ "id"; "expected_revision"; "state"; "evidence" ];
-      Attempt_finish
-        { id = aid ()
-        ; expected_revision = rev ()
-        ; state = attempt_state_decode (field "state")
-        ; evidence = text "evidence"
-        }
-    | "reservation.acquire" ->
-      Json.fields params ~allowed:[ "run"; "requests" ];
-      Reservation_acquire
-        { run = Id.Run.t_of_jsonaf (field "run")
-        ; requests =
-            List.map
-              (Json.list (field "requests"))
-              ~f:(fun request ->
-                Json.fields request ~allowed:[ "name"; "mode"; "lease_duration_ms" ];
-                { Reservation.name =
-                    Reservation.Name.t_of_jsonaf (Json.field request "name")
-                ; mode = mode_decode (Json.field request "mode")
-                ; lease_duration_ms =
-                    (match Json.optional request "lease_duration_ms" with
-                     | None | Some `Null -> None
-                     | Some j -> Some (Json.integer64 j))
-                })
-        }
-    | "reservation.renew" ->
-      Json.fields params ~allowed:[ "run"; "name"; "token"; "expected_lease_revision" ];
-      Reservation_renew
-        { run = Id.Run.t_of_jsonaf (field "run")
-        ; name = Reservation.Name.t_of_jsonaf (field "name")
-        ; token = Json.integer (field "token")
-        ; expected_lease_revision = Json.integer (field "expected_lease_revision")
-        }
-    | "reservation.release" ->
-      Json.fields params ~allowed:[ "run"; "name"; "token" ];
-      Reservation_release
-        { run = Id.Run.t_of_jsonaf (field "run")
-        ; name = Reservation.Name.t_of_jsonaf (field "name")
-        ; token = Json.integer (field "token")
-        }
-    | "run.action_acknowledge" ->
-      Json.fields params ~allowed:[ "child"; "evidence" ];
-      Action_acknowledge
-        { child = Id.Run.t_of_jsonaf (field "child"); evidence = text "evidence" }
-    | _ -> Json.fail Invalid_argument "Unknown run mutation method")
+let coordination_query t ~method_ ~params =
+  Result.bind (Agent_coordination_api.Query.decode ~method_ ~params) ~f:(fun query ->
+    Json.decode (fun () ->
+      let get max_bytes record =
+        require
+          (Api_response.encoded_size (Domain_record Runs) record <= max_bytes)
+          Invalid_argument
+          "Complete coordination record cannot fit; increase max_bytes";
+        record
+      in
+      let page (bounds : Agent_coordination_api.Query.Page.t) values =
+        let { Agent_coordination_api.Query.Page.limit
+            ; max_bytes
+            ; offset
+            ; expected_revision
+            }
+          =
+          bounds
+        in
+        if offset > 0 then expected t.revision (Option.value_exn expected_revision);
+        let result items =
+          let next = offset + List.length items in
+          Json.obj
+            [ "revision", Json.int t.revision
+            ; "items", `Array items
+            ; ("next_offset", if next < List.length values then Json.int next else `Null)
+            ; "omitted", Json.int (Int.max 0 (List.length values - next))
+            ]
+        in
+        let selected = List.take (List.drop values offset) limit in
+        let rec fit reversed = function
+          | [] -> List.rev reversed
+          | item :: rest ->
+            let candidate = List.rev (item :: reversed) in
+            if
+              Api_response.encoded_size (Domain_query Runs) (result candidate) > max_bytes
+            then List.rev reversed
+            else fit (item :: reversed) rest
+        in
+        let items = fit [] selected in
+        require
+          (List.is_empty selected || not (List.is_empty items))
+          Invalid_argument
+          "One complete coordination record cannot fit; increase max_bytes";
+        let result = result items in
+        require
+          (Api_response.encoded_size (Domain_query Runs) result <= max_bytes)
+          Invalid_argument
+          "Coordination metadata cannot fit; increase max_bytes";
+        result
+      in
+      let open Agent_coordination_api.Query in
+      match query with
+      | Path_get { target; max_bytes } ->
+        get
+          max_bytes
+          (Agent_coordination_api.path_reservation_json (find t.path_reservations target))
+      | Ticket_paths_get { ticket; max_bytes } ->
+        get max_bytes (Ticket_paths.jsonaf_of_t (find t.ticket_paths ticket))
+      | Condition_get { condition; max_bytes } ->
+        let d =
+          match External_condition.get t.conditions condition with
+          | Some d -> d
+          | None -> Json.fail Not_found "Condition does not exist"
+        in
+        get max_bytes (Agent_coordination_api.condition_json t.conditions d)
+      | Recovery_get { recovery; max_bytes } ->
+        get max_bytes (Ownership_recovery.jsonaf_of_t (find t.recoveries recovery))
+      | Paths bounds ->
+        page
+          bounds
+          (List.map (path_reservations t) ~f:Agent_coordination_api.path_reservation_json)
+      | Ticket_paths bounds ->
+        page bounds (List.map (ticket_paths t) ~f:Ticket_paths.jsonaf_of_t)
+      | Conditions { page = bounds; ticket } ->
+        page
+          bounds
+          (External_condition.declarations t.conditions
+           |> List.filter ~f:(fun d ->
+             Option.value_map
+               ticket
+               ~default:true
+               ~f:(Id.Ticket.equal d.External_condition.Declaration.ticket_id))
+           |> List.map ~f:(Agent_coordination_api.condition_json t.conditions))
+      | Signals { page = bounds; condition } ->
+        require
+          (Option.is_some (External_condition.get t.conditions condition))
+          Not_found
+          "Condition does not exist";
+        page
+          bounds
+          (List.map
+             (External_condition.signals t.conditions ~condition)
+             ~f:External_condition.Signal.jsonaf_of_t)
+      | Recoveries bounds ->
+        page bounds (List.map (recoveries t) ~f:Ownership_recovery.jsonaf_of_t)))
 ;;
 
 let query t ~method_ ~params =
-  Json.decode (fun () ->
-    let get key = Json.field params key in
-    let page values =
-      let limit =
-        Option.value_map (Json.optional params "limit") ~default:50 ~f:Json.integer
-      in
-      let max_bytes =
-        Option.value_map (Json.optional params "max_bytes") ~default:65536 ~f:Json.integer
-      in
-      let offset =
-        Option.value_map (Json.optional params "offset") ~default:0 ~f:Json.integer
-      in
-      require
-        (limit > 0 && limit <= 100 && max_bytes >= 4096 && max_bytes <= 1048576)
-        Invalid_argument
-        "Run query bounds are invalid";
-      if offset > 0 then expected t.revision (Json.integer (get "expected_revision"));
-      let selected = List.take (List.drop values offset) limit in
-      let rec fit reversed = function
-        | [] -> List.rev reversed
-        | x :: rest ->
-          if
-            String.length (Json.canonical (`Array (List.rev (x :: reversed)))) + 512
-            > max_bytes
-          then List.rev reversed
-          else fit (x :: reversed) rest
-      in
-      let items = fit [] selected in
-      let next = offset + List.length items in
-      Json.obj
-        [ "revision", Json.int t.revision
-        ; "items", `Array items
-        ; ("next_offset", if next < List.length values then Json.int next else `Null)
-        ; "omitted", Json.int (Int.max 0 (List.length values - next))
-        ]
-    in
-    match method_ with
-    | "allocation.pools" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (List.map (Map.data t.pools) ~f:Allocation.Definition.jsonaf_of_t)
-    | "allocation.ticket_policies" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (List.map (Map.data t.ticket_policies) ~f:Allocation.Ticket_policy.jsonaf_of_t)
-    | "run.get" ->
-      Json.fields params ~allowed:[ "id" ];
-      Record.jsonaf_of_t (find t.runs (Id.Run.t_of_jsonaf (get "id")))
-    | "attempt.get" ->
-      Json.fields params ~allowed:[ "id" ];
-      Attempt.jsonaf_of_t (find t.attempts (Attempt.Id.t_of_jsonaf (get "id")))
-    | "reservation.get" ->
-      Json.fields params ~allowed:[ "name" ];
-      Reservation.jsonaf_of_t
-        (find t.reservations (Reservation.Name.t_of_jsonaf (get "name")))
-    | "run.list" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (List.map (Map.data t.runs) ~f:Record.jsonaf_of_t)
-    | "attempt.list" ->
-      Json.fields
-        params
-        ~allowed:[ "ticket"; "run"; "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      let ticket = Option.map (Json.optional params "ticket") ~f:Id.Ticket.t_of_jsonaf in
-      let run = Option.map (Json.optional params "run") ~f:Id.Run.t_of_jsonaf in
-      page
-        (List.filter_map (Map.data t.attempts) ~f:(fun a ->
-           if
-             Option.value_map ticket ~default:true ~f:(Id.Ticket.equal a.Attempt.ticket)
-             && Option.value_map run ~default:true ~f:(Id.Run.equal a.run)
-           then Some (Attempt.jsonaf_of_t a)
-           else None))
-    | "reservation.list" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (List.map (Map.data t.reservations) ~f:Reservation.jsonaf_of_t)
-    | "run.actions" ->
-      Json.fields params ~allowed:[ "limit"; "max_bytes"; "offset"; "expected_revision" ];
-      page (List.map t.actions ~f:Runner_action.jsonaf_of_t)
-    | _ -> Json.fail Invalid_argument "Unknown run query method")
+  if List.mem Agent_coordination_api.query_methods method_ ~equal:String.equal
+  then coordination_query t ~method_ ~params
+  else
+    Result.bind (Agent_run_api.Query.decode ~method_ ~params) ~f:(fun query ->
+      Json.decode (fun () ->
+        let page (bounds : Agent_run_api.Query.Page.t) values =
+          let { Agent_run_api.Query.Page.limit; max_bytes; offset; expected_revision } =
+            bounds
+          in
+          if offset > 0 then expected t.revision (Option.value_exn expected_revision);
+          let result items =
+            let next = offset + List.length items in
+            Json.obj
+              [ "revision", Json.int t.revision
+              ; "items", `Array items
+              ; ("next_offset", if next < List.length values then Json.int next else `Null)
+              ; "omitted", Json.int (Int.max 0 (List.length values - next))
+              ]
+          in
+          let selected = List.take (List.drop values offset) limit in
+          let rec fit reversed = function
+            | [] -> List.rev reversed
+            | item :: rest ->
+              let candidate = List.rev (item :: reversed) in
+              if
+                Api_response.encoded_size (Domain_query Runs) (result candidate)
+                > max_bytes
+              then List.rev reversed
+              else fit (item :: reversed) rest
+          in
+          let items = fit [] selected in
+          if (not (List.is_empty selected)) && List.is_empty items
+          then
+            Json.fail
+              Invalid_argument
+              "one complete record cannot fit; increase max_bytes";
+          let result = result items in
+          if Api_response.encoded_size (Domain_query Runs) result > max_bytes
+          then Json.fail Invalid_argument "query metadata cannot fit; increase max_bytes";
+          result
+        in
+        let open Agent_run_api.Query in
+        let get max_bytes record =
+          if Api_response.encoded_size (Domain_record Runs) record > max_bytes
+          then Json.fail Invalid_argument "complete record cannot fit; increase max_bytes";
+          record
+        in
+        match query with
+        | Run_get { id; max_bytes } ->
+          get max_bytes (Agent_run_api.run_json (find t.runs id))
+        | Attempt_get { id; max_bytes } ->
+          get max_bytes (Agent_run_api.attempt_json (find t.attempts id))
+        | Reservation_get { id; max_bytes } ->
+          get max_bytes (Agent_run_api.reservation_json (find t.reservations id))
+        | Pools bounds ->
+          page bounds (List.map (Map.data t.pools) ~f:Agent_run_api.pool_json)
+        | Ticket_policies bounds ->
+          page
+            bounds
+            (List.map (Map.data t.ticket_policies) ~f:Agent_run_api.ticket_policy_json)
+        | Runs bounds ->
+          page bounds (List.map (Map.data t.runs) ~f:Agent_run_api.run_json)
+        | Reservations bounds ->
+          page
+            bounds
+            (List.map (Map.data t.reservations) ~f:Agent_run_api.reservation_json)
+        | Actions bounds -> page bounds (List.map t.actions ~f:Agent_run_api.action_json)
+        | Attempts { page = bounds; ticket; run } ->
+          page
+            bounds
+            (List.filter_map (Map.data t.attempts) ~f:(fun attempt ->
+               if
+                 Option.value_map
+                   ticket
+                   ~default:true
+                   ~f:(Id.Ticket.equal attempt.Attempt.ticket)
+                 && Option.value_map run ~default:true ~f:(Id.Run.equal attempt.run)
+               then Some (Agent_run_api.attempt_json attempt)
+               else None))))
 ;;
 
 let get_ticket_policy t ticket = Map.find t.ticket_policies ticket
@@ -1195,3 +1480,51 @@ let attempts t = Map.data t.attempts
 let reservations t = Map.data t.reservations
 let pools t = Map.data t.pools
 let ticket_policies t = Map.data t.ticket_policies
+
+let latest_attempt_for_ticket t ~ticket ~token =
+  Map.data t.attempts
+  |> List.filter ~f:(fun a ->
+    Id.Ticket.equal a.Attempt.ticket ticket && Int.equal a.token token)
+  |> List.max_elt ~compare:(fun a b ->
+    Int.compare
+      (Map.find_exn t.attempt_started a.Attempt.id)
+      (Map.find_exn t.attempt_started b.Attempt.id))
+;;
+
+let cancel_recovered_attempts t (request : Ticket_lifecycle.Recovery.t) =
+  Json.decode (fun () ->
+    ignore
+      (Coordination_wire.encode_exn Ticket_lifecycle.Recovery.codec request : Jsonaf.t);
+    List.fold (attempts_for_ticket t request.ticket_id) ~init:t ~f:(fun current attempt ->
+      if Attempt.State.terminal attempt.state
+      then current
+      else (
+        require
+          (Int.equal attempt.token request.token
+           && Option.value_map
+                request.old_run_id
+                ~default:false
+                ~f:(Id.Run.equal attempt.run))
+          Stale_claim
+          "Recovery attempt ownership differs";
+        require
+          (Id.Actor.equal (find current.runs attempt.run).actor request.old_actor_id)
+          Stale_claim
+          "Recovery attempt actor differs";
+        require
+          (current.revision < Int.max_value && attempt.revision < Int.max_value)
+          Conflict
+          "Recovery coordination counter exhausted";
+        let cancelled =
+          { attempt with
+            revision = attempt.revision + 1
+          ; state = Cancelled
+          ; evidence = request.reason
+          }
+        in
+        Attempt.validate_transition ~previous:(Some attempt) cancelled;
+        { current with
+          revision = current.revision + 1
+        ; attempts = Map.set current.attempts ~key:attempt.id ~data:cancelled
+        })))
+;;

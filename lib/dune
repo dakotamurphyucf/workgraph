@@ -1,6 +1,18 @@
 (library
  (name workgraph)
  (public_name workgraph)
+ (private_modules
+  planning_state
+  planning_replay
+  planning_prepare
+  planning_search
+  planning_query
+  planning_metrics
+  planning_resume
+  activity_digest
+  resume_record
+  resume_task
+  planning_render)
  (libraries core core_unix eio eio.unix jsonaf digestif cstruct base64 uutf)
  (foreign_stubs
   (language c)

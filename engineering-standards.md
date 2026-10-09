@@ -19,32 +19,31 @@ RWO's public Core/Base conventions are a module for **almost** every type, princ
 
 Workgraph application of those conventions:
 
-* Give coherent domain concepts modules such as `Window_id`, `Node_id`, `Editor_revision`, `Style` and `Selection`, with operations beside their principal `t`. Nested modules are appropriate: this is not a requirement for one physical file per helper type. Avoid collecting unrelated domain definitions in a generic `Types` module; small local tuples and tightly related helper types need not acquire artificial wrappers.
-* Keep public contracts in `.mli` files. Document ownership, permitted domains, lifecycle, units, mutation and failure behavior. For example, specify whether a selection offset counts bytes, Unicode scalar values or UTF-16 units; an unqualified `int` description is insufficient for the editor bridge.
-* Introduce functors/shared signatures where multiple real modules need the same contract, rather than manufacturing abstractions for hypothetical reuse. Keep dependency direction clear: protocol data must not import widgets or the application runtime.
+* Give coherent domain concepts modules such as `Id.Ticket`, `Allocation_lease`, `Discussion`, `Resource` and `Session_event`, with operations beside their principal `t`. Nested modules are appropriate: this is not a requirement for one physical file per helper type. Avoid collecting unrelated domain definitions in a generic `Types` module; small local tuples and tightly related helper types need not acquire artificial wrappers.
+* Keep public contracts in `.mli` files. Document ownership, permitted domains, lifecycle, units, mutation and failure behavior. For example, specify whether a resource offset counts bytes or a cursor counts events; an unqualified `int` description is insufficient for resumable retrieval.
+* Introduce functors/shared signatures where multiple real modules need the same contract, rather than manufacturing abstractions for hypothetical reuse. Keep dependency direction clear: domain commands must not import the daemon runtime or filesystem adapters.
 
 ### Choosing representations
 
 Records combine fields that coexist; variants represent alternatives. Combining them lets shared data live outside a variant and case-specific data live with its constructor. This is the modeling approach explained in [Records and Variants](<https://dev.realworldocaml.org/variants.html#combining-records-and-variants>).
 
-For Workgraph, represent stream status with distinct cases carrying their applicable data, rather than independent `is_running`, `has_failed` and optional-error fields that admit contradictory combinations. An illustrative shape is:
+For Workgraph, represent ownership with distinct cases carrying their applicable data, rather than independent `is_claimed`, `is_expired` and optional-owner fields that admit contradictory combinations. An illustrative shape is:
 
 ```ocaml
-module Stream_state = struct
+module Ownership = struct
   type t =
-    | Idle
-    | Streaming of { request_id : Request_id.t }
-    | Finished
-    | Failed of Error.t
+    | Unclaimed
+    | Claimed of { actor : Id.Actor.t; token : int }
+    | Expired of { actor : Id.Actor.t; token : int }
 end
 ```
 
-This sketch assumes `Request_id` exists; it is a design example, not a finalized application model. Accumulated response text can live alongside the status so failure does not discard already received output. Likewise, model style reset/inheritance explicitly where needed; do not collapse semantically different states into an unexplained `None`.
+This is a design example, not the finalized claim model. Lease timing and recovery reasons belong beside their applicable state. Likewise, distinguish an omitted patch field (preserve the value) from explicit clearing; do not collapse both into an unexplained `None`.
 
 * Prefer named records for meaningful multi-field public data; tuples suit small, obvious local groupings. Ordinary closed variants are the default for finite protocol commands and lifecycle states. Polymorphic variants need a concrete composition benefit and explicit interface bounds; they are not banned.
-* Use validated constructors for constraints that the type cannot express, such as ordered selection endpoints or finite, nonnegative sizes. Keep the representation abstract when unrestricted construction could violate those constraints.
+* Use validated constructors for constraints that the type cannot express, such as ordered event ranges or bounded, nonnegative byte sizes. Keep the representation abstract when unrestricted construction could violate those constraints.
 * Preserve validation at all entry points, including decoding. A generated deserializer is not automatically a validating constructor. Decode wire data into a wire representation and validate before admitting it into the domain model; version wire formats separately from ergonomic public types. RWO demonstrates validating customized deserialization in [Data Serialization](<https://dev.realworldocaml.org/data-serialization.html>).
-* Use immutable records and functional updates for value models. Make mutable caches/bridge registries explicit, with one owner and documented lifetime; do not derive value comparison over mutable resource identity accidentally.
+* Use immutable records and functional updates for value models. Make mutable caches/workspace registries explicit, with one owner and documented lifetime; do not derive value comparison over mutable resource identity accidentally.
 * Enable missing-record-field pattern warnings (warning 9). Enumerate fields when additions should force review; use `{ field; _ }` when ignoring other fields is intentional. Functional record updates also preserve unmentioned fields, so review their behavior when extending the record. See [Records](<https://dev.realworldocaml.org/records.html>).
 
 ## Control flow, matching and function interfaces
@@ -58,11 +57,11 @@ The following is Workgraph's practical rule, consistent with RWO's examples, not
 | Perform a standard collection/option transformation | The relevant Core operation when clearer, such as `List.map`, `List.filter_map`, `Option.map` or `Result.bind` |
 | Add a condition that patterns cannot express | An `if` in the branch, or a readable `when` guard with complete fallback handling |
 
-For example, `if String.is_empty text then ... else ...` is natural. When looking up a window, match `Map.find windows id` into `None` and `Some window`; do not check presence and then call `find_exn`. A Boolean-only presence check can legitimately use `Map.mem` or `Option.is_some` when no payload is needed.
+For example, `if String.is_empty text then ... else ...` is natural. When looking up a ticket, match `Map.find tickets id` into `None` and `Some ticket`; do not check presence and then call `find_exn`. A Boolean-only presence check can legitimately use `Map.mem` or `Option.is_some` when no payload is needed.
 
 Prefer structural patterns over redundant guards; guards limit the compiler's ability to reason about coverage. A lowercase name in a pattern binds a variable—it does not compare against an existing variable of that name. Compare using a typed equality function in an expression or guard. [Lists and Patterns](<https://dev.realworldocaml.org/lists-and-patterns.html>).
 
-Enumerate constructors of closed variants, using alternatives such as `Idle | Finished` when behavior is shared. Avoid a final catch-all that silently accepts newly added lifecycle/protocol constructors. `_` remains appropriate for intentionally unused payloads and genuinely unrestricted inputs; this is not a token ban. RWO explains how catch-all branches reduce the usefulness of exhaustiveness checks during refactoring, including additional risks with open polymorphic variants. [Catch-All Cases and Refactoring](<https://dev.realworldocaml.org/variants.html#catch-all-cases-and-refactoring>).
+Enumerate constructors of closed variants, using alternatives such as `Done | Canceled` when behavior is shared. Avoid a final catch-all that silently accepts newly added lifecycle/protocol constructors. `_` remains appropriate for intentionally unused payloads and genuinely unrestricted inputs; this is not a token ban. RWO explains how catch-all branches reduce the usefulness of exhaustiveness checks during refactoring, including additional risks with open polymorphic variants. [Catch-All Cases and Refactoring](<https://dev.realworldocaml.org/variants.html#catch-all-cases-and-refactoring>).
 
 Use labels to clarify arguments whose meaning is not obvious. Optional arguments must have a following positional argument if omission is to erase them; add a final `()` when needed for a constructor otherwise taking only labelled/optional arguments. Do not append `()` to every API indiscriminately. Prefer meaningful defaults and show partial-application behavior in API examples when relevant. [Variables and Functions](<https://dev.realworldocaml.org/variables-and-functions.html#optional-arguments-and-partial-application>).
 
@@ -80,22 +79,22 @@ Use the following Workgraph conventions, consistent with Core's existing vocabul
 
 | Kind | Convention and examples |
 | -- | -- |
-| Values, parameters, functions, record fields, filenames | Lowercase words separated by underscores: `request_id`, `apply_batch`, `editor_revision.ml`. Constants use this convention too. |
-| Modules and variant constructors | Initial capital with underscore-separated words: `Editor_revision`, `Window_closed`. Match established upstream spelling when referring to upstream modules. |
+| Values, parameters, functions, record fields, filenames | Lowercase words separated by underscores: `request_id`, `apply_batch`, `allocation_lease.ml`. Constants use this convention too. |
+| Modules and variant constructors | Initial capital with underscore-separated words: `Allocation_lease`, `Workspace_closed`. Match established upstream spelling when referring to upstream modules. |
 | Module types | Follow nearby Core-style interfaces: conventional `S` where appropriate, otherwise a descriptive capitalized name. No general ALL_CAPS requirement. |
 | Principal value and type variables | `t` for the module's main value; `'a` for an unconstrained generic type. Prefer roles such as `previous` and `next` when comparing revisions. Use descriptive type variables when their roles matter. |
-| Queries and predicates | `Editor.selection`, `is_empty`, `has_focus`, `can_submit`; retain established names such as `mem`, `equal` and `compare`. |
+| Queries and predicates | `Discussion.revision`, `is_empty`, `has_more`, `can_complete`; retain established names such as `mem`, `equal` and `compare`. |
 | Commands and transformations | Name the action or result: `insert_text`, `reset`, `apply_batch`, `normalize`. Use `map`, `fold`, `iter` only with their expected semantics. |
 | Construction and conversion | Follow the relevant Core analogy: `create`, `empty`, `of_string`, `to_string`, `of_list`, `to_list`. Document failures; upstream conversion names alone do not guarantee exception-free behavior. |
 | Exceptional variants | Use `_exn` for new operations with an ordinary failure mode exposed through raising; retain the established typed-error/option alternative where useful. Do not use a bang suffix as a blanket mutation convention. |
 | Generic callback / initial accumulator | `~f` / `~init`, following Core collection operations. |
 | Key/value and source/destination roles | `~key`, `~data`, `~src`, `~dst` when those are the actual roles. Use semantic labels for other roles. |
-| UI callbacks | `~on_click`, `~on_change`, etc. distinguish event handling from ordinary function arguments; the precise event/effect types remain part of the public API design. |
+| Event callbacks | `~on_commit`, `~on_change`, etc. distinguish event handling from ordinary function arguments; ownership and cancellation remain part of the public API design. |
 
 The naming/label table is our project policy, not a claim that every entry is mandated by a single Jane Street style document. Core's uniform interface principle supplies the default vocabulary. [Core interface conventions](<https://blog.janestreet.com/core-principles-uniformity-of-interface/>).
 
 * Keep `t` first in operations on the module's primary type. Label other arguments where their roles would otherwise be ambiguous, especially same-typed inputs. Not every argument needs a label: `equal : t -> t -> bool` is an established clear signature.
-* Use the module namespace to carry context: `Editor.selection` instead of `Editor.get_editor_selection`. Avoid vague public names such as `process`, `handle` or `data` when the interface does not establish their meaning. Conventional `~data` on a map operation is meaningful.
+* Use the module namespace to carry context: `Discussion.revision` instead of `Discussion.get_discussion_revision`. Avoid vague public names such as `process`, `handle` or `data` when the interface does not establish their meaning. Conventional `~data` on a map operation is meaningful.
 * Short `x`, `i`, `acc`, `f` and `t` are appropriate in small, obvious scopes. Use `pending_revision` rather than an unexplained `r2` across a multi-step protocol operation. Avoid redundant type suffixes and unexplained abbreviations.
 * Prefer affirmative Boolean names such as `is_enabled` over `not_disabled`. If a flag selects materially different behavior, consider a variant such as `Append | Replace`; ordinary Boolean properties remain valid.
 * Prefer semantic units/types; where an integer count remains, name its unit, e.g. `byte_offset` or `max_batch_bytes`. Do not call a byte count `length` when callers may reasonably infer characters.
@@ -105,16 +104,16 @@ The naming/label table is our project policy, not a claim that every entry is ma
 Illustrative interface shape (not finalized SDK spelling):
 
 ```ocaml
-val selection : t -> Selection.t
-val has_focus : t -> bool
-val replace_text
+val revision : t -> int
+val is_closed : t -> bool
+val publish
   :  t
-  -> expected_revision:Editor_revision.t
-  -> text:string
-  -> (unit, Edit_error.t) Result.t
+  -> expected_revision:int
+  -> content:string
+  -> (Receipt.t, Problem.t) Result.t
 ```
 
-Here `t` is the editor receiver, the labels explain the remaining inputs, and the error type supports programmatic handling. The sketch does not settle whether the production editor command is synchronous, an effect, or an acknowledgement-bearing submission.
+Here `t` is the storage receiver, labels explain the remaining inputs, and the error type supports programmatic recovery. A production interface must also document durability before acknowledgement and uncertain-write recovery.
 
 ### Function size, decomposition and local readability
 
@@ -141,8 +140,8 @@ The following applies the additional practices approved by the user:
 * Keep reconciliation, validation and state-transition logic independently executable as ordinary computations. Perform filesystem/network/native operations through the established adapters. Encapsulated implementation mutation is acceptable.
 * Define typed error variants when callers choose different recovery actions; never dispatch by matching error-message strings. Use `Or_error.t` where diagnostic context is the primary requirement.
 * Scope exception handlers to operations whose failures they can interpret; preserve unexpected failures, original diagnostic context/backtraces and cancellation. A callback's failure must not accidentally become a lookup miss. [RWO: error handling](<https://dev.realworldocaml.org/error-handling.html#catching-specific-exceptions>).
-* Supplement deterministic expect examples with Quickcheck properties, reference-model comparisons and relevant malformed-input/fuzz coverage. For the bridge, retain independent Rust/OCaml fixtures as well as round trips: matching encoder/decoder mistakes can cancel out. Preserve useful failing inputs as regression cases. [RWO: testing](<https://dev.realworldocaml.org/testing.html#property-testing-with-quickcheck>).
-* Freeze versioned protocol representations separately from evolving domain types; preserve old definitions when compatibility requires them and provide explicit conversion/negotiation policy. Deriving `bin_io` alone promises neither backward compatibility nor migration. Our single repository/release train need not support every past bridge version; explicitly reject unsupported versions. Persistence compatibility is a separate decision. [Jane Street: protocol versioning](<https://blog.janestreet.com/lightweight-versioning-for-lightweight-protocols/>).
+* Supplement deterministic expect examples with Quickcheck properties, reference-model comparisons and relevant malformed-input/fuzz coverage. For the protocol and event log, retain independent JSON/socket/replay fixtures as well as round trips: matching encoder/decoder mistakes can cancel out. Preserve useful failing inputs as regression cases. [RWO: testing](<https://dev.realworldocaml.org/testing.html#property-testing-with-quickcheck>).
+* Keep public wire and persisted event representations separate from ergonomic domain types. Only the current unreleased schema is supported; update callers and fixtures together, without compatibility branches or migration readers. Deriving `bin_io` alone promises neither backward compatibility nor migration. Future compatibility requires an explicit release policy. [Jane Street: protocol versioning](<https://blog.janestreet.com/lightweight-versioning-for-lightweight-protocols/>).
 * Document ordering, complexity, copying/retention, invalidation and ownership where callers depend on them. Explain reasons and non-obvious constraints in comments; keep usage examples beside public contracts.
 * Measure realistic input/frame latency, allocation and retained memory as well as throughput. Record workloads and pinned toolchain/platform details. Use traces/profiles before adopting complex optimizations; test rare expensive paths as well as steady-state streaming. [Jane Street: performance education](<https://blog.janestreet.com/developer-education-at-jane-street-index/#ocaml-performance>).
 * Review stack usage on input-sized recursion. Use a stack-safe traversal or bounded-depth contract where needed; do not assume every recursive function needs rewriting or every library traversal is unsafe. Check the pinned implementation. [OCaml: recursion](<https://ocaml.org/docs/loops-recursion>).
@@ -154,7 +153,7 @@ Community guidance also supports separating pure and imperative work, typed erro
 * Eio is the standard runtime and API for all first-party OCaml-side filesystem, network, process, timer and other I/O work. This supersedes the earlier design wording that described Eio merely as an optional choice.
 * Use `Eio.Path` for filesystem operations; `Eio.Flow`/buffered I/O for streams; Eio networking, process and clock APIs for their respective work. Pass the required Eio capabilities explicitly instead of fetching ambient global filesystem/network access.
 * Do not implement ordinary application I/O with blocking `Stdlib` channels, `Core.In_channel`/`Out_channel`, `Core_unix`, or direct Unix APIs. Do not introduce an Async/Lwt application scheduler as a substitute for Eio.
-* Pure data/protocol/style modules need not depend on Eio simply because they are in this repository. A separate `Workgraph_io` library remains a possible dependency boundary, but Eio is the required first-party I/O implementation, not a runtime decision left to each contributor.
+* Pure data/protocol/query modules need not depend on Eio simply because they are in this repository. A separate `Workgraph_io` library remains a possible dependency boundary, but Eio is the required first-party I/O implementation, not a runtime decision left to each contributor.
 * Expect-test captured output (`print_s`, `[%sexp]`, etc.) follows the expect framework's output-capture mechanism. Filesystem/network work inside tests still uses Eio capabilities/mocks; production logging/output should use the chosen Eio-compatible sink.
 
 Eio documents direct-style I/O, scoped lifetimes, capability passing and filesystem access. Use those APIs with the pinned Eio version. Real World OCaml's Async chapters are educational background, not this project's runtime choice. [Eio documentation](<https://github.com/ocaml-multicore/eio#readme>).
@@ -162,9 +161,9 @@ Eio documents direct-style I/O, scoped lifetimes, capability passing and filesys
 ## Formatting and PPX
 
 * Check in a root `.ocamlformat` with `profile=janestreet`. Pin the formatter version in the development toolchain and record the corresponding `version` setting; do not let each editor silently choose a different formatter release.
-* Use the same formatter configuration for editors, local commands and CI. Add documented format/check commands and make CI reject formatting drift. Rust uses its own pinned rustfmt configuration.
+* Use the same formatter configuration for editors, local commands and CI. Add documented format/check commands and make CI reject formatting drift.
 * Use `ppx_jane` for the normal OCaml preprocessing pipeline. Use Jane Street deriving and syntax facilities where appropriate: `equal`, `compare`, `sexp`/`sexp_of`, `bin_io`, `let%bind`/`let%map`, and expect tests. Derive only what a type needs; don't serialize opaque native handles or blindly derive comparison over callback-bearing types.
-* Keep `ppx_jane`, `ppx_expect`, `expect_test_helpers_core`, related PPX packages and Core consistent with the accepted v0.17 dependency family. Bonsai's own PPX is included where its syntax is used. Additional preprocessors need a concrete use and an explicit dependency.
+* Keep `ppx_jane`, `ppx_expect`, `expect_test_helpers_core`, related PPX packages and Core consistent with the accepted v0.17 dependency family. Additional preprocessors need a concrete use and an explicit dependency.
 
 The formatter supports a named Jane Street profile, and `ppx_jane` is Jane Street's standard rewriter collection. [ocamlformat](<https://github.com/ocaml-ppx/ocamlformat>), [ppx_jane](<https://github.com/janestreet/ppx_jane>).
 
@@ -173,8 +172,8 @@ The formatter supports a named Jane Street profile, and `ppx_jane` is Jane Stree
 * Use Jane Street expect tests as the default OCaml test style: `let%expect_test`, `[%expect]`, `ppx_expect` and `expect_test_helpers_core`, wired through Dune inline-test libraries.
 * Test observable behavior and invariants with stable sexp/text output. Normalize generated IDs, paths, clocks and platform details deliberately; do not blindly promote a changed expectation.
 * Use fake clocks, controlled Eio scheduling/mocks, isolated temporary filesystem capabilities and deterministic streaming fixtures. Avoid timing-sensitive sleeps and external LLM/network dependencies in unit tests.
-* Cover codecs, reconciliation, callbacks, lifecycle ordering, cancellation, editor revision races and managed-list state retention. Property tests and Rust unit tests supplement expect coverage where useful; native GUI/IME/accessibility tests still need actual platform execution.
-* `dune runtest` must run the OCaml suite. Document reviewing diffs and `dune promote`; CI checks expected output without auto-promoting it. Cargo tests remain the native Rust test runner.
+* Cover codecs, reconciliation, lifecycle ordering, cancellation, revision/claim races, durable replay and immutable captures. Supplement expect coverage with properties and independent socket fixtures; native filesystem durability and packaged runtime checks need execution on their target platforms.
+* `dune runtest` must run the OCaml suite. Document reviewing diffs and `dune promote`; CI checks expected output without auto-promoting it. Run Python process/socket checks through the same Dune alias.
 
 Illustrative Dune stanza, following Workgraph's existing pattern:
 

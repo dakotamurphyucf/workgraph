@@ -1,0 +1,17 @@
+(rule
+ (alias runtest)
+ (deps watcher_test.py ../../examples/notification-watcher.py)
+ (action
+  (run
+   python3
+   %{dep:watcher_test.py}
+   %{dep:../../examples/notification-watcher.py})))
+
+(rule
+ (alias runtest)
+ (deps
+  socket_test.py
+  ../../examples/notification-watcher.py
+  ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

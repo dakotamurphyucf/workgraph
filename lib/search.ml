@@ -10,6 +10,10 @@ module Source = struct
     | Handoff of Id.Ticket.t
     | Resource of Id.Resource.t
     | Resource_text of Id.Resource.t
+    | Fact of
+        { scope : Entity_ref.t
+        ; key : string
+        }
   [@@deriving sexp, compare]
 
   let kind = function
@@ -21,6 +25,7 @@ module Source = struct
     | Handoff _ -> "handoff"
     | Resource _ -> "resource"
     | Resource_text _ -> "resource_text"
+    | Fact _ -> "fact"
   ;;
 
   let json t ~revision =
@@ -32,12 +37,29 @@ module Source = struct
       | Ticket id | Handoff id -> Id.Ticket.to_string id
       | Comment id -> Id.Comment.to_string id
       | Resource id | Resource_text id -> Id.Resource.to_string id
+      | Fact { scope; key } -> Json.canonical (Entity_ref.jsonaf_of_t scope) ^ ":" ^ key
     in
-    Json.obj
-      [ "kind", Json.string (kind t)
-      ; "id", Json.string id
-      ; "revision", Json.int revision
-      ]
+    match t with
+    | Fact { scope; key } ->
+      Json.obj
+        [ "kind", Json.string "fact"
+        ; "scope", Entity_ref.jsonaf_of_t scope
+        ; "key", Json.string key
+        ; "revision", Json.int revision
+        ]
+    | Workspace _
+    | Project _
+    | Milestone _
+    | Ticket _
+    | Comment _
+    | Handoff _
+    | Resource _
+    | Resource_text _ ->
+      Json.obj
+        [ "kind", Json.string (kind t)
+        ; "id", Json.string id
+        ; "revision", Json.int revision
+        ]
   ;;
 end
 
@@ -75,6 +97,7 @@ let kinds =
   ; "handoff"
   ; "resource"
   ; "resource_text"
+  ; "fact"
   ]
 ;;
 
@@ -83,7 +106,33 @@ type results =
   ; total : int
   }
 
-let matches documents ~text ~kinds ~offset ~limit =
+module Match = struct
+  type t =
+    { field : string
+    ; match_offset : int
+    ; match_bytes : int
+    ; snippet_offset : int
+    ; snippet : string
+    }
+end
+
+module Item = struct
+  type t =
+    { source : Source.t
+    ; target : Entity_ref.t
+    ; revision : int
+    ; matches : Match.t list
+    }
+end
+
+module Results = struct
+  type t =
+    { items : Item.t list
+    ; total : int
+    }
+end
+
+let typed_matches documents ~text ~kinds ~offset ~limit : Results.t =
   let needle = String.lowercase text in
   if String.is_empty (String.strip text) || String.length text > 256
   then Json.fail Invalid_argument "search text requires 1..256 bytes";
@@ -118,22 +167,44 @@ let matches documents ~text ~kinds ~offset ~limit =
               let snippet =
                 Query_budget.prefix (String.drop_prefix text start) ~max_bytes:512
               in
-              Json.obj
-                [ "field", Json.string field
-                ; "match_offset", Json.int position
-                ; "match_bytes", Json.int (String.length needle)
-                ; "snippet_offset", Json.int start
-                ; "snippet", Json.string snippet
-                ])
+              { Match.field
+              ; match_offset = position
+              ; match_bytes = String.length needle
+              ; snippet_offset = start
+              ; snippet
+              })
           in
-          let result =
-            Json.obj
-              [ "source", Source.json document.source ~revision:document.revision
-              ; "target", Entity_ref.jsonaf_of_t document.target
-              ; "matches", `Array matches
-              ]
+          let result : Item.t =
+            { source = document.source
+            ; target = document.target
+            ; revision = document.revision
+            ; matches
+            }
           in
           result :: items, total + 1)))
   in
   { items = List.rev items; total }
+;;
+
+let matches documents ~text ~kinds ~offset ~limit : results =
+  let results = typed_matches documents ~text ~kinds ~offset ~limit in
+  let items =
+    List.map results.items ~f:(fun item ->
+      let matches =
+        List.map item.Item.matches ~f:(fun value ->
+          Json.obj
+            [ "field", Json.string value.Match.field
+            ; "match_offset", Json.int value.match_offset
+            ; "match_bytes", Json.int value.match_bytes
+            ; "snippet_offset", Json.int value.snippet_offset
+            ; "snippet", Json.string value.snippet
+            ])
+      in
+      Json.obj
+        [ "source", Source.json item.source ~revision:item.revision
+        ; "target", Entity_ref.jsonaf_of_t item.target
+        ; "matches", `Array matches
+        ])
+  in
+  { items; total = results.total }
 ;;

@@ -1,10 +1,13 @@
 open Core
 module Status = Workflow.Category
 
-type t =
+type t = Planning_command.t =
   | Batch of t list
+  | Lifecycle of Ticket_lifecycle.Command.t
   | Communication of Communication.Command.t
+  | Message_send of Communication.Message_send.t
   | Agent_run of Agent_run.Command.t
+  | Facts of Facts.Command.t
   | Evidence of Evidence.Command.t
   | Policy of Agent_run_policy.Command.t
   | Template_instantiate of
@@ -18,6 +21,7 @@ type t =
       ; run : Id.Run.t
       ; project : Id.Project.t option
       ; lease_duration_ms : int64 option
+      ; leaf_only : bool
       }
   | Thread_reply of
       { id : Communication_id.Thread.t

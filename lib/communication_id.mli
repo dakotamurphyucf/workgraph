@@ -6,3 +6,7 @@ module Thread : Id.S
 module Request : Id.S
 module Team : Id.S
 module Subscription : Id.S
+module Message : Id.S
+
+(** Durable inbox consumer identity, scoped jointly with recipient and workspace. *)
+module Consumer : Id.S

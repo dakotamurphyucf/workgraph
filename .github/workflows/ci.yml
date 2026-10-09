@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '23 7 * * 1'
 
 permissions:
   contents: read
@@ -12,14 +14,40 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
+    env:
+      OPAMROOT: ${{ github.workspace }}/scratch/linux-opam
+      WORKGRAPH_OPAM_SWITCH: workgraph-ci
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3
-        with:
-          ocaml-compiler: 5.3.0
-          dune-cache: true
-      - name: Install pinned dependencies
-        run: opam install . --deps-only --with-test --yes
+      - name: Provision isolated pinned toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opam build-essential pkg-config libgmp-dev
+          mkdir -p scratch
+          git init -q scratch/opam-repository
+          git -C scratch/opam-repository remote add origin https://github.com/ocaml/opam-repository.git
+          git -C scratch/opam-repository fetch --depth=1 origin e4cd7ede2d55a46570977c0ffaa7e96845190817
+          git -C scratch/opam-repository checkout --detach FETCH_HEAD
+          opam init --bare --no-setup --yes workgraph-snapshot "$PWD/scratch/opam-repository"
+          opam switch create "$WORKGRAPH_OPAM_SWITCH" ocaml-base-compiler.5.3.0 --yes
+          opam install --switch="$WORKGRAPH_OPAM_SWITCH" --yes --deps-only --with-test . dune.3.21.1
+          test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- ocamlc -version)" = 5.3.0
+          test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- dune --version)" = 3.21.1
+          test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- ocamlformat --version)" = 0.28.1
       - name: Check formatting, build and test
-        run: opam exec -- dune build @fmt @runtest @install
+        run: ./dev build @fmt @runtest @install
+      - name: Periodic bounded POSIX fault matrix
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 15
+        run: |
+          mkdir -p scratch/fault-qualification
+          cc -shared -fPIC -O2 -Wall -Wextra -o scratch/fault-qualification/shim.so bench/fault_shim.c -ldl
+          python3 bench/fault_matrix.py "$PWD/_build/default/bin/main.exe" "$PWD/scratch/fault-qualification/shim.so" "$PWD/scratch/fault-qualification/results" > scratch/fault-qualification/run.jsonl
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        with:
+          name: linux-fault-qualification
+          path: scratch/fault-qualification/
+          if-no-files-found: warn
+          retention-days: 14

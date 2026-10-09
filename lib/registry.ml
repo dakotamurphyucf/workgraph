@@ -70,7 +70,7 @@ let validate t =
     match String.split value ~on:':' with
     | [ actor; mutation ] ->
       ignore (unwrap (Id.Actor.of_string actor) : Id.Actor.t);
-      ignore (unwrap (Id.Actor.of_string mutation) : Id.Actor.t)
+      ignore (unwrap (Id.Mutation.of_string mutation) : Id.Mutation.t)
     | _ -> Json.fail Corrupt_store "invalid registry receipt key"
   in
   let roots = ref String.Set.empty in
@@ -219,8 +219,8 @@ let decode bytes =
 let request ~method_ ~params =
   Json.decode (fun () ->
     let actor = Id.Actor.t_of_jsonaf (Json.field params "actor_id") in
-    let mutation = Id.Actor.t_of_jsonaf (Json.field params "mutation_id") in
-    let key = Id.Actor.to_string actor ^ ":" ^ Id.Actor.to_string mutation in
+    let mutation = Id.Mutation.t_of_jsonaf (Json.field params "mutation_id") in
+    let key = Id.Actor.to_string actor ^ ":" ^ Id.Mutation.to_string mutation in
     let hash =
       Json.hash
         (Json.canonical (Json.obj [ "method", Json.string method_; "params", params ]))

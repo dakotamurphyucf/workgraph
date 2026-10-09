@@ -6,6 +6,7 @@ if [ "$#" -ne 2 ]; then
   exit 2
 fi
 test "$(id -u)" -ne 0
+[ "$(uname -m)" = x86_64 ]
 source_directory=$(realpath "$1")
 output_directory=$(realpath "$2")
 if [ -n "$(find "$output_directory" -mindepth 1 -maxdepth 1 -print -quit)" ]; then

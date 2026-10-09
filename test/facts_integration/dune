@@ -1,0 +1,6 @@
+(library
+ (name facts_integration_tests)
+ (libraries workgraph core expect_test_helpers_core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))

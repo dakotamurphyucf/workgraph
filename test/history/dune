@@ -10,3 +10,9 @@
  (deps adapter_test.py ../../examples/history-adapter.py)
  (action
   (run python3 %{dep:adapter_test.py})))
+
+(rule
+ (alias runtest)
+ (deps socket_test.py ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

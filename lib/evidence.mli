@@ -7,6 +7,8 @@ module Artifact = Evidence_event.Artifact
 module Contract = Evidence_event.Contract
 module Manifest = Evidence_event.Manifest
 module Policy = Evidence_event.Policy
+module Policy_version = Evidence_event.Acceptance_policy_version
+module Assertion = Evidence_event.Assertion
 module Submission = Evidence_event.Submission
 module Review = Evidence_event.Review
 module Validation = Evidence_event.Validation
@@ -19,6 +21,31 @@ module Disposition : sig
     | Acknowledge
     | Continue of string
     | Revised of Manifest_ref.t
+  [@@deriving sexp]
+end
+
+module Ticket_context : sig
+  module Ownership : sig
+    type t =
+      { token : int
+      ; actor : Id.Actor.t
+      ; run : Id.Run.t option
+      }
+    [@@deriving sexp]
+  end
+
+  (** Immutable ticket capture. [membership_revision] starts at 1 and increments
+      on every actual project change, including moves away and back. [attempt]
+      identifies the latest attempt under [current_token], including terminal
+      attempts, so cancelled replacement work cannot reuse old approvals. *)
+  type t =
+    { project : Id.Project.t option
+    ; membership_revision : int
+    ; minimum_reopening_token : int option
+    ; current_token : int option
+    ; ownership : Ownership.t option
+    ; attempt : Attempt.Id.t option
+    }
   [@@deriving sexp]
 end
 
@@ -49,6 +76,23 @@ module Command : sig
         ; reviewers : Policy.Requirement.t list
         ; separate_actor : bool
         ; validators : string list
+        ; weakening_reason : string option
+        }
+    | Acceptance_policy_put of
+        { definition : Acceptance_policy.Definition.t
+        ; expected_revision : int
+        ; weakening_reason : string option
+        }
+    | Assert of
+        { ticket : Id.Ticket.t
+        ; token : int
+        ; attempt : Attempt.Id.t option
+        ; manifest : Manifest_ref.t option
+        ; expected_policy_digest : string
+        ; criterion : Acceptance_policy.Criterion.Ref.t
+        ; passed : bool
+        ; evidence_pins : Pin.t list
+        ; evidence : string
         }
     | Submit of
         { ticket : Id.Ticket.t
@@ -72,6 +116,7 @@ module Command : sig
         { id : Evidence_id.Validation.t
         ; manifest : Manifest_ref.t
         ; name : string
+        ; expected_policy_digest : string
         ; passed : bool
         ; evidence : string
         }
@@ -106,6 +151,7 @@ val revision : t -> int
 val prepare
   :  t
   -> Command.t
+  -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)
   -> actor:Id.Actor.t
   -> run:Id.Run.t option
   -> timestamp:string
@@ -115,7 +161,12 @@ val prepare
 val candidate : prepared -> t
 val changes : prepared -> Change.t list
 val result : prepared -> Jsonaf.t
-val apply : t -> Change.t -> (t, Problem.t) Result.t
+
+val apply
+  :  t
+  -> Change.t
+  -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)
+  -> (t, Problem.t) Result.t
 
 (** Final-batch validation. Callbacks are pure immutable-capture lookups. They
     validate exact historical versions, not merely the latest object heads. *)
@@ -138,18 +189,29 @@ val event_references : t -> Session.Event_ref.t list
     revised manifest or alter a replacement attempt's ownership. *)
 val command_attempts : t -> Command.t -> Attempt.Id.t list
 
-val ensure_can_complete : t -> ticket:Id.Ticket.t -> (unit, Problem.t) Result.t
+val ensure_can_complete
+  :  t
+  -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)
+  -> ticket:Id.Ticket.t
+  -> (unit, Problem.t) Result.t
 
 (** Registered attempts always require their exact latest input/output manifest.
     An enabled review gate must accept that same manifest, never another attempt's. *)
 val ensure_attempt_can_complete
   :  t
+  -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)
   -> attempt:Attempt.Id.t
   -> ticket:Id.Ticket.t
   -> (unit, Problem.t) Result.t
 
 val pending_reconciliations : t -> attempt:Attempt.Id.t option -> Reconciliation.t list
-val review_recipients : t -> ticket:Id.Ticket.t -> Id.Actor.t list
+
+val review_recipients
+  :  t
+  -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)
+  -> ticket:Id.Ticket.t
+  -> Id.Actor.t list
+
 val get_manifest : t -> Manifest_ref.t -> Manifest.t option
 val get_submission : t -> Id.Ticket.t -> Submission.t option
 val change_targets : t -> Change.t -> Entity_ref.t list
@@ -157,7 +219,43 @@ val decode : method_:string -> params:Jsonaf.t -> (Command.t, Problem.t) Result.
 val encode : Command.t -> (string * Jsonaf.t, Problem.t) Result.t
 val mutation_methods : string list
 val query_methods : string list
-val query : t -> method_:string -> params:Jsonaf.t -> (Jsonaf.t, Problem.t) Result.t
+
+val query
+  :  t
+  -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)
+  -> method_:string
+  -> params:Jsonaf.t
+  -> (Jsonaf.t, Problem.t) Result.t
+
 val to_json : t -> Jsonaf.t
 val current_submissions : t -> Submission.t list
 val current_policies : t -> Policy.t list
+
+(** All callbacks close over immutable planning captures; missing tickets reject. *)
+val effective_policy
+  :  t
+  -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)
+  -> ticket:Id.Ticket.t
+  -> (Acceptance_policy.Effective.t, Problem.t) Result.t
+
+val policy_view : Policy_version.t -> Policy.t option
+val policy_versions : t -> Policy_version.t list
+val assertions : t -> Assertion.t list
+
+(** Executable exact codecs for every Evidence method; mutation declarations
+    admit explicit raw ID/$alias references. [decode] requires resolved references
+    and validates the typed domain projection before preparation. *)
+val request_codec : method_:string -> Jsonaf.t Api_codec.t option
+
+(** Exact historical contract/decision existence in this evidence capture.
+    Resource, comment, event, commit and checksum pins return true here; callers
+    must additionally validate them against their owning immutable capture. *)
+val pin_internal_exists : t -> Pin.t -> bool
+
+(** Public named-object projections, independent of durable event encoding. *)
+val assertion_codec : Assertion.t Api_codec.t
+
+val policy_version_codec : Policy_version.t Api_codec.t
+val validation_codec : Validation.t Api_codec.t
+val response_codec : method_:string -> Jsonaf.t Api_codec.t option
+val api_methods : Api_method.Packed.t list

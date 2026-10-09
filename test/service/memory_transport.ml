@@ -15,6 +15,7 @@ module Flow = struct
     { input : channel
     ; output : channel
     ; mutable pending : string
+    ; before_write : unit -> unit
     }
 
   let channel () =
@@ -38,6 +39,7 @@ module Flow = struct
   ;;
 
   let single_write t buffers =
+    t.before_write ();
     if t.output.closed then raise End_of_file;
     let bytes = Cstruct.concat buffers |> Cstruct.to_string in
     Eio.Stream.add t.output.queue bytes;
@@ -86,11 +88,19 @@ module Flow = struct
       end)
   ;;
 
-  let pair () =
+  let pair ?(before_server_write = fun () -> ()) () =
     let left = channel ()
     and right = channel () in
-    ( Eio.Resource.T ({ input = left; output = right; pending = "" }, handler)
-    , Eio.Resource.T ({ input = right; output = left; pending = "" }, handler) )
+    ( Eio.Resource.T
+        ( { input = left; output = right; pending = ""; before_write = (fun () -> ()) }
+        , handler )
+    , Eio.Resource.T
+        ( { input = right
+          ; output = left
+          ; pending = ""
+          ; before_write = before_server_write
+          }
+        , handler ) )
   ;;
 end
 

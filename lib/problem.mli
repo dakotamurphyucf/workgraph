@@ -23,4 +23,9 @@ type t =
 [@@deriving sexp]
 
 val create : kind -> string -> t
+
+(** Exact current public error discriminator, shared by error envelopes and
+    nested diagnostic records. Independent of derived OCaml sexps. *)
+val wire_name : kind -> string
+
 val to_json : t -> Jsonaf.t

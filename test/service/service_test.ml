@@ -48,7 +48,8 @@ let%expect_test "service history workers, feeds, restart and shutdown over memor
                     Framing.write flow (request method_ params);
                     let response = Framing.read flow in
                     match Json.optional response "result" with
-                    | Some result -> result
+                    | Some result ->
+                      Api_response.of_json result |> ok |> Api_response.data
                     | None -> failwith (Json.canonical response))
               in
               f ~sw ~connect ~call;
@@ -96,7 +97,8 @@ let%expect_test "service history workers, feeds, restart and shutdown over memor
               ~searchable_text:(Inline "remembered fact")
               ()
             |> ok
-            |> Session_event.Input.to_json
+            |> Api_codec.encode History_wire.input
+            |> ok
           in
           ignore
             (mutate
@@ -128,7 +130,8 @@ let%expect_test "service history workers, feeds, restart and shutdown over memor
                [ "ticket_id", Json.string "task"; "title", Json.string "Task" ]
              : Jsonaf.t);
           let changed =
-            Eio.Promise.await_exn waiting |> fun response -> Json.field response "result"
+            Eio.Promise.await_exn waiting
+            |> fun response -> Json.field (Json.field response "result") "data"
           in
           printf "feed mutation delivered: %b\n" (Change_feed.has_items changed);
           Eio.Resource.close wait;
@@ -180,4 +183,69 @@ let%expect_test "service history workers, feeds, restart and shutdown over memor
     shutdown canceled parked waiter
     history after restart: 1 events
     |}]
+;;
+
+let%expect_test "shutdown waits for its acknowledgement attempt, including a lost peer" =
+  Eio_main.run (fun env ->
+    let fs = Eio.Stdenv.fs env in
+    let nonce = Cstruct.create 16 in
+    Eio.Flow.read_exact (Eio.Stdenv.secure_random env) nonce;
+    let root = "/tmp/workgraph-shutdown-" ^ Json.hash (Cstruct.to_string nonce) in
+    Disk.ensure_directory Eio.Path.(fs / root);
+    Exn.protect
+      ~finally:(fun () -> Eio.Path.rmtree Eio.Path.(fs / root))
+      ~f:(fun () ->
+        List.iter [ false; true ] ~f:(fun disconnect ->
+          Eio.Time.with_timeout_exn (Eio.Stdenv.clock env) 10. (fun () ->
+            Eio.Switch.run (fun sw ->
+              let incoming = Eio.Stream.create 1 in
+              let finished =
+                Eio.Fiber.fork_promise ~sw (fun () ->
+                  Service.serve
+                    ~env
+                    ~registry:(root ^ "/registry")
+                    ~listener:(listener incoming))
+              in
+              let invalid = connect incoming in
+              Framing.write invalid (request "daemon.shutdown" [ "unexpected", `True ]);
+              let rejected = Framing.read invalid in
+              if Option.is_none (Json.optional rejected "error")
+              then failwith "invalid shutdown was accepted";
+              Eio.Resource.close invalid;
+              let writing, notify_writing = Eio.Promise.create () in
+              let release, allow_write = Eio.Promise.create () in
+              let first = ref true in
+              let client, server =
+                Flow.pair
+                  ~before_server_write:(fun () ->
+                    if !first
+                    then (
+                      first := false;
+                      Eio.Promise.resolve notify_writing ();
+                      Eio.Promise.await release))
+                  ()
+              in
+              Eio.Stream.add incoming server;
+              Framing.write client (request "daemon.shutdown" []);
+              Eio.Promise.await writing;
+              (* The response is deliberately parked across four shutdown poll
+                 periods. This gate establishes ordering before advancing time. *)
+              Eio.Time.sleep (Eio.Stdenv.clock env) 0.2;
+              if disconnect then Eio.Resource.close client;
+              Eio.Promise.resolve allow_write ();
+              if not disconnect
+              then (
+                let response = Framing.read client in
+                let result = Api_response.of_json (Json.field response "result") |> ok in
+                match Json.field (Api_response.data result) "stopping" with
+                | `True -> printf "complete acknowledgement before stopping\n"
+                | _ -> failwith "invalid shutdown acknowledgement");
+              Eio.Promise.await_exn finished;
+              Eio.Resource.close client;
+              if disconnect then printf "disconnected requester still stops daemon\n")))));
+  [%expect
+    {|
+    complete acknowledgement before stopping
+    disconnected requester still stops daemon
+  |}]
 ;;

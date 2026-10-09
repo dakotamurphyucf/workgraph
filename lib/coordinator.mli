@@ -19,7 +19,7 @@ module Ticket : sig
     ; status : Domain_command.Status.t
     ; prerequisites : Id.Ticket.t list
     ; ready : bool
-    ; blockers : Jsonaf.t
+    ; blockers : Planning_ticket_wire.Readiness.t
     ; claim : Claim.t option
     }
 end

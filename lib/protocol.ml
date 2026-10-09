@@ -73,58 +73,12 @@ module Request = struct
   let with_params t params = create ~id:t.id ~method_:t.method_ ~params
 
   let mode t =
-    match t.method_ with
-    | "initialize"
-    | "export.verify"
-    | "export.get"
-    | "export.list"
-    | "daemon.health"
-    | "workspace.list"
-    | "workspace.get"
-    | "workspace.overview"
-    | "coordinator.overview"
-    | "registry.receipt"
-    | "workspace.receipt"
-    | "actor.list"
-    | "label.list"
-    | "status.list"
-    | "project.list"
-    | "project.get"
-    | "project.brief"
-    | "milestone.list"
-    | "milestone.get"
-    | "ticket.list"
-    | "ticket.ready"
-    | "ticket.resolve"
-    | "ticket.context"
-    | "ticket.blockers"
-    | "ticket.readiness"
-    | "comment.list"
-    | "comment.get"
-    | "comment.history"
-    | "handoff.get"
-    | "handoff.history"
-    | "activity.since"
-    | "changes.read"
-    | "changes.wait"
-    | "search.query"
-    | "resource.list"
-    | "resource.get"
-    | "resource.history"
-    | "resource.read"
-    | "resource.read_chunk"
-    | "upload.status"
-    | "run.heartbeat_get" -> Read
-    | method_
-      when List.mem
-             (Communication.query_methods
-              @ Agent_run.query_methods
-              @ Evidence.query_methods
-              @ History_command.query_methods
-              @ Agent_run_policy.query_methods)
-             method_
-             ~equal:String.equal -> Read
-    | _ -> Write
+    match Api_catalog.find t.method_ with
+    | Some (Api_method.Packed.Pack method_) ->
+      (match Api_method.mode method_ with
+       | Read -> Read
+       | Write | Mutation -> Write)
+    | None -> Write
   ;;
 end
 
@@ -140,7 +94,10 @@ let decode_response request json =
     if not (String.equal (Json.text (Json.field json "id")) request.Request.id)
     then Json.fail Invalid_argument "response request ID differs";
     match Json.optional json "result", Json.optional json "error" with
-    | Some result, None -> Success result
+    | Some result, None ->
+      (match Api_response.of_json result with
+       | Ok _ -> Success result
+       | Error problem -> raise (Json.Decode_error problem))
     | None, Some error ->
       Json.fields error ~allowed:[ "code"; "message"; "data" ];
       let invalid_envelope =

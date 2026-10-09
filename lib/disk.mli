@@ -7,6 +7,11 @@ val read : _ Eio.Path.t -> string
 val read_with_limit : _ Eio.Path.t -> max_bytes:int -> string
 val write_new : _ Eio.Path.t -> string -> unit
 val replace : _ Eio.Path.t -> string -> unit
+
+(** Create a private directory if absent and sync its parent before returning.
+    A concurrent creator is accepted only if the resulting entry is a real
+    directory. Symlinks/other entries reject; unrelated I/O errors and cancellation
+    propagate. Existing real directories are left unchanged. *)
 val ensure_directory : _ Eio.Path.t -> unit
 
 (** Reject missing directories, symlinks and other entry kinds. Raises
