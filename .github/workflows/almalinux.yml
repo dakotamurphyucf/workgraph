@@ -1,33 +1,241 @@
-name: AlmaLinux 10 package
+# One-off branch workflow: qualify the RPM repair without provisioning a compiler.
+# Checkout the actual release source so this orchestration is not in its archives.
+name: AlmaLinux 10 focused RPM qualification
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   package:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 30
+    env:
+      SOURCE_COMMIT: adf5c22705aa5d56fae84f0ffd90dd12c9ebe1f7
+      PRIOR_COMMIT: 989c923776a91d691984d987181ebe08c0441ea7
+      PRIOR_RUN: '37896706867'
+      PRIOR_ARTIFACT: '11601531207'
+      PRIOR_ZIP_SHA256: 7bf287a3a2bab3fd0d031c7d45526b7cd82fd27119cf38b48077d71e3e351785
+      EXECUTABLE_SHA256: 02c9474653d86c8473d174e0482d372f1f7370c9d5e92e8d21e0dbe48a2740a4
+      SOURCE_IDENTITY: dc9ebbf6de7419231b940fbe3148e87208a366878e0d97801a200675317bc4e1
+      OUTPUT: ${{ github.workspace }}/dist/almalinux-10-x86_64
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Build isolated AlmaLinux toolchain
+        with:
+          ref: adf5c22705aa5d56fae84f0ffd90dd12c9ebe1f7
+          path: source
+      - name: Download and authenticate prior build evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
         run: |
-          docker build --platform linux/amd64 \
-            -f packaging/almalinux/Containerfile \
-            --build-arg BUILDER_UID="$(id -u)" \
-            --build-arg BUILDER_GID="$(id -g)" \
-            -t workgraph-alma-builder .
-      - name: Build, test and package
+          set -euo pipefail
+          [ "$(uname -s)/$(uname -m)" = Linux/x86_64 ]
+          [ "$(docker info --format '{{.OSType}}/{{.Architecture}}')" = linux/x86_64 ]
+          [ "$REPOSITORY" = dakotamurphyucf/workgraph ]
+          [ "$(git -C source rev-parse HEAD)" = "$SOURCE_COMMIT" ]
+          test -z "$(git -C source status --porcelain)"
+          test ! -e "$OUTPUT"
+          mkdir -p "$OUTPUT/provenance/prior-build" "$OUTPUT/logs" scratch
+          gh api "repos/$REPOSITORY/actions/runs/$PRIOR_RUN" > "$OUTPUT/provenance/run.json"
+          gh api "repos/$REPOSITORY/actions/runs/$PRIOR_RUN/jobs?per_page=100" > "$OUTPUT/provenance/jobs.json"
+          gh api "repos/$REPOSITORY/actions/artifacts/$PRIOR_ARTIFACT" > "$OUTPUT/provenance/artifact.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ['OUTPUT']) / 'provenance'
+          run, jobs, artifact = [json.loads((out / name).read_text()) for name in ['run.json', 'jobs.json', 'artifact.json']]
+          assert run['id'] == int(os.environ['PRIOR_RUN'])
+          assert run['head_sha'] == os.environ['PRIOR_COMMIT']
+          assert run['path'] == '.github/workflows/almalinux.yml'
+          assert run['event'] == 'workflow_dispatch' and run['status'] == 'completed' and run['conclusion'] == 'failure'
+          assert jobs['total_count'] == len(jobs['jobs']) == 1
+          job = jobs['jobs'][0]
+          assert job['id'] == 113709597781 and job['name'] == 'package' and job['conclusion'] == 'failure'
+          steps = {step['name']: step for step in job['steps']}
+          for name in ['Build isolated AlmaLinux toolchain', 'Build, test and package']:
+              assert steps[name]['status'] == 'completed' and steps[name]['conclusion'] == 'success', name
+          assert steps['Verify packages in a fresh AlmaLinux runtime']['conclusion'] == 'failure'
+          assert artifact['id'] == int(os.environ['PRIOR_ARTIFACT']) and not artifact['expired']
+          assert artifact['name'] == 'workgraph-almalinux-10-x86_64'
+          assert artifact['workflow_run']['id'] == run['id'] and artifact['workflow_run']['head_sha'] == run['head_sha']
+          assert artifact['digest'] == 'sha256:' + os.environ['PRIOR_ZIP_SHA256']
+          PY
+          gh api "repos/$REPOSITORY/actions/artifacts/$PRIOR_ARTIFACT/zip" > "$OUTPUT/provenance/prior-artifact.zip"
+          python3 - <<'PY'
+          import hashlib, os, shutil, stat, zipfile
+          from pathlib import Path, PurePosixPath
+          out = Path(os.environ['OUTPUT']) / 'provenance'
+          archive = out / 'prior-artifact.zip'
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == os.environ['PRIOR_ZIP_SHA256']
+          seen = set()
+          with zipfile.ZipFile(archive) as bundle:
+              for member in bundle.infolist():
+                  name = member.filename.rstrip('/') if member.is_dir() else member.filename
+                  assert name and '\\' not in name and '\x00' not in name and not name.startswith('/')
+                  assert all(part not in {'', '.', '..'} for part in name.split('/'))
+                  assert name not in seen
+                  seen.add(name)
+                  mode = member.external_attr >> 16
+                  assert stat.S_IFMT(mode) in {0, stat.S_IFREG, stat.S_IFDIR}
+                  target = out / 'prior-build' / PurePosixPath(name)
+                  if member.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                  else:
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      with bundle.open(member) as src, target.open('xb') as dst:
+                          shutil.copyfileobj(src, dst)
+          PY
+      - name: Prove unchanged build inputs and recover validated executable
+        shell: bash
         run: |
-          mkdir -p dist/almalinux-10-x86_64
+          set -euo pipefail
+          python3 source/tools/package.py "$PWD/scratch/current-source" | tee "$OUTPUT/logs/source-package.json"
+          python3 - <<'PY'
+          import hashlib, json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path('source/packaging').resolve()))
+          from verify import decode, extract, read_archive, verify_pair
+          out = Path(os.environ['OUTPUT'])
+          prior = out / 'provenance/prior-build'
+          metadata = decode((prior / 'build-metadata.json').read_bytes())
+          assert metadata['schema'] == 1 and metadata['status'] == 'build-tests-passed-runtime-pending'
+          assert metadata['target'] == 'almalinux-10-x86_64' and metadata['version'] == '0.1.0'
+          assert metadata['build_checks'] == ['@fmt', '@runtest', '@install']
+          assert metadata['base_image'] == 'docker.io/library/almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6'
+          assert metadata['opam_repository_commit'] == 'e4cd7ede2d55a46570977c0ffaa7e96845190817'
+          for key, value in {'opam_version': '2.3.0', 'ocaml_version': '5.3.0', 'dune_version': '3.21.1', 'ocamlformat_version': '0.28.1'}.items():
+              assert metadata[key] == value
+          actual_artifacts = {p.relative_to(prior).as_posix() for directory in ['archives', 'rpm'] for p in (prior / directory).iterdir() if p.is_file()}
+          assert set(metadata['artifacts']) == actual_artifacts
+          for name, expected in metadata['artifacts'].items():
+              assert hashlib.sha256((prior / name).read_bytes()).hexdigest() == expected, name
+          old = read_archive(prior / 'archives/workgraph-0.1.0-source.tar.gz')
+          native = read_archive(prior / 'archives/workgraph-0.1.0-almalinux-10-x86_64.tar.gz')
+          report = verify_pair(old, native)
+          assert old.manifest['source_identity'] == metadata['source_identity'] == '0a4c31c0e2bee9a628ff5502033e1411b2c4a6a4ed437cf87dd99f07b498d4e6'
+          assert report['executable_sha256'] == os.environ['EXECUTABLE_SHA256']
+          assert decode((prior / 'runtime/tar/result.json').read_bytes())['status'] == 'passed'
+          assert (prior / 'runtime/tar/executable.sha256').read_text().split()[0] == report['executable_sha256']
+          for name in ['logs/build-test-install.log', 'logs/build-environment.txt', 'logs/opam-packages.txt', 'toolchain.export']:
+              assert (prior / name).is_file() and (prior / name).stat().st_size > 0
+          current = read_archive(Path('scratch/current-source/workgraph-0.1.0-source.tar.gz'))
+          assert current.manifest['source_identity'] == os.environ['SOURCE_IDENTITY']
+          assert set(old.files) == set(current.files)
+          assert old.modes == current.modes
+          differences = sorted(name for name in old.files if old.files[name] != current.files[name])
+          assert differences == ['docs/acceptance/package-readiness.md', 'packaging/almalinux/workgraph.spec'], differences
+          # The native bytes and dependency notices are recovered only after verify_pair.
+          destination = Path('scratch/reused-native')
+          destination.mkdir()
+          extract(native, destination)
+          guard = {
+              'schema': 1, 'status': 'passed', 'prior_run': int(os.environ['PRIOR_RUN']),
+              'prior_commit': os.environ['PRIOR_COMMIT'], 'source_commit': os.environ['SOURCE_COMMIT'],
+              'prior_source_identity': old.manifest['source_identity'], 'source_identity': current.manifest['source_identity'],
+              'executable_sha256': report['executable_sha256'], 'identical_filename_sets': True, 'identical_modes': True,
+              'unchanged_files': len(old.files) - len(differences),
+              'reviewed_differences': {name: {'prior_sha256': old.manifest['files'][name], 'current_sha256': current.manifest['files'][name]} for name in differences},
+              'checks_inherited_from_prior_build': metadata['build_checks'],
+          }
+          (out / 'provenance/reuse-guard.json').write_text(json.dumps(guard, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(guard, sort_keys=True))
+          PY
+          cp -r scratch/reused-native/workgraph-0.1.0-almalinux-10-x86_64/THIRD_PARTY_NOTICES "$OUTPUT/notices"
+          python3 source/tools/package.py "$OUTPUT/archives" \
+            --binary "$PWD/scratch/reused-native/workgraph-0.1.0-almalinux-10-x86_64/bin/workgraph" \
+            --notices "$OUTPUT/notices" --platform almalinux-10-x86_64 \
+            | tee "$OUTPUT/logs/native-package.json"
+          python3 source/packaging/verify.py \
+            "$OUTPUT/archives/workgraph-0.1.0-almalinux-10-x86_64.tar.gz" \
+            "$OUTPUT/archives/workgraph-0.1.0-source.tar.gz" \
+            | tee "$OUTPUT/logs/repackaged-verification.json"
+      - name: Build current RPM in pinned AlmaLinux as the host user
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > scratch/Containerfile.rpm <<'CONTAINER'
+          FROM almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6
+          ARG BUILDER_UID
+          ARG BUILDER_GID
+          RUN dnf -y install rpm-build redhat-rpm-config tar gzip python3 findutils diffutils file shadow-utils util-linux \
+              && dnf clean all \
+              && groupadd -g "$BUILDER_GID" workgraph \
+              && useradd -m -u "$BUILDER_UID" -g workgraph workgraph
+          USER workgraph
+          WORKDIR /home/workgraph
+          CONTAINER
+          cat > scratch/build-rpm.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test "$(id -u)" -ne 0
+          [ "$(uname -m)" = x86_64 ]
+          {
+            cat /etc/os-release
+            uname -a
+            id
+            rpm --version
+          } > /out/logs/rpm-build-environment.txt
+          rpm -qa --queryformat '%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' | sort > /out/logs/rpm-build-rpms.txt
+          build_directory=$(mktemp -d /home/workgraph/rpmbuild.XXXXXXXX)
+          mkdir -p "$build_directory"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+          cp /out/archives/workgraph-0.1.0-almalinux-10-x86_64.tar.gz "$build_directory/SOURCES/"
+          cp /source/packaging/almalinux/workgraph.spec "$build_directory/SPECS/workgraph.spec"
+          rpmbuild -bb --define "_topdir $build_directory" "$build_directory/SPECS/workgraph.spec" \
+            2>&1 | tee /out/logs/rpm-build.log
+          mkdir /out/rpm
+          cp "$build_directory/RPMS/x86_64/"*.rpm /out/rpm/
+          rpm -qp --requires /out/rpm/*.rpm > /out/logs/rpm-requires.txt
+          rpm -qpl /out/rpm/*.rpm > /out/logs/rpm-files.txt
+          (cd /out/rpm && sha256sum ./*.rpm > SHA256SUMS)
+          SH
+          docker build --platform linux/amd64 -f scratch/Containerfile.rpm \
+            --build-arg "BUILDER_UID=$(id -u)" --build-arg "BUILDER_GID=$(id -g)" \
+            -t workgraph-focused-rpm scratch 2>&1 | tee "$OUTPUT/logs/rpm-container-build.log"
           docker run --rm --platform linux/amd64 \
-            -v "$PWD:/source:ro" \
-            -v "$PWD/dist/almalinux-10-x86_64:/out" \
-            workgraph-alma-builder /usr/local/bin/workgraph-build /source /out
-      - name: Verify packages in a fresh AlmaLinux runtime
-        run: packaging/almalinux/qualify.sh "$PWD/dist/almalinux-10-x86_64"
+            -v "$PWD/source:/source:ro" -v "$OUTPUT:/out" \
+            -v "$PWD/scratch/build-rpm.sh:/build-rpm.sh:ro" \
+            workgraph-focused-rpm bash /build-rpm.sh
+      - name: Record inherited build provenance and fresh RPM evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          out = Path(os.environ['OUTPUT'])
+          prior = json.loads((out / 'provenance/prior-build/build-metadata.json').read_text())
+          guard = json.loads((out / 'provenance/reuse-guard.json').read_text())
+          package = json.loads((out / 'logs/native-package.json').read_text())
+          assert guard['status'] == 'passed' and package['source_identity'] == guard['source_identity'] == os.environ['SOURCE_IDENTITY']
+          artifacts = {p.relative_to(out).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                       for directory in ['archives', 'rpm'] for p in (out / directory).iterdir() if p.is_file()}
+          metadata = {**prior, 'status': 'build-tests-passed-runtime-pending',
+                      'source_identity': package['source_identity'], 'artifacts': artifacts,
+                      'executable_sha256': os.environ['EXECUTABLE_SHA256'],
+                      'build_provenance': {
+                          'mode': 'reused-executable-with-verified-unchanged-build-inputs',
+                          'compiler_and_build_checks': 'Inherited from the successful build step; not rerun in this workflow',
+                          'prior_run': int(os.environ['PRIOR_RUN']), 'prior_job': 113709597781,
+                          'prior_commit': os.environ['PRIOR_COMMIT'], 'source_commit': os.environ['SOURCE_COMMIT'],
+                          'prior_artifact': int(os.environ['PRIOR_ARTIFACT']), 'prior_artifact_zip_sha256': os.environ['PRIOR_ZIP_SHA256'],
+                          'prior_build_metadata': 'provenance/prior-build/build-metadata.json',
+                          'reuse_guard': 'provenance/reuse-guard.json',
+                          'reuse_guard_sha256': hashlib.sha256((out / 'provenance/reuse-guard.json').read_bytes()).hexdigest(),
+                          'fresh_checks': ['current-source/native-pair-verification', 'rpmbuild-%check'],
+                      }}
+          metadata['limits'] = prior['limits'] + ['Compiler and build checks inherited under exact source filename/hash/mode guard; current RPM and installed runtime checks are fresh']
+          (out / 'build-metadata.json').write_text(json.dumps(metadata, indent=2, sort_keys=True) + '\n')
+          PY
+      - name: Verify both packages in a fresh native AlmaLinux runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          source/packaging/almalinux/qualify.sh "$OUTPUT" 2>&1 | tee "$OUTPUT/logs/runtime-qualification.log"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
