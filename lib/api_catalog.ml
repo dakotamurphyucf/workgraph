@@ -95,6 +95,7 @@ let everyday =
     ; "inbox.wait"
     ; "inbox.ack"
     ; "request.create"
+    ; "request.ask"
     ; "request.get"
     ; "request.list"
     ; "request.resolve"
@@ -109,7 +110,7 @@ let everyday =
     ]
 ;;
 
-let purpose name original =
+let purpose name mode original =
   let specific =
     [ ( "ticket.metadata"
       , "Update a ticket's priority, assignee, labels, acceptance criteria or status." )
@@ -118,6 +119,7 @@ let purpose name original =
       , "Record completion evidence and finish an active attempt atomically." )
     ; "ticket.progress", "Append an attributed progress comment under current ownership."
     ; "ticket.context", "Read captured ticket context, ownership, links and handoff."
+    ; "ticket.resolve", "Resolve a human display key to its canonical ticket ID."
     ; ( "ticket.claim_next"
       , "Allocate eligible work and start an attempt under pool policy." )
     ; ( "ticket.ready"
@@ -150,7 +152,22 @@ let purpose name original =
     ; "inbox.ack", "Acknowledge only the selected delivered inbox entries."
     ; ( "request.create"
       , "Create an accountable request with explicit recipient and resolver." )
-    ; "request.resolve", "Resolve an accountable request as its designated resolver."
+    ; ( "request.ask"
+      , "Ask an accountable question and create its discussion and request atomically." )
+    ; ( "request.resolve"
+      , "Resolve an accountable request as its resolver, optionally attaching an answer."
+      )
+    ; ( "board.put"
+      , "Create a discussion board at revision 0 or update its guarded metadata." )
+    ; ( "thread.put"
+      , "Create a discussion thread at revision 0 or update its guarded metadata." )
+    ; "request.get", "Read one request with its request and current thread revisions."
+    ; ( "request.list"
+      , "List requests with recipient, ticket and resolver filters; reading acknowledges \
+         nothing." )
+    ; ( "search.query"
+      , "Search captured planning entities and content with bounded results." )
+    ; "activity.since", "Read bounded committed activity after a retained sequence."
     ; ( "allocation.pool_put"
       , "Create or update allocation limits with the pool's entity revision." )
     ; "workspace.overview", "Read a bounded captured workspace summary and open work."
@@ -172,6 +189,7 @@ let purpose name original =
         ; "Independent captured conversation"
         ; "Templates, allocation bounds"
         ; "Read or update scoped working facts"
+        ; "Acceptance policy and exact evidence"
         ; "Local registry, complete exports"
         ]
         ~f:(fun prefix -> String.is_prefix original ~prefix)
@@ -193,10 +211,10 @@ let purpose name original =
       | "archive" -> "Archive " ^ subject ^ " metadata while preserving retained history."
       | "search" -> "Search retained " ^ subject ^ " text with bounded results."
       | _ ->
-        String.capitalize (String.substr_replace_all action ~pattern:"_" ~with_:" ")
-        ^ " "
-        ^ subject
-        ^ " state; honor the explicit ownership and revision guards.")
+        let action = String.substr_replace_all action ~pattern:"_" ~with_:" " in
+        (match mode with
+         | Api_method.Mode.Read -> "Read " ^ subject ^ " " ^ action ^ " data."
+         | Write | Mutation -> String.capitalize action ^ " " ^ subject ^ " state."))
 ;;
 
 let discovery (Api_method.Packed.Pack method_) =
@@ -205,7 +223,7 @@ let discovery (Api_method.Packed.Pack method_) =
     (Api_method.with_discovery
        method_
        ~tier:(if Set.mem everyday name then Core else Advanced)
-       ~summary:(purpose name (Api_method.summary method_)))
+       ~summary:(purpose name (Api_method.mode method_) (Api_method.summary method_)))
 ;;
 
 let methods =

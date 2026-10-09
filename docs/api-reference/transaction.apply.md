@@ -945,14 +945,6 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "params_7e0d8171bf57f67996ec9a8828bc9ae56530c0ef48adc73aea6a5e7e6326a9b9": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/params_c124d264b961f1a9299bba91272892628444603a2a79aeb942f2366b23290a46"
-        }
-      ],
-      "description": "Raw command object preserving explicit references."
-    },
     "params_a3e034a47235f21ae8eb8020a6f2ab4c0cfd99ef1cfe92fe671f91701d30dc45": {
       "additionalProperties": false,
       "properties": {
@@ -1104,48 +1096,6 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "expected_lease_revision",
         "confirmation",
         "reason"
-      ],
-      "type": "object"
-    },
-    "params_c124d264b961f1a9299bba91272892628444603a2a79aeb942f2366b23290a46": {
-      "additionalProperties": false,
-      "properties": {
-        "expected_revision": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "request_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Resolved local identity; aliases are not accepted."
-                },
-                {
-                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                  "type": "string"
-                }
-              ]
-            },
-            {
-              "maxLength": 97,
-              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-              "type": "string"
-            }
-          ],
-          "description": "Literal entity ID or $alias resolved within transaction.apply."
-        }
-      },
-      "required": [
-        "request_id",
-        "expected_revision"
       ],
       "type": "object"
     },
@@ -5291,6 +5241,128 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                         "description": "Unique transaction creation alias."
                       },
                       "method": {
+                        "const": "request.ask",
+                        "type": "string"
+                      },
+                      "params": {
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "body": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 65536
+                                      }
+                                    ],
+                                    "description": "Nonblank UTF8 text."
+                                  },
+                                  "kind": {
+                                    "enum": [
+                                      "clarification",
+                                      "review",
+                                      "help",
+                                      "blocker_resolution",
+                                      "handoff"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "recipients": {
+                                    "$ref": "#/$defs/members_db491f2282668f8c11a0d42352c8086492976cfe2e48fe28cf0cf988915b3ae3"
+                                  },
+                                  "request_id": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Resolved local identity; aliases are not accepted."
+                                  },
+                                  "resolver_id": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Resolved local identity; aliases are not accepted."
+                                  },
+                                  "ticket_id": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Resolved local identity; aliases are not accepted."
+                                          },
+                                          {
+                                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "maxLength": 97,
+                                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  },
+                                  "title": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 512
+                                      }
+                                    ],
+                                    "description": "Nonblank UTF-8 title, at most 512 bytes."
+                                  }
+                                },
+                                "required": [
+                                  "request_id",
+                                  "title",
+                                  "body",
+                                  "recipients",
+                                  "resolver_id"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Raw command object preserving explicit references."
+                          }
+                        ],
+                        "description": "Atomically create a scoped thread, authored question and accountable request."
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "as": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Unique transaction creation alias."
+                      },
+                      "method": {
                         "const": "request.create",
                         "type": "string"
                       },
@@ -5616,7 +5688,60 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                       "params": {
                         "allOf": [
                           {
-                            "$ref": "#/$defs/params_7e0d8171bf57f67996ec9a8828bc9ae56530c0ef48adc73aea6a5e7e6326a9b9"
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "body": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 65536
+                                      }
+                                    ],
+                                    "description": "Nonblank UTF8 text."
+                                  },
+                                  "expected_revision": {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  },
+                                  "request_id": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Resolved local identity; aliases are not accepted."
+                                          },
+                                          {
+                                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "maxLength": 97,
+                                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  }
+                                },
+                                "required": [
+                                  "request_id",
+                                  "expected_revision"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Raw command object preserving explicit references."
                           }
                         ],
                         "description": "Validated request.resolve arguments; domain preparation validates live references and transitions."
@@ -5638,7 +5763,51 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                       "params": {
                         "allOf": [
                           {
-                            "$ref": "#/$defs/params_7e0d8171bf57f67996ec9a8828bc9ae56530c0ef48adc73aea6a5e7e6326a9b9"
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "expected_revision": {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  },
+                                  "request_id": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Resolved local identity; aliases are not accepted."
+                                          },
+                                          {
+                                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "maxLength": 97,
+                                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  }
+                                },
+                                "required": [
+                                  "request_id",
+                                  "expected_revision"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Raw command object preserving explicit references."
                           }
                         ],
                         "description": "Validated request.cancel arguments; domain preparation validates live references and transitions."
@@ -14175,10 +14344,21 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "properties": {
                               "released": {
                                 "type": "boolean"
+                              },
+                              "ticket_revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive entity revision."
                               }
                             },
                             "required": [
-                              "released"
+                              "released",
+                              "ticket_revision"
                             ],
                             "type": "object"
                           }
@@ -14206,10 +14386,21 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "properties": {
                               "completed": {
                                 "type": "boolean"
+                              },
+                              "ticket_revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive entity revision."
                               }
                             },
                             "required": [
-                              "completed"
+                              "completed",
+                              "ticket_revision"
                             ],
                             "type": "object"
                           }
@@ -15859,10 +16050,21 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                           },
                           "completed": {
                             "type": "boolean"
+                          },
+                          "ticket_revision": {
+                            "allOf": [
+                              {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              }
+                            ],
+                            "description": "Positive canonical decimal counter"
                           }
                         },
                         "required": [
-                          "completed"
+                          "completed",
+                          "ticket_revision"
                         ],
                         "type": "object"
                       },
@@ -16123,6 +16325,120 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                       },
                       "method": {
                         "const": "team.put",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "data": {
+                        "allOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "board_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Resolved local identity; aliases are not accepted."
+                              },
+                              "question": {
+                                "allOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "comment_id": {
+                                        "allOf": [
+                                          {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 96
+                                          }
+                                        ],
+                                        "description": "Resolved local identity; aliases are not accepted."
+                                      },
+                                      "revision": {
+                                        "allOf": [
+                                          {
+                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                            "type": "string",
+                                            "x-maximumDecimal": "4611686018427387903"
+                                          }
+                                        ],
+                                        "description": "Positive entity revision or activity serial."
+                                      }
+                                    },
+                                    "required": [
+                                      "comment_id",
+                                      "revision"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ],
+                                "description": "Exact public communication record; bounded views disclose omissions separately."
+                              },
+                              "request_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Resolved local identity; aliases are not accepted."
+                              },
+                              "request_revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive entity revision or activity serial."
+                              },
+                              "thread_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Resolved local identity; aliases are not accepted."
+                              },
+                              "thread_revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive entity revision or activity serial."
+                              }
+                            },
+                            "required": [
+                              "request_id",
+                              "request_revision",
+                              "board_id",
+                              "thread_id",
+                              "thread_revision",
+                              "question"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "description": "Exact public communication record; bounded views disclose omissions separately."
+                      },
+                      "method": {
+                        "const": "request.ask",
                         "type": "string"
                       }
                     },

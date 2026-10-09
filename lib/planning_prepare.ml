@@ -855,7 +855,8 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                  stage
                    with_evidence
                    (Communication
-                      (Request_resolve { id; expected_revision = request.revision }))
+                      (Request_resolve
+                         { id; expected_revision = request.revision; body = None }))
                    ~actor
                    ~run
                    ~timestamp
@@ -1195,6 +1196,144 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           | Communication_change change -> Event.Communication_changed change)
       , Communication.Message_prepared.result prepared
       , [] )
+    | Domain_command.Communication
+        (Request_ask { id; title; body; recipients; resolver; ticket; kind } as command)
+      ->
+      ignore (Communication.encode command |> unwrap_domain : string * Jsonaf.t);
+      let prefix = "ask-" ^ Json.hash (Communication_id.Request.to_string id) in
+      let board = Communication_id.Board.of_string (prefix ^ "-board") |> unwrap_domain in
+      let thread =
+        Communication_id.Thread.of_string (prefix ^ "-thread") |> unwrap_domain
+      in
+      let question = Id.Comment.of_string (prefix ^ "-question") |> unwrap_domain in
+      let scope, links =
+        match ticket with
+        | None -> Communication.Scope.Workspace, []
+        | Some id ->
+          let ticket = find_ticket t id in
+          ( Option.value_map
+              ticket.project
+              ~default:Communication.Scope.Workspace
+              ~f:(fun project -> Communication.Scope.Project project)
+          , [ Entity_ref.Ticket id ] )
+      in
+      let participants =
+        List.dedup_and_sort [ actor; resolver ] ~compare:Id.Actor.compare
+      in
+      let commands =
+        [ Domain_command.Communication
+            (Board_put { id = board; expected_revision = 0; scope; title })
+        ; Communication
+            (Thread_put
+               { id = thread
+               ; expected_revision = 0
+               ; board
+               ; title
+               ; participants
+               ; mentions = []
+               ; links
+               ; state = Awaiting_response
+               ; pinned = false
+               })
+        ; Thread_reply
+            { id = thread
+            ; expected_revision = 1
+            ; comment_id = Some question
+            ; reply_to = None
+            ; kind = Discussion.Kind.Comment
+            ; body
+            }
+        ; Communication
+            (Request_create
+               { id
+               ; thread
+               ; kind
+               ; message = question
+               ; recipients
+               ; teams = []
+               ; resolver
+               ; correlation_id = None
+               ; reply_to = None
+               ; deadline_unix_ms = None
+               })
+        ]
+      in
+      let _, reversed =
+        List.fold commands ~init:(t, []) ~f:(fun (state, events) command ->
+          let state, changes, _, _ =
+            stage state command ~actor ~run ~timestamp ~now_unix_ms
+          in
+          state, List.rev_append changes events)
+      in
+      ( List.rev reversed
+      , Json.obj
+          [ "request_id", Communication_id.Request.jsonaf_of_t id
+          ; "request_revision", Json.int 1
+          ; "board_id", Communication_id.Board.jsonaf_of_t board
+          ; "thread_id", Communication_id.Thread.jsonaf_of_t thread
+          ; "thread_revision", Json.int 2
+          ; ( "question"
+            , Json.obj
+                [ "comment_id", Id.Comment.jsonaf_of_t question; "revision", Json.int 1 ]
+            )
+          ]
+      , [] )
+    | Domain_command.Communication
+        (Request_resolve { id; expected_revision; body = Some body } as command) ->
+      ignore (Communication.encode command |> unwrap_domain : string * Jsonaf.t);
+      (* Validate resolver policy and the request revision before authoring an answer.
+         The answer thread revision comes from this same immutable capture. *)
+      let _resolution =
+        Communication.prepare
+          t.communication
+          (Request_resolve { id; expected_revision; body = None })
+          ~actor
+          ~run
+          ~timestamp
+          ~sequence:(t.revision + 1)
+        |> unwrap_domain
+      in
+      let request = Communication.get_request t.communication id |> Option.value_exn in
+      let thread =
+        Communication.get_thread t.communication request.thread |> Option.value_exn
+      in
+      let answer =
+        Id.Comment.of_string
+          ("answer-"
+           ^ Json.hash
+               (Json.canonical
+                  (Json.obj
+                     [ "request_id", Communication_id.Request.jsonaf_of_t id
+                     ; "request_revision", Json.int expected_revision
+                     ])))
+        |> unwrap_domain
+      in
+      let answered, answer_events, _, _ =
+        stage
+          t
+          (Thread_reply
+             { id = request.thread
+             ; expected_revision = thread.revision
+             ; comment_id = Some answer
+             ; reply_to = Some request.message
+             ; kind = Discussion.Kind.Comment
+             ; body
+             })
+          ~actor
+          ~run
+          ~timestamp
+          ~now_unix_ms
+      in
+      let _, resolution_events, result, _ =
+        stage
+          answered
+          (Communication (Request_resolve { id; expected_revision; body = None }))
+          ~actor
+          ~run
+          ~timestamp
+          ~now_unix_ms
+      in
+      answer_events @ resolution_events, result, []
     | Domain_command.Communication command ->
       let prepared =
         match
@@ -1710,7 +1849,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           List.map (Agent_run.changes p) ~f:(fun c -> Event.Agent_run_changed c))
       in
       ( finished @ [ update { ticket with claim = None; status = Todo; status_id = None } ]
-      , Json.obj [ "released", `True ]
+      , Json.obj [ "released", `True; "ticket_revision", Json.int (ticket.revision + 1) ]
       , [] )
     | Ticket_complete { id; token; evidence } ->
       let ticket = find_ticket t id in
@@ -1751,7 +1890,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         @ [ update { ticket with claim = None; status = Done; status_id = None }
           ; comment ~origin:Completion id Evidence evidence
           ]
-      , Json.obj [ "completed", `True ]
+      , Json.obj [ "completed", `True; "ticket_revision", Json.int (ticket.revision + 1) ]
       , [] )
     | Comment_add { id; target; reply_to; kind; body } ->
       let change, id = create_comment ~id ~target ~reply_to ~kind body in

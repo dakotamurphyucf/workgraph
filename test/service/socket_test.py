@@ -59,7 +59,7 @@ class SocketTest(unittest.TestCase):
                         flow = socket.socket(socket.AF_UNIX)
                         flow.settimeout(5)
                         flow.connect(str(address))
-                        payload = json.dumps({'jsonrpc': '2.0', 'workgraph_api': '0.3', 'id': 'wait', 'method': 'changes.wait',
+                        payload = json.dumps({'jsonrpc': '2.0', 'workgraph_api': '0.4', 'id': 'wait', 'method': 'changes.wait',
                                               'params': {**scope, 'cursor': cursor, 'timeout_ms': '25000'}}).encode()
                         flow.sendall(struct.pack('>I', len(payload)) + payload)
                         return flow

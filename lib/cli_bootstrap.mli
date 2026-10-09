@@ -1,5 +1,9 @@
 open Core
 
+(** Offline usage for [init] and its [bootstrap] spelling. Reading this value
+    neither inspects context files nor starts processes or performs I/O. *)
+val help : string
+
 (** Validated explicit setup plan. No network, file creation or process startup
     occurs during construction. Paths are absolute and identities are validated;
     an existing context must match the chosen defaults before execution. *)

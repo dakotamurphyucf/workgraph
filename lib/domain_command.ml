@@ -305,7 +305,7 @@ let decode ~method_ ~params =
               | "subscription.put"
                 when Json.integer (Json.field params "expected_revision") = 0 ->
                 "subscription", "subscription_id"
-              | "request.create" -> "request", "request_id"
+              | "request.create" | "request.ask" -> "request", "request_id"
               | "run.register" -> "run", "target_run_id"
               | "attempt.start" -> "attempt", "attempt_id"
               | "contract.put"

@@ -19,6 +19,20 @@ def call(directory, *arguments, expected=0):
 
 
 with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
+    for helper in ["init", "bootstrap"]:
+        local_help = call(directory, helper, "--help").stdout
+        assert "[local helper]" in local_help and "--start-daemon true" in local_help
+        assert local_help == call(directory, "help", helper).stdout
+        assert local_help == call(directory, "--context", str(Path(directory) / "missing-context"), helper, "--help").stdout
+        assert local_help == call(directory, "--context", str(Path(directory) / "missing-context"), "help", helper).stdout
+    incomplete = call(directory, "request", expected=1)
+    assert "request ABS_SOCKET METHOD" in incomplete.stderr
+    incomplete_socket = call(directory, "request", str(Path(directory) / "missing-socket"), expected=1)
+    assert "request ABS_SOCKET METHOD" in incomplete_socket.stderr
+    ambiguous = call(directory, "request", "relative-socket", "request.list", expected=1)
+    assert "request ABS_SOCKET METHOD" in ambiguous.stderr
+    no_transport = call(directory, "request", "get", expected=1)
+    assert "--context ABS_FILE" in no_transport.stderr
     catalog = json.loads(call(directory, "schema").stdout)
     assert catalog["schema_dialect"] == "https://json-schema.org/draft/2020-12/schema"
     names = [method["name"] for method in catalog["methods"]]
@@ -51,6 +65,8 @@ with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
         assert ("Example params:" in brief or "Example skeleton (replace placeholders;" in brief)
         assert "Result envelope: {data, meta}" in brief
 
+    assert call(directory, "help", "ticket.get").stdout == call(directory, "help", "ticket.context").stdout
+    assert json.loads(call(directory, "schema", "ticket.get").stdout)["methods"][0]["name"] == "ticket.context"
     unknown = call(directory, "schema", "does.not.exist", expected=1)
     assert "Not_found" in unknown.stderr
     call(directory, "schema", "ticket.start", "unexpected", expected=1)

@@ -1,5 +1,84 @@
 open Core
 
+let server_request_id = function
+  | `Object fields ->
+    (match
+       List.filter_map fields ~f:(fun (key, value) ->
+         Option.some_if (String.equal key "id") value)
+     with
+     | [ (`String id as value) ] when String.length id > 0 && String.length id <= 256 ->
+       Some value
+     | [ (`Number number as value) ] when String.length number <= 256 ->
+       Option.bind (Float.of_string_opt number) ~f:(fun number ->
+         Option.some_if (Float.is_finite number) value)
+     | [ `Null ] -> Some `Null
+     | [] | _ :: _ -> None)
+  | _ -> None
+;;
+
+type error_code =
+  | Invalid_envelope
+  | Application_failure
+
+let error_response_json ~id ~code (problem : Problem.t) =
+  let text value ~max_bytes =
+    if String.length value <= max_bytes
+    then value
+    else Query_budget.prefix value ~max_bytes:(max_bytes - 3) ^ "..."
+  in
+  let short value = text value ~max_bytes:256 in
+  let message value = text value ~max_bytes:2048 in
+  let details =
+    Option.map problem.details ~f:(function
+      | Problem.Details.Field { path; expected; suggestion } ->
+        Problem.Details.Field
+          { path = List.map (List.take path 32) ~f:(fun p -> text p ~max_bytes:128)
+          ; expected = message expected
+          ; suggestion = Option.map suggestion ~f:short
+          }
+      | Revision _ as details -> details
+      | Ownership _ as details -> details
+      | Readiness { ticket_id; blockers } ->
+        Readiness { ticket_id; blockers = List.map (List.take blockers 16) ~f:short }
+      | Version { representation; observed; supported } ->
+        Version
+          { representation = short representation
+          ; observed = Option.map observed ~f:short
+          ; supported = short supported
+          }
+      | Capacity { meter; used; limit; attempted; unit; operator_action } ->
+        Capacity
+          { meter = short meter
+          ; used
+          ; limit
+          ; attempted
+          ; unit = text unit ~max_bytes:128
+          ; operator_action = message operator_action
+          })
+  in
+  let problem = { problem with message = message problem.message; details } in
+  let encode problem =
+    Json.obj
+      [ "jsonrpc", Json.string "2.0"
+      ; "id", id
+      ; ( "error"
+        , Json.obj
+            [ ( "code"
+              , `Number
+                  (match code with
+                   | Invalid_envelope -> "-32600"
+                   | Application_failure -> "-32000") )
+            ; "message", Json.string problem.Problem.message
+            ; "data", Problem.to_json problem
+            ] )
+      ]
+  in
+  let response = encode problem in
+  if String.length (Json.canonical response) <= 65536
+  then response
+  else encode { problem with details = None }
+;;
+
 let validate_server_request json =
   Json.decode (fun () ->
     (match Current_format.validate Application_api json with
@@ -8,10 +87,8 @@ let validate_server_request json =
     Json.fields json ~allowed:[ "jsonrpc"; "workgraph_api"; "id"; "method"; "params" ];
     if not (String.equal (Json.text (Json.field json "jsonrpc")) "2.0")
     then Json.fail Unsupported_version "JSON-RPC 2.0 required";
-    (match Json.field json "id" with
-     | `String id when String.length id > 0 && String.length id <= 256 -> ()
-     | `Number _ | `Null -> ()
-     | _ -> Json.fail Invalid_argument "invalid request ID");
+    if Option.is_none (server_request_id json)
+    then Json.fail Invalid_argument "invalid request ID";
     let method_ = Json.text (Json.field json "method") in
     if String.is_empty method_ || String.length method_ > 128
     then Json.fail Invalid_argument "method requires 1..128 bytes";
@@ -98,10 +175,15 @@ let decode_response request json =
     Json.fields json ~allowed:[ "jsonrpc"; "id"; "result"; "error" ];
     if not (String.equal (Json.text (Json.field json "jsonrpc")) "2.0")
     then Json.fail Unsupported_version "response protocol version differs";
-    if not (String.equal (Json.text (Json.field json "id")) request.Request.id)
-    then Json.fail Invalid_argument "response request ID differs";
+    let null_id =
+      match Json.field json "id" with
+      | `String id when String.equal id request.Request.id -> false
+      | `Null -> true
+      | _ -> Json.fail Invalid_argument "response request ID differs"
+    in
     match Json.optional json "result", Json.optional json "error" with
     | Some result, None ->
+      if null_id then Json.fail Invalid_argument "response request ID differs";
       if String.equal request.Request.method_ "initialize"
       then (
         match Current_format.validate Application_api (Json.field result "data") with
@@ -118,11 +200,17 @@ let decode_response request json =
         | `Number "-32600" -> true
         | _ -> Json.fail Unsupported_version "unsupported application error code"
       in
-      let data = Json.field error "data" in
+      if null_id && not invalid_envelope
+      then Json.fail Invalid_argument "response request ID differs";
+      let message = Json.bounded_text (Json.field error "message") ~max_bytes:4194304 in
       let problem =
-        match Problem_wire.of_json data with
-        | Ok problem -> problem
-        | Error error -> raise (Json.Decode_error error)
+        match Json.optional error "data" with
+        | Some data ->
+          (match Problem_wire.of_json data with
+           | Ok problem -> problem
+           | Error error -> raise (Json.Decode_error error))
+        | None when invalid_envelope -> Problem.create Invalid_argument message
+        | None -> Json.fail Invalid_argument "application error requires data"
       in
       let kind = problem.Problem.kind in
       if
@@ -133,8 +221,7 @@ let decode_response request json =
                 kind
                 ~equal:Problem.equal_kind)
       then Json.fail Invalid_argument "error code and kind disagree";
-      let message = Json.text (Json.field data "message") in
-      if not (String.equal message (Json.text (Json.field error "message")))
+      if not (String.equal problem.message message)
       then Json.fail Invalid_argument "error messages differ";
       Failure problem
     | Some _, Some _ | None, None ->
@@ -142,18 +229,18 @@ let decode_response request json =
 ;;
 
 let response_json request response =
-  Json.obj
-    ([ "jsonrpc", Json.string "2.0"; "id", Json.string request.Request.id ]
-     @ [ (match response with
-          | Success value -> "result", value
-          | Failure error ->
-            ( "error"
-            , Json.obj
-                [ "code", `Number "-32000"
-                ; "message", Json.string error.message
-                ; "data", Problem.to_json error
-                ] ))
-       ])
+  match response with
+  | Success value ->
+    Json.obj
+      [ "jsonrpc", Json.string "2.0"
+      ; "id", Json.string request.Request.id
+      ; "result", value
+      ]
+  | Failure error ->
+    error_response_json
+      ~id:(Json.string request.Request.id)
+      ~code:Application_failure
+      error
 ;;
 
 let result = function

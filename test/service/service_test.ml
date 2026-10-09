@@ -14,6 +14,129 @@ let request method_ params =
     ]
 ;;
 
+let%expect_test
+    "postdispatch reply failure stays unknown and tolerates closed diagnostics"
+  =
+  Eio_main.run (fun env ->
+    let fs = Eio.Stdenv.fs env in
+    let nonce = Cstruct.create 16 in
+    Eio.Flow.read_exact (Eio.Stdenv.secure_random env) nonce;
+    let root = "/tmp/workgraph-reply-" ^ Json.hash (Cstruct.to_string nonce) in
+    Disk.ensure_directory Eio.Path.(fs / root);
+    Exn.protect
+      ~finally:(fun () -> Eio.Path.rmtree Eio.Path.(fs / root))
+      ~f:(fun () ->
+        Eio.Time.with_timeout_exn (Eio.Stdenv.clock env) 10. (fun () ->
+          Eio.Switch.run (fun sw ->
+            let reader, stderr = Eio_unix.pipe sw in
+            Eio.Resource.close reader;
+            let quiet_env : Eio_unix.Stdenv.base =
+              object
+                method stdin = env#stdin
+                method stdout = env#stdout
+                method stderr = (stderr :> Eio_unix.sink_ty Eio.Resource.t)
+                method net = env#net
+                method domain_mgr = env#domain_mgr
+                method process_mgr = env#process_mgr
+                method clock = env#clock
+                method mono_clock = env#mono_clock
+                method fs = env#fs
+                method cwd = env#cwd
+                method secure_random = env#secure_random
+                method debug = env#debug
+                method backend_id = env#backend_id
+              end
+            in
+            let incoming = Eio.Stream.create 8 in
+            let finished =
+              Eio.Fiber.fork_promise ~sw (fun () ->
+                Service.serve
+                  ~env:quiet_env
+                  ~registry:(root ^ "/registry")
+                  ~listener:(listener incoming))
+            in
+            let call json =
+              let flow = connect incoming in
+              Exn.protect
+                ~finally:(fun () -> Eio.Resource.close flow)
+                ~f:(fun () ->
+                  Framing.write flow json;
+                  Framing.read flow)
+            in
+            ignore
+              (call
+                 (request
+                    "workspace.create"
+                    [ "workspace_id", Json.string "reply"
+                    ; "actor_id", Json.string "agent"
+                    ; "mutation_id", Json.string "workspace"
+                    ; "name", Json.string "Reply"
+                    ; "root", Json.string (root ^ "/workspace")
+                    ])
+               : Jsonaf.t);
+            let mutation =
+              request
+                "ticket.create"
+                [ "workspace_id", Json.string "reply"
+                ; "actor_id", Json.string "agent"
+                ; "mutation_id", Json.string "create-ticket"
+                ; "ticket_id", Json.string "task"
+                ; "title", Json.string "Task"
+                ]
+            in
+            let first = ref true in
+            let client, server =
+              Flow.pair
+                ~before_server_write:(fun () ->
+                  if !first
+                  then (
+                    first := false;
+                    Json.fail Invalid_argument "injected reply failure"))
+                ()
+            in
+            Eio.Stream.add incoming server;
+            Framing.write client mutation;
+            (match Framing.read client with
+             | exception End_of_file -> print_endline "lost reply carries no rejection"
+             | _ -> failwith "postdispatch failure became an envelope rejection");
+            Eio.Resource.close client;
+            let recovered = call mutation in
+            let result = Json.field recovered "result" |> Api_response.of_json |> ok in
+            Api_response.require_durable result |> ok;
+            printf
+              "identical retry recovers committed revision %s\n"
+              (Json.field (Api_response.meta result) "workspace_revision" |> Json.text);
+            ignore (call (request "daemon.shutdown" []) : Jsonaf.t);
+            Eio.Promise.await_exn finished;
+            print_endline "closed diagnostic pipe leaves service healthy"))));
+  [%expect
+    {|
+    lost reply carries no rejection
+    identical retry recovers committed revision 1
+    closed diagnostic pipe leaves service healthy |}]
+;;
+
+let%expect_test "diagnostic output preserves cancellation and unexpected exceptions" =
+  Eio_main.run (fun _ ->
+    let test exn =
+      let _, sink = Flow.pair ~before_server_write:(fun () -> raise exn) () in
+      match Platform.write_diagnostic sink "diagnostic" with
+      | () -> print_endline "suppressed"
+      | exception Exit -> print_endline "unexpected propagated"
+      | exception Eio.Cancel.Cancelled Exit -> print_endline "cancellation propagated"
+    in
+    test Platform.Broken_pipe;
+    test (Json.Decode_error (Problem.create Local_io "closed output"));
+    test Exit;
+    test (Eio.Cancel.Cancelled Exit));
+  [%expect
+    {|
+    suppressed
+    suppressed
+    unexpected propagated
+    cancellation propagated |}]
+;;
+
 let%expect_test "service history workers, feeds, restart and shutdown over memory flows" =
   Eio_main.run (fun env ->
     let fs = Eio.Stdenv.fs env in

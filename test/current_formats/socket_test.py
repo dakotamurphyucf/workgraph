@@ -65,7 +65,7 @@ class CurrentFormats(unittest.TestCase):
                         return receive(flow)
 
                 def call(method, params):
-                    return raw({"jsonrpc":"2.0", "workgraph_api":"0.3", "id":"test", "method":method, "params":params})
+                    return raw({"jsonrpc":"2.0", "workgraph_api":"0.4", "id":"test", "method":method, "params":params})
 
                 def write(method, mutation, **params):
                     return call(method, {"actor_id":"test", "mutation_id":mutation, **params})
@@ -84,8 +84,8 @@ class CurrentFormats(unittest.TestCase):
                         unsupported(raw(request), "application API")
                     self.assertEqual(before_registry, snapshot(root / "registry"))
                     current = call("initialize", {})["result"]["data"]
-                    self.assertEqual("0.3", current["workgraph_api"])
-                    self.assertEqual("2", current["registry_format_version"])
+                    self.assertEqual("0.4", current["workgraph_api"])
+                    self.assertEqual("3", current["registry_format_version"])
                     malformed = call("initialize", {"unknown":True})
                     self.assertEqual("Invalid_argument", malformed["error"]["data"]["kind"])
                     old = root / "old-workspace"
@@ -109,7 +109,7 @@ class CurrentFormats(unittest.TestCase):
                     self.assertEqual(registry_before, snapshot(root / "registry"))
                     created = write("workspace.create", "create", workspace_id="w", name="Current", root=str(root / "workspace"))
                     self.assertIn("result", created, created)
-                    self.assertEqual("2", json.loads((root / "workspace/workspace.json").read_text())["version"])
+                    self.assertEqual("3", json.loads((root / "workspace/workspace.json").read_text())["version"])
                     saved_current = root / "current-request.json"
                     command = [str(EXE), "ticket", "create", str(address),
                                "--workspace-id", "w", "--actor-id", "test",
@@ -118,7 +118,7 @@ class CurrentFormats(unittest.TestCase):
                     result = subprocess.run(command, capture_output=True, text=True, timeout=10)
                     self.assertEqual(0, result.returncode, result.stderr + result.stdout)
                     original_result = json.loads(result.stdout)
-                    self.assertEqual("0.3", json.loads(saved_current.read_text())["workgraph_api"])
+                    self.assertEqual("0.4", json.loads(saved_current.read_text())["workgraph_api"])
                     self.assertIn("result", write("ticket.create", "later", workspace_id="w", ticket_id="later", title="Later"))
                     self.assertIn("result", call("daemon.shutdown", {}))
                     daemon.wait(timeout=10)
@@ -177,7 +177,7 @@ class CurrentFormats(unittest.TestCase):
                 result = subprocess.run([str(EXE), "call", str(root / "peer"), "initialize", "{}"], capture_output=True, text=True, timeout=10)
                 worker.join(timeout=5)
                 self.assertFalse(worker.is_alive())
-                self.assertEqual("0.3", observed[0]["workgraph_api"])
+                self.assertEqual("0.4", observed[0]["workgraph_api"])
                 self.assertNotEqual(0, result.returncode)
                 self.assertEqual("Unsupported_version", json.loads(result.stderr)["kind"])
 

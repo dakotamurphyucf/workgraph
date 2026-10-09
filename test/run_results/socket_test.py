@@ -83,6 +83,7 @@ class RunResultsSocketTest(unittest.TestCase):
                     finish_params = {"ticket_id": "task", "run_id": "run", "token": started["data"]["token"], "evidence": "Checked"}
                     finished = write("ticket.finish", "finish", **finish_params)
                     self.assertEqual({"attempt_id": "attempt", "revision": "2", "state": "completed"}, finished["data"]["attempt"])
+                    self.assertEqual(ok("ticket.context", ticket_id="task")["data"]["ticket"]["revision"], finished["data"]["ticket_revision"])
                     write("ticket.create", "later", ticket_id="later", title="Later")
                     later = write("ticket.claim_next", "allocate", run_id="run", target_run_id="run", attempt_id="allocated")
                     self.assertEqual("later", later["data"]["claim"]["ticket_id"])
@@ -91,7 +92,7 @@ class RunResultsSocketTest(unittest.TestCase):
                                               expected_revision=later["data"]["attempt"]["revision"], state="completed", evidence="Checked")
                     self.assertEqual({"attempt_id": "allocated", "revision": "2", "state": "completed"}, explicit_finished["data"])
                     without = write("ticket.finish", "later-finish", run_id="run", ticket_id="later", token=later["data"]["claim"]["token"], evidence="Checked")
-                    self.assertEqual({"completed": True}, without["data"])
+                    self.assertEqual({"completed": True, "ticket_revision": ok("ticket.context", ticket_id="later")["data"]["ticket"]["revision"]}, without["data"])
                     stop()
                     start()
                     self.assertEqual(registered, write("run.register", "second", target_run_id="run", objective="Second run"))

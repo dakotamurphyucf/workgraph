@@ -13,7 +13,8 @@ end
 
 (** Create a fresh private directory at the absolute path and sync the command
     record before launching. Existing directories reject, even if unfinished;
-    running this operation again must never rerun a saved command. The parent
+    running this operation again must never rerun a saved command. Existing stages
+    report their path and explain that a fresh stage is needed for a new execution. The parent
     directory must exist. Bad paths/existing destinations are Invalid_argument;
     other expected local I/O failures are Local_io. Cancellation kills the directly owned child, stages an
     interrupted outcome with observed output, then propagates. Descendant process

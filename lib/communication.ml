@@ -928,7 +928,9 @@ let command_update t command attribution =
     expected old.revision expected_revision;
     Update.Request_put
       { request = reassign old attribution recipient; kind = Request_reassigned }
-  | Request_resolve { id; expected_revision } ->
+  | Request_ask _ | Request_resolve { body = Some _; _ } ->
+    Json.fail Invalid_argument "discussion composition requires planning preparation"
+  | Request_resolve { id; expected_revision; body = None } ->
     let old = find t.requests id in
     expected old.revision expected_revision;
     Update.Request_put { request = resolve old attribution; kind = Request_resolved }
@@ -1501,7 +1503,15 @@ let query t ~discussion ~method_ ~params =
             (Communication_id.Request.of_string (Communication_related.Query.id query)
              |> Disk.unwrap)
         in
-        let record = Communication_wire.request_json request in
+        let record =
+          match Communication_wire.request_json request with
+          | `Object fields ->
+            Json.obj
+              (fields
+               @ [ "thread_revision", Json.int (find t.threads request.thread).revision ]
+              )
+          | _ -> assert false
+        in
         let record =
           if Communication_related.Query.include_messages query
           then (
@@ -1525,6 +1535,8 @@ let query t ~discussion ~method_ ~params =
         ignore (find t.requests id : Request.t);
         page (List.map (request_history t id) ~f:Communication_wire.request_json)
       | "request.list" ->
+        let ticket = optional params "ticket_id" Id.Ticket.t_of_jsonaf in
+        let resolver = optional params "resolver_id" Id.Actor.t_of_jsonaf in
         let thread = optional params "thread_id" Communication_id.Thread.t_of_jsonaf in
         let kind = optional params "kind" Request.Kind.t_of_jsonaf in
         let open_only =
@@ -1538,6 +1550,12 @@ let query t ~discussion ~method_ ~params =
         Map.data t.requests
         |> List.filter ~f:(fun request ->
           scope_matches (scope t (find t.threads request.thread))
+          && Option.value_map ticket ~default:true ~f:(fun ticket ->
+            List.mem
+              (find t.threads request.thread).links
+              (Entity_ref.Ticket ticket)
+              ~equal:Entity_ref.equal)
+          && Option.value_map resolver ~default:true ~f:(Id.Actor.equal request.resolver)
           && Option.value_map
                thread
                ~default:true

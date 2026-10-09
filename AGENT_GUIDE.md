@@ -6,6 +6,9 @@ reference before constructing an unfamiliar request. Reference paths below are r
 to the folder containing this file. Packages include both reference directories; keep
 the accompanying `docs/` and `examples/` trees together so their links remain usable.
 
+The current guide targets v0.4.0 preview and application API `0.4`. Use fresh
+registry/workspace data and request journals when switching from an earlier preview.
+
 ```xml
 <workgraph_agent_guide schema="current-preview">
 <purpose><![CDATA[
@@ -33,7 +36,10 @@ request directory journals new durable writes automatically. REQUESTS is optiona
 saving writes before sending makes uncertain outcomes recoverable. It must exist when
 --save-request is used. Read docs/agent/cli-contract.md for setup/context options.
 With context, --self explicitly selects the supported actor/run read or target scope;
-ordinary reads remain unfiltered. Explicit selectors win. The CLI reference lists the
+ordinary reads remain unfiltered. With context, request get/list/... selects request-domain methods; generic request
+SOCKET METHOD and dotted methods remain available. ticket.get is a CLI spelling for
+ticket.context, saved canonically before transmission. init --help, help init and
+bootstrap equivalents work offline. Explicit selectors win. The CLI reference lists the
 small supported allowlist; unsupported self combinations reject. It never acknowledges
 an inbox merely by reading it.
 
@@ -105,7 +111,11 @@ byte chunks, and preserve version pins when correctness depends on specific cont
 ]]></capability>
   <capability name="communication" reference="docs/agent/communication-evidence.md"><![CDATA[
 Use boards/threads for persistent discussion, teams for recipient groups, and requests
-for accountable clarification, review, help, blockers or handoffs. message.send sends
+for accountable clarification, review, help, blockers or handoffs. request.ask creates
+the question, scoped discussion and accountable request atomically; request.resolve
+with body attaches an answer and resolves as the designated resolver in one commit.
+Filter request.list by ticket_id or resolver_id; request.get returns the current
+thread_revision separately from the request revision. message.send sends
 direct durable messages without a board/thread. inbox.read/wait returns bounded bodies
 and source references; subscriptions route notifications. Acknowledge selected inbox
 IDs after processing. Formal request delivery, responsibility and resolution have
@@ -169,12 +179,20 @@ ticket.finish with ticket_id, that token, nonblank evidence and a fresh saved re
 All writes use the same actor and, if supplied, run_id. Read planning.md for those fields.
 To create an attempt atomically, register your run, add --run-id RUN and --attempt-id
 ATTEMPT to start, then retain result.data.attempt {attempt_id,revision,state:"running"}.
-Finish returns the completed attempt's new revision when an active attempt is completed.
+Finish and release return ticket_revision for the affected ticket; finish also returns
+the completed attempt's new revision when an active attempt is completed. A blocked
+finish carries typed readiness blockers, just like start. Tokens are visible sequential
+stale-writer fences, not credentials; never use another owner's token.
 claim_next returns selected claim/token/attempt together, or an explained durable empty
 result. Never fetch a different token after an uncertain start: retry its saved request.
 On reset, ticket.resume recovers recorded context; fact.keys discovers saved knowledge.
 Resume loads fact values only for explicit fact_selections; discover exact scope keys first.
-If a write's outcome is uncertain, retry its file instead of repeating the create/start.
+A malformed, mismatched or lost acknowledgement after sending a write is uncertain.
+Keep exact saved bytes and retry the same identity; never infer nonexecution from an
+unreadable error or an old peer. A strict pre-dispatch rejection is distinct from this
+uncertainty. If startup refuses an occupied socket, stop all possible owners and launchers
+before manually removing a proven abandoned socket; connection refusal alone proves no
+ownership. Choose a fresh private socket path when ownership is uncertain.
 ]]></ordinary_workflow>
 
 <operating_loop><![CDATA[
@@ -217,7 +235,7 @@ historical snapshot. Resource manifest pins use content-version revision/digest 
 than resource metadata revision. target_run_id selects a run; run_id is attribution.
 Unknown/duplicate fields reject. Omission and null differ. Use each method's exact
 schema for enums and tagged objects; do not copy derived OCaml or stored-event shapes.
-Raw socket and saved request envelopes require workgraph_api:"0.3" alongside
+Raw socket and saved request envelopes require workgraph_api:"0.4" alongside
 jsonrpc:"2.0". The CLI supplies this marker; initialize reports the same application API.
 Package version, application API and persisted-format identities are separate.
 The generated offline contract for METHOD is docs/api-reference/METHOD.md; its index

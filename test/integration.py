@@ -27,7 +27,7 @@ STORE_EXE = Path(sys.argv.pop(1)).resolve()
 def request(address, method, params, request_id="test"):
     if method in {"workspace.create", "workspace.register", "workspace.open", "workspace.close", "workspace.unregister", "workspace.export", "daemon.export_all", "workspace.restore", "daemon.restore_all", "restore.cancel", "export.cancel", "export.retry"}:
         params = {"actor_id": "operator", "mutation_id": uuid.uuid4().hex, **params}
-    payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": request_id,
+    payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.4", "id": request_id,
                           "method": method, "params": params}).encode()
     with socket.socket(socket.AF_UNIX) as sock:
         sock.settimeout(10)
@@ -68,6 +68,7 @@ class Daemon:
         self.root, self.address = root, address
         self.process = None
         self.log = None
+        self.socket_identity = None
 
     def start(self):
         self.log = (self.root / "daemon.log").open("ab")
@@ -80,6 +81,8 @@ class Daemon:
                 raise AssertionError((self.root / "daemon.log").read_text())
             try:
                 if "result" in request(self.address, "initialize", {}):
+                    metadata = self.address.lstat()
+                    self.socket_identity = (metadata.st_dev, metadata.st_ino)
                     return
             except (OSError, EOFError):
                 time.sleep(0.01)
@@ -94,6 +97,19 @@ class Daemon:
                 self.process.kill()
                 self.process.wait()
                 raise AssertionError("daemon failed to shut down")
+        # This fixture owns an isolated child and has confirmed its exit. A hard
+        # kill skips the daemon's inode cleanup; recover only its original socket.
+        # Connection refusal alone is never permission to remove another owner.
+        if self.process is not None and self.process.poll() is not None:
+            try:
+                metadata = self.address.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if (stat.S_ISSOCK(metadata.st_mode) and
+                        (metadata.st_dev, metadata.st_ino) == self.socket_identity):
+                    self.address.unlink()
+            self.socket_identity = None
         if self.log:
             self.log.close()
 
@@ -1126,7 +1142,7 @@ class Integration(unittest.TestCase):
         self.ticket()
         root = self.root / "verified-export"
         manifest = self.export({"workspace_id": "demo", "destination": str(root)})
-        self.assertEqual("2", manifest["version"])
+        self.assertEqual("3", manifest["version"])
         self.assertEqual(json.loads((root / "portable/HEAD.json").read_text())["digest"], manifest["head"])
         verified = self.data("export.verify", {"directory": str(root)})
         self.assertTrue(verified["verified"])
@@ -1164,7 +1180,7 @@ class Integration(unittest.TestCase):
                 changed.pop("options")
                 expected_kind = "Invalid_argument"
             elif change == "unsupported-version":
-                changed["version"] = "3"
+                changed["version"] = "4"
                 expected_kind = "Unsupported_version"
             else:
                 changed.pop("head")
@@ -1776,12 +1792,12 @@ class Integration(unittest.TestCase):
             reader = socket.socket(socket.AF_UNIX)
             reader.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
             reader.connect(str(self.daemon.address))
-            write_frame(reader, {"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "slow", "method": "comment.list", "params": {"workspace_id": "demo", "max_bytes": "1048576"}})
+            write_frame(reader, {"jsonrpc": "2.0", "workgraph_api": "0.4", "id": "slow", "method": "comment.list", "params": {"workspace_id": "demo", "max_bytes": "1048576"}})
             readers.append(reader)
             with socket.socket(socket.AF_UNIX) as notification:
                 notification.settimeout(3)
                 notification.connect(str(self.daemon.address))
-                write_frame(notification, {"jsonrpc": "2.0", "workgraph_api": "0.3", "method": "ticket.create", "params": {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "notification", "ticket_id": "ignored", "title": "Ignored"}})
+                write_frame(notification, {"jsonrpc": "2.0", "workgraph_api": "0.4", "method": "ticket.create", "params": {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "notification", "ticket_id": "ignored", "title": "Ignored"}})
                 self.assertEqual(b"", notification.recv(1))
             committed = self.mutation("comment.add", {"target": {"kind": "ticket", "id": "a"}, "body": "While peers stall"}, mutation="unblocked")
             self.assertIn("result", committed)
@@ -1797,22 +1813,33 @@ class Integration(unittest.TestCase):
         self.assertEqual(committed["result"], self.ok("comment.add", {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "unblocked", "target": {"kind": "ticket", "id": "a"}, "body": "While peers stall"}))
 
     def test_malformed_envelopes_and_frames_leave_workspace_unchanged(self):
-        bodies = [b"{", b"[]", b'{"id":"a","id":"b"}', b'{"jsonrpc":"3.0","workgraph_api":"0.3","id":"a","method":"initialize"}', b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":{},"method":"initialize"}', b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":"a","method":"ticket.create","params":[]}']
-        bodies.extend([b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":"a","method":"initialize","params":{"bad":"\xff"}}', b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":1e309,"method":"initialize"}'])
-        for body in bodies:
+        # A parsed valid ID survives envelope rejection. Invalid or ambiguous IDs
+        # and frames that cannot parse/normalize still require a null reply ID.
+        cases = [
+            (b"{", None),
+            (b"[]", None),
+            (b'{"id":"a","id":"b"}', None),
+            (b'{"jsonrpc":"3.0","workgraph_api":"0.4","id":"a","method":"initialize"}', "a"),
+            (b'{"jsonrpc":"3.0","workgraph_api":"0.4","id":7,"method":"initialize"}', 7),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.4","id":{},"method":"initialize"}', None),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.4","id":"a","method":"ticket.create","params":[]}', "a"),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.4","id":"a","method":"initialize","params":{"bad":"\xff"}}', None),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.4","id":1e309,"method":"initialize"}', None),
+        ]
+        for body, expected_id in cases:
             with socket.socket(socket.AF_UNIX) as client:
                 client.settimeout(3)
                 client.connect(str(self.daemon.address))
                 client.sendall(struct.pack(">I", len(body)) + body)
                 response = read_frame(client)
                 self.assertEqual(-32600, response["error"]["code"])
-                self.assertIsNone(response["id"])
+                self.assertEqual(expected_id, response["id"], body)
         self.assertEqual("0", self.ok("workspace.get", {"workspace_id": "demo"})["meta"]["workspace_revision"])
 
     def test_disconnect_after_admission_and_retry(self):
         params = {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "lost-reply",
                   "ticket_id": "a", "title": "Persist despite disconnect"}
-        payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "disconnected", "method": "ticket.create", "params": params}).encode()
+        payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.4", "id": "disconnected", "method": "ticket.create", "params": params}).encode()
         with socket.socket(socket.AF_UNIX) as client:
             client.connect(str(self.daemon.address))
             client.sendall(struct.pack(">I", len(payload)) + payload)

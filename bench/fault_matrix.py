@@ -20,7 +20,7 @@ root.mkdir(mode=0o700)
 
 
 def request(address, method, params):
-    body = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "fault", "method": method, "params": params}).encode()
+    body = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.4", "id": "fault", "method": method, "params": params}).encode()
     with socket.socket(socket.AF_UNIX) as client:
         client.settimeout(10)
         client.connect(address)

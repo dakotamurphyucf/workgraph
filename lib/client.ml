@@ -40,7 +40,15 @@ let create ~net ~clock ~socket ~timeout_seconds =
           when Problem.equal_kind error.kind Unsupported_version
                && String.equal (Protocol.Request.method_ request) "initialize" ->
           Error error
-        | Error error -> failure error.message
+        | Error error ->
+          failure
+            (if !attempted
+             then error.message
+             else
+               sprintf
+                 "cannot connect to Workgraph socket %S; start the daemon or check the \
+                  socket path and permissions"
+                 socket)
       with
       | Eio.Time.Timeout -> failure "request timed out"
       | End_of_file -> failure "connection ended before response"

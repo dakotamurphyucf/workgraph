@@ -37,7 +37,7 @@ class Workgraph:
         self.response_bytes = 0
 
     def call(self, method, params):
-        payload = canonical({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "adapter", "method": method, "params": params}).encode()
+        payload = canonical({"jsonrpc": "2.0", "workgraph_api": "0.4", "id": "adapter", "method": method, "params": params}).encode()
         if len(payload) > 4 * 1024 * 1024:
             raise ValueError("request exceeds protocol budget; stage large payloads as resource blobs")
         with socket.socket(socket.AF_UNIX) as connection:

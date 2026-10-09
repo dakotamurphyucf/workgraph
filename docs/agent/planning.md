@@ -225,8 +225,8 @@ Atomically claims eligible unclaimed work, writes the optional nonblank initial 
 <method name="ticket.finish" envelope="M"><![CDATA[
 Required: ticket_id:id, token:dec (positive), evidence:text (nonblank).
 Optional: handoff:{summary:text,next_steps:text,objective:text?,completed:text?,decisions:text?,blockers:text?,resource_ids:[id]?,covers_through:dec?}.
-Returns: {completed:true,attempt?:{attempt_id:id,revision:dec,state:"completed"}}.
-Publishes the optional handoff, active attempt completion, evidence comment and ticket completion together. Requires current unexpired ownership and rechecks holds, prerequisites, unfinished children and configured acceptance policy. Exact retries recover the original durable receipt.
+Returns: {completed:true,ticket_revision:dec,attempt?:{attempt_id:id,revision:dec,state:"completed"}}.
+Publishes the optional handoff, active attempt completion, evidence comment and ticket completion together. Requires current unexpired ownership and rechecks holds, prerequisites, unfinished children and configured acceptance policy. Blocked readiness returns the same typed blockers as ticket.start. ticket_revision is the affected ticket revision, independent of attempt/handoff and workspace revisions. Exact retries recover the original durable receipt.
 Within finish, omitted rich handoff fields and covers_through preserve the prior values; explicit empty strings/lists clear them. A first handoff defaults omitted rich fields to empty and coverage to zero. Completion evidence becomes this new handoff's evidence. Summary and next_steps are required whenever handoff is supplied. This patch behavior differs from standalone handoff.set replacement defaults. Historical handoffs remain immutable.
 ]]></method>
 <method name="ticket.reopen" envelope="M"><![CDATA[
@@ -244,13 +244,13 @@ Requires an existing claim and no active attempt (finish it first). Nonempty rea
 <method name="ticket.release" envelope="M"><![CDATA[
 Required: ticket_id:id, token:dec.
 Optional: none.
-Returns: {released:true}.
-Actor and optional run must match claim. Clears it, sets todo, and cancels active attempts with evidence that the claim was released. Can release an expired claim using its matching identity.
+Returns: {released:true,ticket_revision:dec}.
+Actor and optional run must match claim. Use only your own current token; visible sequential tokens are stale-writer fences, not credentials. Clears it, sets todo, and cancels active attempts with evidence that the claim was released. Can release an expired claim using its matching identity.
 ]]></method>
 <method name="ticket.complete" envelope="M"><![CDATA[
 Required: ticket_id:id, token:dec, evidence:text.
 Optional: none.
-Returns: {completed:true}.
+Returns: {completed:true,ticket_revision:dec}.
 Requires a current unexpired claim, nonempty evidence, no hold, done/waived prerequisites, done children, and applicable evidence/review gates. Completes active attempts, clears claim, sets done and adds an evidence comment.
 ]]></method>
 <method name="ticket.list" envelope="Q"><![CDATA[

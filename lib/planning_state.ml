@@ -675,7 +675,39 @@ let completion_readiness t ticket =
 let check_complete t ticket =
   match completion_problem t ticket with
   | Ok () -> ()
-  | Error p -> raise (Json.Decode_error p)
+  | Error p ->
+    let p =
+      if Problem.equal_kind p.kind Blocked
+      then (
+        let completion = completion_view t ticket in
+        let blockers =
+          List.concat_map completion.checks ~f:(fun check ->
+            if check.passed
+            then []
+            else (
+              match check.kind with
+              | Hold -> [ "hold" ]
+              | Prerequisites ->
+                List.map completion.blocked_prerequisite_ids ~f:(fun id ->
+                  "prerequisite:" ^ Id.Ticket.to_string id)
+              | Children ->
+                List.map completion.unfinished_child_ids ~f:(fun id ->
+                  "child:" ^ Id.Ticket.to_string id)
+              | Configured_policy -> [ "configured_policy; inspect ticket.readiness" ]))
+        in
+        let blockers =
+          if List.length blockers <= 100
+          then blockers
+          else
+            List.take blockers 99
+            @ [ "additional blockers omitted; inspect ticket.readiness" ]
+        in
+        Problem.with_details
+          p
+          (Readiness { ticket_id = Id.Ticket.to_string ticket.id; blockers }))
+      else p
+    in
+    raise (Json.Decode_error p)
 ;;
 
 let readiness_view ?run ?now_unix_ms t (ticket : Ticket.t)

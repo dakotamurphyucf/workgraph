@@ -40,6 +40,9 @@ type prepared
 val empty : t
 val revision : t -> int
 
+(** Single communication publication. Commands composing authored discussion
+    ([Request_ask] and resolution with a body) require [State.prepare] and are
+    rejected here rather than partially prepared. *)
 val prepare
   :  t
   -> Command.t
@@ -125,7 +128,10 @@ val latest_serial : t -> int
     require the observed revision; inbox captures use fixed upper serials.
     [discussion] must be the immutable discussion snapshot paired with [t].
     thread.get/request.get optionally include current message bodies and exact
-    source revisions. Later offset pages guard both communication revision and
+    source revisions. request.get also exposes the current thread_revision,
+    separately from the request record revision and communication revision.
+    request.list ticket_id and resolver_id filters apply before pagination.
+    Later offset pages guard both communication revision and
     discussion serial; tombstones remain present and budget omissions are explicit. *)
 val query
   :  t

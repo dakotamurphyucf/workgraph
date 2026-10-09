@@ -40,7 +40,7 @@ type export_work =
 
 let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
-  let diagnostic text = Platform.write_string (Eio.Stdenv.stderr env) text in
+  let diagnostic text = Platform.write_diagnostic (Eio.Stdenv.stderr env) text in
   Disk.absolute registry;
   Eio.Switch.run (fun sw ->
     let jobs = Eio.Stream.create 16 in
@@ -1742,17 +1742,32 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
           Eio.Time.with_timeout_exn (Eio.Stdenv.clock env) 30. (fun () ->
             Framing.write flow response)
         with
-        | Eio.Time.Timeout -> ()
+        | Eio.Time.Timeout | End_of_file -> ()
+      in
+      let rejection_id = ref `Null in
+      let envelope =
+        try
+          let request =
+            Eio.Time.with_timeout_exn (Eio.Stdenv.clock env) 30. (fun () ->
+              Framing.read flow)
+          in
+          rejection_id := Option.value (Protocol.server_request_id request) ~default:`Null;
+          match Json.optional request "id" with
+          | None -> None
+          | Some _ ->
+            Protocol.validate_server_request request |> Disk.unwrap;
+            Some (request, !rejection_id)
+        with
+        | Json.Decode_error error ->
+          write_response
+            (Protocol.error_response_json ~id:!rejection_id ~code:Invalid_envelope error);
+          None
+        | End_of_file | Eio.Time.Timeout -> None
       in
       try
-        let request =
-          Eio.Time.with_timeout_exn (Eio.Stdenv.clock env) 30. (fun () ->
-            Framing.read flow)
-        in
-        match Json.optional request "id" with
+        match envelope with
         | None -> ()
-        | Some id ->
-          Protocol.validate_server_request request |> Disk.unwrap;
+        | Some (request, id) ->
           let method_ = Json.text (Json.field request "method") in
           let result =
             match Api_catalog.find method_ with
@@ -1794,33 +1809,11 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                   let result = Api_response.to_json result in
                   Json.obj [ "jsonrpc", Json.string "2.0"; "id", id; "result", result ]
                 | Error error ->
-                  Json.obj
-                    [ "jsonrpc", Json.string "2.0"
-                    ; "id", id
-                    ; ( "error"
-                      , Json.obj
-                          [ "code", `Number "-32000"
-                          ; "message", Json.string error.message
-                          ; "data", Problem.to_json error
-                          ] )
-                    ]
+                  Protocol.error_response_json ~id ~code:Application_failure error
               in
               write_response response)
       with
-      | Json.Decode_error error ->
-        write_response
-          (Json.obj
-             [ "jsonrpc", Json.string "2.0"
-             ; "id", `Null
-             ; ( "error"
-               , Json.obj
-                   [ "code", `Number "-32600"
-                   ; "message", Json.string error.message
-                   ; "data", Problem.to_json error
-                   ] )
-             ])
-      | End_of_file -> ()
-      | Eio.Time.Timeout -> ()
+      | End_of_file | Eio.Time.Timeout -> ()
     in
     Eio.Fiber.first
       (fun () ->
@@ -1881,14 +1874,19 @@ let run ~env ~registry ~socket =
   Platform.validate_socket_path socket |> Disk.unwrap;
   Disk.absolute registry;
   let fs = Eio.Stdenv.fs env in
+  (* Refused connects also occur while a live owner has bound but not listened.
+     Occupancy can reject startup, but cannot authorize removing another inode. *)
+  (match Eio.Path.kind ~follow:false Eio.Path.(fs / socket) with
+   | `Not_found -> ()
+   | _ ->
+     Json.fail
+       Conflict
+       "socket path is occupied; stop all possible owners before explicitly removing a \
+        stale path and restarting");
   let diagnostic event =
-    try
-      Platform.write_string
-        (Eio.Stdenv.stderr env)
-        (sprintf "workgraph daemon %s registry=%S socket=%S\n" event registry socket)
-    with
-    | Platform.Broken_pipe | Eio.Io _ | Core_unix.Unix_error _ -> ()
-    | Json.Decode_error { kind = Local_io; _ } -> ()
+    Platform.write_diagnostic
+      (Eio.Stdenv.stderr env)
+      (sprintf "workgraph daemon %s registry=%S socket=%S\n" event registry socket)
   in
   diagnostic "starting";
   match
@@ -1898,22 +1896,6 @@ let run ~env ~registry ~socket =
       ~handle_signals:true
       ~on_ready:(fun () -> diagnostic "ready")
       ~listen:(fun sw ->
-        let socket_path = Eio.Path.(fs / socket) in
-        (match Eio.Path.kind ~follow:false socket_path with
-         | `Not_found -> ()
-         | `Socket ->
-           let active =
-             Eio.Switch.run (fun check_sw ->
-               try
-                 ignore (Eio.Net.connect ~sw:check_sw (Eio.Stdenv.net env) (`Unix socket));
-                 true
-               with
-               | Eio.Io (Eio.Net.E (Connection_failure (Refused _)), _) -> false)
-           in
-           if active
-           then Json.fail Conflict "socket already served"
-           else Eio.Path.unlink socket_path
-         | _ -> Json.fail Conflict "socket path is occupied");
         let listener =
           Platform.listen_unix
             ~sw

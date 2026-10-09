@@ -7,6 +7,11 @@ module Detail = struct
   [@@deriving sexp, equal]
 end
 
+let canonical_method_name = function
+  | "ticket.get" -> "ticket.context"
+  | name -> name
+;;
+
 let descriptions ~core ~method_name =
   match method_name with
   | None ->
@@ -14,7 +19,7 @@ let descriptions ~core ~method_name =
       (List.filter Api_catalog.methods ~f:(fun (Api_method.Packed.Pack method_) ->
          (not core) || Api_method.Tier.equal (Api_method.tier method_) Core))
   | Some name ->
-    (match Api_catalog.find name with
+    (match Api_catalog.find (canonical_method_name name) with
      | Some method_ -> Ok [ method_ ]
      | None -> Error (Problem.create Not_found ("no executable method schema: " ^ name)))
 ;;
@@ -97,23 +102,36 @@ let rec shape schema ~depth =
   let base =
     match Json.optional schema "type" with
     | Some (`String "object") ->
-      let names = strings schema "required" in
-      if depth > 0 && not (List.is_empty names)
-      then "object (requires " ^ String.concat ~sep:", " names ^ ")"
+      if depth > 0
+      then (
+        let children =
+          fields schema
+          |> List.map ~f:(fun (name, schema, required, conditional) ->
+            name
+            ^ (if conditional then "[conditional]" else if required then "" else "?")
+            ^ ": "
+            ^ shape schema ~depth:0)
+        in
+        if List.is_empty children
+        then "object"
+        else "object {" ^ String.concat ~sep:"; " children ^ "}")
       else "object"
     | Some (`String "array") ->
       if depth > 0
-      then "array of " ^ shape (Json.field schema "items") ~depth:(depth - 1)
+      then (
+        let item = Json.field schema "items" in
+        (* Show the item object's fields once, but bound nested arrays too. *)
+        let item_depth = if List.is_empty (fields item) then 0 else depth in
+        "array of " ^ shape item ~depth:item_depth)
       else "array"
     | Some (`String type_) -> type_
     | _ ->
       (match mapped, alternatives with
        | first :: _, _ -> shape first ~depth
-       | [], [ left; right ] ->
-         shape left ~depth:(Int.max 0 (depth - 1))
-         ^ " | "
-         ^ shape right ~depth:(Int.max 0 (depth - 1))
-       | [], _ :: _ -> "tagged alternatives (see --full)"
+       | [], _ :: _ ->
+         List.map alternatives ~f:(fun schema -> shape schema ~depth)
+         |> List.dedup_and_sort ~compare:String.compare
+         |> String.concat ~sep:" | "
        | [], [] -> "JSON")
   in
   let annotations =
@@ -217,14 +235,17 @@ let preconditions name mode request =
     | Mutation ->
       [ "Save an exact request before sending; retries retain actor_id, mutation_id and \
          params."
-      ; "Actor/run attribution is cooperative metadata; ownership tokens fence stale \
-         writers."
+      ; "Actor/run attribution is cooperative metadata; ownership tokens are visible, \
+         sequential stale-writer fences, not credentials."
       ]
   in
   let guarded =
     let names = List.map (fields request) ~f:(fun (name, _, _, _) -> name) in
     (if List.mem names "token" ~equal:String.equal
-     then [ "Use the current ownership token returned by claim/start; do not guess it." ]
+     then
+       [ "Use your current ownership token returned by claim/start; never use another \
+          owner's token or guess it."
+       ]
      else [])
     @ (if List.mem names "expected_revision" ~equal:String.equal
        then [ "expected_revision guards the affected entity's current revision." ]
@@ -251,9 +272,18 @@ let preconditions name mode request =
       [ "title is required on both create and update; omitted filename/MIME metadata is \
          retained."
       ]
+    | "board.put" | "thread.put" ->
+      [ "Use expected_revision 0 to create; updating requires the entity's current \
+         revision."
+      ]
     | "ticket.start" ->
       [ "The ticket must be ready and claimable; retain the returned token and \
          attempt_id."
+      ]
+    | "ticket.claim_next" ->
+      [ "target_run_id must identify a registered live run owned by actor_id; run_id \
+         attribution must identify that same run."
+      ; "Supply a fresh attempt_id; context does not default target_run_id or attempt_id."
       ]
     | "ticket.finish" ->
       [ "Supply nonblank completion evidence and satisfy configured current acceptance \
@@ -282,7 +312,7 @@ let brief method_ =
       let kind =
         if String.equal name "transaction.apply" && String.equal field "operations"
         then "array of {method: string, params: object, as?: string}; 1..32 items"
-        else shape schema ~depth:2
+        else shape schema ~depth:1
       in
       "  "
       ^ field
@@ -329,13 +359,22 @@ let brief method_ =
       let sample =
         if
           List.mem
-            [ "resource.put_text"; "resource.finish_upload" ]
+            [ "resource.put_text"; "resource.finish_upload"; "board.put"; "thread.put" ]
             name
             ~equal:String.equal
         then set sample "expected_revision" (Json.string "0")
         else sample
       in
-      if List.mem [ "message.send"; "request.create" ] name ~equal:String.equal
+      let sample =
+        if String.equal name "ticket.claim_next"
+        then set sample "run_id" (Json.string "example")
+        else sample
+      in
+      if
+        List.mem
+          [ "message.send"; "request.create"; "request.ask" ]
+          name
+          ~equal:String.equal
       then (
         let _, recipients, _, _ =
           List.find_exn (fields request) ~f:(fun (field, _, _, _) ->
@@ -373,7 +412,16 @@ let brief method_ =
     ~sep:"\n"
     ([ "Inputs:" ]
      @ inputs
-     @ [ "Preconditions:" ]
+     @ [ "Input defaults:"
+       ; "  Raw API envelopes require every required input. --context supplies missing \
+          workspace_id and write actor_id/run_id only when admitted by the method."
+       ; "  A context without run_id supplies no run identity. Read filters and target \
+          identities remain explicit; supported --self selectors require their context \
+          identity."
+       ; "  Missing mutation_id is generated only when --save-request or a request \
+          directory saves the exact request before sending."
+       ; "Preconditions:"
+       ]
      @ List.map
          (preconditions name (Api_method.mode method_) request)
          ~f:(fun text -> "  " ^ text)
@@ -390,43 +438,49 @@ let brief method_ =
 ;;
 
 let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
-  Result.map (descriptions ~core ~method_name) ~f:(fun methods ->
-    let rendered =
-      List.map methods ~f:(fun (Api_method.Packed.Pack method_) ->
-        let mode =
-          match Api_method.mode method_ with
-          | Read -> "read"
-          | Write -> "write"
-          | Mutation -> "mutation"
-        in
-        let heading =
-          Api_method.name method_ ^ " [" ^ mode ^ "] — " ^ Api_method.summary method_
-        in
-        match method_name, detail with
-        | None, _ -> heading
-        | Some _, Brief -> heading ^ "\n" ^ brief method_
-        | Some _, Full ->
-          let description = Api_method.describe method_ in
-          String.concat
-            ~sep:"\n"
-            [ heading
-            ; "Parameters (JSON Schema):"
-            ; Jsonaf.to_string_hum (Json.field description "params")
-            ; "Result envelope (JSON Schema):"
-            ; Jsonaf.to_string_hum (Json.field description "result")
-            ])
-      |> String.concat ~sep:"\n"
-    in
-    match method_name with
-    | Some _ -> rendered
-    | None ->
-      "Daemon methods"
-      ^ (if core then " (core everyday tier)" else " (complete index)")
-      ^ ":\n"
-      ^ rendered
-      ^ "\n\
-         CLI helpers (local workflows): init, bootstrap, upload, download, evidence-run, \
-         evidence-publish, retry.\n\
-         Use methods --core for everyday methods; help METHOD for concise inputs; help \
-         METHOD --full for complete contracts.")
+  match method_name with
+  | Some ("init" | "bootstrap") -> Ok Cli_bootstrap.help
+  | None | Some _ ->
+    Result.map (descriptions ~core ~method_name) ~f:(fun methods ->
+      let rendered =
+        List.map methods ~f:(fun (Api_method.Packed.Pack method_) ->
+          let mode =
+            match Api_method.mode method_ with
+            | Read -> "read"
+            | Write -> "write"
+            | Mutation -> "mutation"
+          in
+          let heading =
+            Api_method.name method_ ^ " [" ^ mode ^ "] — " ^ Api_method.summary method_
+          in
+          match method_name, detail with
+          | None, _ -> heading
+          | Some _, Brief -> heading ^ "\n" ^ brief method_
+          | Some _, Full ->
+            let description = Api_method.describe method_ in
+            String.concat
+              ~sep:"\n"
+              [ heading
+              ; "Parameters (JSON Schema):"
+              ; Jsonaf.to_string_hum (Json.field description "params")
+              ; "Result envelope (JSON Schema):"
+              ; Jsonaf.to_string_hum (Json.field description "result")
+              ])
+        |> String.concat ~sep:"\n"
+      in
+      match method_name with
+      | Some _ -> rendered
+      | None ->
+        "Daemon methods"
+        ^ (if core then " (core everyday tier)" else " (complete index)")
+        ^ ":\n"
+        ^ rendered
+        ^ "\n\
+           CLI helpers (local workflows): init, bootstrap, upload, download, \
+           evidence-run, evidence-publish, retry.\n\
+           CLI spelling: ticket.get (canonical ticket.context); request get/list/... \
+           select request-domain methods with --context/--socket.\n\
+           Generic transport: request ABS_SOCKET METHOD; dotted METHOD is also accepted.\n\
+           Use methods --core for everyday methods; help METHOD for concise inputs; help \
+           METHOD --full for complete contracts.")
 ;;

@@ -160,7 +160,7 @@ let%expect_test "method descriptors execute their real request and receipt codec
       Planning_api.invoke_resolved
         ~method_:"ticket.release"
         ~params:(json params)
-        ~f:(fun _ -> Ok (json {|{"released":true}|}))
+        ~f:(fun _ -> Ok (json {|{"released":true,"ticket_revision":"3"}|}))
     with
     | None -> failwith "missing descriptor"
     | Some result -> print_result result

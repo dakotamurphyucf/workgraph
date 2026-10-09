@@ -1,13 +1,13 @@
 # Workgraph on AlmaLinux 10 in WSL: reset, install, and quick start
 
-This guide installs **Workgraph v0.3.0 preview** on **x86_64/AMD64 AlmaLinux 10**
+This guide installs **Workgraph v0.4.0 preview** on **x86_64/AMD64 AlmaLinux 10**
 inside WSL. Run the commands in your AlmaLinux terminal, as your normal user;
 use `sudo` only where shown. No OCaml, opam, or systemd setup is required.
-Use the guide bundled with your installed executable; do not mix v0.2 guides,
-saved requests or data with v0.3.
+Use the guide bundled with your installed executable; do not mix v0.3 or older guides,
+saved requests or data with v0.4.
 
 For a first installation, skip the optional reset and begin with
-[Install v0.3.0](#install-v030).
+[Install v0.4.0](#install-v040).
 
 The preview has changed its API and storage format. Start with fresh registry
 and workspace folders; old prototype data has no migration support. You may
@@ -96,6 +96,7 @@ the commands matching directories you have inspected and want to discard:
 rm -rI -- "$HOME/.local/state/workgraph"
 rm -rI -- "$HOME/.workgraph-demo"
 rm -rI -- "$HOME/.local/state/workgraph-0.2"
+rm -rI -- "$HOME/.local/state/workgraph-0.3"
 ```
 
 GNU `rm -I` asks for confirmation before recursive deletion. These commands are
@@ -105,7 +106,7 @@ If you also want to erase a setup made with this guide, stop its daemon first,
 then explicitly delete its separate directory:
 
 ```bash
-rm -rI -- "$HOME/.local/state/workgraph-0.3"
+rm -rI -- "$HOME/.local/state/workgraph-0.4"
 ```
 
 Separately remove any custom workspace roots identified earlier, and old
@@ -114,27 +115,27 @@ not delete workspaces stored elsewhere.** Exports and Git copies also remain
 where you stored them. Do not broadly search for and delete everything named
 `workgraph`.
 
-## Install v0.3.0
+## Install v0.4.0
 
 Download the RPM and checksums from the
-[v0.3.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0):
+[v0.4.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0):
 
 ```bash
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
 sudo dnf install -y jq
 
-mkdir -p "$HOME/Downloads/workgraph-0.3.0"
-cd "$HOME/Downloads/workgraph-0.3.0" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.4.0"
+cd "$HOME/Downloads/workgraph-0.4.0" || exit
 
-RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.3.0"
+RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.4.0"
 
-curl -fLO "$RELEASE/workgraph-0.3.0-1.el10.x86_64.rpm"
+curl -fLO "$RELEASE/workgraph-0.4.0-1.el10.x86_64.rpm"
 curl -fLO "$RELEASE/SHA256SUMS"
 
-awk '$2 == "workgraph-0.3.0-1.el10.x86_64.rpm" { print; count++ }
+awk '$2 == "workgraph-0.4.0-1.el10.x86_64.rpm" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > rpm.SHA256SUMS &&
   sha256sum --check rpm.SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.3.0-1.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.4.0-1.el10.x86_64.rpm
 
 hash -r
 command -v workgraph
@@ -146,7 +147,7 @@ version:
 
 ```text
 /usr/bin/workgraph
-0.3.0
+0.4.0
 ```
 
 The executable uses standard AlmaLinux system libraries. `jq` is needed only
@@ -155,11 +156,14 @@ for the shell example below that extracts an ownership token.
 ## Start the daemon and create a workspace
 
 Keep managed data and the socket on the Linux filesystem under `$HOME`, rather
-than `/mnt/c`. This setup uses a private directory dedicated to v0.3.0.
+than `/mnt/c`. This setup uses a private directory dedicated to v0.4.0.
 
 ```bash
+workgraph init --help
+workgraph help request.ask
+
 umask 077
-WG_HOME="$HOME/.local/state/workgraph-0.3"
+WG_HOME="$HOME/.local/state/workgraph-0.4"
 mkdir -p "$WG_HOME"
 
 export WG_CONTEXT="$WG_HOME/agent.json"
@@ -182,7 +186,7 @@ and writes connection defaults to `agent.json`. Repeating the same setup reuses
 the matching workspace and context. The first run requires a fresh workspace
 root; do not precreate `$WG_HOME/workspace`.
 
-| Location under `~/.local/state/workgraph-0.3/` | Purpose |
+| Location under `~/.local/state/workgraph-0.4/` | Purpose |
 | --- | --- |
 | `registry/` | Local workspace registrations and administrative state |
 | `workspace/` | This workspace's durable tickets, resources, and history |
@@ -194,7 +198,9 @@ root; do not precreate `$WG_HOME/workspace`.
 The request directory is optional, but recommended. With it configured, the CLI
 saves durable writes before sending them and prints each saved path to stderr.
 Those messages are expected. If a response is lost, retry the exact saved file;
-reissuing the creation command creates a new request. See the installed CLI
+reissuing the creation command creates a new request. A malformed or mismatched
+acknowledgement can also leave a write uncertain; keep the same saved identity.
+Connection failure before sending is reported separately. See the installed CLI
 contract for recovery details.
 
 `WG_CONTEXT` is a shell convenience variable: commands use it only when you pass
@@ -240,23 +246,32 @@ workgraph ticket finish --context "$WG_CONTEXT" \
   --evidence "Created, started, and updated a ticket successfully."
 ```
 
-The finish response includes `"completed": true`. For real work, record what you
+The finish response includes `"completed": true` and `ticket_revision` for the
+affected ticket. Ownership tokens are visible sequential stale-writer fences, not
+credentials; use only your own current actor/run/token. For real work, record what you
 actually implemented or verified as the completion evidence.
 
 ## Inspect the saved state
 
 ```bash
 workgraph workspace overview --context "$WG_CONTEXT" --output text
+workgraph request list --context "$WG_CONTEXT" --ticket-id first-task
 
 workgraph ticket context --context "$WG_CONTEXT" \
   --ticket-id first-task --output text
 ```
 
+With context, `request list/get/ask/resolve/...` selects request-domain methods;
+`ticket get` also reads the canonical ticket context. For an atomic question and
+answer example, read the installed
+[`communication reference`](agent/communication-evidence.md). Reading or filtering
+requests never acknowledges delivery or inbox processing.
+
 Omit `--output text` to receive JSON. In a new terminal, restore the context
 variable before running commands:
 
 ```bash
-export WG_CONTEXT="$HOME/.local/state/workgraph-0.3/agent.json"
+export WG_CONTEXT="$HOME/.local/state/workgraph-0.4/agent.json"
 ```
 
 ## Give an agent access
@@ -277,7 +292,7 @@ and permission to use your Workgraph socket.
 > break work into tickets, record progress and decisions, and recover context
 > between sessions. Read `/usr/share/doc/workgraph/AGENT_GUIDE.md` and follow its
 > references when needed. Use `/usr/bin/workgraph` with
-> `--context /home/<your-linux-user>/.local/state/workgraph-0.3/agent.json`.
+> `--context /home/<your-linux-user>/.local/state/workgraph-0.4/agent.json`.
 > The workspace is `demo`; the project is `demo-project`.
 
 To print the actual connection values for this setup:
@@ -285,7 +300,7 @@ To print the actual connection values for this setup:
 ```bash
 printf 'Executable: %s\nContext: %s\nGuide: %s\n' \
   "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph-0.3/agent.json" \
+  "$HOME/.local/state/workgraph-0.4/agent.json" \
   '/usr/share/doc/workgraph/AGENT_GUIDE.md'
 ```
 
@@ -308,6 +323,12 @@ restart and reuse the workspace. Do not repeat the project/ticket creation
 commands just to resume work. Shutting down the WSL instance ends its running
 processes; run setup again when returning. No automatic startup service is
 installed by this guide.
+
+If startup reports an occupied socket, connection refusal alone does not prove
+it is abandoned. Stop all possible daemon owners and custom launchers before
+manually removing only a verified abandoned socket path. Keep registry locks and
+managed storage untouched. If ownership is uncertain, select a fresh private
+socket path and explicitly update your context/startup configuration.
 
 ## Platform checks and further information
 

@@ -6,7 +6,12 @@ module Request = Communication_event.Request
 module Subscription = Communication_event.Subscription
 
 (** Domain communication commands. Input codecs preserve distinctions between
-    omission, explicit clearing, tagged values and plain lowercase enums. *)
+    omission, explicit clearing, tagged values and plain lowercase enums.
+    [Request_ask] and [Request_resolve] with a body compose discussion and
+    communication changes through [State.prepare]. Ask threads list the author
+    and resolver as participants; recipients receive accountable request
+    deliveries independently of that participant list. [Communication.prepare]
+    accepts only commands requiring a communication snapshot. *)
 type t =
   | Board_put of
       { id : Communication_id.Board.t
@@ -42,6 +47,15 @@ type t =
       ; title : string
       ; members : Recipient.t list
       }
+  | Request_ask of
+      { id : Communication_id.Request.t
+      ; title : string
+      ; body : string
+      ; recipients : Recipient.t list
+      ; resolver : Id.Actor.t
+      ; ticket : Id.Ticket.t option
+      ; kind : Request.Kind.t
+      }
   | Request_create of
       { id : Communication_id.Request.t
       ; thread : Communication_id.Thread.t
@@ -72,6 +86,7 @@ type t =
   | Request_resolve of
       { id : Communication_id.Request.t
       ; expected_revision : int
+      ; body : string option
       }
   | Request_cancel of
       { id : Communication_id.Request.t

@@ -17,7 +17,7 @@ class ContextTest(unittest.TestCase):
     def test_unknown_method_rejects_before_journal_or_connection(self):
         with tempfile.TemporaryDirectory(prefix='wg-cli-unknown-', dir='/tmp') as directory:
             root = Path(directory)
-            for method in ['ticket.get', 'ticket.unknown', 'unknown.read']:
+            for method in ['ticket.unknown', 'unknown.read']:
                 for command in ['call', 'request']:
                     saved = root / (method + '-' + command + '.json')
                     args = [str(EXE), command, str(root / 'absent-socket'), method]
@@ -102,6 +102,29 @@ class ContextTest(unittest.TestCase):
                 self.assertEqual(12, len(list((root / 'a-requests').glob('*.json'))))
                 a = body(cli('--context', context, 'ticket', 'list'))['result']['data']
                 b = body(cli('--context', root / 'b.json', 'ticket', 'list'))['result']['data']
+                request_list = body(cli('--context', context, 'request', 'list'))
+                dotted_list = body(cli('--context', context, 'request', 'request.list'))
+                generic_list = body(cli('request', socket, 'request.list', '--workspace-id', 'a'))
+                self.assertEqual(request_list['result']['data'], dotted_list['result']['data'])
+                self.assertEqual(request_list['result']['data'], generic_list['result']['data'])
+                selected_socket = body(cli('--socket', socket, 'request', 'list', '--workspace-id', 'a'))
+                self.assertEqual(request_list['result']['data'], selected_socket['result']['data'])
+                missing_request = cli('--context', context, 'request', 'get', '--request-id', 'absent')
+                self.assertIn('Not_found', missing_request.stdout)
+                self.assertNotIn('unknown method', missing_request.stderr)
+                ticket_id = a['items'][0]['ticket_id']
+                alias_saved = root / 'ticket-get.json'
+                alias = body(cli('--context', context, 'request', 'ticket.get', '--ticket-id', ticket_id,
+                                 '--save-request', alias_saved))
+                canonical = body(cli('--context', context, 'ticket', 'context', '--ticket-id', ticket_id))
+                self.assertEqual(alias['result']['data'], canonical['result']['data'])
+                self.assertEqual('ticket.context', json.loads(alias_saved.read_text())['method'])
+                call_saved = root / 'call-ticket-get.json'
+                call_alias = body(cli('call', socket, 'ticket.get',
+                                      json.dumps({'workspace_id': 'a', 'ticket_id': ticket_id}),
+                                      '--save-request', call_saved))
+                self.assertEqual(alias['result']['data'], call_alias['result']['data'])
+                self.assertEqual('ticket.context', json.loads(call_saved.read_text())['method'])
                 self.assertEqual(12, len(a['items']))
                 self.assertEqual([], b['items'])
                 body(cli('--context', context, 'coordinator', 'overview', '--actor-id', 'a'))

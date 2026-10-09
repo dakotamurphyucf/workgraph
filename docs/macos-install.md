@@ -1,35 +1,35 @@
 # macOS ARM64 native installation
 
-This guide targets **v0.3.0** and its matching bundled guide/API.
+This guide targets **v0.4.0** and its matching bundled guide/API.
 Download its archive and qualification evidence from the
-[v0.3.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0).
+[v0.4.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
 or the local archive procedure below. Start with fresh registry/workspace folders;
-v0.2 data and saved requests are unsupported, with no migration.
+v0.3 and older data and saved requests are unsupported, with no migration.
 
 The native archive is intended for Apple Silicon Macs. It contains the executable,
 complete offline guide and references, examples, dependency license texts and a
 file-hash manifest. Running the executable does not require opam or OCaml.
 Packaging does not publish release assets.
 
-Download the v0.3.0 preview archive and its checksums from the release, then
+Download the v0.4.0 preview archive and its checksums from the release, then
 verify the selected archive before extracting it. The release's `SHA256SUMS`
 also lists other assets, so select exactly this archive's entry:
 
 ```sh
-mkdir -p "$HOME/Downloads/workgraph-0.3.0"
-cd "$HOME/Downloads/workgraph-0.3.0" || exit
-WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.3.0"
-curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.3.0-macos-arm64.tar.gz"
+mkdir -p "$HOME/Downloads/workgraph-0.4.0"
+cd "$HOME/Downloads/workgraph-0.4.0" || exit
+WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.4.0"
+curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.4.0-macos-arm64.tar.gz"
 curl -fLO "$WORKGRAPH_RELEASE/SHA256SUMS"
-awk '$2 == "workgraph-0.3.0-macos-arm64.tar.gz" { print; count++ }
+awk '$2 == "workgraph-0.4.0-macos-arm64.tar.gz" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > macos.SHA256SUMS &&
   shasum -a 256 -c macos.SHA256SUMS &&
-  tar -xzf workgraph-0.3.0-macos-arm64.tar.gz &&
-  ./workgraph-0.3.0-macos-arm64/bin/workgraph --version
+  tar -xzf workgraph-0.4.0-macos-arm64.tar.gz &&
+  ./workgraph-0.4.0-macos-arm64/bin/workgraph --version
 ```
 
-The version must print `0.3.0`. Check the release's macOS qualification JSON
+The version must print `0.4.0`. Check the release's macOS qualification JSON
 and evidence archive for the source identity and actual macOS version tested.
 
 Keep the extracted directory together so relative guide links remain usable. Add
@@ -37,6 +37,17 @@ its `bin` directory to your PATH if desired. Start with its bundled `AGENT_GUIDE
 and `docs/agent/cli-contract.md`, which match that installed preview. Git is needed
 for Git workflow examples; Python is used by example/qualification drivers, not by
 the executable itself.
+
+After installation, `workgraph init --help` and `workgraph help request.ask`
+work offline. The bundled [agent CLI contract](agent/cli-contract.md) covers
+context setup, saved exact retries and the v0.4 API. Its
+[communication reference](agent/communication-evidence.md) shows how to ask a
+question and atomically publish an answer.
+
+Startup never removes an occupied socket automatically. Connection refusal alone
+proves no ownership; stop all possible owners and launchers before manually
+removing a verified abandoned socket. Choose a fresh private socket path when
+ownership is uncertain, and preserve managed data and registry locks.
 
 ## Building and qualifying a local archive
 

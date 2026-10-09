@@ -158,12 +158,14 @@ let%expect_test "acknowledgement, reading, acceptance and resolution are indepen
   print_error
     (C.prepare
        t
-       (Request_resolve { id = request; expected_revision = 4 })
+       (Request_resolve { id = request; expected_revision = 4; body = None })
        ~actor:alice
        ~run:None
        ~timestamp:"now"
        ~sequence:9);
-  let t, _ = step t (Request_resolve { id = request; expected_revision = 4 }) in
+  let t, _ =
+    step t (Request_resolve { id = request; expected_revision = 4; body = None })
+  in
   print_s
     [%sexp
       ((Option.value_exn (C.get_thread t thread)).state : C.Thread.State.t)

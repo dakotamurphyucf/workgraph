@@ -8,6 +8,18 @@ let unwrap = function
 
 let text = Api_codec.text ~max_bytes:65_536
 let decimal = Api_codec.decimal ~max:Int.max_value
+
+let positive_revision =
+  Api_codec.map
+    decimal
+    ~decode:(fun value ->
+      if value > 0
+      then Ok value
+      else Error (Problem.create Invalid_argument "entity revision must be positive"))
+    ~encode:Fn.id
+    ~description:"Positive entity revision."
+;;
+
 let decimal64 = Api_codec.decimal64 ~max:Int64.max_value
 let boolean = Api_codec.boolean
 
@@ -282,8 +294,10 @@ let codec ~method_ =
     Some (record [ field "comment_id" identifier; field "thread" thread ])
   | "ticket.renew_lease" ->
     Some (record [ field "ticket_id" identifier; field "lease" lease ])
-  | "ticket.release" -> Some (record [ field "released" boolean ])
-  | "ticket.complete" -> Some (record [ field "completed" boolean ])
+  | "ticket.release" ->
+    Some (record [ field "released" boolean; field "ticket_revision" positive_revision ])
+  | "ticket.complete" ->
+    Some (record [ field "completed" boolean; field "ticket_revision" positive_revision ])
   | "comment.add" ->
     Some
       (record

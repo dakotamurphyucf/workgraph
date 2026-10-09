@@ -19,7 +19,7 @@ module Initialization = struct
     ; version = Version.value
     ; administrative_receipts = true
     ; workspace_receipts = true
-    ; registry_format_version = 2
+    ; registry_format_version = 3
     ; background_exports = true
     }
   ;;
@@ -54,9 +54,9 @@ module Initialization = struct
                "registry_format_version"
                (Api_codec.map
                   (literal (Current_format.identifier Registry))
-                  ~decode:(fun () -> Ok 2)
+                  ~decode:(fun () -> Ok 3)
                   ~encode:(fun version ->
-                    if version <> 2
+                    if version <> 3
                     then Json.fail Invalid_argument "unsupported current registry format")
                   ~description:"Current registry format identity."))
             (required "background_exports" boolean)))

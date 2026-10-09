@@ -609,7 +609,9 @@ let response_codec method_ =
       | "ticket.finish" ->
         Fields.map
           (Fields.both
-             (Fields.required "completed" boolean)
+             (Fields.both
+                (Fields.required "completed" boolean)
+                (Fields.required "ticket_revision" positive_counter))
              (Fields.optional
                 "attempt"
                 (Coordination_wire.checked
@@ -617,9 +619,11 @@ let response_codec method_ =
                    (fun attempt ->
                       if not (Attempt.State.equal attempt.state Completed)
                       then Json.fail Invalid_argument "finish attempt must be completed"))))
-          ~decode:(fun (b, attempt) ->
+          ~decode:(fun ((b, revision), attempt) ->
             Json.obj
-              ([ ("completed", if b then `True else `False) ]
+              ([ ("completed", if b then `True else `False)
+               ; "ticket_revision", Json.int revision
+               ]
                @ Option.to_list
                    (Option.map attempt ~f:(fun attempt ->
                       "attempt", Agent_run_api.Attempt_result.to_json attempt))))
@@ -630,7 +634,7 @@ let response_codec method_ =
               | `False -> false
               | _ -> Json.fail Invalid_argument "boolean required"
             in
-            ( completed
+            ( (completed, Json.integer (Json.field j "ticket_revision"))
             , Option.map
                 (Json.optional j "attempt")
                 ~f:(Coordination_wire.decode_exn Agent_run_api.Attempt_result.codec) ))

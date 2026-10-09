@@ -43,7 +43,7 @@ opam switch export --full --freeze "$output_directory/toolchain.export"
 
 ./dev build @fmt @runtest @install --display=short -j "${WORKGRAPH_JOBS:-2}" \
   2>&1 | tee "$output_directory/logs/build-test-install.log"
-test "$(./dev run --version)" = 0.3.0
+test "$(./dev run --version)" = 0.4.0
 ldd _build/default/bin/main.exe > "$output_directory/logs/linked-libraries.txt"
 file _build/default/bin/main.exe > "$output_directory/logs/executable-format.txt"
 readelf -h _build/default/bin/main.exe > "$output_directory/logs/elf-header.txt"
@@ -56,7 +56,7 @@ python3 tools/package.py "$output_directory/archives" \
   | tee "$output_directory/logs/native-package.json"
 
 mkdir -p "$build_directory/rpmbuild"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-cp "$output_directory/archives/workgraph-0.3.0-almalinux-10-x86_64.tar.gz" \
+cp "$output_directory/archives/workgraph-0.4.0-almalinux-10-x86_64.tar.gz" \
   "$build_directory/rpmbuild/SOURCES/"
 cp /opt/workgraph.spec "$build_directory/rpmbuild/SPECS/workgraph.spec"
 rpmbuild -bb --define "_topdir $build_directory/rpmbuild" \
@@ -80,7 +80,7 @@ artifacts = {p.relative_to(out).as_posix(): hashlib.sha256(p.read_bytes()).hexdi
              for directory in ['archives', 'rpm'] for p in (out / directory).iterdir() if p.is_file()}
 metadata = {
     'schema': 1, 'status': 'build-tests-passed-runtime-pending',
-    'target': 'almalinux-10-x86_64', 'version': '0.3.0',
+    'target': 'almalinux-10-x86_64', 'version': '0.4.0',
     'base_image': 'docker.io/library/almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6',
     'opam_repository_commit': 'e4cd7ede2d55a46570977c0ffaa7e96845190817',
     'opam_version': '2.3.0', 'ocaml_version': '5.3.0', 'dune_version': '3.21.1',

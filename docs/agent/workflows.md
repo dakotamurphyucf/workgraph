@@ -95,7 +95,13 @@ reassigning its claim. A claim release itself cancels active attempts; do not in
 mutation identity to bypass an uncertain finish/release. Use exact receipts for recovery.
 ]]></recipe>
 <recipe id="communication-and-review"><![CDATA[
-For discussion: board.put(expected_revision0, workspace/project scope), then thread.put
+For an accountable question use request.ask with request_id, title, body, recipients,
+resolver_id and optional ticket_id/kind. Keep returned request/thread IDs and revisions.
+The resolver can request.resolve with the observed request revision and body to attach
+an answer and resolve atomically; no separate thread update is needed. See the short
+question/answer example in communication-evidence.md. Reading or filtering requests never
+acknowledges delivery.
+For an independently assembled discussion: board.put(expected_revision0, workspace/project scope), then thread.put
 with its required metadata, then thread.reply using the current thread revision. Save the
 returned comment_id. Create a typed request referencing that attached comment, frozen
 recipients/teams and a resolver. Recipients acknowledge delivery and optionally accept

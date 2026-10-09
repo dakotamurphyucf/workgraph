@@ -1,5 +1,5 @@
 {
-  "version": "2",
+  "version": "3",
   "workspace_id": "fixture",
   "sequence": "1",
   "previous": null,
@@ -13,7 +13,7 @@
     "durable": true
   },
   "events": {
-    "version": "2",
+    "version": "3",
     "revision": "1",
     "actor": "agent",
     "timestamp": "2026-10-07T00:00:00Z",

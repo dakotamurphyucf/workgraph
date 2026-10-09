@@ -53,3 +53,7 @@ val rename_exclusive : src:_ Eio.Path.t -> dst:_ Eio.Path.t -> unit
     other expected I/O failures raise Json.Decode_error Local_io. Cancellation
     and unexpected exceptions propagate. *)
 val write_string : _ Eio.Flow.sink -> string -> unit
+
+(** Best-effort diagnostic output. Suppresses only [Broken_pipe] and expected
+    [Local_io] output failures. Cancellation and unexpected exceptions propagate. *)
+val write_diagnostic : _ Eio.Flow.sink -> string -> unit

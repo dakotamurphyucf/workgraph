@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import shutil
 import socket
+from socket import AF_UNIX, socket as socket_connection
 import struct
 import threading
 import sys
@@ -83,9 +84,94 @@ class LocalIoTests(unittest.TestCase):
                          "--", shutil.which("true"))
         self.assertEqual(first.returncode, 0, first.stderr)
         original = (stage / "capture.json").read_bytes()
-        self.error(self.cli("evidence-run", "--stage", stage, "--cwd", self.root,
-                            "--", shutil.which("false")), "Invalid_argument", stage)
+        second = self.cli("evidence-run", "--stage", stage, "--cwd", self.root,
+                          "--", shutil.which("false"))
+        self.error(second, "Invalid_argument", stage)
+        self.assertIn("stage already exists", second.stderr)
+        self.assertIn("fresh stage", second.stderr)
+        self.assertNotIn("Eio.", second.stderr)
         self.assertEqual((stage / "capture.json").read_bytes(), original)
+
+    def test_missing_socket_is_actionable_before_send(self):
+        result = self.cli("request", self.socket, "ticket.create", "--workspace-id", "w",
+                          "--actor-id", "a", "--mutation-id", "m", "--ticket-id", "t",
+                          "--title", "Fixture")
+        self.error(result, "Storage_unavailable", self.socket)
+        self.assertIn("start the daemon", result.stderr)
+        self.assertNotIn("Eio.", result.stderr)
+        self.assertNotIn("Outcome_unknown", result.stderr)
+
+    def test_bound_not_listening_socket_is_preserved_before_registry_creation(self):
+        registry = self.root / "refused-registry"
+        with socket.socket(socket.AF_UNIX) as owner:
+            owner.bind(str(self.socket))
+            before = self.socket.stat()
+            result = self.cli("serve", registry, self.socket)
+            self.error(result, "Conflict")
+            after = self.socket.stat()
+            self.assertEqual((before.st_dev, before.st_ino), (after.st_dev, after.st_ino))
+            self.assertFalse(registry.exists())
+            owner.listen(1)
+            with socket.socket(socket.AF_UNIX) as client:
+                client.connect(str(self.socket))
+                with owner.accept()[0]:
+                    pass
+
+    def test_null_id_rejection_and_malformed_write_responses(self):
+        responses = [
+            ({"code": -32600, "message": "unknown field: workgraph_api",
+              "data": {"kind": "Invalid_argument", "message": "unknown field: workgraph_api"}},
+             "Invalid_argument"),
+            ({"code": -32600, "message": "Invalid Request"}, "Invalid_argument"),
+            ({"code": -32600, "message": "x", "data": {}}, "Outcome_unknown"),
+            ({"code": -32600, "message": "x", "data": {"kind": "Invalid_argument", "message": "y"}},
+             "Outcome_unknown"),
+            ({"code": -32000, "message": "x", "data": {"kind": "Invalid_argument", "message": "x"}},
+             "Outcome_unknown"),
+        ]
+        for error, expected in responses:
+            with self.subTest(error=error), socket.socket(socket.AF_UNIX) as listener:
+                listener.bind(str(self.socket))
+                listener.listen(1)
+                listener.settimeout(5)
+                def peer():
+                    with listener.accept()[0] as flow:
+                        flow.settimeout(5)
+                        self.read_frame(flow)
+                        self.write_frame(flow, {"jsonrpc": "2.0", "id": None, "error": error})
+                thread = threading.Thread(target=peer)
+                thread.start()
+                result = self.cli("request", self.socket, "ticket.create", "--workspace-id", "w",
+                                  "--actor-id", "a", "--mutation-id", "m", "--ticket-id", "t",
+                                  "--title", "Fixture")
+                thread.join(timeout=6)
+                self.assertFalse(thread.is_alive())
+                self.socket.unlink()
+                if expected == "Outcome_unknown":
+                    self.error(result, expected)
+                    self.assertIn("identical saved request", result.stderr)
+                else:
+                    self.assertEqual(json.loads(result.stdout)["error"]["data"]["kind"], expected)
+
+    @staticmethod
+    def read_frame(flow):
+        def exact(size):
+            data = b""
+            while len(data) < size:
+                part = flow.recv(size - len(data))
+                if not part:
+                    raise EOFError("incomplete frame")
+                data += part
+            return data
+        size = struct.unpack(">I", exact(4))[0]
+        if size > 4 * 1024 * 1024:
+            raise ValueError("oversized frame")
+        return json.loads(exact(size))
+
+    @staticmethod
+    def write_frame(flow, request):
+        body = json.dumps(request).encode()
+        flow.sendall(struct.pack(">I", len(body)) + body)
 
     def test_broken_stdout_is_quiet(self):
         read_end, write_end = os.pipe()
@@ -152,6 +238,7 @@ class LocalIoTests(unittest.TestCase):
         self.error(result, "Conflict")
         self.assertEqual(occupied.read_text(), "keep")
         self.assertNotIn(" ready ", result.stderr)
+        self.assertFalse((self.root / "reg-occupied").exists())
         failed = self.cli("serve", self.root / "reg-failed", self.root / "missing" / "s")
         self.assertNotEqual(failed.returncode, 0)
         self.assertIn("bind", failed.stderr)
@@ -187,6 +274,33 @@ class LocalIoTests(unittest.TestCase):
         same_registry = self.cli("serve", self.root / "registry", self.root / "other-socket")
         self.error(same_registry, "Conflict")
         self.assertEqual(self.cli("request", socket, "daemon.health").returncode, 0)
+        # Rejections preserve valid parsed IDs and bound reflected field names.
+        with socket_connection(AF_UNIX) as flow:
+            flow.connect(str(socket))
+            self.write_frame(flow, {"jsonrpc": "2.0", "id": "envelope-id", "method": "daemon.health",
+                                    "workgraph_api": "unsupported", "params": {}})
+            rejected = self.read_frame(flow)
+            self.assertEqual(rejected["id"], "envelope-id")
+            self.assertEqual(rejected["error"]["code"], -32600)
+        created = self.cli("request", socket, "workspace.create", "--workspace-id", "large",
+                           "--actor-id", "a", "--mutation-id", "create", "--name", "Large",
+                           "--root", self.root / "workspace")
+        self.assertEqual(created.returncode, 0, created.stderr)
+        marker = json.loads(self.cli("request", socket, "initialize").stdout)["result"]["data"]["workgraph_api"]
+        for character in ("x", "\u0001"):
+            with socket_connection(AF_UNIX) as flow:
+                flow.connect(str(socket))
+                self.write_frame(flow, {"jsonrpc": "2.0", "workgraph_api": marker, "id": "large-id",
+                    "method": "ticket.create", "params": {"workspace_id": "large", "actor_id": "a",
+                    "mutation_id": "invalid-large", "ticket_id": "t", "title": "T",
+                    character * (1_500_000 if character == "x" else 250_000): "bad"}})
+                rejected = self.read_frame(flow)
+                self.assertEqual(rejected["id"], "large-id")
+                self.assertEqual(rejected["error"]["code"], -32000)
+                diagnostic = rejected["error"]["data"]
+                self.assertEqual(diagnostic["kind"], "Invalid_argument")
+                self.assertEqual(diagnostic["details"]["type"], "field")
+                self.assertLessEqual(len(json.dumps(rejected).encode()), 65536)
         shutdown = self.cli("request", socket, "daemon.shutdown")
         self.assertEqual(shutdown.returncode, 0, shutdown.stderr)
         daemon.wait(timeout=10)

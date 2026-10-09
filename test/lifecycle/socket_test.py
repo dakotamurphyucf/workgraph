@@ -60,7 +60,8 @@ class LifecycleSocketTest(unittest.TestCase):
                     self.assertEqual('Invalid_argument', failed['error']['data']['kind'])
                     self.assertEqual(before_finish, ok('workspace.get')['meta']['workspace_revision'])
                     final = write('ticket.finish', 'finish', ticket_id='task', token='1', evidence='verified', handoff={'summary':'implemented','next_steps':'review'})
-                    self.assertEqual({'completed': True}, final['data'])
+                    revision = ok('ticket.context', ticket_id='task')['data']['ticket']['revision']
+                    self.assertEqual({'completed': True, 'ticket_revision': revision}, final['data'])
                     stop()
                     start()
                     self.assertEqual(final, write('ticket.finish', 'finish', ticket_id='task', token='1', evidence='verified', handoff={'summary':'implemented','next_steps':'review'}))

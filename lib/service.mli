@@ -5,7 +5,11 @@
     against concurrent external filesystem replacement. Validates the native socket
     path byte bound before starting workers. Concise lifecycle diagnostics identify
     registry/socket paths; ready is emitted only after successful initialization
-    and bind. Failed bind never unlinks another listener's socket. *)
+    and bind. Occupied sockets refuse startup before registry initialization when
+    observed; connection refusal never proves stale ownership. Failed bind never
+    unlinks another listener's socket. Stale recovery is explicit: stop all possible
+    owners and remove the path manually before restarting. Diagnostic pipe failures
+    do not stop service; cancellation and unexpected errors propagate. *)
 val run : env:Eio_unix.Stdenv.base -> registry:string -> socket:string -> unit
 
 (** Serve an already prepared listener using the same dispatcher and disk

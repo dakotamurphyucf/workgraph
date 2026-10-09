@@ -7,10 +7,47 @@ Each method below links its authoritative generated request/result contract in
 The [two-round executable review workflow](../gated-review-workflow.md) documents
 automatic request resolvers and the public JSON approval message body.
 
+Ask and answer a question with two actor contexts on the same workspace. Both
+contexts have private request directories; `RESOLVER_CONTEXT` identifies `reviewer`.
+Use a fresh request ID and an existing `task` ticket. `jq` extracts the observed
+request revision; successful writes already have exact saved retry files.
+
+```sh
+"$WG" --context "$CONTEXT" request ask --request-id clarification-1 \
+  --ticket-id task --title 'Choose the output format' \
+  --body 'Should the report be JSON or Markdown?' \
+  --json-field recipients '[{"kind":"actor","id":"reviewer"}]' \
+  --resolver-id reviewer
+
+"$WG" --context "$RESOLVER_CONTEXT" request list --ticket-id task --resolver-id reviewer
+REQUEST_REV=$("$WG" --context "$RESOLVER_CONTEXT" request get \
+  --request-id clarification-1 | jq -er '.result.data.revision')
+"$WG" --context "$RESOLVER_CONTEXT" request resolve --request-id clarification-1 \
+  --expected-revision "$REQUEST_REV" --body 'Use JSON so the harness can parse it.'
+"$WG" --context "$CONTEXT" request get --request-id clarification-1 --include-messages true
+```
+
+Request resolution records the answer and leaves task completion to its owner.
+Reading these results acknowledges neither request delivery nor inbox processing.
+
 ```xml
 <workgraph_reference name="communication-evidence">
 <workflow name="choose-communication"><![CDATA[
 Use message.send for a durable direct message; it needs no board or thread.
+Use request.ask to create a question, discussion board/thread and accountable request
+in one saved mutation. Supply request_id, title, nonblank body, nonempty recipients and
+resolver_id; optional kind defaults to clarification. Without ticket_id it has workspace
+scope. With a ticket it links that ticket and uses its project scope when applicable.
+Thread participants are the author and resolver; request delivery recipients remain a
+separate set and do not automatically become thread participants.
+Internal board/thread/question IDs are deterministic; collisions publish none of the parts.
+Retain returned request_id/request_revision, board_id, thread_id/thread_revision and
+question {comment_id,revision}; use them instead of deriving internal IDs yourself.
+Use request.resolve with expected_revision and optional nonblank body to attach an answer
+and resolve atomically as the designated resolver. The thread revision is captured inside
+that same planning transaction; callers do not perform a separate read/write sequence.
+Validation failure publishes neither answer nor resolution; an exact saved retry never
+creates a second answer or duplicate notifications. Omitting body keeps plain resolution.
 Use a board for workspace/project scope, a thread for persistent conversation,
 and a request for explicit accountable work. Requests do not allocate ticket work.
 Delivery acknowledgement, accepted responsibility and terminal request resolution
@@ -171,7 +208,7 @@ dependencies and children. Consult the acceptance-policy reference for detailed 
   </method>
   <method name="thread.put" kind="mutation">
     <contract href="../api-reference/thread.put.md"/>
-    <behavior>Replace thread metadata against its current revision. Board and attached/pinned comment IDs are preserved; omitted participant/mention/link lists clear those lists and omitted pinned becomes false. Reopen a resolved thread before replying.</behavior>
+    <behavior>Create at expected_revision="0", then replace thread metadata against its current revision. Board and attached/pinned comment IDs are preserved; omitted participant/mention/link lists clear those lists and omitted pinned becomes false. Reopen a resolved thread before replying.</behavior>
   </method>
   <method name="thread.attach" kind="mutation">
     <contract href="../api-reference/thread.attach.md"/>
@@ -188,6 +225,10 @@ dependencies and children. Consult the acceptance-policy reference for detailed 
   <method name="team.put" kind="mutation">
     <contract href="../api-reference/team.put.md"/>
     <behavior>Replace a deduplicated named recipient set. Only future sends/request creation use its new membership.</behavior>
+  </method>
+  <method name="request.ask" kind="mutation">
+    <contract href="../api-reference/request.ask.md"/>
+    <behavior>Create the scoped board, thread, authored question and accountable request together. Required request_id/title/body/recipients/resolver_id; optional ticket_id and kind (default clarification). The result returns request/thread identifiers and revisions plus the exact question reference. Existing lower-level APIs remain available.</behavior>
   </method>
   <method name="request.create" kind="mutation">
     <contract href="../api-reference/request.create.md"/>
@@ -207,7 +248,7 @@ dependencies and children. Consult the acceptance-policy reference for detailed 
   </method>
   <method name="request.resolve" kind="mutation">
     <contract href="../api-reference/request.resolve.md"/>
-    <behavior>The designated resolver terminally resolves an Open request. Further transitions conflict; linked thread/ticket state is separate.</behavior>
+    <behavior>The designated resolver terminally resolves an Open request at expected_revision. Optional body is nonblank UTF-8, at most 65536 bytes; it authors and attaches the answer in the same commit. Failure publishes neither part, exact retry duplicates neither. Omit body for plain resolution. Further transitions conflict; linked thread/ticket state is separate.</behavior>
   </method>
   <method name="request.cancel" kind="mutation">
     <contract href="../api-reference/request.cancel.md"/>
@@ -259,11 +300,11 @@ dependencies and children. Consult the acceptance-policy reference for detailed 
   </method>
   <method name="request.get" kind="query">
     <contract href="../api-reference/request.get.md"/>
-    <behavior>Fetch current request metadata and optional related messages. source_message is explicitly CURRENT; its original source reference has revision:null. Use dual capture paging, never infer an immutable original body.</behavior>
+    <behavior>Fetch current request metadata, current thread_revision and optional related messages. revision is the request entity revision; thread_revision belongs to its discussion thread, separately from query/workspace captures. source_message is explicitly CURRENT; its original source reference has revision:null. Use dual capture paging, never infer an immutable original body.</behavior>
   </method>
   <method name="request.list" kind="query">
     <contract href="../api-reference/request.list.md"/>
-    <behavior>List current requests by ID; filters intersect. recipient matches frozen delivery, responsible matches accepted ownership, unanswered means Open with unacknowledged delivery, overdue means an Open deadline strictly before the supplied instant.</behavior>
+    <behavior>List current requests by ID; filters intersect before pagination and byte fitting. Optional ticket_id matches linked ticket threads and resolver_id selects the designated resolver. Reading/filtering acknowledges no delivery or inbox entry. recipient matches frozen delivery, responsible matches accepted ownership, unanswered means Open with unacknowledged delivery, overdue means an Open deadline strictly before the supplied instant.</behavior>
   </method>
   <method name="request.history" kind="query">
     <contract href="../api-reference/request.history.md"/>

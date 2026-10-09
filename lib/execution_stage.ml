@@ -115,7 +115,19 @@ let run command ~env ~directory =
       | None -> Json.fail Invalid_argument "capture directory has no parent"
     in
     Local_file.require_directory parent ~operation:"create execution stage";
-    Eio.Path.mkdir ~perm:0o700 path;
+    let existing () =
+      Json.fail
+        Invalid_argument
+        (sprintf
+           "create execution stage %S: stage already exists; inspect or publish its \
+            saved capture, or choose a fresh stage for a new execution"
+           directory)
+    in
+    (match Eio.Path.kind ~follow:false path with
+     | `Not_found -> ()
+     | _ -> existing ());
+    (try Eio.Path.mkdir ~perm:0o700 path with
+     | Eio.Io (Eio.Fs.E (Already_exists _), _) -> existing ());
     Platform.sync_directory parent;
     Disk.write_new
       Eio.Path.(path / "command.json")

@@ -137,3 +137,9 @@ let write_string sink text =
   | (Unix.Unix_error _ | Eio.Io _) as exn ->
     Json.fail Local_io ("write local output: " ^ Exn.to_string exn)
 ;;
+
+let write_diagnostic sink text =
+  try write_string sink text with
+  | Broken_pipe -> ()
+  | Json.Decode_error { kind = Local_io; _ } -> ()
+;;

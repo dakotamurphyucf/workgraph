@@ -9,11 +9,11 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | Input | Presence | Type and constraints |
 | --- | --- | --- |
 | `at_revision` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
-| `change_limit` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="100"; Validated cooperative coordination record. |
+| `change_limit` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="100"; Maximum recent changes: 1..100 entries; default 10. Byte fitting may return fewer. |
 | `fact_prefix` | optional | string; max UTF-8 bytes=128 |
 | `fact_selections` | optional | array; max items=16 |
 | `include_markdown` | optional | boolean |
-| `max_bytes` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="1048576"; Validated cooperative coordination record. |
+| `max_bytes` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="1048576"; Canonical result-envelope byte budget: 4096..1048576 bytes; default 65536. |
 | `run_id` | optional | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `ticket_id` | required | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `workspace_id` | required | string; max UTF-8 bytes=96; Workspace identity. |
@@ -60,7 +60,7 @@ For preconditions and a small example, run `workgraph help ticket.resume`. Use `
                   "x-maximumDecimal": "100"
                 }
               ],
-              "description": "Validated cooperative coordination record."
+              "description": "Maximum recent changes: 1..100 entries; default 10. Byte fitting may return fewer."
             },
             "fact_prefix": {
               "type": "string",
@@ -191,7 +191,7 @@ For preconditions and a small example, run `workgraph help ticket.resume`. Use `
                   "x-maximumDecimal": "1048576"
                 }
               ],
-              "description": "Validated cooperative coordination record."
+              "description": "Canonical result-envelope byte budget: 4096..1048576 bytes; default 65536."
             },
             "run_id": {
               "allOf": [

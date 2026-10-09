@@ -164,7 +164,9 @@ let run ~env arguments =
     then
       Json.fail
         Invalid_argument
-        ("unknown method: " ^ method_ ^ "; use workgraph methods to list methods");
+        ("unknown method: "
+         ^ method_
+         ^ "; use workgraph methods to list methods; ticket.get reads ticket context");
     let client =
       Client.create
         ~net:(Eio.Stdenv.net env)
@@ -244,6 +246,9 @@ let run ~env arguments =
   in
   let context = ref None in
   let request socket method_ options =
+    let method_ =
+      if String.equal method_ "ticket.get" then "ticket.context" else method_
+    in
     let options =
       if options.self
       then
@@ -309,19 +314,34 @@ let run ~env arguments =
         | [] -> context_file, socket, List.rev reversed
       in
       let context_file, socket_override, arguments = select None None [] arguments in
+      let offline =
+        match arguments with
+        | []
+        | [ "--help" ]
+        | [ "--version" ]
+        | [ "version" ]
+        | "help" :: _
+        | "methods" :: _
+        | "schema" :: _
+        | [ ("init" | "bootstrap"); "--help" ] -> true
+        | _ -> false
+      in
       context
-      := Option.bind context_file ~f:(fun path ->
-           if
-             List.mem
-               [ "init"; "bootstrap" ]
-               (Option.value (List.hd arguments) ~default:"")
-               ~equal:String.equal
-             &&
-             match Eio.Path.kind ~follow:false Eio.Path.(fs / path) with
-             | `Not_found -> true
-             | _ -> false
-           then None
-           else Some (Cli_context.load ~fs path |> Disk.unwrap));
+      := if offline
+         then None
+         else
+           Option.bind context_file ~f:(fun path ->
+             if
+               List.mem
+                 [ "init"; "bootstrap" ]
+                 (Option.value (List.hd arguments) ~default:"")
+                 ~equal:String.equal
+               &&
+               match Eio.Path.kind ~follow:false Eio.Path.(fs / path) with
+               | `Not_found -> true
+               | _ -> false
+             then None
+             else Some (Cli_context.load ~fs path |> Disk.unwrap));
       let default_socket =
         match socket_override with
         | Some socket -> Some socket
@@ -467,6 +487,9 @@ let run ~env arguments =
              Cli_reference.schema ~core ~method_name () |> Disk.unwrap |> Json.canonical
            else Cli_reference.help ~detail ~core ~method_name () |> Disk.unwrap);
         0
+      | [ ("init" | "bootstrap"); "--help" ] ->
+        output Cli_bootstrap.help;
+        0
       | ("init" | "bootstrap") :: rest ->
         let options = parse_options ~fs rest in
         if options.self then Json.fail Invalid_argument "--self is unsupported for init";
@@ -553,10 +576,43 @@ let run ~env arguments =
         in
         execute socket options request
       | "request" :: rest ->
-        let socket, rest = with_socket rest in
+        let explicit_socket =
+          Option.value_map (List.hd rest) ~default:false ~f:Filename.is_absolute
+        in
+        let socket, rest =
+          match rest with
+          | [] ->
+            Json.fail
+              Invalid_argument
+              "request requires an action: --context ABS_FILE request get/list/...; or \
+               request ABS_SOCKET METHOD"
+          | action :: tail when not explicit_socket ->
+            let domain_method = "request." ^ action in
+            let method_ =
+              if Option.is_some (Api_catalog.find domain_method)
+              then domain_method
+              else if
+                String.contains action '.' || Option.is_some (Api_catalog.find action)
+              then action
+              else
+                Json.fail
+                  Invalid_argument
+                  "use --context ABS_FILE request get/list/... or request ABS_SOCKET \
+                   METHOD"
+            in
+            if Option.is_none default_socket
+            then
+              Json.fail
+                Invalid_argument
+                "supply --context ABS_FILE or --socket ABS_SOCKET for request actions; \
+                 generic transport is request ABS_SOCKET METHOD";
+            with_socket (method_ :: tail)
+          | _ -> with_socket rest
+        in
         (match rest with
          | method_ :: rest -> request socket method_ (parse_options ~fs rest)
-         | [] -> Json.fail Invalid_argument "request requires a method")
+         | [] ->
+           Json.fail Invalid_argument "request requires METHOD: request ABS_SOCKET METHOD")
       | family :: action :: rest ->
         let socket, rest = with_socket rest in
         request socket (family ^ "." ^ action) (parse_options ~fs rest)

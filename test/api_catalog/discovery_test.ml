@@ -162,3 +162,145 @@ let%expect_test
     Update a ticket's priority, assignee, labels, acceptance criteria or status.
     |}]
 ;;
+
+let%expect_test "brief help bounds nested shapes and makes context preconditions explicit"
+  =
+  let help name = Cli_reference.help ~method_name:(Some name) () |> unwrap in
+  let field name field =
+    String.split_lines (help name)
+    |> List.find_exn ~f:(fun line -> String.is_prefix line ~prefix:("  " ^ field ^ " ["))
+  in
+  let recipients = field "request.ask" "recipients" in
+  print_s
+    [%sexp (String.is_substring recipients ~substring:"array of object {kind:" : bool)];
+  print_s [%sexp (String.is_substring recipients ~substring:"const=\"actor\"" : bool)];
+  print_s [%sexp (String.is_substring recipients ~substring:"const=\"run\"" : bool)];
+  let scope = field "board.put" "scope" in
+  print_s [%sexp (String.is_substring scope ~substring:"object {kind:" : bool)];
+  let nested = field "acceptance.policy.put" "inherited_override" in
+  print_s [%sexp (String.is_substring nested ~substring:"against: object;" : bool)];
+  print_s [%sexp (String.is_substring nested ~substring:"reviewers: array;" : bool)];
+  print_s [%sexp (not (String.is_substring nested ~substring:"contract_id") : bool)];
+  let claim = help "ticket.claim_next" in
+  print_s [%sexp (String.is_substring claim ~substring:"registered live run" : bool)];
+  print_s [%sexp (String.is_substring claim ~substring:"fresh attempt_id" : bool)];
+  print_s [%sexp (String.is_substring claim ~substring:"context without run_id" : bool)];
+  print_s
+    [%sexp
+      (String.is_substring claim ~substring:"context does not default target_run_id"
+       : bool)];
+  [%expect
+    {|
+    true
+    true
+    true
+    true
+    true
+    true
+    true
+    true
+    true
+    true
+    true
+    |}]
+;;
+
+let%expect_test
+    "creation examples and allocation attribution satisfy workflow preconditions"
+  =
+  let example name =
+    Cli_reference.help ~method_name:(Some name) ()
+    |> unwrap
+    |> String.split_lines
+    |> List.find_map_exn ~f:(fun line ->
+      Option.map (String.chop_prefix line ~prefix:"Example params: ") ~f:(fun text ->
+        Json.parse text |> unwrap))
+  in
+  List.iter [ "board.put"; "thread.put" ] ~f:(fun name ->
+    print_endline (name ^ ": " ^ Json.text (Json.field (example name) "expected_revision")));
+  let claim = example "ticket.claim_next" in
+  print_s
+    [%sexp
+      (String.equal
+         (Json.text (Json.field claim "run_id"))
+         (Json.text (Json.field claim "target_run_id"))
+       : bool)];
+  [%expect
+    {|
+    board.put: 0
+    thread.put: 0
+    true
+    |}]
+;;
+
+let%expect_test
+    "read summaries describe discovery without stale-writer ownership instructions"
+  =
+  List.iter
+    [ "ticket.resolve"; "activity.since"; "allocation.pools"; "run.actions" ]
+    ~f:(fun name ->
+      let (Api_method.Packed.Pack method_) = Api_catalog.find name |> Option.value_exn in
+      let summary = Api_method.summary method_ in
+      print_s [%sexp (String.is_substring summary ~substring:"ownership" : bool)]);
+  [%expect
+    {|
+    false
+    false
+    false
+    false
+    |}]
+;;
+
+let%expect_test "resume query bounds describe entries and bytes rather than records" =
+  List.iter
+    [ "activity.digest", "limit", "1..100; default 50"
+    ; "activity.digest", "max_bytes", "4096..1048576 bytes; default 65536"
+    ; "ticket.resume", "change_limit", "1..100 entries; default 10"
+    ; "ticket.resume", "max_bytes", "4096..1048576 bytes; default 65536"
+    ]
+    ~f:(fun (method_, field, description) ->
+      let line =
+        Cli_reference.help ~method_name:(Some method_) ()
+        |> unwrap
+        |> String.split_lines
+        |> List.find_exn ~f:(fun line ->
+          String.is_prefix line ~prefix:("  " ^ field ^ " ["))
+      in
+      print_s
+        [%sexp
+          (( String.is_substring line ~substring:description
+           , not (String.is_substring line ~substring:"cooperative coordination record")
+           )
+           : bool * bool)]);
+  List.iter [ "0"; "1"; "100"; "101" ] ~f:(fun value ->
+    print_s
+      [%sexp
+        (Api_codec.decode
+           Resume_api.Digest_request.codec
+           (Json.obj [ "limit", Json.string value ])
+         |> Result.is_ok
+         : bool)]);
+  List.iter [ "4095"; "4096"; "1048576"; "1048577" ] ~f:(fun value ->
+    print_s
+      [%sexp
+        (Api_codec.decode
+           Resume_api.Resume_request.codec
+           (Json.obj [ "ticket_id", Json.string "task"; "max_bytes", Json.string value ])
+         |> Result.is_ok
+         : bool)]);
+  [%expect
+    {|
+    (true true)
+    (true true)
+    (true true)
+    (true true)
+    false
+    true
+    true
+    false
+    false
+    true
+    true
+    false
+    |}]
+;;

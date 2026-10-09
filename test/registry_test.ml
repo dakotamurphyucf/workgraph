@@ -10,14 +10,14 @@ let outcome result =
 let%expect_test "current registry roundtrip and strict invariants" =
   let decoded =
     Registry.decode
-      {|{"version":"2","workspaces":{"demo":{"root":"/tmp/demo","open":false,"known_head":null,"known_history_head":null}},"receipts":{},"creates":{},"exports":{},"restores":{}}|}
+      {|{"version":"3","workspaces":{"demo":{"root":"/tmp/demo","open":false,"known_head":null,"known_history_head":null}},"receipts":{},"creates":{},"exports":{},"restores":{}}|}
     |> Disk.unwrap
   in
   let encoded = Registry.encode decoded |> Disk.unwrap in
   print_endline encoded;
   outcome
     (Registry.decode
-       {|{"version":"3","workspaces":{},"receipts":{},"creates":{},"exports":{},"restores":{}}|});
+       {|{"version":"4","workspaces":{},"receipts":{},"creates":{},"exports":{},"restores":{}}|});
   let report value =
     match Registry.encode value with
     | Ok _ -> print_endline "accepted"
@@ -51,7 +51,7 @@ let%expect_test "current registry roundtrip and strict invariants" =
     };
   [%expect
     {|
-    {"creates":{},"exports":{},"receipts":{},"restores":{},"version":"2","workspaces":{"demo":{"known_head":null,"known_history_head":null,"open":false,"root":"/tmp/demo"}}}
+    {"creates":{},"exports":{},"receipts":{},"restores":{},"version":"3","workspaces":{"demo":{"known_head":null,"known_history_head":null,"open":false,"root":"/tmp/demo"}}}
     Unsupported_version
     Corrupt_store
     Corrupt_store

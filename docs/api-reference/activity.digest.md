@@ -11,8 +11,8 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | `after` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
 | `cursor` | optional | string; max UTF-8 bytes=2048; Nonblank UTF8 text. |
 | `include_markdown` | optional | boolean |
-| `limit` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="100"; Validated cooperative coordination record. |
-| `max_bytes` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="1048576"; Validated cooperative coordination record. |
+| `limit` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="100"; Maximum activity entries: 1..100; default 50. Byte fitting may return fewer. |
+| `max_bytes` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="1048576"; Canonical result-envelope byte budget: 4096..1048576 bytes; default 65536. |
 | `scope` | optional | tagged alternatives; see complete schema |
 | `workspace_id` | required | string; max UTF-8 bytes=96; Workspace identity. |
 
@@ -70,7 +70,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                   "x-maximumDecimal": "100"
                 }
               ],
-              "description": "Validated cooperative coordination record."
+              "description": "Maximum activity entries: 1..100; default 50. Byte fitting may return fewer."
             },
             "max_bytes": {
               "allOf": [
@@ -80,7 +80,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                   "x-maximumDecimal": "1048576"
                 }
               ],
-              "description": "Validated cooperative coordination record."
+              "description": "Canonical result-envelope byte budget: 4096..1048576 bytes; default 65536."
             },
             "scope": {
               "oneOf": [

@@ -21,7 +21,8 @@ module Fact_selection : sig
 end
 
 module Resume_request : sig
-  (** Decoding enforces byte budget 4096..1048576, change limit1..100, at most16
+  (** Decoding enforces canonical result-envelope byte budget 4096..1048576
+      (default 65536), change limit 1..100 (default 10), at most16
       distinct exact fact selections and UTF8 prefix <=128 bytes. No inheritance.
       Omitted observation clock is handled by the pure builder, never defaulted
       to a persisted lease observation. at_revision is an exact current guard. *)
@@ -41,7 +42,10 @@ end
 module Digest_request : sig
   (** Cursor and numeric after are mutually exclusive. Initial numeric after
       begins a fresh capture; only a returned cursor preserves a prior lineage.
-      Requests keep scope unchanged across pages. Cursor text <=2048 UTF8 bytes. *)
+      Requests keep scope unchanged across pages. Cursor text <=2048 UTF8 bytes.
+      [limit] counts activity entries, 1..100 (default 50); byte fitting may return
+      fewer. The canonical result-envelope byte budget is 4096..1048576
+      (default 65536). *)
   type t
 
   val codec : t Api_codec.t

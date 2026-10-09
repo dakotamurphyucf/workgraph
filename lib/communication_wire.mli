@@ -15,6 +15,15 @@ val team : Jsonaf.t Api_codec.t
 val subscription : Jsonaf.t Api_codec.t
 val thread : Jsonaf.t Api_codec.t
 val request : Jsonaf.t Api_codec.t
+
+(** Current request.get projection; requires the captured current thread revision.
+    Historical snapshots and mutation results remain independent of live threads. *)
+val request_current : Jsonaf.t Api_codec.t
+
+(** Atomic ask receipt with current request/thread revisions and the initial
+    authored question reference. Internal IDs are opaque, validated local IDs. *)
+val ask_receipt : Jsonaf.t Api_codec.t
+
 val page : Jsonaf.t Api_codec.t -> Jsonaf.t Api_codec.t
 val board_json : Communication_event.Board.t -> Jsonaf.t
 val team_json : Communication_event.Team.t -> Jsonaf.t

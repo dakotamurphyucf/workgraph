@@ -26,6 +26,7 @@ let subscription_id =
 ;;
 
 let actor_id = id Id.Actor.of_string Id.Actor.to_string
+let ticket_id = id Id.Ticket.of_string Id.Ticket.to_string
 let decimal = Api_codec.decimal ~max:Int.max_value
 
 let bounded ~min ~max description =
@@ -119,7 +120,9 @@ let thread_filters =
 ;;
 
 let request_filters =
-  [ optional "scope" Communication_wire.scope
+  [ optional "ticket_id" ticket_id
+  ; optional "resolver_id" actor_id
+  ; optional "scope" Communication_wire.scope
   ; optional "thread_id" thread_id
   ; optional "kind" Communication_wire.request_kind
   ; optional "recipient" Communication_recipient.codec
@@ -155,7 +158,7 @@ let query_entries =
     , Communication_wire.page Communication_wire.thread )
   ; ( "request.get"
     , Api_codec.as_json Communication_related.Query.request_codec
-    , Communication_wire.request )
+    , Communication_wire.request_current )
   ; ( "request.list"
     , page request_filters
     , Communication_wire.page Communication_wire.request )
@@ -168,6 +171,7 @@ let query_entries =
 let query_methods = List.map query_entries ~f:(fun (name, _, _) -> name)
 
 let mutation_response = function
+  | "request.ask" -> Communication_wire.ask_receipt
   | "board.put" -> Communication_wire.board
   | "team.put" -> Communication_wire.team
   | "subscription.put" -> Communication_wire.subscription

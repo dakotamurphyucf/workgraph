@@ -145,6 +145,59 @@ class CommunicationSocketTest(unittest.TestCase):
                     mutate("inbox.ack", "delivery-ack", actor="bob", consumer_id="consumer-a", recipient=bob, notification_ids=[selected])
                     self.assertNotIn(selected, [item["notification_id"] for item in read("inbox.read", consumer_id="consumer-a", recipient=bob)["data"]["items"]])
                     self.assertIn(selected, [item["notification_id"] for item in read("inbox.read", consumer_id="consumer-b", recipient=bob)["data"]["items"]])
+                    # Save both compositions before sending; retries use their exact envelopes.
+                    def saved_mutation(method, path, **params):
+                        covered.add(method)
+                        argv = [str(EXE), "request", str(address), method,
+                                "--workspace-id", "communication", "--actor-id", "alice",
+                                "--save-request", str(path)]
+                        for key, value in params.items():
+                            argv.extend(["--json-field", key, json.dumps(value)])
+                        return json.loads(subprocess.check_output(argv))["result"]
+
+                    ask_path = root / "ask.json"
+                    asked = saved_mutation("request.ask", ask_path, request_id="asked",
+                                           title="Choose an approach", body="Which approach?",
+                                           recipients=[bob], resolver_id="alice")
+                    ask = asked["data"]
+                    self.assertEqual((ask["request_revision"], ask["thread_revision"]), ("1", "2"))
+                    self.assertEqual(ask["question"]["revision"], "1")
+                    self.assertEqual(read("request.get", request_id="asked")["data"]["thread_revision"], "2")
+                    before_failure = call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576")
+                    for actor, revision, body, kind in [("bob", "1", "Unauthorized", "Conflict"),
+                                                        ("alice", "0", "Stale", "Conflict"),
+                                                        ("alice", "1", "   ", "Invalid_argument"),
+                                                        ("alice", "1", "x" * 65537, "Invalid_argument")]:
+                        reject("request.resolve", expected_kind=kind, actor_id=actor,
+                               mutation_id="invalid-answer-" + actor + revision + str(len(body)),
+                               request_id="asked", expected_revision=revision, body=body)
+                    reject("request.ask", expected_kind="Conflict", actor_id="alice", mutation_id="collision",
+                           request_id="asked", title="Collision", body="Question", recipients=[bob], resolver_id="alice")
+                    self.assertEqual(call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576"), before_failure)
+                    answer_path = root / "answer.json"
+                    answered = saved_mutation("request.resolve", answer_path, request_id="asked",
+                                              expected_revision="1", body="Use existing events.")
+                    self.assertEqual(answered["data"]["status"]["kind"], "resolved")
+                    question_thread = read("thread.get", thread_id=ask["thread_id"])["data"]
+                    self.assertEqual(question_thread["revision"], "3")
+                    self.assertEqual(len(question_thread["comment_ids"]), 2)
+                    answer_comment = read("comment.get", comment_id=question_thread["comment_ids"][1])["data"]
+                    self.assertEqual(answer_comment["body"], "Use existing events.")
+                    self.assertEqual(answer_comment["actor_id"], "alice")
+                    self.assertEqual(answer_comment["reply_to_comment_id"], ask["question"]["comment_id"])
+                    self.assertEqual(read("request.get", request_id="asked")["data"]["thread_revision"], "3")
+                    mutate("ticket.create", "ask-ticket", ticket_id="task", title="Task")
+                    ticket_ask = mutate("request.ask", "ticket-ask", request_id="ticket-ask",
+                                        ticket_id="task", title="Task question", body="Which task?",
+                                        recipients=[bob], resolver_id="bob")
+                    filtered = read("request.list", ticket_id="task", resolver_id="bob", limit="1", max_bytes="4096")
+                    self.assertEqual([item["request_id"] for item in filtered["data"]["items"]], ["ticket-ask"])
+                    self.assertIsNone(filtered["data"]["next_offset"])
+                    self.assertEqual(read("request.list", ticket_id="task", resolver_id="alice")["data"]["items"], [])
+                    retry_inbox = read("inbox.read", consumer_id="ask-consumer", recipient=bob)
+                    for path, original in [(ask_path, asked), (answer_path, answered)]:
+                        self.assertEqual(json.loads(subprocess.check_output([str(EXE), "retry", str(address), str(path)]))["result"], original)
+                    self.assertEqual(read("inbox.read", consumer_id="ask-consumer", recipient=bob), retry_inbox)
                     audit = call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576")
                     retained = [change["event"] for row in audit["data"]["items"] for change in row["changes"] if change["kind"] == "communication_changed"]
                     sent = next(event["update"]["message"] for event in retained if event["update"]["kind"] == "message_put")
@@ -162,6 +215,9 @@ class CommunicationSocketTest(unittest.TestCase):
                     process = start()
                     retried = mutate("request.create", "request", request_id="request", thread_id="thread", kind="review", comment_id="comment", resolver_id="alice", teams=["team"])
                     self.assertEqual(retried, created)
+                    for path, original in [(ask_path, asked), (answer_path, answered)]:
+                        self.assertEqual(json.loads(subprocess.check_output([str(EXE), "retry", str(address), str(path)]))["result"], original)
+                    self.assertEqual(read("inbox.read", consumer_id="ask-consumer", recipient=bob), retry_inbox)
                     self.assertEqual(call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576"), audit)
                     self.assertEqual(read("request.get", request_id="request")["data"]["status"]["kind"], "resolved")
                     expected = {name for name in methods if name.split('.')[0] in {"board", "team", "subscription", "thread", "request"}}

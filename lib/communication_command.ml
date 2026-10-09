@@ -6,7 +6,12 @@ module Request = Communication_event.Request
 module Subscription = Communication_event.Subscription
 
 (** Domain communication commands. Input codecs preserve distinctions between
-    omission, explicit clearing, tagged values and plain lowercase enums. *)
+    omission, explicit clearing, tagged values and plain lowercase enums.
+    [Request_ask] and [Request_resolve] with a body compose discussion and
+    communication changes through [State.prepare]. Ask threads list the author
+    and resolver as participants; recipients receive accountable request
+    deliveries independently of that participant list. [Communication.prepare]
+    accepts only commands requiring a communication snapshot. *)
 type t =
   | Board_put of
       { id : Communication_id.Board.t
@@ -42,6 +47,15 @@ type t =
       ; title : string
       ; members : Recipient.t list
       }
+  | Request_ask of
+      { id : Communication_id.Request.t
+      ; title : string
+      ; body : string
+      ; recipients : Recipient.t list
+      ; resolver : Id.Actor.t
+      ; ticket : Id.Ticket.t option
+      ; kind : Request.Kind.t
+      }
   | Request_create of
       { id : Communication_id.Request.t
       ; thread : Communication_id.Thread.t
@@ -72,6 +86,7 @@ type t =
   | Request_resolve of
       { id : Communication_id.Request.t
       ; expected_revision : int
+      ; body : string option
       }
   | Request_cancel of
       { id : Communication_id.Request.t
@@ -184,6 +199,8 @@ let subscription_id =
 ;;
 
 let actor_id = id Id.Actor.of_string Id.Actor.to_string
+let ticket_id = id Id.Ticket.of_string Id.Ticket.to_string
+let body = Coordination_wire.nonblank ~max_bytes:65536
 let comment_id = id Id.Comment.of_string Id.Comment.to_string
 let decimal = Api_codec.decimal ~max:Int.max_value
 
@@ -297,6 +314,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -366,6 +384,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -392,6 +411,7 @@ let entries =
           | Thread_put _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -419,6 +439,7 @@ let entries =
           | Thread_put _
           | Thread_attach _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -450,6 +471,7 @@ let entries =
           | Thread_put _
           | Thread_attach _
           | Thread_pin_message _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -461,6 +483,53 @@ let entries =
         ~description:
           "Validated team.put arguments; domain preparation validates live references \
            and transitions." )
+  ; ( "request.ask"
+    , Request_codec.map
+        ~validate_raw:validate_request_recipients
+        (Request_codec.object_
+           (Fields.required "request_id" request_id
+            ++ Fields.required "title" title
+            ++ Fields.required "body" body
+            ++ Fields.required
+                 ~raw:(Api_codec.as_json (Api_codec.list raw_recipient ~max_items:1000))
+                 "recipients"
+                 (Api_codec.list Communication_recipient.codec ~max_items:1000)
+            ++ Fields.required "resolver_id" actor_id
+            ++ Fields.optional ~raw:(reference ticket_id) "ticket_id" ticket_id
+            ++ Fields.optional "kind" Communication_wire.request_kind))
+        ~decode:(fun ((((((id, title), body), recipients), resolver), ticket), kind) ->
+          if List.is_empty recipients
+          then Error (Problem.create Invalid_argument "request requires recipients")
+          else
+            Ok
+              (Request_ask
+                 { id
+                 ; title
+                 ; body
+                 ; recipients
+                 ; resolver
+                 ; ticket
+                 ; kind = Option.value kind ~default:Clarification
+                 }))
+        ~encode:(function
+          | Request_ask { id; title; body; recipients; resolver; ticket; kind } ->
+            (((((id, title), body), recipients), resolver), ticket), Some kind
+          | Board_put _
+          | Thread_put _
+          | Thread_attach _
+          | Thread_pin_message _
+          | Team_put _
+          | Request_create _
+          | Request_acknowledge _
+          | Request_accept _
+          | Request_reassign _
+          | Request_resolve _
+          | Request_cancel _
+          | Subscription_put _
+          | Inbox_ack _ -> Json.fail Invalid_argument "wrong communication command")
+        ~description:
+          "Atomically create a scoped thread, authored question and accountable request."
+    )
   ; ( "request.create"
     , Request_codec.map
         ~validate_raw:validate_request_recipients
@@ -534,6 +603,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -563,6 +633,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_accept _
           | Request_reassign _
@@ -592,6 +663,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_reassign _
@@ -622,6 +694,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -636,16 +709,19 @@ let entries =
     , Request_codec.map
         (Request_codec.object_
            (Fields.required ~raw:(reference request_id) "request_id" request_id
-            ++ Fields.required "expected_revision" decimal))
-        ~decode:(fun (id, expected_revision) ->
-          Ok (Request_resolve { id; expected_revision }))
+            ++ Fields.required "expected_revision" decimal
+            ++ Fields.optional "body" body))
+        ~decode:(fun ((id, expected_revision), body) ->
+          Ok (Request_resolve { id; expected_revision; body }))
         ~encode:(function
-          | Request_resolve { id; expected_revision } -> id, expected_revision
+          | Request_resolve { id; expected_revision; body } ->
+            (id, expected_revision), body
           | Board_put _
           | Thread_put _
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -670,6 +746,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -704,6 +781,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -725,6 +803,7 @@ let entries =
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
+          | Request_ask _
           | Request_create _
           | Request_acknowledge _
           | Request_accept _
@@ -757,6 +836,7 @@ let encode command =
     | Thread_attach _ -> "thread.attach"
     | Thread_pin_message _ -> "thread.pin_message"
     | Team_put _ -> "team.put"
+    | Request_ask _ -> "request.ask"
     | Request_create _ -> "request.create"
     | Request_acknowledge _ -> "request.acknowledge"
     | Request_accept _ -> "request.accept"

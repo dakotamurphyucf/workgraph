@@ -15,9 +15,9 @@ socket. Data stays in folders you choose. No database server, hosted account,
 model credentials, or MCP server is needed.
 
 Workgraph is written in OCaml with Jane Street Core and Eio, and is
-[MIT-licensed](LICENSE). The [v0.3.0 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0)
+[MIT-licensed](LICENSE). The [v0.4.0 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0)
 provides native packages and source. The guides and examples here use its
-`workgraph_api:"0.3"` contract. Older packages retain their own matching guide and API.
+`workgraph_api:"0.4"` contract. Older packages retain their own matching guide and API.
 
 ## What you can do
 
@@ -58,6 +58,8 @@ provides native packages and source. The guides and examples here use its
 
 - Let an agent claim a ticket before starting it. Workgraph checks ownership on
   protected updates so another agent cannot complete that ticket using an old claim.
+  Tokens are visible sequential ownership fences, not credentials; use only your
+  own current actor/run/token.
 - Track agent runs and individual work attempts, including checkpoints, failures,
   cancellations, and replacements. Get an overview of ready work and items needing
   attention.
@@ -76,6 +78,9 @@ provides native packages and source. The guides and examples here use its
 
 - Create message boards for a workspace or project, with discussion threads,
   replies, mentions, participants, and pinned messages.
+- Ask a question with `request.ask`: it creates the discussion and accountable
+  request together. The designated resolver can attach an answer and resolve it
+  with one saved write. Filter requests by ticket or resolver.
 - Send clarification, review, help, blocker-resolution, or handoff requests to
   agents or teams. Track acknowledgement, who accepted responsibility, and whether
   the request was resolved or canceled.
@@ -151,11 +156,11 @@ contributors use the private scratch layout required by [AGENTS.md](AGENTS.md).
 
 ## Install
 
-**Current preview: v0.3.0.** Download the native package for your platform from
-the [release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0),
-or build this checkout using the steps below. All current guides target v0.3.0.
+**Current preview: v0.4.0.** Download the native package for your platform from
+the [release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0),
+or build this checkout using the steps below. All current guides target v0.4.0.
 
-Use fresh registry and workspace folders for this breaking preview. Existing v0.2
+Use fresh registry and workspace folders for this breaking preview. Existing v0.3 and older
 workspaces and saved requests are unsupported; retain them separately with their
 matching executable if needed. There is no automatic migration.
 
@@ -164,7 +169,7 @@ matching executable if needed. There is no automatic migration.
 Follow the [WSL reset and quick start](docs/wsl-quickstart.md) for installation,
 optional cleanup, daemon setup, a first ticket and connection values to give agents.
 The [AlmaLinux guide](docs/almalinux.md) also covers native archives, CPU requirements
-and checks to run on your installation. Both guides target v0.3.0.
+and checks to run on your installation. Both guides target v0.4.0.
 
 The RPM installs the executable and complete offline documentation. No OCaml or
 opam installation is needed; the executable uses AlmaLinux system libraries.
@@ -173,7 +178,7 @@ Actual WSL execution is a separate check on your Windows host.
 
 ### macOS ARM64
 
-Follow the [macOS guide](docs/macos-install.md) to verify and install the v0.3.0
+Follow the [macOS guide](docs/macos-install.md) to verify and install the v0.4.0
 Apple Silicon archive. Keep its executable and offline guides together. No OCaml
 or opam installation is needed. Check its qualification evidence for the actual
 macOS version tested.
@@ -202,12 +207,13 @@ or path. Direct dependency versions are pinned in `dune-project` and
 
 ## Try it
 
-These commands use v0.3.0. Install its native package or build this checkout
+These commands use v0.4.0. Install its native package or build this checkout
 using the source steps above.
 
 Inspect API methods without starting a daemon:
 
 ```sh
+workgraph init --help
 workgraph methods --core
 workgraph help ticket.start --brief
 workgraph help ticket.start --full
@@ -252,9 +258,15 @@ files must be fresh, and their parents must exist. Change `--root` to choose a
 custom absolute workspace folder. Use a shorter private socket path if your home
 path exceeds the OS Unix socket limit.
 
+With an agent-local context, `workgraph request get/list/...` selects request methods;
+`ticket.get` is a CLI alias for `ticket.context`. Use `workgraph help init` for setup
+and `workgraph help request.ask` for an atomic question/answer workflow. The
+[communication reference](docs/agent/communication-evidence.md) has a small example.
+
 The CLI returns JSON by default; `--output text` provides a human-readable view for
 supported queries. Each `--save-request` file records the write before sending it.
-If a reply is lost, retry that exact file:
+If a reply is lost, malformed or mismatched after a write was sent, its outcome
+may be unknown. Keep the same identity and retry that exact file:
 
 ```sh
 workgraph retry "$WG_SOCKET" "$WG_HOME/requests/create-task.json"
@@ -265,6 +277,10 @@ Stop the daemon with Ctrl-C in its terminal, or from the second terminal:
 ```sh
 workgraph daemon shutdown "$WG_SOCKET"
 ```
+
+An occupied socket is never automatically removed, even after connection refusal.
+Stop all possible owners and custom launchers before manually removing a proven
+abandoned socket; choose a fresh private socket path if ownership is uncertain.
 
 Run the same `serve` command to recover your saved state; do not recreate the
 workspace. The [agent usage guide](AGENT_GUIDE.md) continues with claiming work,
@@ -301,7 +317,7 @@ ownership when editing external files.
 
 This preview supports one current storage and wire format. Incompatible prototype
 data has no migration support: keep any required old data with its matching
-executable and start v0.3.0 with fresh registry and workspace folders. Conversation
+executable and start v0.4.0 with fresh registry and workspace folders. Conversation
 history is retained; automatic history pruning and blob cleanup are not available.
 Disconnected workspace histories cannot be merged into one writer history. See
 the operator guide before moving data or handing a workspace to another writer.

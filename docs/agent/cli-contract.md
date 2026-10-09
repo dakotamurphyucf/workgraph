@@ -4,7 +4,9 @@ Read this shared CLI and wire contract before constructing requests.
 Return to [the capability guide](../../AGENT_GUIDE.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts, not compatibility guarantees for previously published previews.
+contracts for v0.4.0/API 0.4, not compatibility guarantees for previously published
+previews. Earlier planning/root data and saved requests require their matching build;
+start this preview with fresh registry/workspace folders and request journals.
 
 ```xml
 <workgraph_reference name="cli-contract">
@@ -20,6 +22,11 @@ parents must exist. Workspace, registry and export roots must not overlap. On WS
 managed data under the Linux home filesystem, not /mnt/c. Run as the owning normal user.
 Ctrl-C, SIGTERM, or daemon.shutdown drains admitted work. Reuse the same registry/socket
 on restart. Do not delete a live daemon's socket, lock files or managed storage files.
+Startup refuses any occupied socket path, including a bound socket that is not listening.
+Connection refusal does not prove the path is abandoned. Stop all possible owners and
+custom launchers and verify the private socket path is abandoned before removing only
+that socket explicitly. If ownership is uncertain, choose a fresh private socket path;
+do not remove registry locks or storage to force startup.
 
 Shell examples assume WG, SOCKET, WORKSPACE, ACTOR and REQUESTS are set by the harness.
 REQUESTS must exist. Use a new filename for every new write. Never replace a retry file.
@@ -30,6 +37,13 @@ REQUESTS must exist. Use a new filename for every new write. Never replace a ret
 "$WG" request "$SOCKET" METHOD [OPTIONS] [--field value ...]
 "$WG" FAMILY ACTION "$SOCKET" [OPTIONS] [--field value ...]
 "$WG" retry "$SOCKET" /absolute/saved-request.json [--timeout SECONDS] [--output text]
+
+Context request-domain forms:
+  workgraph --context /abs/agent/context.json request get --request-id question-1
+  workgraph --context /abs/agent/context.json request list --ticket-id task
+With context or --socket, get/list/ask/resolve/... selects request.ACTION. The generic
+request ABS_SOCKET METHOD form keeps METHOD unchanged; dotted methods remain supported.
+Incomplete/ambiguous forms give corrected usage instead of guessing a socket.
 
 Example equivalents:
   workgraph call /abs/s ticket.context '{"workspace_id":"demo","ticket_id":"task"}'
@@ -46,8 +60,9 @@ workgraph init --context /abs/agent/context.json --socket /abs/workgraph.sock \
   --workspace-id demo --actor-id worker --root /abs/workspace --name Demo \
   --request-directory /abs/agent/requests
 Add --start-daemon true --registry /abs/registry --daemon-log /abs/daemon.log to
-start a daemon when unavailable. Repeated setup reuses the registered workspace;
-a supplied root must identify its registered root. Existing contexts must match.
+start a daemon when unavailable. `workgraph init --help`, `help init` and bootstrap
+equivalents print helper usage offline, without loading context or creating files.
+Repeated setup reuses the registered workspace; a supplied root must identify its registered root. Existing contexts must match.
 Setup reports context, workspace, actor, socket, root and request directory. Startup
 races reuse the daemon that acquired its registry lock. Failure reports diagnostics;
 bootstrap creation requests are saved beside the context for exact recovery.
@@ -57,7 +72,14 @@ on each invocation to use that agent's defaults. The positional socket is option
 with a context or --socket ABS_SOCKET; --socket overrides a positional/context socket.
 Explicit --workspace-id, --actor-id and --run-id override context defaults. Reads
 receive workspace scope but no automatic actor filter or run attribution. There is
-no shared current ticket or global mutable actor.
+no shared current ticket or global mutable actor. A context with no run_id supplies
+no run identity; target_run_id and fresh attempt_id remain explicit for claim_next.
+Raw API envelopes require all schema-required inputs. Context defaults supply only
+admitted scope/attribution fields; saved journaling can generate missing mutation_id.
+ticket.get is a CLI alias for ticket.context, canonicalized before saving retry bytes.
+The daemon has only the canonical ticket.context method; raw socket callers use it.
+Brief help shows one level of nested object/array/tagged inputs; --full or schema METHOD
+provides complete contracts.
 
 --self explicitly supplies a missing actor recipient for inbox.read/wait/ack and
 request.list/acknowledge/accept, or target_run_id for run.get/transition/observe/link_session.
@@ -102,14 +124,17 @@ later retries.
 <transport><![CDATA[
 The CLI handles transport. Direct clients use a Unix stream socket with JSON-RPC 2.0:
 4-byte unsigned big-endian byte length, then that many UTF-8 JSON bytes. Maximum frame
-4 MiB, maximum JSON nesting depth 64. Params is an object. Send a request id (nonempty
-string <=256 bytes recommended); notifications without an id are not supported.
+4 MiB, maximum JSON nesting depth 64. Params is an object. Send a nonempty string
+request id of at most 256 UTF-8 bytes; notifications without an id are not supported.
 Example request:
-{"jsonrpc":"2.0","workgraph_api":"0.3","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
+{"jsonrpc":"2.0","workgraph_api":"0.4","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
 The application marker is required on every request, including initialize and saved exact
 retries. The CLI supplies it; no discovery round trip is needed. Missing/unsupported
-profiles return Unsupported_version before method-dependent interpretation. Package
-version, workgraph_api and independently versioned persisted roots are separate identities.
+profiles return Unsupported_version before method-dependent interpretation. Valid parsed
+IDs survive envelope rejection when possible. A strict JSON-RPC invalid-envelope rejection
+may use null ID, including an older peer rejecting the application marker; it establishes
+rejection before dispatch. This recognizes rejection without supporting older wire data.
+Package version, workgraph_api and independently versioned persisted roots are separate identities.
 Read docs/compatibility.md for the current-root inventory; opening never migrates old data.
 Success: {"jsonrpc":"2.0","id":"read-1","result":{"data":{...},"meta":{...}}}
 Error: {"jsonrpc":"2.0","id":"read-1","error":{"code":-32000,"message":"...","data":{"kind":"Conflict","message":"..."}}}
@@ -117,7 +142,10 @@ Do not interpret the JSON-RPC id as a mutation idempotency key. Validate matchin
 id and exactly one result/error. The CLI prints server responses to stdout in JSON mode,
 local/transport diagnostics to stderr, and exits nonzero on failure. In text mode server
 errors also go to stderr. A lost reply or timeout after transmission may be an uncertain
-write; inspect/retry its saved identity. The CLI never automatically retries.
+write; inspect/retry its saved identity. Malformed, mismatched or unreadable responses
+after a write could have executed remain uncertain; an unreadable error is no proof of
+nonexecution. Never replace the mutation ID after uncertainty. A connection failure
+before any send reports failure before execution. The CLI never automatically retries.
 ]]></transport>
 </connection_and_cli>
 <common_contract>
@@ -166,6 +194,11 @@ History queries place immutable captures in meta.history_capture; history mutati
 meta.durable=true. History feeds use meta.history_sequence, never workspace_revision.
 Export listings use meta.snapshot and meta.budget. Upload staging, resource byte reads,
 heartbeats and daemon diagnostics have empty meta. Record revisions remain inside data.
+ticket.finish and ticket.release return
+data.ticket_revision for the affected ticket; finish retains any completed attempt result.
+request.get reports data.revision for the request and data.thread_revision for its current
+discussion thread. Neither is the planning receipt meta.workspace_revision or the
+communication query meta.query_revision.
 Receipt lookup data.response is the original complete {data,meta} success object.
 The planning workspace revision advances once per committed planning transaction.
 
@@ -179,7 +212,10 @@ Most supplied actor/run IDs are attribution, not authentication. Optional run_id
 the same for claim-protected work; actor+run+token together identify an owner. An invocation
 run_id can be unregistered. If a registered run receives a claim, its actor must match and
 its lifecycle must be nonterminal. A new invocation uses explicit reassignment, not the
-old run's identity. Expiry/heartbeat/cancellation records do not stop external processes.
+old run's identity. Tokens are visible sequential stale-writer fences, not credentials;
+never use another owner's token even when a read exposes it. Expiry/heartbeat/cancellation
+records do not stop external processes. claim_next requires a registered nonterminal run
+owned by actor_id, matching target_run_id/run_id attribution and a fresh attempt_id.
 ]]></identity_revisions_and_receipts>
 <shared_shapes><![CDATA[
 Entity_ref (for target/links):
@@ -249,7 +285,8 @@ version (representation, observed, supported), or capacity (meter, used, limit, 
 unit, operator_action). Capacity attempted is proposed total usage, not an increment;
 operator_action points to installed recovery guidance. No ownership token is included in these
 diagnostics. Field messages use escaped JSON pointers such as /operations/0/params/title.
-Readiness details are bounded summaries; inspect ticket.readiness for the full current view.
+Readiness details are bounded summaries; blocked ticket.finish includes the same typed
+blockers as ticket.start. Inspect ticket.readiness for the full current view.
 Invalid_argument: unknown/duplicate fields, wrong type/enum/JSON shape, missing required key,
  bad ID/counter, or a limit. Correct construction before a deliberate new operation.
 Not_found: missing referenced entity/receipt subject; recover identity and current state.

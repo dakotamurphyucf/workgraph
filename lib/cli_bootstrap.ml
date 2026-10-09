@@ -1,5 +1,25 @@
 open Core
 
+let help =
+  {|init / bootstrap [local helper] — Create or select a workspace and save agent-local defaults.
+Usage:
+  workgraph init --context ABS_FILE --socket ABS_SOCKET --workspace-id ID --actor-id ID
+    --root ABS_ROOT --name NAME [--run-id ID] [--request-directory ABS_DIR]
+    [--start-daemon true --registry ABS_DIR --daemon-log ABS_FILE] [--timeout SECONDS]
+  workgraph bootstrap ... (same options)
+  workgraph init --context EXISTING_CONTEXT
+
+New context requires an absolute context path, socket, workspace ID and actor ID.
+A new workspace also requires an absolute root and nonblank name.
+An existing context supplies defaults; chosen defaults must match it exactly.
+--run-id records attribution; register the run separately before allocating work.
+--start-daemon true requires registry and daemon-log; otherwise a daemon must be running.
+Parent directories must exist. Setup saves exact administrative requests beside the
+context before sending, opens the workspace, then publishes the private context.
+--request-directory journals later mutations; --save-request is unsupported here.
+Reading this help requires no daemon or context and creates no files.|}
+;;
+
 module Startup = struct
   type t =
     | Existing

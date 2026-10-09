@@ -10,8 +10,8 @@ mkdir -p "$evidence"
 [ "$(uname -m)" = x86_64 ]
 (cd /artifacts/archives && sha256sum -c SHA256SUMS) > "$evidence/archive-checksums.txt"
 python3 /opt/workgraph-verify.py \
-  /artifacts/archives/workgraph-0.3.0-almalinux-10-x86_64.tar.gz \
-  /artifacts/archives/workgraph-0.3.0-source.tar.gz > "$evidence/archive-manifest.json"
+  /artifacts/archives/workgraph-0.4.0-almalinux-10-x86_64.tar.gz \
+  /artifacts/archives/workgraph-0.4.0-source.tar.gz > "$evidence/archive-manifest.json"
 cat /etc/os-release > "$evidence/os-release.txt"
 uname -a > "$evidence/uname.txt"
 rpm -qa --queryformat '%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' | sort > "$evidence/runtime-rpms-before.txt"
@@ -26,22 +26,22 @@ case "$kind" in
   tar)
     mkdir /home/workgraph/installation
     python3 /opt/workgraph-verify.py \
-      /artifacts/archives/workgraph-0.3.0-almalinux-10-x86_64.tar.gz \
-      /artifacts/archives/workgraph-0.3.0-source.tar.gz \
+      /artifacts/archives/workgraph-0.4.0-almalinux-10-x86_64.tar.gz \
+      /artifacts/archives/workgraph-0.4.0-source.tar.gz \
       --extract /home/workgraph/installation > "$evidence/installed-manifest.json"
-    installation=/home/workgraph/installation/workgraph-0.3.0-almalinux-10-x86_64
+    installation=/home/workgraph/installation/workgraph-0.4.0-almalinux-10-x86_64
     executable=$installation/bin/workgraph
     chown -R workgraph:workgraph "$installation"
     ;;
   rpm)
     (cd /artifacts/rpm && sha256sum -c SHA256SUMS) > "$evidence/rpm-checksums.txt"
-    dnf -y install /artifacts/rpm/workgraph-0.3.0-*.x86_64.rpm > "$evidence/rpm-install.log" 2>&1
+    dnf -y install /artifacts/rpm/workgraph-0.4.0-*.x86_64.rpm > "$evidence/rpm-install.log" 2>&1
     rpm -V workgraph > "$evidence/rpm-verify.txt"
     installation=/usr/share/doc/workgraph
     executable=/usr/bin/workgraph
     python3 /opt/workgraph-verify.py \
-      /artifacts/archives/workgraph-0.3.0-almalinux-10-x86_64.tar.gz \
-      /artifacts/archives/workgraph-0.3.0-source.tar.gz \
+      /artifacts/archives/workgraph-0.4.0-almalinux-10-x86_64.tar.gz \
+      /artifacts/archives/workgraph-0.4.0-source.tar.gz \
       --installation / --rpm > "$evidence/installed-manifest.json"
     ;;
   *) echo 'Expected tar or rpm' >&2; exit 2 ;;
@@ -60,10 +60,10 @@ import tarfile
 
 installation, evidence = map(Path, sys.argv[1:])
 report = json.loads((evidence / 'agent-guide.json').read_text())
-with tarfile.open('/artifacts/archives/workgraph-0.3.0-source.tar.gz') as source:
+with tarfile.open('/artifacts/archives/workgraph-0.4.0-source.tar.gz') as source:
     for name, digest in report['files'].items():
         content = (installation / name).read_bytes()
-        assert content == source.extractfile('workgraph-0.3.0/' + name).read()
+        assert content == source.extractfile('workgraph-0.4.0/' + name).read()
         assert hashlib.sha256(content).hexdigest() == digest
 report['matches_source_archive'] = True
 (evidence / 'agent-guide.json').write_text(json.dumps(report, indent=2) + '\n')

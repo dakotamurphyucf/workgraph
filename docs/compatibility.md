@@ -1,7 +1,7 @@
 # Workgraph format and durability
 
 Workgraph is an early preview with one current schema per representation. The
-0.3 preview deliberately breaks the 0.2 application API and affected stored roots.
+0.4 preview deliberately breaks the 0.3 application API and affected stored roots.
 It has no legacy readers, automatic migrations, or backward compatibility promises.
 A package version, application API identifier and stored-format identifier serve
 different purposes; they need not have the same value.
@@ -25,13 +25,13 @@ head.
 
 | Representation | Current identifier | Required contents |
 | --- | --- | --- |
-| Application request and saved retry envelope | `workgraph_api:"0.3"` | JSON-RPC 2.0 envelope and current method parameters |
-| `initialize` result | `workgraph_api:"0.3"` | Current capabilities; `registry_format_version:"2"` |
-| Workspace descriptor | `version:"2"` | Workspace identity and complete current fields |
-| Planning transaction and planning event envelope | `version:"2"` | Complete current transaction/events and durable receipt |
-| Local registry | `version:"2"` | Workspaces, receipts, creates, exports, and restores maps |
-| Workspace export manifest | `version:"2"` | Full state, head, history head, options, and files |
-| Workspace-set export manifest | `version:"2"` | Exact workspace vector, omissions, and member manifest hashes |
+| Application request and saved retry envelope | `workgraph_api:"0.4"` | JSON-RPC 2.0 envelope and current method parameters |
+| `initialize` result | `workgraph_api:"0.4"` | Current capabilities; `registry_format_version:"3"` |
+| Workspace descriptor | `version:"3"` | Workspace identity and complete current fields |
+| Planning transaction and planning event envelope | `version:"3"` | Complete current transaction/events and durable receipt |
+| Local registry | `version:"3"` | Workspaces, receipts, creates, exports, and restores maps |
+| Workspace export manifest | `version:"3"` | Full state, head, history head, options, and files |
+| Workspace-set export manifest | `version:"3"` | Exact workspace vector, omissions, and member manifest hashes |
 | Planning HEAD, history HEAD and history batch | `version:"1"` | Their unchanged independent representations |
 | Advisory heartbeat cache | `version:"1"` | Its unchanged independent representation |
 | Saved CLI upload parameters | `transfer_version:"1"` | Content size/hash and durable request identity, inside a current API envelope |
@@ -40,11 +40,11 @@ Unchanged nested event representations retain their own identifiers. Changing th
 outer planning envelope does not renumber every nested format.
 
 Use the matching released binary and its bundled guide to inspect older data.
-For this preview, create a fresh registry and fresh workspace roots for 0.3, with
+For this preview, create a fresh registry and fresh workspace roots for 0.4, with
 a separate socket if an older daemon is still running. Preserve older data for use
 with its matching binary. Do not change a marker by hand or point the new daemon
 at old roots expecting a migration. Old saved requests and old exports are not a
-supported route into 0.3.
+supported route into 0.4.
 
 Unsupported registry startup rejects before creating its daemon lock; unsupported
 workspace descriptors reject before creating workspace lock/repair directories.
@@ -91,17 +91,20 @@ request IDs remain JSON numbers, rather than decimal-string domain counters.
 ## Wire profile and retries
 
 Each Unix-socket connection carries one request and response: four-byte big-endian
-length, then 1..4194304 bytes of JSON. The request envelope has `workgraph_api:"0.3"`, `jsonrpc:"2.0"`, an ID,
+length, then 1..4194304 bytes of JSON. The request envelope has `workgraph_api:"0.4"`, `jsonrpc:"2.0"`, an ID,
 method, and optional object params. The CLI supplies the application marker, including
 in saved requests. Raw clients must supply it even for `initialize`. Responses retain
 the ordinary JSON-RPC envelope; the initialize result reports the application marker. The OCaml client uses nonempty string IDs of at
-most 256 bytes; the server also accepts finite numeric IDs and null. Methods have
+most 256 bytes; the server also accepts finite numeric IDs whose encoded number
+is at most 256 bytes, and null. Methods have
 1..128 bytes. Unknown fields, batch envelope arrays, and malformed params are
 rejected. Notifications are discarded without performing any mutation.
 
 Successful responses contain `result`; failures contain only `error`. Malformed
-frames/envelopes use code -32600 and null ID. Admitted application failures use
--32000 and the request ID. `error.message` equals `error.data.message`;
+frames/envelopes rejected before dispatch use code -32600, preserving a valid
+parsed request ID when available (otherwise null). Admitted application failures
+use -32000 and the request ID. Failures after dispatch never claim an invalid
+envelope: a lost or malformed write acknowledgement remains uncertain. `error.message` equals `error.data.message`;
 `error.data.kind` is one of these current names:
 
 `Invalid_argument`, `Not_found`, `Conflict`, `Blocked`, `Dependency_cycle`,
@@ -109,7 +112,11 @@ frames/envelopes use code -32600 and null ID. Admitted application failures use
 `Storage_unavailable`, `Local_io`, `Outcome_unknown`, `Workspace_closed`, `Unsupported_version`.
 
 Clients reject unknown codes/discriminators, mismatched IDs, and ambiguous
-envelopes. This restricted profile does not implement every general JSON-RPC error
+envelopes. A strict -32600 response with null ID is a definite pre-dispatch
+rejection; its optional data must be a valid diagnostic when present. This lets
+older peers reject the new application marker without implying that a write ran.
+Diagnostic envelopes are bounded to 64KiB with truncated text and bounded typed
+details; use the relevant readiness/query method to expand omitted detail. This restricted profile does not implement every general JSON-RPC error
 or feature. `transaction.apply` is an explicit 1..32-operation atomic method, not
 JSON-RPC batch dispatch. Operations check preconditions in order and validate the
 final graph; one success creates one revision, audit event, and receipt.

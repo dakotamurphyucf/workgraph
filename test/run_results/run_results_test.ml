@@ -219,10 +219,11 @@ let%expect_test
   [%expect
     {|
     {"attempt":{"attempt_id":"attempt","revision":"1","state":"running"},"ticket_id":"task","token":"1"}
-    {"attempt":{"attempt_id":"attempt","revision":"2","state":"completed"},"completed":true}
+    {"attempt":{"attempt_id":"attempt","revision":"2","state":"completed"},"completed":true,"ticket_revision":"3"}
     true
-    {"completed":true}
-    {"attempt":{"attempt_id":"allocated","revision":"1","state":"running"},"claim":{"ticket_id":"task","token":"1"},"kind":"selected"} |}]
+    {"completed":true,"ticket_revision":"3"}
+    {"attempt":{"attempt_id":"allocated","revision":"1","state":"running"},"claim":{"ticket_id":"task","token":"1"},"kind":"selected"}
+    |}]
 ;;
 
 let%expect_test "reservation aggregate counters are explicitly coordination revisions" =
@@ -279,9 +280,9 @@ let%expect_test
       , {|{"ticket_id":"task","token":"1","attempt":{"attempt_id":"a","revision":"1","state":"completed"}}|}
       )
     ; ( "ticket.finish"
-      , {|{"completed":true,"attempt":{"attempt_id":"a","revision":"2","state":"failed"}}|}
+      , {|{"completed":true,"ticket_revision":"3","attempt":{"attempt_id":"a","revision":"2","state":"failed"}}|}
       )
-    ; "ticket.finish", {|{"completed":true,"attempt":null}|}
+    ; "ticket.finish", {|{"completed":true,"ticket_revision":"3","attempt":null}|}
     ]
     ~f:(fun (method_, params) ->
       outcome

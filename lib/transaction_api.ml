@@ -46,6 +46,7 @@ let creation_methods =
   ; "thread.put"
   ; "team.put"
   ; "subscription.put"
+  ; "request.ask"
   ; "request.create"
   ; "run.register"
   ; "attempt.start"

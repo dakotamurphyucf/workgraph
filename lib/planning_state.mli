@@ -259,7 +259,12 @@ val readiness : ?run:Id.Run.t -> ?now_unix_ms:int64 -> t -> Ticket.t -> Jsonaf.t
 val sort_ready : Ticket.t list -> Ticket.t list
 val unfinished_children : t -> Ticket.t -> Ticket.t list
 val completion_readiness : t -> Ticket.t -> Jsonaf.t
+
+(** Check completion conditions against this immutable state. A [Blocked] failure
+    includes bounded typed readiness details naming the ticket and its blockers;
+    other domain failures retain their original kind and details. *)
 val check_complete : t -> Ticket.t -> unit
+
 val check_claim : Ticket.t -> actor:Id.Actor.t -> run:Id.Run.t option -> token:int -> unit
 
 (** Exact active-attempt actor/run and current ticket-claim guards shared by

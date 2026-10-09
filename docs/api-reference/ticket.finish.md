@@ -219,10 +219,21 @@ For preconditions and a small example, run `workgraph help ticket.finish`. Use `
         },
         "completed": {
           "type": "boolean"
+        },
+        "ticket_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive canonical decimal counter"
         }
       },
       "required": [
-        "completed"
+        "completed",
+        "ticket_revision"
       ],
       "type": "object"
     },

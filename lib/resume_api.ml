@@ -9,9 +9,23 @@ let obj fields = Api_codec.as_json (Api_codec.object_ fields)
 let checked = W.checked
 let text n = Api_codec.text ~max_bytes:n
 
-let bound min max =
-  checked (Api_codec.decimal ~max) (fun n ->
-    if n < min then Json.fail Invalid_argument "query bound too small")
+let bound ~min ~max ~description =
+  Api_codec.map
+    (Api_codec.decimal ~max)
+    ~decode:(fun n ->
+      Json.decode (fun () ->
+        if n < min then Json.fail Invalid_argument "query bound too small";
+        n))
+    ~encode:Fn.id
+    ~description
+;;
+
+let byte_budget =
+  bound
+    ~min:4096
+    ~max:1048576
+    ~description:
+      "Canonical result-envelope byte budget: 4096..1048576 bytes; default 65536."
 ;;
 
 let id = W.id
@@ -97,8 +111,15 @@ module Resume_request = struct
             (req "ticket_id" W.ticket
              ++ opt "run_id" W.run
              ++ opt "at_revision" W.counter
-             ++ opt "max_bytes" (bound 4096 1048576)
-             ++ opt "change_limit" (bound 1 100)
+             ++ opt "max_bytes" byte_budget
+             ++ opt
+                  "change_limit"
+                  (bound
+                     ~min:1
+                     ~max:100
+                     ~description:
+                       "Maximum recent changes: 1..100 entries; default 10. Byte fitting \
+                        may return fewer.")
              ++ opt "fact_selections" (Api_codec.list Fact_selection.codec ~max_items:16)
              ++ opt "fact_prefix" (text 128)
              ++ opt "include_markdown" Api_codec.boolean)
@@ -156,8 +177,15 @@ module Digest_request = struct
             (opt "scope" Scope.codec
              ++ opt "after" W.counter
              ++ opt "cursor" (W.nonblank ~max_bytes:2048)
-             ++ opt "limit" (bound 1 100)
-             ++ opt "max_bytes" (bound 4096 1048576)
+             ++ opt
+                  "limit"
+                  (bound
+                     ~min:1
+                     ~max:100
+                     ~description:
+                       "Maximum activity entries: 1..100; default 50. Byte fitting may \
+                        return fewer.")
+             ++ opt "max_bytes" byte_budget
              ++ opt "include_markdown" Api_codec.boolean)
             ~decode:
               (fun

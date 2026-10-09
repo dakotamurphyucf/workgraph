@@ -115,7 +115,8 @@ val mutation_methods : string list
 (** Unknown methods return Invalid_argument. Responses validate exact fields and
     typed ticket identities. Start/finish include an optional [attempt] containing
     its identity, entity revision and state when an attempt is created/completed;
-    ordinary work omits it. *)
+    ordinary work omits it. Finish also returns the committed [ticket_revision],
+    a positive entity revision rather than the workspace revision. *)
 val response_codec : string -> (Jsonaf.t Api_codec.t, Problem.t) Result.t
 
 (** Shares the same raw Fields declarations as Command.codec and preserves caller

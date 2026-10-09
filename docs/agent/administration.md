@@ -22,8 +22,8 @@ managed tree. A closed workspace remains closed across daemon restart until expl
 <method name="initialize" envelope="N"><![CDATA[
 Required: none.
 Optional: none.
-Result: {workgraph_api:"0.3",max_frame_bytes:"4194304",name:"workgraph",version:"0.3.0",administrative_receipts:true,workspace_receipts:true,registry_format_version:"2",background_exports:true}.
-The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.3". This application profile differs from the package version and independently versioned persisted roots; see docs/compatibility.md in the installed bundle.
+Result: {workgraph_api:"0.4",max_frame_bytes:"4194304",name:"workgraph",version:"0.4.0",administrative_receipts:true,workspace_receipts:true,registry_format_version:"3",background_exports:true}.
+The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.4". This application profile differs from the package version and independently versioned persisted roots; see docs/compatibility.md in the installed bundle.
 ]]></method>
 <method name="daemon.health" envelope="N"><![CDATA[
 Required: none.

@@ -22,11 +22,11 @@ let%expect_test "unsupported roots are identified before unrelated payload field
   report (Storage.Descriptor.of_json (json {|{"name":"missing marker"}|}));
   [%expect
     {|
-    {"details":{"observed":"1","representation":"workspace descriptor","supported":"2","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 2; observed 1"}
-    {"details":{"observed":"1","representation":"planning transaction","supported":"2","type":"version"},"kind":"Unsupported_version","message":"planning transaction requires format 2; observed 1"}
-    {"details":{"observed":"1","representation":"planning events","supported":"2","type":"version"},"kind":"Unsupported_version","message":"planning events requires format 2; observed 1"}
-    {"details":{"observed":"1","representation":"registry","supported":"2","type":"version"},"kind":"Unsupported_version","message":"registry requires format 2; observed 1"}
-    {"details":{"observed":null,"representation":"workspace descriptor","supported":"2","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 2; observed missing"}
+    {"details":{"observed":"1","representation":"workspace descriptor","supported":"3","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 3; observed 1"}
+    {"details":{"observed":"1","representation":"planning transaction","supported":"3","type":"version"},"kind":"Unsupported_version","message":"planning transaction requires format 3; observed 1"}
+    {"details":{"observed":"1","representation":"planning events","supported":"3","type":"version"},"kind":"Unsupported_version","message":"planning events requires format 3; observed 1"}
+    {"details":{"observed":"1","representation":"registry","supported":"3","type":"version"},"kind":"Unsupported_version","message":"registry requires format 3; observed 1"}
+    {"details":{"observed":null,"representation":"workspace descriptor","supported":"3","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 3; observed missing"}
     |}]
 ;;
 
@@ -34,7 +34,7 @@ let%expect_test "profile is mandatory even at initialize and in saved requests" 
   List.iter
     [ {|{"jsonrpc":"2.0","id":"read","method":"initialize"}|}
     ; {|{"workgraph_api":"future","unknown":true}|}
-    ; {|{"workgraph_api":"0.3","jsonrpc":"2.0","id":"read","method":"initialize","params":{}}|}
+    ; {|{"workgraph_api":"0.4","jsonrpc":"2.0","id":"read","method":"initialize","params":{}}|}
     ]
     ~f:(fun text -> report (Protocol.validate_server_request (json text)));
   report (Protocol.Request.of_json (json {|{"workgraph_api":"old"}|}));
@@ -50,20 +50,20 @@ let%expect_test "profile is mandatory even at initialize and in saved requests" 
     (Json.text (Json.field (Protocol.Request.to_json request) "workgraph_api"));
   [%expect
     {|
-    {"details":{"observed":null,"representation":"application API","supported":"0.3","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.3; observed missing"}
-    {"details":{"observed":"future","representation":"application API","supported":"0.3","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.3; observed future"}
+    {"details":{"observed":null,"representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed missing"}
+    {"details":{"observed":"future","representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed future"}
     ok
-    {"details":{"observed":"old","representation":"application API","supported":"0.3","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.3; observed old"}
-    {"details":{"observed":null,"representation":"application API","supported":"0.3","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.3; observed missing"}
-    0.3
+    {"details":{"observed":"old","representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed old"}
+    {"details":{"observed":null,"representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed missing"}
+    0.4
     |}]
 ;;
 
 let%expect_test "malformed current fields stay malformed and unchanged formats keep IDs" =
   List.iter
     [ {|{"workgraph_api":3}|}
-    ; {|{"workgraph_api":"0.3","workgraph_api":"0.3"}|}
-    ; {|{"workgraph_api":"0.3","jsonrpc":"2.0","id":"x","method":"initialize","params":[]}|}
+    ; {|{"workgraph_api":"0.4","workgraph_api":"0.4"}|}
+    ; {|{"workgraph_api":"0.4","jsonrpc":"2.0","id":"x","method":"initialize","params":[]}|}
     ]
     ~f:(fun text ->
       match Protocol.validate_server_request (Jsonaf.of_string text) with

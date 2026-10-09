@@ -438,6 +438,25 @@ let request_fields =
 
 let request = record (request_fields @ [ optional "related" related_request ])
 
+let request_current =
+  record
+    (request_fields
+     @ [ field "thread_revision" positive; optional "related" related_request ])
+;;
+
+let ask_receipt =
+  record
+    [ field "request_id" request_id
+    ; field "request_revision" positive
+    ; field "board_id" board_id
+    ; field "thread_id" thread_id
+    ; field "thread_revision" positive
+    ; field
+        "question"
+        (record [ field "comment_id" comment_id; field "revision" positive ])
+    ]
+;;
+
 let board_json (value : Event.Board.t) =
   Json.obj
     [ "board_id", Communication_id.Board.jsonaf_of_t value.id
