@@ -22,7 +22,7 @@ managed tree. A closed workspace remains closed across daemon restart until expl
 <method name="initialize" envelope="N"><![CDATA[
 Required: none.
 Optional: none.
-Result: {protocol_version:"1",max_frame_bytes:"4194304",name:"workgraph",version:"0.1.0",administrative_receipts:true,workspace_receipts:true,registry_format_version:"1",background_exports:true}.
+Result: {protocol_version:"1",max_frame_bytes:"4194304",name:"workgraph",version:"0.2.0",administrative_receipts:true,workspace_receipts:true,registry_format_version:"1",background_exports:true}.
 ]]></method>
 <method name="daemon.health" envelope="N"><![CDATA[
 Required: none.

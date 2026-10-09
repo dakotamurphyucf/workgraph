@@ -15,10 +15,8 @@ socket. Data stays in folders you choose. No database server, hosted account,
 model credentials, or MCP server is needed.
 
 Workgraph is written in OCaml with Jane Street Core and Eio, and is
-[MIT-licensed](LICENSE). **This checkout contains unreleased preview changes.**
-Its API and features differ from the published v0.1.0 release. Build this checkout
-to use the features documented here; when using an older package, use the guide
-bundled with that package.
+[MIT-licensed](LICENSE). **v0.2.0 is a preview release.** The guides and examples
+here describe v0.2.0; use the guide bundled with your installed package.
 
 ## What you can do
 
@@ -144,39 +142,38 @@ fields and workflows as needed.
 
 ### AlmaLinux 10 x86_64, including WSL
 
-The published [v0.1.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.1.0)
-includes an RPM, native archive, source archive, checksums, and validation evidence.
-It predates the current checkout's API and new features. The following commands
-install that published preview; follow its bundled documentation after installation.
-The executable uses AlmaLinux's standard glibc libraries; no OCaml toolchain is
-needed to run it.
+The [v0.2.0 preview release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.2.0)
+provides an RPM, native archive, source archive, checksums, and qualification
+evidence. Check that evidence for the passing run and source identity before
+treating a package as qualified. The executable uses AlmaLinux's standard glibc
+libraries; no OCaml toolchain is needed to run it.
 
 Run inside AlmaLinux:
 
 ```sh
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.1.0"
-cd "$HOME/Downloads/workgraph-0.1.0" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.2.0"
+cd "$HOME/Downloads/workgraph-0.2.0" || exit
 
-WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.1.0"
-curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.1.0-2.el10.x86_64.rpm"
+WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.2.0"
+curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.2.0-1.el10.x86_64.rpm"
 curl -fLO "$WORKGRAPH_RELEASE/SHA256SUMS"
 sha256sum --check --ignore-missing SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.1.0-2.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.2.0-1.el10.x86_64.rpm
 workgraph --version
 ```
 
-The version should print `0.1.0`. Both packages passed fresh-install checks in
-AlmaLinux 10.2 AMD64 containers. Actual WSL execution is a separate check on your
+The version should print `0.2.0`. Release evidence records checks performed in
+AlmaLinux AMD64 containers. Actual WSL execution is a separate check on your
 Windows host. The [AlmaLinux and WSL guide](docs/almalinux.md) covers archive
 installation, CPU requirements, and checks to run on your own installation.
 
 ### macOS ARM64
 
-The [macOS guide](docs/macos-install.md) describes building and qualifying a native
-Apple Silicon archive, and installing an archive once available. Current packaging
-work does not publish a macOS release automatically. A qualified native archive
-runs without an OCaml or opam installation.
+Download the [v0.2.0 Apple Silicon archive](https://github.com/dakotamurphyucf/workgraph/releases/download/v0.2.0/workgraph-0.2.0-macos-arm64.tar.gz)
+and follow the [macOS guide](docs/macos-install.md) to verify its checksum and
+install it. The native archive runs without an OCaml or opam installation.
+Inspect its release qualification evidence for the macOS version tested.
 
 ### Build the current checkout from source
 
@@ -202,8 +199,8 @@ or path. Direct dependency versions are pinned in `dune-project` and
 
 ## Try it
 
-These commands use the current checkout's API. Build it using the steps above,
-or use a native package produced from the same source.
+These commands use the v0.2.0 preview API. Install its package or build it using
+the steps above.
 
 Inspect API methods without starting a daemon:
 
@@ -295,8 +292,9 @@ Keep data and socket directories private: actor IDs record attribution, not user
 authentication. Claims coordinate Workgraph updates; the harness must also respect
 ownership when editing external files.
 
-This preview supports one current storage and wire format, with no automatic
-migration from prototype formats. Conversation history is retained; automatic
-history pruning and blob cleanup are not available. Disconnected workspace
-histories cannot be merged into one writer history. See the operator guide before
-moving data or handing a workspace to another writer.
+This preview supports one current storage and wire format. Incompatible prototype
+data has no migration support: keep any required old data with its matching
+executable and start v0.2.0 with fresh registry and workspace folders. Conversation
+history is retained; automatic history pruning and blob cleanup are not available.
+Disconnected workspace histories cannot be merged into one writer history. See
+the operator guide before moving data or handing a workspace to another writer.

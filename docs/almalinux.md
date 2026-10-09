@@ -22,21 +22,21 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.1.0-2.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.2.0-1.el10.x86_64.rpm
 workgraph --version
 ```
 
 For the tarball:
 
 ```sh
-tar -xzf workgraph-0.1.0-almalinux-10-x86_64.tar.gz
-install -Dm755 workgraph-0.1.0-almalinux-10-x86_64/bin/workgraph \
+tar -xzf workgraph-0.2.0-almalinux-10-x86_64.tar.gz
+install -Dm755 workgraph-0.2.0-almalinux-10-x86_64/bin/workgraph \
   "$HOME/.local/bin/workgraph"
 export PATH="$HOME/.local/bin:$PATH"
 workgraph --version
 ```
 
-The version must print `0.1.0`. The executable links to the AlmaLinux system
+The version must print `0.2.0`. The executable links to the AlmaLinux system
 libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
 Python 3 is needed for the supplied examples and qualification walkthrough.
@@ -77,10 +77,10 @@ under the Linux home filesystem:
 
 ```sh
 sudo dnf install git python3
-tar -xzf workgraph-0.1.0-source.tar.gz
-python3 workgraph-0.1.0/tools/installed_smoke.py "$(command -v workgraph)" \
+tar -xzf workgraph-0.2.0-source.tar.gz
+python3 workgraph-0.2.0/tools/installed_smoke.py "$(command -v workgraph)" \
   "$HOME/.local/state/workgraph/wsl-qualification"
-python3 workgraph-0.1.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
+python3 workgraph-0.2.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
   --directory "$HOME/.local/state/workgraph/wsl-history-qualification"
 ```
 

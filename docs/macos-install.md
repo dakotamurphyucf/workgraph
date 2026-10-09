@@ -5,13 +5,25 @@ complete offline guide and references, examples, dependency license texts and a
 file-hash manifest. Running the executable does not require opam or OCaml.
 Packaging does not publish release assets.
 
-Verify the archive against its accompanying `SHA256SUMS`, then extract it:
+Download the v0.2.0 preview archive and its checksums from the release, then
+verify the selected archive before extracting it. The release's `SHA256SUMS`
+also lists other assets, so select exactly this archive's entry:
 
 ```sh
-shasum -a 256 -c SHA256SUMS
-tar -xzf workgraph-0.1.0-macos-arm64.tar.gz
-./workgraph-0.1.0-macos-arm64/bin/workgraph --version
+mkdir -p "$HOME/Downloads/workgraph-0.2.0"
+cd "$HOME/Downloads/workgraph-0.2.0" || exit
+WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.2.0"
+curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.2.0-macos-arm64.tar.gz"
+curl -fLO "$WORKGRAPH_RELEASE/SHA256SUMS"
+awk '$2 == "workgraph-0.2.0-macos-arm64.tar.gz" { print; count++ }
+     END { if (count != 1) exit 1 }' SHA256SUMS > macos.SHA256SUMS &&
+  shasum -a 256 -c macos.SHA256SUMS &&
+  tar -xzf workgraph-0.2.0-macos-arm64.tar.gz &&
+  ./workgraph-0.2.0-macos-arm64/bin/workgraph --version
 ```
+
+The version must print `0.2.0`. Check the release's macOS qualification JSON
+and evidence archive for the source identity and actual macOS version tested.
 
 Keep the extracted directory together so relative guide links remain usable. Add
 its `bin` directory to your PATH if desired. Start with its `AGENT_GUIDE.md` and
