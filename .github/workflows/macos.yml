@@ -31,6 +31,7 @@ jobs:
           opam switch create "$WORKGRAPH_OPAM_SWITCH" ocaml-base-compiler.5.3.0 --yes
           # Install Dune itself before a dependency-only request. Including it
           # as a root of --deps-only can exclude it and its dependents.
+          opam pin add --switch="$WORKGRAPH_OPAM_SWITCH" --yes --no-action dune 3.21.1
           opam install --switch="$WORKGRAPH_OPAM_SWITCH" --yes dune.3.21.1
           opam install --switch="$WORKGRAPH_OPAM_SWITCH" --yes --deps-only --with-test ./workgraph.opam
           test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- ocamlc -version)" = 5.3.0

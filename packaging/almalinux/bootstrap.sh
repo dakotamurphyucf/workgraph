@@ -17,6 +17,7 @@ opam init --yes --bare --no-setup --disable-sandboxing workgraph-snapshot "$repo
 opam switch create workgraph ocaml-base-compiler.5.3.0 --yes
 cd /opt/workgraph-deps
 # Dune is a build tool to install, not a root to exclude with --deps-only.
+opam pin add --yes --no-action dune 3.21.1
 opam install --yes dune.3.21.1
 opam install --yes --deps-only --with-test ./workgraph.opam
 test "$(opam exec -- ocamlc -version)" = 5.3.0

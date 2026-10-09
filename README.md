@@ -187,6 +187,7 @@ root, create a dedicated toolchain without changing the global default:
 ```sh
 workgraph_toolchain="$PWD/../workgraph-toolchain"
 opam switch create "$workgraph_toolchain" ocaml-base-compiler.5.3.0 --no-switch
+opam pin add --switch="$workgraph_toolchain" --yes --no-action dune 3.21.1
 opam install --switch="$workgraph_toolchain" . --deps-only --with-test -y
 export WORKGRAPH_OPAM_SWITCH="$workgraph_toolchain"
 ./dev build @fmt @runtest @install

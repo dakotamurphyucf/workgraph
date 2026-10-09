@@ -63,7 +63,10 @@ selection, optional dependencies, missing roots and license failures.
 
 The first Linux CI run stopped before testing because a combined dependency-only
 request left Dune uninstalled. Linux, macOS and AlmaLinux provisioning now install
-the pinned Dune version explicitly before installing Workgraph's dependencies.
+Dune explicitly and pin its version before installing Workgraph's dependencies.
+The separate version pin prevents the dependency solver from upgrading Dune during
+the second install; a subsequent CI run demonstrated that installing a chosen
+version alone did not keep it fixed.
 Repository and tool versions remain pinned, and isolated switch selection remains
 unchanged. The local `@fmt @runtest @install` gate passed after these corrections.
 Native qualification must be rerun against this corrected source; the failed runs
