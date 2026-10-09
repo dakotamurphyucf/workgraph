@@ -15,10 +15,9 @@ socket. Data stays in folders you choose. No database server, hosted account,
 model credentials, or MCP server is needed.
 
 Workgraph is written in OCaml with Jane Street Core and Eio, and is
-[MIT-licensed](LICENSE). **This checkout prepares the unpublished v0.3.0 preview.**
-The guides and examples here use its `workgraph_api:"0.3"` contract. Use a matching
-candidate package or build this checkout to use them; published v0.2.0 packages
-retain their own matching guide and API.
+[MIT-licensed](LICENSE). The [v0.3.0 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0)
+provides native packages and source. The guides and examples here use its
+`workgraph_api:"0.3"` contract. Older packages retain their own matching guide and API.
 
 ## What you can do
 
@@ -152,10 +151,9 @@ contributors use the private scratch layout required by [AGENTS.md](AGENTS.md).
 
 ## Install
 
-**v0.3.0 is not published yet.** All current guides target v0.3.0. Until release,
-use a qualified candidate package supplied by the maintainer or build this checkout
-using the steps below. Download commands in the guides are ready for v0.3.0 and
-will work only after its assets are published.
+**Current preview: v0.3.0.** Download the native package for your platform from
+the [release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0),
+or build this checkout using the steps below. All current guides target v0.3.0.
 
 Use fresh registry and workspace folders for this breaking preview. Existing v0.2
 workspaces and saved requests are unsupported; retain them separately with their
@@ -204,8 +202,8 @@ or path. Direct dependency versions are pinned in `dune-project` and
 
 ## Try it
 
-These commands use v0.3.0. Install a matching candidate package or build this
-checkout using the source steps above.
+These commands use v0.3.0. Install its native package or build this checkout
+using the source steps above.
 
 Inspect API methods without starting a daemon:
 

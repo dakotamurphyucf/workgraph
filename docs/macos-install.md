@@ -1,9 +1,9 @@
 # macOS ARM64 native installation
 
 This guide targets **v0.3.0** and its matching bundled guide/API.
-**Release status: v0.3.0 is not published yet.** The download commands below work
-only after publication. Until then, use a qualified candidate archive supplied by
-the maintainer, the [source build](../README.md#build-the-current-checkout-from-source),
+Download its archive and qualification evidence from the
+[v0.3.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0).
+Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
 or the local archive procedure below. Start with fresh registry/workspace folders;
 v0.2 data and saved requests are unsupported, with no migration.
 

@@ -1,7 +1,7 @@
-# Next preview contracts
+# v0.3 preview contracts
 
 These accepted contracts guide the changes following the v0.2 agent trials.
-They describe the next preview; the released v0.2 executable retains its old API.
+They describe v0.3; the released v0.2 executable retains its old API.
 
 - `ticket.finish.handoff` patches the current handoff. Omitted rich fields and
   coverage are preserved; explicit empty strings/lists clear them. Summary and

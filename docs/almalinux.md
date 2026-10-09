@@ -1,9 +1,9 @@
 # AlmaLinux 10 on x86_64, including WSL
 
 This guide targets **v0.3.0** and its matching bundled guide/API.
-**Release status: v0.3.0 is not published yet.** The release filenames below apply
-once published; until then, use a qualified candidate package supplied by the
-maintainer, the [source build](../README.md#build-the-current-checkout-from-source),
+Download its packages and qualification evidence from the
+[v0.3.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.3.0).
+Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
 or the local packaging procedure below. Start with fresh registry/workspace
 folders: v0.2 data and saved requests are unsupported, with no migration.
 
