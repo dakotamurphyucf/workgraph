@@ -70,7 +70,7 @@ def start(registry):
             initialization = call("initialize", {})
             assert initialization["version"] == "0.4.0"
             assert initialization["workgraph_api"] == "0.4"
-            assert initialization["registry_format_version"] == "2"
+            assert initialization["registry_format_version"] == "3"
             return
         except subprocess.CalledProcessError:
             time.sleep(0.02)
