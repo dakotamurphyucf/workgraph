@@ -36,8 +36,15 @@ class CapacityTest(unittest.TestCase):
         self.temporary.cleanup()
 
     def call(self, method, params, *, failure=False):
-        result = subprocess.run([str(BINARY), 'call', str(self.socket), method, json.dumps(params)],
-                                capture_output=True, text=True)
+        # Legal Unicode payloads can exceed Linux's per-argument limit after
+        # JSON escaping. Keep the full boundary fixture and use file input.
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=self.root,
+                                         suffix='.json') as parameters:
+            json.dump(params, parameters)
+            parameters.flush()
+            result = subprocess.run([str(BINARY), 'request', str(self.socket), method,
+                                     '--params-file', parameters.name],
+                                    capture_output=True, text=True)
         if failure:
             self.assertEqual(result.returncode, 1, result.stdout)
             return json.loads(result.stdout)['error']['data']

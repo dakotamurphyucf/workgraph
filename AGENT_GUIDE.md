@@ -1,9 +1,10 @@
 # Workgraph agent guide
 
-Give an agent this file, access to the `docs/agent/` references beside it, and its
-connection values. The overview teaches the capabilities; load the relevant reference
-before constructing an unfamiliar request. Reference paths below are relative to the
-folder containing this file. Packages include the whole reference directory.
+Give an agent this file, access to both `docs/agent/` and `docs/api-reference/`,
+and its connection values. The overview teaches the capabilities; load the relevant
+reference before constructing an unfamiliar request. Reference paths below are relative
+to the folder containing this file. Packages include both reference directories; keep
+the accompanying `docs/` and `examples/` trees together so their links remain usable.
 
 ```xml
 <workgraph_agent_guide schema="current-preview">
