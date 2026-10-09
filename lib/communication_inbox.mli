@@ -3,6 +3,7 @@ open Core
 module Query : sig
   (** Read-only enumeration of unread notifications for this exact consumer and
       recipient. [after]/[through] bound observation; neither acknowledges IDs.
+      Retain consumer, recipient and all filters across numeric cursor pages.
       Filters do not affect acknowledgement state. *)
   type t
 
@@ -12,6 +13,12 @@ module Query : sig
   val through : t -> int option
   val kinds : t -> Communication_event.Notification.Kind.t list option
   val ticket_id : t -> Id.Ticket.t option
+
+  (** False by default. Actor recipients exclude notifications initiated by the
+      same actor across runs; run recipients exclude only exact attributed run.
+      Missing run attribution is never self for a run recipient. *)
+  val exclude_self : t -> bool
+
   val limit : t -> int
   val max_bytes : t -> int
   val read_codec : t Api_codec.t

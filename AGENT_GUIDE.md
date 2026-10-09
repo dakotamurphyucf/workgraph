@@ -31,6 +31,17 @@ explicit fields override them, and reads never inherit actor/run filters. A conf
 request directory journals new durable writes automatically. REQUESTS is optional, but
 saving writes before sending makes uncertain outcomes recoverable. It must exist when
 --save-request is used. Read docs/agent/cli-contract.md for setup/context options.
+With context, --self explicitly selects the supported actor/run read or target scope;
+ordinary reads remain unfiltered. Explicit selectors win. The CLI reference lists the
+small supported allowlist; unsupported self combinations reject. It never acknowledges
+an inbox merely by reading it.
+
+Give each agent a private working directory as well as a private context/request
+directory. Keep its small recovery index and per-ticket notepad there: connection values,
+current IDs, exact retry paths, active processes, checks and next steps. Keep shared source
+edits coordinated separately. Repository contributors follow AGENTS.md's required
+scratch/agents/<unique-agent-or-session-id>/index.md and separate ticket notes; this
+fallback context does not replace durable progress, decisions or handoffs in Workgraph.
 
 Reuse an existing daemon/workspace when supplied. To create a fresh setup, choose private
 absolute sibling registry/workspace/request directories with existing parents, then use
@@ -109,6 +120,8 @@ Required criteria and project/ticket policies compose. Inspect acceptance.policy
 before gated work; acceptance.assert records criterion evidence under the current binding.
 Weakening inherited requirements needs an explicit, attributed version-bound override.
 Commands/tests themselves run outside the daemon. Workgraph records supplied evidence.
+The executable docs/gated-review-workflow.md recipe covers two actors and two review
+rounds, automatic requests, durable approval delivery, acceptance and atomic finish.
 ]]></capability>
   <capability name="captured_execution" reference="docs/agent/execution.md"><![CDATA[
 evidence-run executes an explicit argv locally and durably captures outcome, bounded
@@ -128,6 +141,8 @@ clients supply; it does not choose what a model keeps in context or summarize fo
 Register immutable resource-backed workflow templates and instantiate local task graphs.
 Record provider-reported usage and allocation budgets; token counts must come from the
 caller. Inspect workspace.metrics for outcomes, status durations and admission allowances. Read independent planning/history change feeds or wait for bounded notifications.
+Warning bands and typed capacity errors guide deliberate export/verify/close and successor
+workspaces; see docs/agent/capacity-rollover.md. No retained data is silently deleted.
 Retain cursors for incremental watchers. A spending report does not enforce provider
 limits; cancellation records do not kill processes.
 ]]></capability>
@@ -151,7 +166,13 @@ With an existing workspace and a fresh REQUESTS directory, create and start one 
 Keep result.data.token from start. Record ticket.progress while working, then use
 ticket.finish with ticket_id, that token, nonblank evidence and a fresh saved request.
 All writes use the same actor and, if supplied, run_id. Read planning.md for those fields.
+To create an attempt atomically, register your run, add --run-id RUN and --attempt-id
+ATTEMPT to start, then retain result.data.attempt {attempt_id,revision,state:"running"}.
+Finish returns the completed attempt's new revision when an active attempt is completed.
+claim_next returns selected claim/token/attempt together, or an explained durable empty
+result. Never fetch a different token after an uncertain start: retry its saved request.
 On reset, ticket.resume recovers recorded context; fact.keys discovers saved knowledge.
+Resume loads fact values only for explicit fact_selections; discover exact scope keys first.
 If a write's outcome is uncertain, retry its file instead of repeating the create/start.
 ]]></ordinary_workflow>
 
@@ -173,9 +194,11 @@ If a write's outcome is uncertain, retry its file instead of repeating the creat
 ]]></operating_loop>
 
 <request_rules><![CDATA[
-Offline discovery: workgraph methods lists executable method definitions;
-workgraph help METHOD shows its parameters and result contract, and
-workgraph schema METHOD returns the same definitions as JSON. No daemon is needed.
+Offline discovery: workgraph methods --core lists the common workflow tier;
+workgraph methods lists every executable method. workgraph help METHOD --brief gives
+compact input help (also the default); --full shows the complete parameter/result schemas.
+workgraph schema METHOD returns that contract as JSON. No daemon is needed. Start with
+core help, then load one focused reference/schema for unfamiliar nested fields.
 Use workgraph request SOCKET METHOD --workspace-id WORKSPACE ... or
 workgraph call SOCKET METHOD '{"workspace_id":"...",...}'. Named request options support
 --actor-id, --run-id, --save-request FILE, --json-field NAME JSON and --field-file NAME FILE.
@@ -188,8 +211,14 @@ outputs from result.data; metadata contains applicable durability, query revisio
 captures and budget diagnostics. Counters are canonical decimal strings, not JSON
 numbers. Entity revisions, workspace revisions, query revisions, session sequences,
 history heads and inbox/feed cursors have different meanings. Use each method's contract.
+An at_revision guard pins the current planning capture; it does not select an arbitrary
+historical snapshot. Resource manifest pins use content-version revision/digest rather
+than resource metadata revision. target_run_id selects a run; run_id is attribution.
 Unknown/duplicate fields reject. Omission and null differ. Use each method's exact
 schema for enums and tagged objects; do not copy derived OCaml or stored-event shapes.
+Raw socket and saved request envelopes require workgraph_api:"0.3" alongside
+jsonrpc:"2.0". The CLI supplies this marker; initialize reports the same application API.
+Package version, application API and persisted-format identities are separate.
 The generated offline contract for METHOD is docs/api-reference/METHOD.md; its index
 is docs/api-reference/index.md. Load one method's file, or use help/schema, as needed.
 

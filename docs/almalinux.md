@@ -1,5 +1,11 @@
 # AlmaLinux 10 on x86_64, including WSL
 
+The download instructions below install published v0.2.0 and use its matching
+bundled guide/API. This checkout prepares unpublished v0.3.0; use the
+[source-build instructions](../README.md#build-the-current-checkout-from-source)
+or local packaging procedure for its current contracts. No v0.3.0 download is
+published here.
+
 For copy-and-paste installation, optional removal of an older setup, and a first
 ticket workflow, use the [WSL reset and quick-start guide](wsl-quickstart.md).
 

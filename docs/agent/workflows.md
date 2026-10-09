@@ -6,6 +6,13 @@ Unless a result is explicitly shown as a complete envelope, it describes `result
 receipt, query and capture metadata are in `result.meta`. These are the current preview
 contracts, not compatibility guarantees for previously published previews.
 
+For a complete two-actor, two-round example with saved retries, immutable output pins,
+change requests and durable approval delivery, run the
+[gated review workflow](../gated-review-workflow.md).
+For warning bands, typed admission failures and deliberate export/verify/close before
+carrying selected context to a fresh workspace, use the
+[capacity rollover recipe](capacity-rollover.md).
+
 ```xml
 <workgraph_reference name="workflows">
 <working_examples>

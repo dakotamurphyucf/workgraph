@@ -7,6 +7,7 @@ let ok = Disk.unwrap
 let request method_ params =
   Json.obj
     [ "jsonrpc", Json.string "2.0"
+    ; "workgraph_api", Current_format.value Application_api
     ; "id", Json.string "test"
     ; "method", Json.string method_
     ; "params", Json.obj params

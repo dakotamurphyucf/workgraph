@@ -32,7 +32,7 @@ class Client:
 
     def call(self, method, params):
         self.calls += 1
-        request = {'jsonrpc': '2.0', 'id': str(self.calls), 'method': method, 'params': params}
+        request = {'jsonrpc': '2.0', 'workgraph_api': '0.3', 'id': str(self.calls), 'method': method, 'params': params}
         self.process.stdin.write(json.dumps(request, separators=(',', ':')) + '\n')
         self.process.stdin.flush()
         with selectors.DefaultSelector() as selector:

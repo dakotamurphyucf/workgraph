@@ -2,7 +2,7 @@ open Core
 
 module Initialization = struct
   type t =
-    { protocol_version : int
+    { workgraph_api : string
     ; max_frame_bytes : int
     ; name : string
     ; version : string
@@ -13,13 +13,13 @@ module Initialization = struct
     }
 
   let current () =
-    { protocol_version = 1
+    { workgraph_api = Current_format.identifier Application_api
     ; max_frame_bytes = Framing.max_bytes
     ; name = "workgraph"
     ; version = Version.value
     ; administrative_receipts = true
     ; workspace_receipts = true
-    ; registry_format_version = 1
+    ; registry_format_version = 2
     ; background_exports = true
     }
   ;;
@@ -30,7 +30,17 @@ module Initialization = struct
     both
       (both
          (both
-            (required "protocol_version" (decimal ~max:1))
+            (required
+               "workgraph_api"
+               (Api_codec.map
+                  (literal (Current_format.identifier Application_api))
+                  ~decode:(fun () -> Ok (Current_format.identifier Application_api))
+                  ~encode:(fun profile ->
+                    if
+                      not
+                        (String.equal profile (Current_format.identifier Application_api))
+                    then Json.fail Invalid_argument "unsupported current API profile")
+                  ~description:"Required application request profile."))
             (required "max_frame_bytes" (decimal ~max:Framing.max_bytes)))
          (both
             (required "name" (text ~max_bytes:128))
@@ -40,15 +50,23 @@ module Initialization = struct
             (required "administrative_receipts" boolean)
             (required "workspace_receipts" boolean))
          (both
-            (required "registry_format_version" (decimal ~max:1))
+            (required
+               "registry_format_version"
+               (Api_codec.map
+                  (literal (Current_format.identifier Registry))
+                  ~decode:(fun () -> Ok 2)
+                  ~encode:(fun version ->
+                    if version <> 2
+                    then Json.fail Invalid_argument "unsupported current registry format")
+                  ~description:"Current registry format identity."))
             (required "background_exports" boolean)))
     |> map
          ~decode:
            (fun
-             ( ((protocol_version, max_frame_bytes), (name, version))
+             ( ((workgraph_api, max_frame_bytes), (name, version))
              , ( (administrative_receipts, workspace_receipts)
                , (registry_format_version, background_exports) ) ) ->
-           { protocol_version
+           { workgraph_api
            ; max_frame_bytes
            ; name
            ; version
@@ -59,7 +77,7 @@ module Initialization = struct
            })
          ~encode:
            (fun
-             { protocol_version
+             { workgraph_api
              ; max_frame_bytes
              ; name
              ; version
@@ -68,7 +86,7 @@ module Initialization = struct
              ; registry_format_version
              ; background_exports
              } ->
-           ( ((protocol_version, max_frame_bytes), (name, version))
+           ( ((workgraph_api, max_frame_bytes), (name, version))
            , ( (administrative_receipts, workspace_receipts)
              , (registry_format_version, background_exports) ) ))
     |> object_

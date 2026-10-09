@@ -464,11 +464,12 @@ let actor t = t.actor
 
 let of_json json =
   Json.decode (fun () ->
+    (match Current_format.validate Planning_events json with
+     | Ok () -> ()
+     | Error p -> raise (Json.Decode_error p));
     Json.fields
       json
       ~allowed:[ "version"; "revision"; "actor"; "run_id"; "timestamp"; "changes" ];
-    if Json.integer (Json.field json "version") <> 1
-    then Json.fail Unsupported_version "unsupported event schema";
     let revision = Json.integer (Json.field json "revision") in
     if revision < 1 || revision > 100_000
     then Json.fail Corrupt_store "event revision outside bounds";

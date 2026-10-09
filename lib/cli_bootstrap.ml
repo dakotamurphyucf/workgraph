@@ -24,7 +24,7 @@ type t =
 let create ~context_file ~socket ~previous ~fields ~request_directory ~timeout_seconds =
   Json.decode (fun () ->
     Disk.absolute context_file;
-    Disk.absolute socket;
+    Platform.validate_socket_path socket |> Disk.unwrap;
     if
       (not (Float.is_finite timeout_seconds))
       || Float.(timeout_seconds <= 0. || timeout_seconds > 3600.)
@@ -151,15 +151,20 @@ let run t ~env ~on_saved_request =
   Disk.protect (fun () ->
     let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
     let directory = Filename.dirname t.context_file in
-    Disk.require_directory Eio.Path.(fs / directory);
+    Local_file.require_directory Eio.Path.(fs / directory) ~operation:"initialize context";
     let require_creatable_directory path =
       match Eio.Path.kind ~follow:false Eio.Path.(fs / path) with
       | `Directory -> ()
-      | `Not_found -> Disk.require_directory Eio.Path.(fs / Filename.dirname path)
+      | `Not_found ->
+        Local_file.require_directory
+          Eio.Path.(fs / Filename.dirname path)
+          ~operation:"initialize directory"
       | _ ->
         Json.fail
           Invalid_argument
-          "setup directory must be a real directory or a fresh path"
+          (sprintf
+             "initialize directory %S: requires a real directory or a fresh path"
+             path)
     in
     Option.iter t.root ~f:require_creatable_directory;
     Option.iter (Cli_context.request_directory t.context) ~f:require_creatable_directory;
@@ -167,11 +172,17 @@ let run t ~env ~on_saved_request =
      | Existing -> ()
      | Start { registry; log } ->
        require_creatable_directory registry;
-       Disk.require_directory Eio.Path.(fs / Filename.dirname log);
+       Local_file.require_directory
+         Eio.Path.(fs / Filename.dirname log)
+         ~operation:"initialize daemon log";
        (match Eio.Path.kind ~follow:false Eio.Path.(fs / log) with
         | `Not_found | `Regular_file -> ()
         | _ ->
-          Json.fail Invalid_argument "daemon log must be a regular file or a fresh path"));
+          Json.fail
+            Invalid_argument
+            (sprintf
+               "initialize daemon log %S: requires a regular file or a fresh path"
+               log)));
     let client =
       Client.create
         ~net:(Eio.Stdenv.net env)
@@ -251,7 +262,8 @@ let run t ~env ~on_saved_request =
         |> Disk.unwrap
       in
       let path = Filename.concat directory (random_name env ^ ".json") in
-      Disk.write_new
+      Local_file.write_new
+        ~operation:"save initialization request"
         Eio.Path.(fs / path)
         (Json.canonical (Protocol.Request.to_json request));
       on_saved_request path;

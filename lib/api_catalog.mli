@@ -20,7 +20,9 @@ val validate_request
     preparation, before publication. *)
 val validate_response : method_:string -> Api_response.t -> unit option
 
-(** Complete schemas for supported methods, sorted by method name.
+(** Complete schemas and descriptor-backed discovery tiers for supported methods,
+    sorted by method name. Repeated shapes use named, local [$defs] references;
+    each params/result schema block resolves offline as a standalone document.
     Schema-only consumers must honor the stated Draft 2020-12 dialect and the
     documented domain-bound extensions; runtime validation remains authoritative. *)
 val describe : unit -> Jsonaf.t

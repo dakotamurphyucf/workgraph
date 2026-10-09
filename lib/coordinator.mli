@@ -34,7 +34,10 @@ end
     [allocation_blocked] explains graph-ready unclaimed tickets rejected by those
     rules. Unknown run filters return [Not_found]. These views do not claim work
     or predict claim-next ordering. An item which cannot fit returns the same cursor position and
-    [needs_larger_budget], never skips it. No process or duration is inferred. *)
+    [needs_larger_budget], never skips it. Unobserved runs have their own advisory
+    [unobserved_run] row and never produce a stale-run or stale-ownership warning
+    merely from missing observation. Lease expiry/regression remains independent.
+    No process or duration is inferred. *)
 val read
   :  workspace:Id.Workspace.t
   -> revision:int

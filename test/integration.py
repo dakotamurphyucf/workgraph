@@ -25,7 +25,7 @@ STORE_EXE = Path(sys.argv.pop(1)).resolve()
 def request(address, method, params, request_id="test"):
     if method in {"workspace.create", "workspace.register", "workspace.open", "workspace.close", "workspace.unregister", "workspace.export", "daemon.export_all", "workspace.restore", "daemon.restore_all", "restore.cancel", "export.cancel", "export.retry"}:
         params = {"actor_id": "operator", "mutation_id": uuid.uuid4().hex, **params}
-    payload = json.dumps({"jsonrpc": "2.0", "id": request_id,
+    payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": request_id,
                           "method": method, "params": params}).encode()
     with socket.socket(socket.AF_UNIX) as sock:
         sock.settimeout(10)
@@ -1124,7 +1124,7 @@ class Integration(unittest.TestCase):
         self.ticket()
         root = self.root / "verified-export"
         manifest = self.export({"workspace_id": "demo", "destination": str(root)})
-        self.assertEqual("1", manifest["version"])
+        self.assertEqual("2", manifest["version"])
         self.assertEqual(json.loads((root / "portable/HEAD.json").read_text())["digest"], manifest["head"])
         verified = self.data("export.verify", {"directory": str(root)})
         self.assertTrue(verified["verified"])
@@ -1162,7 +1162,7 @@ class Integration(unittest.TestCase):
                 changed.pop("options")
                 expected_kind = "Invalid_argument"
             elif change == "unsupported-version":
-                changed["version"] = "2"
+                changed["version"] = "3"
                 expected_kind = "Unsupported_version"
             else:
                 changed.pop("head")
@@ -1384,7 +1384,7 @@ class Integration(unittest.TestCase):
         self.assertEqual(0, uploaded.returncode, uploaded.stderr)
         first = json.loads(uploaded.stdout)
         plan = json.loads(saved.read_text())
-        self.assertEqual({"jsonrpc", "id", "method", "params"}, set(plan))
+        self.assertEqual({"jsonrpc", "workgraph_api", "id", "method", "params"}, set(plan))
         self.assertEqual("resource.upload", plan["method"])
         self.assertEqual("2.0", plan["jsonrpc"])
         self.assertEqual(hashlib.sha256(content).hexdigest(), plan["params"]["digest"])
@@ -1406,7 +1406,7 @@ class Integration(unittest.TestCase):
         self.assertEqual("1", json.loads(downloaded.stdout)["result"]["data"]["version"])
         again = self.cli("resource", "download", self.daemon.address, "--workspace-id", "demo", "--resource-id", "binary", "--destination", destination)
         self.assertNotEqual(0, again.returncode)
-        self.assertEqual("Conflict", json.loads(again.stderr.splitlines()[-1])["kind"])
+        self.assertEqual("Invalid_argument", json.loads(again.stderr.splitlines()[-1])["kind"])
         self.assertEqual(content, destination.read_bytes())
         self.assertEqual([], list(self.root.glob("*.downloading-*")))
         # Reusing a committed mutation with different bytes cannot report success.
@@ -1507,7 +1507,7 @@ class Integration(unittest.TestCase):
                 self.assertFalse(thread.is_alive())
                 self.assertNotEqual(0, result.returncode)
                 if mode == "raced-destination":
-                    self.assertEqual("Conflict", json.loads(result.stderr.splitlines()[-1])["kind"])
+                    self.assertEqual("Invalid_argument", json.loads(result.stderr.splitlines()[-1])["kind"])
                     self.assertEqual(b"keep existing", destination.read_bytes())
                 else:
                     self.assertEqual("Corrupt_store", json.loads(result.stderr.splitlines()[-1])["kind"])
@@ -1774,12 +1774,12 @@ class Integration(unittest.TestCase):
             reader = socket.socket(socket.AF_UNIX)
             reader.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
             reader.connect(str(self.daemon.address))
-            write_frame(reader, {"jsonrpc": "2.0", "id": "slow", "method": "comment.list", "params": {"workspace_id": "demo", "max_bytes": "1048576"}})
+            write_frame(reader, {"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "slow", "method": "comment.list", "params": {"workspace_id": "demo", "max_bytes": "1048576"}})
             readers.append(reader)
             with socket.socket(socket.AF_UNIX) as notification:
                 notification.settimeout(3)
                 notification.connect(str(self.daemon.address))
-                write_frame(notification, {"jsonrpc": "2.0", "method": "ticket.create", "params": {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "notification", "ticket_id": "ignored", "title": "Ignored"}})
+                write_frame(notification, {"jsonrpc": "2.0", "workgraph_api": "0.3", "method": "ticket.create", "params": {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "notification", "ticket_id": "ignored", "title": "Ignored"}})
                 self.assertEqual(b"", notification.recv(1))
             committed = self.mutation("comment.add", {"target": {"kind": "ticket", "id": "a"}, "body": "While peers stall"}, mutation="unblocked")
             self.assertIn("result", committed)
@@ -1795,8 +1795,8 @@ class Integration(unittest.TestCase):
         self.assertEqual(committed["result"], self.ok("comment.add", {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "unblocked", "target": {"kind": "ticket", "id": "a"}, "body": "While peers stall"}))
 
     def test_malformed_envelopes_and_frames_leave_workspace_unchanged(self):
-        bodies = [b"{", b"[]", b'{"id":"a","id":"b"}', b'{"jsonrpc":"3.0","id":"a","method":"initialize"}', b'{"jsonrpc":"2.0","id":{},"method":"initialize"}', b'{"jsonrpc":"2.0","id":"a","method":"ticket.create","params":[]}']
-        bodies.extend([b'{"jsonrpc":"2.0","id":"a","method":"initialize","params":{"bad":"\xff"}}', b'{"jsonrpc":"2.0","id":1e309,"method":"initialize"}'])
+        bodies = [b"{", b"[]", b'{"id":"a","id":"b"}', b'{"jsonrpc":"3.0","workgraph_api":"0.3","id":"a","method":"initialize"}', b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":{},"method":"initialize"}', b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":"a","method":"ticket.create","params":[]}']
+        bodies.extend([b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":"a","method":"initialize","params":{"bad":"\xff"}}', b'{"jsonrpc":"2.0","workgraph_api":"0.3","id":1e309,"method":"initialize"}'])
         for body in bodies:
             with socket.socket(socket.AF_UNIX) as client:
                 client.settimeout(3)
@@ -1810,7 +1810,7 @@ class Integration(unittest.TestCase):
     def test_disconnect_after_admission_and_retry(self):
         params = {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "lost-reply",
                   "ticket_id": "a", "title": "Persist despite disconnect"}
-        payload = json.dumps({"jsonrpc": "2.0", "id": "disconnected", "method": "ticket.create", "params": params}).encode()
+        payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "disconnected", "method": "ticket.create", "params": params}).encode()
         with socket.socket(socket.AF_UNIX) as client:
             client.connect(str(self.daemon.address))
             client.sendall(struct.pack(">I", len(payload)) + payload)

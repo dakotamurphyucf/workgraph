@@ -133,6 +133,11 @@ val history_capture : t -> (Session_store.Capture.t, Problem.t) Result.t
     admission counters. Does not walk disk or report physical free space. *)
 val admission : t -> (Admission.t list, Problem.t) Result.t
 
+(** Worker-owned cached counters for advisory health. Constant bounded work; no
+    filesystem I/O, graph traversal or integrity probe. Closed/fenced owners
+    reject. A later mutation still performs every authoritative admission check. *)
+val cached_admission : t -> (Admission.t list, Problem.t) Result.t
+
 val capture_at_history
   :  t
   -> revision:int

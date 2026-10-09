@@ -2,7 +2,10 @@
     domain owns filesystem operations. Admission canonicalizes workspace/restore
     roots and export destinations and rejects overlap with registered/reserved
     storage or the registry. This is trusted-local ownership, not protection
-    against concurrent external filesystem replacement. *)
+    against concurrent external filesystem replacement. Validates the native socket
+    path byte bound before starting workers. Concise lifecycle diagnostics identify
+    registry/socket paths; ready is emitted only after successful initialization
+    and bind. Failed bind never unlinks another listener's socket. *)
 val run : env:Eio_unix.Stdenv.base -> registry:string -> socket:string -> unit
 
 (** Serve an already prepared listener using the same dispatcher and disk

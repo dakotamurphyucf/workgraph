@@ -1,11 +1,21 @@
 open Core
 
-(** Handoff coverage is the observed workspace revision, not save time.
-    Omission covers zero activity. Summary and next steps are bounded to 64KiB. *)
+(** Finish handoff patch. Summary and next steps are required; omitted rich
+    fields preserve the current handoff, while empty text/resource lists clear
+    them. Without a previous handoff, rich fields default to empty values and
+    coverage to zero. Coverage is an observed workspace revision, never save
+    time; omission preserves the previous cursor. Text fields are bounded to
+    64KiB and resource references to 100. Finish evidence becomes this version's
+    evidence; historical handoffs remain immutable. *)
 module Handoff : sig
   type t =
     { summary : string
     ; next_steps : string
+    ; objective : string option
+    ; completed : string option
+    ; decisions : string option
+    ; blockers : string option
+    ; resource_ids : Id.Resource.t list option
     ; covers_through : int option
     }
   [@@deriving sexp]
@@ -103,7 +113,9 @@ end
 val mutation_methods : string list
 
 (** Unknown methods return Invalid_argument. Responses validate exact fields and
-    typed ticket identities. *)
+    typed ticket identities. Start/finish include an optional [attempt] containing
+    its identity, entity revision and state when an attempt is created/completed;
+    ordinary work omits it. *)
 val response_codec : string -> (Jsonaf.t Api_codec.t, Problem.t) Result.t
 
 (** Shares the same raw Fields declarations as Command.codec and preserves caller

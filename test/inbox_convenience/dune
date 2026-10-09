@@ -1,0 +1,13 @@
+(library
+ (name workgraph_inbox_convenience_tests)
+ (modules self_test)
+ (libraries workgraph core expect_test_helpers_core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(rule
+ (alias runtest)
+ (deps socket_test.py ../../docs/agent/communication-evidence.md)
+ (action
+  (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

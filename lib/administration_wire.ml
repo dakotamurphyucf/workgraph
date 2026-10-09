@@ -155,38 +155,7 @@ let export_job =
      statuses require consistent cancellation/error fields."
 ;;
 
-let problem =
-  let kinds =
-    [ Problem.Invalid_argument
-    ; Not_found
-    ; Conflict
-    ; Blocked
-    ; Dependency_cycle
-    ; Already_claimed
-    ; Stale_claim
-    ; Idempotency_conflict
-    ; Corrupt_store
-    ; Storage_unavailable
-    ; Outcome_unknown
-    ; Workspace_closed
-    ; Unsupported_version
-    ]
-  in
-  let cases =
-    List.map kinds ~f:(fun kind ->
-      let name = Problem.wire_name kind in
-      ( name
-      , obj
-          (req "kind" (Api_codec.literal name)
-           <*> req "message" (Api_codec.text ~max_bytes:Framing.max_bytes))
-          ~decode:(fun ((), message) -> Problem.create kind message)
-          ~encode:(fun p ->
-            require (Problem.equal_kind p.Problem.kind kind) "problem kind differs";
-            (), p.message) ))
-  in
-  Api_codec.tagged ~discriminator:"kind" ~cases ~select:(fun p ->
-    Problem.wire_name p.Problem.kind)
-;;
+let problem = Problem_wire.codec
 
 module Health = struct
   module Workspace = struct
@@ -197,6 +166,7 @@ module Health = struct
       ; is_open : bool
       ; open_intent : bool
       ; error : Problem.t option
+      ; capacity : Admission.Summary.t option
       }
 
     let create
@@ -205,6 +175,7 @@ module Health = struct
           ~archived
           ~is_open
           ~error
+          ~capacity
       =
       { workspace
       ; root = registration.root
@@ -212,6 +183,7 @@ module Health = struct
       ; is_open
       ; open_intent = registration.is_open
       ; error
+      ; capacity
       }
     ;;
 
@@ -223,20 +195,25 @@ module Health = struct
             <*> req "archived" (Api_codec.nullable Api_codec.boolean)
             <*> req "open" Api_codec.boolean
             <*> req "open_intent" Api_codec.boolean
-            <*> req "error" (Api_codec.nullable problem))
+            <*> req "error" (Api_codec.nullable problem)
+            <*> req "capacity" (Api_codec.nullable Admission.Summary.codec))
            ~decode:
              (fun
-               (((((workspace, root), archived), is_open), open_intent), error) ->
-             { workspace; root; archived; is_open; open_intent; error })
+               ((((((workspace, root), archived), is_open), open_intent), error), capacity) ->
+             { workspace; root; archived; is_open; open_intent; error; capacity })
            ~encode:(fun w ->
-             ((((w.workspace, w.root), w.archived), w.is_open), w.open_intent), w.error))
+             ( (((((w.workspace, w.root), w.archived), w.is_open), w.open_intent), w.error)
+             , w.capacity )))
         (fun w ->
            require
              (Bool.equal w.is_open (Option.is_some w.archived))
              "loaded workspace archived state disagrees";
            require
              ((not w.is_open) || Option.is_none w.error)
-             "open workspace cannot carry an unavailable error")
+             "open workspace cannot carry an unavailable error";
+           require
+             (w.is_open || Option.is_none w.capacity)
+             "closed workspace cannot report current cached capacity")
         "Current local registration status; archived is known only when the workspace is \
          loaded."
     ;;
@@ -255,8 +232,8 @@ module Health = struct
       Map.to_alist registry.Registry.registrations
       |> List.map ~f:(fun (id, registration) ->
         let workspace = unwrap (Id.Workspace.of_string id) in
-        let archived, is_open, error = workspace_status workspace in
-        Workspace.create ~workspace ~registration ~archived ~is_open ~error)
+        let archived, is_open, error, capacity = workspace_status workspace in
+        Workspace.create ~workspace ~registration ~archived ~is_open ~error ~capacity)
     in
     { registry_requires_restart
     ; pending_creates = Map.length registry.creates

@@ -461,10 +461,12 @@ let page codec =
 ;;
 
 let revision = Fields.required "revision" W.counter
-let receipt = json (Api_codec.object_ revision)
+let entity_receipt = json (Api_codec.object_ revision)
+let coordination_revision = Fields.required "coordination_revision" W.counter
+let coordination_receipt = json (Api_codec.object_ coordination_revision)
 
 let mutation_record name codec =
-  json (Api_codec.object_ (revision ++ Fields.required name codec))
+  json (Api_codec.object_ (coordination_revision ++ Fields.required name codec))
 ;;
 
 let response_codec ~method_ =
@@ -474,10 +476,9 @@ let response_codec ~method_ =
   | "condition.signal" -> Some (mutation_record "signal" External_condition.Signal.codec)
   | "reservation.recover" | "reservation.path.recover" ->
     Some (mutation_record "recovery" Ownership_recovery.codec)
-  | "reservation.paths.acquire"
-  | "reservation.path.renew"
-  | "reservation.path.release"
-  | "ticket.paths.put" -> Some receipt
+  | "reservation.paths.acquire" | "reservation.path.renew" | "reservation.path.release" ->
+    Some coordination_receipt
+  | "ticket.paths.put" -> Some entity_receipt
   | "reservation.path.get" -> Some (json path_reservation)
   | "ticket.paths.get" -> Some (json Ticket_paths.codec)
   | "condition.get" -> Some (json condition_record)

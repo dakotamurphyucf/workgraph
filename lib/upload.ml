@@ -68,13 +68,28 @@ let begin_upload t ~id ~actor ~size_bytes ~digest =
       then Json.fail Conflict "upload ID reused with different metadata";
       response id entry
     | None ->
-      if
-        Map.length t.entries >= Admission.Limit.maximum Active_uploads
-        || Map.fold t.entries ~init:size_bytes ~f:(fun ~key:_ ~data total ->
-             total + data.Entry.size_bytes)
-           > Admission.Limit.maximum Reserved_upload_bytes
+      let reserved =
+        Map.fold t.entries ~init:0 ~f:(fun ~key:_ ~data total ->
+          total + data.Entry.size_bytes)
+      in
+      if Map.length t.entries >= Admission.Limit.maximum Active_uploads
       then
-        Json.fail Invalid_argument "upload admission limit: 8 uploads or 256MiB reserved";
+        raise
+          (Json.Decode_error
+             (Admission.refusal
+                Active_uploads
+                ~used:(Map.length t.entries)
+                ~attempted:(Map.length t.entries + 1)
+                ~kind:Invalid_argument));
+      if reserved + size_bytes > Admission.Limit.maximum Reserved_upload_bytes
+      then
+        raise
+          (Json.Decode_error
+             (Admission.refusal
+                Reserved_upload_bytes
+                ~used:reserved
+                ~attempted:(reserved + size_bytes)
+                ~kind:Invalid_argument));
       Disk.ensure_directory t.directory;
       (match Eio.Path.kind ~follow:false (path t id) with
        | `Not_found -> ()

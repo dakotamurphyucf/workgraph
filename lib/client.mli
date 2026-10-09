@@ -2,7 +2,8 @@ type t
 
 (** One connection per request with a finite monotonic timeout. No implicit retry
     or mutation-ID generation. Transport/protocol failures after a write attempt
-    report Outcome_unknown for write methods. External cancellation propagates. *)
+    report Outcome_unknown for write methods. Socket paths are validated against
+    the current native byte bound before connecting. External cancellation propagates. *)
 val create
   :  net:_ Eio.Net.t
   -> clock:_ Eio.Time.Mono.t
@@ -10,6 +11,8 @@ val create
   -> timeout_seconds:float
   -> (t, Problem.t) result
 
+(** Initialization profile mismatches remain [Unsupported_version]. Uncertain
+    mutation acknowledgements retain [Outcome_unknown]; no automatic retries. *)
 val execute : t -> Protocol.Request.t -> (Protocol.response, Problem.t) result
 
 (** Returns the complete validated public [{data; meta}] result. Per-method data

@@ -2,12 +2,14 @@ open Core
 
 (** Server profile: string IDs of 1..256 bytes, finite numeric IDs, or null;
     method of 1..128 bytes; optional object params. Notifications are discarded
-    before dispatch. Invalid envelopes receive -32600 with null ID. *)
+    before dispatch. Requires workgraph_api="0.3" before method decoding.
+    Invalid envelopes receive -32600 with null ID. *)
 val validate_server_request : Jsonaf.t -> (unit, Problem.t) Result.t
 
 (** Current client envelope. Client request IDs are strings; the server also
     accepts numeric IDs from other clients. Unknown methods conservatively count
-    as writes when reporting transport uncertainty. *)
+    as writes when reporting transport uncertainty. Encoders always emit the
+    current application profile; saved unmarked/older requests reject unchanged. *)
 module Request : sig
   type mode =
     | Read

@@ -389,6 +389,7 @@ let warning_codec =
              ; "handoff_coverage_missing"
              ; "handoff_claim_changed"
              ; "handoff_new_activity"
+             ; "handoff_bookkeeping_activity"
              ; "associated_run_missing"
              ; "fact_missing"
              ; "fact_deleted"

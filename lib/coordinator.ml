@@ -328,7 +328,7 @@ let read
         let status = Allocation_lease.status claim.Claim.lease ~now_unix_ms:clock in
         let stale =
           Option.value_map claim.run ~default:false ~f:(fun id ->
-            Option.value_map (run_record id) ~default:true ~f:(fun record ->
+            Option.value_map (run_record id) ~default:false ~f:(fun record ->
               Agent_run.stale
                 (liveness_record record)
                 ~now_unix_ms:clock
@@ -361,29 +361,40 @@ let read
             (Option.to_list claim.run)
             [ claim.actor ])));
     List.iter (Agent_run.runs runs) ~f:(fun record ->
-      if
-        (not (Agent_run.Status.terminal record.Agent_run.Record.status))
-        && Agent_run.stale
-             (liveness_record record)
-             ~now_unix_ms:clock
-             ~after_ms:stale_after_ms
-      then
-        add
-          (Wire.Item.Stale_run
-             { run_id = record.id
-             ; metadata =
-                 { status = record.status
-                 ; last_observed_unix_ms = (liveness_record record).last_observed_unix_ms
-                 ; liveness =
-                     (if Option.is_none (liveness_record record).last_observed_unix_ms
-                      then Unobserved
-                      else Stale)
-                 }
-             })
-          (Id.Run.to_string record.id)
-          (run_projects record.id)
-          [ record.id ]
-          [ record.actor ]);
+      if not (Agent_run.Status.terminal record.Agent_run.Record.status)
+      then (
+        let record = liveness_record record in
+        let row =
+          match Agent_run.liveness record ~now_unix_ms:clock ~after_ms:stale_after_ms with
+          | Fresh -> None
+          | Unobserved ->
+            Some
+              (Wire.Item.Unobserved_run
+                 { run_id = record.id
+                 ; metadata =
+                     { status = record.status
+                     ; last_observed_unix_ms = None
+                     ; liveness = Unobserved
+                     }
+                 })
+          | Stale ->
+            Some
+              (Wire.Item.Stale_run
+                 { run_id = record.id
+                 ; metadata =
+                     { status = record.status
+                     ; last_observed_unix_ms = record.last_observed_unix_ms
+                     ; liveness = Stale
+                     }
+                 })
+        in
+        Option.iter row ~f:(fun row ->
+          add
+            row
+            (Id.Run.to_string record.id)
+            (run_projects record.id)
+            [ record.id ]
+            [ record.actor ])));
     List.iter (Agent_run.reservations runs) ~f:(fun reservation ->
       let src = Wire.Source.Reservation reservation.Reservation.name in
       let owners = List.map reservation.holders ~f:(fun h -> h.Reservation.Holder.run) in
@@ -402,7 +413,7 @@ let read
           Allocation_lease.status holder.Reservation.Holder.lease ~now_unix_ms:clock
         in
         let stale =
-          Option.value_map (run_record holder.run) ~default:true ~f:(fun record ->
+          Option.value_map (run_record holder.run) ~default:false ~f:(fun record ->
             Agent_run.stale
               (liveness_record record)
               ~now_unix_ms:clock

@@ -26,6 +26,33 @@ let invoke client method_ fields =
   |> Api_response.data
 ;;
 
+(* File_content is also a durable-store reader. Only its client-owned source
+   results are interpreted here; daemon responses never pass through this map. *)
+let source_file_result ~operation ~path = function
+  | Ok value -> value
+  | Error error ->
+    let kind =
+      match error.Problem.kind with
+      | Corrupt_store -> Problem.Invalid_argument
+      | Storage_unavailable -> Local_io
+      | ( Invalid_argument
+        | Not_found
+        | Conflict
+        | Blocked
+        | Dependency_cycle
+        | Already_claimed
+        | Stale_claim
+        | Idempotency_conflict
+        | Local_io
+        | Outcome_unknown
+        | Workspace_closed
+        | Unsupported_version ) as kind -> kind
+    in
+    raise
+      (Json.Decode_error
+         (Problem.create kind (sprintf "%s %S: %s" operation path error.message)))
+;;
+
 module Upload_plan = struct
   type t =
     { workspace : Id.Workspace.t
@@ -63,6 +90,8 @@ module Upload_plan = struct
 
   let prepare ~fs ~params =
     Disk.protect (fun () ->
+      if Option.is_some (Json.optional params "transfer_version")
+      then Current_format.validate Upload_plan params |> Disk.unwrap;
       Json.fields
         params
         ~allowed:
@@ -110,11 +139,10 @@ module Upload_plan = struct
           , Json.optional params "digest"
           , Json.optional params "size_bytes" )
         with
-        | None, None, None -> Blob.inspect Eio.Path.(fs / file) |> Disk.unwrap
-        | Some version, Some hash, Some size ->
-          if Json.integer version <> 1
-          then Json.fail Unsupported_version "upload plan version unsupported";
-          digest hash, Json.integer size
+        | None, None, None ->
+          Blob.inspect Eio.Path.(fs / file)
+          |> source_file_result ~operation:"inspect upload source" ~path:file
+        | Some _, Some hash, Some size -> digest hash, Json.integer size
         | _ ->
           Json.fail
             Invalid_argument
@@ -181,7 +209,10 @@ let upload (plan : Upload_plan.t) ~client ~fs =
     (match Json.text (Json.field receipt "status") with
      | "committed" -> ()
      | "absent" ->
-       let actual, size = Blob.inspect Eio.Path.(fs / plan.file) |> Disk.unwrap in
+       let actual, size =
+         Blob.inspect Eio.Path.(fs / plan.file)
+         |> source_file_result ~operation:"inspect upload source" ~path:plan.file
+       in
        if not (String.equal actual plan.digest && Int.equal size plan.size_bytes)
        then Json.fail Conflict "source file differs from saved upload plan";
        let scope = identity @ [ "upload_id", Json.string upload_id ] in
@@ -219,7 +250,7 @@ let upload (plan : Upload_plan.t) ~client ~fs =
                Eio.Path.(fs / plan.file)
                ~offset
                ~length:Upload.max_chunk_bytes
-             |> Disk.unwrap
+             |> source_file_result ~operation:"read upload source" ~path:plan.file
            in
            if (not (Int.equal size plan.size_bytes)) || String.is_empty bytes
            then Json.fail Conflict "source changed during upload";
@@ -269,12 +300,15 @@ module Download = struct
 end
 
 let download (plan : Download.t) ~client ~fs ~random =
-  Disk.protect (fun () ->
+  Local_file.protect ~operation:"download destination" ~path:plan.destination (fun () ->
     Disk.absolute plan.destination;
     let dst = Eio.Path.(fs / plan.destination) in
     (match Eio.Path.kind ~follow:false dst with
      | `Not_found -> ()
-     | _ -> Json.fail Conflict "download destination already exists");
+     | _ ->
+       Json.fail
+         Invalid_argument
+         (sprintf "download destination %S already exists" plan.destination));
     let random_bytes = Cstruct.create 32 in
     Eio.Flow.read_exact random random_bytes;
     let temporary =
@@ -375,7 +409,10 @@ let download (plan : Download.t) ~client ~fs ~random =
           in
           chunks 0 plan.version None None Digestif.SHA256.empty)
       in
-      Platform.link_exclusive ~src:temporary ~dst;
+      Local_file.link_exclusive
+        ~src:temporary
+        ~dst
+        ~operation:"publish download destination";
       (match Eio.Path.split dst with
        | None -> assert false
        | Some (parent, _) ->

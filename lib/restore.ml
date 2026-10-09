@@ -35,16 +35,18 @@ let inspect_all ~fs ~source ~roots =
       if not (Set.equal (String.Set.of_list (Eio.Path.read_dir path)) expected)
       then Json.fail Corrupt_store "export-all directory inventory differs"
     in
-    check_directory directory (String.Set.of_list [ "manifest.json"; "workspaces" ]);
+    (match Eio.Path.kind ~follow:false directory with
+     | `Directory -> ()
+     | _ -> Json.fail Corrupt_store "expected real export-all directory");
     let manifest =
       Disk.read Eio.Path.(directory / "manifest.json") |> Json.parse |> Disk.unwrap
     in
+    Current_format.validate Registry_export manifest |> Disk.unwrap;
+    check_directory directory (String.Set.of_list [ "manifest.json"; "workspaces" ]);
     Json.fields
       manifest
       ~allowed:[ "version"; "kind"; "complete"; "captures"; "omitted"; "workspaces" ];
-    if
-      Json.integer (Json.field manifest "version") <> 1
-      || not (String.equal (Json.text (Json.field manifest "kind")) "workspace_set")
+    if not (String.equal (Json.text (Json.field manifest "kind")) "workspace_set")
     then Json.fail Unsupported_version "unsupported export-all format";
     (match Json.field manifest "complete", Json.list (Json.field manifest "omitted") with
      | `True, [] -> ()

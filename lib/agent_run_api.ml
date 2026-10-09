@@ -2,6 +2,34 @@ open Core
 open Agent_run_command
 module Fields = Api_codec.Fields
 
+module Attempt_result = struct
+  type t =
+    { attempt_id : Attempt.Id.t
+    ; revision : int
+    ; state : Attempt.State.t
+    }
+
+  let codec =
+    Api_codec.object_
+      (Fields.map
+         (Fields.both
+            (Fields.required
+               "attempt_id"
+               (Coordination_wire.id Attempt.Id.of_string Attempt.Id.to_string))
+            (Fields.both
+               (Fields.required "revision" Coordination_wire.positive)
+               (Fields.required "state" Agent_run_wire.attempt_state)))
+         ~decode:(fun (attempt_id, (revision, state)) -> { attempt_id; revision; state })
+         ~encode:(fun t -> t.attempt_id, (t.revision, t.state)))
+  ;;
+
+  let of_attempt (attempt : Attempt.t) =
+    { attempt_id = attempt.id; revision = attempt.revision; state = attempt.state }
+  ;;
+
+  let to_json t = Coordination_wire.encode_exn codec t
+end
+
 let ( ++ ) = Fields.both
 let text = Api_codec.text ~max_bytes:65_536
 
@@ -1003,7 +1031,21 @@ let request_codec ~method_ =
      | None -> Agent_coordination_api.request_codec ~method_)
 ;;
 
-let receipt = json_codec (Api_codec.object_ (Fields.required "revision" decimal))
+let entity_receipt =
+  json_codec
+    (Api_codec.object_
+       (Fields.required
+          "revision"
+          (Api_codec.map
+             Coordination_wire.positive
+             ~decode:Result.return
+             ~encode:Fn.id
+             ~description:"Affected entity revision; use as its next expected_revision.")))
+;;
+
+let coordination_receipt =
+  json_codec (Api_codec.object_ (Fields.required "coordination_revision" decimal))
+;;
 
 let page_data codec =
   json_codec
@@ -1020,20 +1062,47 @@ let response_codec ~method_ =
   match Agent_coordination_api.response_codec ~method_ with
   | Some codec -> Some codec
   | None ->
-    if List.mem mutation_methods method_ ~equal:String.equal
-    then Some receipt
-    else (
-      match method_ with
-      | "run.get" -> Some (json_codec Agent_run_wire.run)
-      | "attempt.get" -> Some (json_codec Agent_run_wire.attempt)
-      | "reservation.get" -> Some (json_codec Agent_run_wire.reservation)
-      | "allocation.pools" -> Some (page_data Agent_run_wire.pool)
-      | "allocation.ticket_policies" -> Some (page_data Agent_run_wire.ticket_policy)
-      | "run.list" -> Some (page_data Agent_run_wire.run)
-      | "attempt.list" -> Some (page_data Agent_run_wire.attempt)
-      | "reservation.list" -> Some (page_data Agent_run_wire.reservation)
-      | "run.actions" -> Some (page_data Agent_run_wire.action)
-      | _ -> None)
+    (match method_ with
+     | "run.register"
+     | "run.transition"
+     | "run.observe"
+     | "run.link_session"
+     | "allocation.pool_put"
+     | "allocation.ticket_policy_put" -> Some entity_receipt
+     | "attempt.start" ->
+       Some
+         (json_codec
+            (Coordination_wire.checked Attempt_result.codec (fun result ->
+               if not (Attempt.State.equal result.state Running)
+               then Json.fail Invalid_argument "new attempt must be running")))
+     | "attempt.checkpoint" ->
+       Some
+         (json_codec
+            (Coordination_wire.checked Attempt_result.codec (fun result ->
+               if Attempt.State.terminal result.state
+               then Json.fail Invalid_argument "checkpoint attempt must be active")))
+     | "attempt.finish" ->
+       Some
+         (json_codec
+            (Coordination_wire.checked Attempt_result.codec (fun result ->
+               if not (Attempt.State.terminal result.state)
+               then Json.fail Invalid_argument "finished attempt must be terminal")))
+     | "reservation.acquire"
+     | "reservation.renew"
+     | "reservation.release"
+     | "run.action_acknowledge" -> Some coordination_receipt
+     | _ ->
+       (match method_ with
+        | "run.get" -> Some (json_codec Agent_run_wire.run)
+        | "attempt.get" -> Some (json_codec Agent_run_wire.attempt)
+        | "reservation.get" -> Some (json_codec Agent_run_wire.reservation)
+        | "allocation.pools" -> Some (page_data Agent_run_wire.pool)
+        | "allocation.ticket_policies" -> Some (page_data Agent_run_wire.ticket_policy)
+        | "run.list" -> Some (page_data Agent_run_wire.run)
+        | "attempt.list" -> Some (page_data Agent_run_wire.attempt)
+        | "reservation.list" -> Some (page_data Agent_run_wire.reservation)
+        | "run.actions" -> Some (page_data Agent_run_wire.action)
+        | _ -> None))
 ;;
 
 let descriptor ~method_ =

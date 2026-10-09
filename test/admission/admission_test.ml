@@ -14,6 +14,22 @@ let%expect_test "admission decode independently validates ceiling units and arit
       ; "used", Json.string used
       ; "limit", Json.string maximum
       ; "remaining", Json.string remaining
+      ; ( "severity"
+        , Json.string
+            (if String.equal used "8" || String.equal used "9"
+             then "critical"
+             else "normal") )
+      ; ( "threshold_percent"
+        , Json.string
+            (if String.equal used "8" || String.equal used "9" then "95" else "0") )
+      ; ( "percent_used"
+        , Json.string
+            (if String.equal used "8" || String.equal used "9"
+             then "100"
+             else if String.equal used "1"
+             then "12"
+             else "0") )
+      ; "lifetime", Json.string "temporary"
       ]
   in
   List.iter

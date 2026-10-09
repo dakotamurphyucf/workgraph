@@ -16,5 +16,8 @@ val to_json : t -> Jsonaf.t
 val markdown : t -> string
 
 (** Same fitted structured data and Markdown, measured against final
-    Planning_read envelope; no generic clipping of arbitrary domain objects. *)
+    Planning_read envelope; no generic clipping of arbitrary domain objects.
+    Task description and current handoff prose expand into remaining budget after
+    section/change selection. Markdown renders a retained current handoff once;
+    structured history, coverage, cursors and omission counts are unchanged. *)
 val result : t -> Jsonaf.t

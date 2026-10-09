@@ -83,3 +83,20 @@
  (libraries workgraph core eio_main)
  (preprocess
   (pps ppx_jane)))
+
+(executable
+ (name local_io_fixture)
+ (modules local_io_fixture)
+ (libraries workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))
+
+(rule
+ (alias runtest)
+ (deps local_io_test.py)
+ (action
+  (run
+   python3
+   %{dep:local_io_test.py}
+   %{exe:../bin/main.exe}
+   %{exe:local_io_fixture.exe})))

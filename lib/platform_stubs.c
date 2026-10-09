@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/un.h>
 #ifdef __linux__
 #include <sys/syscall.h>
 #endif
@@ -16,6 +17,12 @@
 #include <caml/fail.h>
 #include <caml/threads.h>
 #include <caml/unixsupport.h>
+
+CAMLprim value workgraph_socket_path_max_bytes(value v_unit)
+{
+  (void)v_unit;
+  return Val_long(sizeof(((struct sockaddr_un *)0)->sun_path) - 1);
+}
 
 CAMLprim value workgraph_rename_exclusive(value v_src, value v_dst)
 {

@@ -177,9 +177,9 @@ let%expect_test
       ; ( "workspaces"
         , `Array
             [ json
-                {|{"workspace_id":"work","root":"/work/workspace","archived":null,"open":false,"open_intent":false,"error":null}|}
+                {|{"workspace_id":"work","root":"/work/workspace","archived":null,"open":false,"open_intent":false,"error":null,"capacity":null}|}
             ; json
-                {|{"workspace_id":"work","root":"/work/other","archived":null,"open":false,"open_intent":false,"error":null}|}
+                {|{"workspace_id":"work","root":"/work/other","archived":null,"open":false,"open_intent":false,"error":null,"capacity":null}|}
             ] )
       ]
   in

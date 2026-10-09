@@ -2,7 +2,7 @@ open Core
 
 module Initialization : sig
   type t =
-    { protocol_version : int
+    { workgraph_api : string
     ; max_frame_bytes : int
     ; name : string
     ; version : string

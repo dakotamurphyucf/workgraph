@@ -126,12 +126,14 @@ let build ?now_unix_ms state request =
         ticket
     in
     let shown_reasons = ref (List.take public_readiness.reasons 5) in
-    let task =
-      item
+    let prose_limit = ref 256 in
+    let task () =
+      Resume_record.create
         ~kind:"task"
         ~summary:("Task: " ^ ticket.title)
         ~sources:task_sources
         ~record:(Resume_task.of_ticket ticket)
+        ~max_field_bytes:!prose_limit
     in
     let readiness () =
       item
@@ -195,13 +197,43 @@ let build ?now_unix_ms state request =
               "Current claim token was created after the handoff's recorded coverage."
               [ source; ticket_source ]));
     if not (List.is_empty (Activity_digest.rows scan))
-    then
+    then (
+      let counts =
+        List.fold (Activity_digest.rows scan) ~init:String.Map.empty ~f:(fun counts row ->
+          let item = Json.field row "item" in
+          let kind =
+            let kind = Json.text (Json.field item "kind") in
+            let category = Json.text (Json.field row "category") in
+            if String.equal kind "handoff"
+            then "handoff"
+            else if String.equal kind "task" && String.equal category "ownership"
+            then "claim"
+            else if String.equal category "ownership"
+            then kind
+            else category
+          in
+          Map.update counts kind ~f:(fun n -> Option.value n ~default:0 + 1))
+      in
+      let bookkeeping_only =
+        List.for_all (Map.keys counts) ~f:(fun kind ->
+          String.equal kind "handoff" || String.equal kind "claim")
+      in
       warn
-        "handoff_new_activity"
+        (if bookkeeping_only
+         then "handoff_bookkeeping_activity"
+         else "handoff_new_activity")
         (Printf.sprintf
-           "%d recorded changes follow handoff coverage."
-           (List.length (Activity_digest.rows scan)))
-        [ ticket_source ];
+           "%d recorded changes follow handoff coverage (%s). %sCoverage is unchanged."
+           (List.length (Activity_digest.rows scan))
+           (Map.to_alist counts
+            |> List.map ~f:(fun (kind, n) -> kind ^ "=" ^ Int.to_string n)
+            |> String.concat ~sep:", ")
+           (if bookkeeping_only
+            then
+              "Only handoff/ownership bookkeeping is recorded; inspect ownership before \
+               acting. "
+            else ""))
+        [ ticket_source ]);
     if
       List.exists reasons ~f:(function
         | Eligibility_reason.Coordination_clock_required _ -> true
@@ -414,7 +446,21 @@ let build ?now_unix_ms state request =
                (Json.field count "omitted" |> Json.integer))
             [ ticket_source ])
       in
-      let fitted_items = [ task; readiness () ] @ List.map items ~f:snd in
+      let fitted_items =
+        [ task (); readiness () ]
+        @ List.map items ~f:(fun (section, item) ->
+          match section, handoff with
+          | "handoff", Some h ->
+            Resume_record.create
+              ~kind:"handoff"
+              ~summary:"Latest recorded handoff"
+              ~sources:
+                (Json.list (Json.field item "sources")
+                 |> List.map ~f:(W.decode_exn Resume_source.codec))
+              ~record:(handoff_view_json h)
+              ~max_field_bytes:!prose_limit
+          | _ -> item)
+      in
       let warnings = List.rev !warnings @ omitted_warnings in
       let counts =
         counts
@@ -430,9 +476,23 @@ let build ?now_unix_ms state request =
       in
       let markdown =
         if include_markdown
-        then
-          Resume_record.markdown
-            (fitted_items @ List.map changes ~f:(fun row -> Json.field row "item"))
+        then (
+          let current_handoff_shown =
+            List.Assoc.mem items "handoff" ~equal:String.equal
+          in
+          let rendered_changes =
+            List.filter_map changes ~f:(fun row ->
+              let item = Json.field row "item" in
+              let duplicate =
+                current_handoff_shown
+                && String.equal (Json.text (Json.field item "kind")) "handoff"
+                && Option.value_map handoff ~default:false ~f:(fun h ->
+                  Json.integer (Json.field (Json.field item "record") "revision")
+                  = h.Handoff.revision)
+              in
+              if duplicate then None else Some item)
+          in
+          Resume_record.markdown (fitted_items @ rendered_changes)
           ^ "\n\nObserved UTC Unix milliseconds: "
           ^ Json.canonical (Option.value_map now_unix_ms ~default:`Null ~f:Json.int64)
           ^ "\n\n"
@@ -441,7 +501,7 @@ let build ?now_unix_ms state request =
               ~warnings
               ~counts
               ~cursor
-              ~has_more
+              ~has_more)
         else ""
       in
       ( Json.obj
@@ -483,6 +543,20 @@ let build ?now_unix_ms state request =
       | x :: xs -> if fits fitted (acc @ [ x ]) then prefix (acc @ [ x ]) xs else acc
     in
     let changes = prefix [] selected_changes in
+    (* Keep all selected records and audit rows. Spend only their remaining
+       envelope headroom on exact source prose, including its Markdown copy. *)
+    prose_limit := 65536;
+    if not (fits fitted changes)
+    then (
+      let rec largest low high =
+        if low >= high
+        then low
+        else (
+          let mid = low + ((high - low + 1) / 2) in
+          prose_limit := mid;
+          if fits fitted changes then largest mid high else largest low (mid - 1))
+      in
+      prose_limit := largest 256 65535);
     let data, markdown = data fitted changes in
     let data =
       W.decode_exn

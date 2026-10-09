@@ -28,11 +28,6 @@ let nullable value f =
   | value -> Some (f value)
 ;;
 
-let version json =
-  if Json.integer (Json.field json "version") <> 1
-  then Json.fail Unsupported_version "unsupported history schema version"
-;;
-
 let ref_ json =
   Json.fields json ~allowed:[ "session_id"; "sequence" ];
   ignore (id (Json.field json "session_id") : string);
@@ -231,8 +226,8 @@ module Head = struct
 
   let of_json json =
     Json.decode (fun () ->
+      Current_format.validate History_head json |> Disk.unwrap;
       Json.fields json ~allowed:[ "version"; "workspace_id"; "sequence"; "digest" ];
-      version json;
       create
         ~workspace:(Id.Workspace.t_of_jsonaf (Json.field json "workspace_id"))
         ~sequence:(Json.integer (Json.field json "sequence"))
@@ -250,6 +245,7 @@ module Batch = struct
 
   let of_json json =
     Json.decode (fun () ->
+      Current_format.validate History_batch json |> Disk.unwrap;
       Json.fields
         json
         ~allowed:
@@ -262,7 +258,6 @@ module Batch = struct
           ; "change"
           ; "response"
           ];
-      version json;
       let workspace = id (Json.field json "workspace_id") in
       let sequence = Json.integer (Json.field json "sequence") in
       let previous = nullable (Json.field json "previous") validate_digest in

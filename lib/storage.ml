@@ -5,11 +5,6 @@ let unwrap = function
   | Error error -> raise (Json.Decode_error error)
 ;;
 
-let version json =
-  if Json.integer (Json.field json "version") <> 1
-  then Json.fail Unsupported_version "unsupported portable storage schema"
-;;
-
 let digest json =
   let value = Json.text json in
   if
@@ -55,8 +50,8 @@ module Descriptor = struct
 
   let of_json json =
     Json.decode (fun () ->
+      Current_format.validate Workspace json |> unwrap;
       Json.fields json ~allowed:[ "version"; "workspace_id"; "name" ];
-      version json;
       create
         ~workspace:(Id.Workspace.t_of_jsonaf (Json.field json "workspace_id"))
         ~name:(Json.text (Json.field json "name"))
@@ -65,7 +60,7 @@ module Descriptor = struct
 
   let to_json t =
     Json.obj
-      [ "version", Json.int 1
+      [ "version", Current_format.value Workspace
       ; "workspace_id", Id.Workspace.jsonaf_of_t t.workspace
       ; "name", Json.string t.name
       ]
@@ -83,8 +78,8 @@ module Head = struct
 
   let of_json json =
     Json.decode (fun () ->
+      Current_format.validate Planning_head json |> unwrap;
       Json.fields json ~allowed:[ "version"; "sequence"; "digest" ];
-      version json;
       let sequence = decode_sequence (Json.field json "sequence") in
       let digest = optional_digest (Json.field json "digest") in
       predecessor sequence digest;
@@ -125,6 +120,7 @@ module Transaction = struct
 
   let of_json json =
     Json.decode (fun () ->
+      Current_format.validate Planning_transaction json |> unwrap;
       Json.fields
         json
         ~allowed:
@@ -137,7 +133,6 @@ module Transaction = struct
           ; "events"
           ; "response"
           ];
-      version json;
       let workspace = Id.Workspace.t_of_jsonaf (Json.field json "workspace_id") in
       let sequence = decode_sequence (Json.field json "sequence") in
       if sequence = 0 then Json.fail Corrupt_store "transaction sequence must be positive";

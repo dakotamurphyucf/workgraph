@@ -17,6 +17,8 @@ Metadata edits, links and archive changes increment metadata revision without cr
 content versions. Publication increments content-version revision independently and
 captures exact bytes/digest/size/filename/MIME/actor/timestamp. For evidence, pin
 version.revision and digest, not resource.revision. Keep returned generated resource IDs.
+resource.put_text requires title on creation AND update; repeat the current title when
+changing only content. Omitted filename/MIME preserve current metadata on update.
 Logical filenames are basenames, not filesystem paths. MIME types are type/subtype
 without parameters. Consult the generated contract for validation limits.
 Archive hides resources from ordinary lists, retains all bytes/versions/links and permits
@@ -80,7 +82,7 @@ follow byte cursors and verify digests, then carry only chosen records into harn
 <methods>
   <method name="resource.put_text" kind="mutation">
     <contract href="../api-reference/resource.put_text.md"/>
-    <behavior>Publish exact small UTF-8 bytes as a new immutable version, preserving description, targets and archive state. Optional creation resource_id is generated durably; retain it. Omitted filename/MIME default on creation and preserve current metadata on update. Archived publication conflicts.</behavior>
+    <behavior>Publish exact small UTF-8 bytes as a new immutable version; title is required on creation and update. Preserve description, targets and archive state. Optional creation resource_id is generated durably; retain it. Omitted filename/MIME default on creation and preserve current metadata on update. Archived publication conflicts.</behavior>
   </method>
   <method name="resource.update" kind="mutation">
     <contract href="../api-reference/resource.update.md"/>
@@ -177,7 +179,8 @@ size_bytes and destination. It does not mutate workspace state; resource.downloa
 Before publication, errors leave no destination; private-file cleanup is best effort and a
 killed client may leave an unreferenced .downloading-* file. A directory-sync failure AFTER
 publication reports Outcome_unknown with the complete destination retained for inspection.
-Do not blindly delete/re-download it. Repeating against an existing destination conflicts.
+Do not blindly delete/re-download it. Repeating against an existing destination returns Invalid_argument with its local path,
+including when another process creates that destination before publication.
 ]]></behavior>
 </cli_command>
 <examples><![CDATA[

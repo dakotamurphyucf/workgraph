@@ -14,7 +14,7 @@ EXE = Path(sys.argv.pop(1)).resolve()
 
 
 def rpc(address, method, params):
-    value = json.dumps({"jsonrpc": "2.0", "id": "test", "method": method, "params": params}, separators=(",", ":")).encode()
+    value = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "test", "method": method, "params": params}, separators=(",", ":")).encode()
     with socket.socket(socket.AF_UNIX) as flow:
         flow.settimeout(20)
         flow.connect(str(address))

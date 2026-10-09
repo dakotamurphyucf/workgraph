@@ -47,6 +47,11 @@ val last_committed_head : t -> string option
     admission counters. Independent from planning transaction revisions. *)
 val admission : t -> (Admission.t list, Problem.t) Result.t
 
+(** Worker-owned last committed counters, without filesystem probing. A fenced
+    owner rejects; reads do not validate external directory/head changes. Advisory
+    health only; commit/open retain authoritative integrity/admission checks. *)
+val cached_admission : t -> (Admission.t list, Problem.t) Result.t
+
 val capture : t -> (Capture.t, Problem.t) Result.t
 val capture_at : t -> head:string option -> (Capture.t, Problem.t) Result.t
 val get : t -> session:Session_id.t -> (Session.t, Problem.t) Result.t

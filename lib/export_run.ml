@@ -104,7 +104,7 @@ let run job ~fs ~snapshots ~control =
       in
       let manifest =
         Json.obj
-          [ "version", Json.int 1
+          [ "version", Current_format.value Registry_export
           ; "kind", Json.string "workspace_set"
           ; ("complete", if List.is_empty job.omitted then `True else `False)
           ; "captures", `Array (List.map job.captures ~f:Export_job.Capture.to_json)
@@ -152,18 +152,17 @@ let recover job ~fs =
         (match Eio.Path.kind ~follow:false root with
          | `Directory -> ()
          | _ -> Json.fail Corrupt_store "export-all destination missing");
-        let names = Eio.Path.read_dir root |> String.Set.of_list in
-        if not (Set.equal names (String.Set.of_list [ "manifest.json"; "workspaces" ]))
-        then Json.fail Corrupt_store "export-all inventory differs";
         let manifest =
           Disk.read Eio.Path.(root / "manifest.json") |> Json.parse |> Disk.unwrap
         in
+        Current_format.validate Registry_export manifest |> Disk.unwrap;
+        let names = Eio.Path.read_dir root |> String.Set.of_list in
+        if not (Set.equal names (String.Set.of_list [ "manifest.json"; "workspaces" ]))
+        then Json.fail Corrupt_store "export-all inventory differs";
         Json.fields
           manifest
           ~allowed:[ "version"; "kind"; "complete"; "captures"; "omitted"; "workspaces" ];
-        if
-          Json.integer (Json.field manifest "version") <> 1
-          || not (String.equal (Json.text (Json.field manifest "kind")) "workspace_set")
+        if not (String.equal (Json.text (Json.field manifest "kind")) "workspace_set")
         then Json.fail Unsupported_version "export-all format unsupported";
         if
           (not

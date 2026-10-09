@@ -157,12 +157,17 @@ let claim_next =
     ~discriminator:"kind"
     ~cases:
       [ ( "empty"
-        , record [ field "kind" (Api_codec.enum [ "empty", () ] ~equal:Unit.equal) ] )
+        , record
+            [ field "kind" (Api_codec.enum [ "empty", () ] ~equal:Unit.equal)
+            ; field "explanation" Allocation.Explanation.codec
+            ] )
       ; ( "selected"
         , record
             [ field "kind" (Api_codec.enum [ "selected", () ] ~equal:Unit.equal)
             ; field "claim" claim
-            ; field "attempt" revision
+            ; field
+                "attempt"
+                (Option.value_exn (Agent_run_api.response_codec ~method_:"attempt.start"))
             ] )
       ]
     ~select:(fun json -> Json.text (Json.field json "kind"))

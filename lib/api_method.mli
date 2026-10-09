@@ -11,6 +11,13 @@ module Mode : sig
   [@@deriving sexp, equal]
 end
 
+module Tier : sig
+  type t =
+    | Core
+    | Advanced
+  [@@deriving sexp, equal]
+end
+
 (** One executable public method definition: its codecs are also its reference
     schemas. Handlers consume decoded requests and publish validated response
     data. Descriptions include the public data/meta envelope added by transport. *)
@@ -32,6 +39,12 @@ val create
 
 val name : (_, _) t -> string
 val mode : (_, _) t -> Mode.t
+val tier : (_, _) t -> Tier.t
+val summary : (_, _) t -> string
+
+(** Attach catalog discovery information while preserving executable contracts. *)
+val with_discovery : ('a, 'b) t -> tier:Tier.t -> summary:string -> ('a, 'b) t
+
 val describe : (_, _) t -> Jsonaf.t
 val request_codec : ('request, _) t -> 'request Api_codec.t
 val response_codec : (_, 'response) t -> 'response Api_codec.t

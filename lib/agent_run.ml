@@ -66,7 +66,13 @@ let find map id =
 ;;
 
 let expected actual revision =
-  require (Int.equal actual revision) Conflict "Run coordination revision conflict"
+  if not (Int.equal actual revision)
+  then
+    raise
+      (Json.Decode_error
+         (Problem.with_details
+            (Problem.create Conflict "Revision conflict")
+            (Revision { expected = revision; actual })))
 ;;
 
 let bound text max =
@@ -1050,10 +1056,34 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
                   not (Id.Run.equal a.Runner_action.child child))
             ; evidence
             }));
-    { candidate = !current
-    ; changes = List.rev !emitted
-    ; result = Json.obj ([ "revision", Json.int !current.revision ] @ !domain_result)
-    })
+    let result =
+      let entity revision = Json.obj [ "revision", Json.int revision ] in
+      let coordination () =
+        Json.obj ([ "coordination_revision", Json.int !current.revision ] @ !domain_result)
+      in
+      match command with
+      | Register { id; _ }
+      | Transition { id; _ }
+      | Observe { id; _ }
+      | Link_session { id; _ } -> entity (find !current.runs id).Record.revision
+      | Pool_put { name; _ } ->
+        entity (find !current.pools name).Allocation.Definition.revision
+      | Ticket_policy_put { ticket; _ } ->
+        entity (find !current.ticket_policies ticket).Allocation.Ticket_policy.revision
+      | Attempt_start { id; _ } | Attempt_checkpoint { id; _ } | Attempt_finish { id; _ }
+        ->
+        Agent_run_api.Attempt_result.to_json
+          (Agent_run_api.Attempt_result.of_attempt (find !current.attempts id))
+      | Coordination (Ticket_paths_put { ticket_id; _ }) ->
+        entity (find !current.ticket_paths ticket_id).Ticket_paths.revision
+      | Coordination
+          (Paths_acquire _ | Path_renew _ | Path_release _ | Condition _ | Recover _)
+      | Reservation_acquire _
+      | Reservation_renew _
+      | Reservation_release _
+      | Action_acknowledge _ -> coordination ()
+    in
+    { candidate = !current; changes = List.rev !emitted; result })
 ;;
 
 let start_clock_required t ~ticket ~run =
@@ -1096,7 +1126,7 @@ let prepare_start_reservations t ~ticket ~run ~actor ~timestamp ~sequence ~now_u
         Ok
           { candidate = current
           ; changes = List.rev changes
-          ; result = Json.obj [ "revision", Json.int current.revision ]
+          ; result = Json.obj [ "coordination_revision", Json.int current.revision ]
           }
       | remaining ->
         let batch = List.take remaining 32 in
@@ -1212,12 +1242,27 @@ let validate_reservation_owner t ?now_unix_ms name ~run ~token =
     Reservation.validate_owner (find t.reservations name) ~now_unix_ms ~run ~token)
 ;;
 
-let stale r ~now_unix_ms ~after_ms =
+module Liveness = struct
+  type t =
+    | Unobserved
+    | Fresh
+    | Stale
+  [@@deriving sexp, equal]
+end
+
+let liveness r ~now_unix_ms ~after_ms =
   match r.Record.last_observed_unix_ms with
-  | None -> true
+  | None -> Liveness.Unobserved
   | Some observed ->
-    Int64.(
-      now_unix_ms < observed || after_ms < zero || now_unix_ms - observed >= after_ms)
+    if
+      Int64.(
+        now_unix_ms < observed || after_ms < zero || now_unix_ms - observed >= after_ms)
+    then Liveness.Stale
+    else Liveness.Fresh
+;;
+
+let stale r ~now_unix_ms ~after_ms =
+  Liveness.equal (liveness r ~now_unix_ms ~after_ms) Stale
 ;;
 
 let to_json t =

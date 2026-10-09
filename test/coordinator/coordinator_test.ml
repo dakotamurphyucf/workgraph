@@ -153,7 +153,8 @@ let%expect_test
   print_s [%sexp (kinds (ok (read ~runs tickets params)) : string list)];
   [%expect
     {|
-    (active_attempt dependency_bottleneck expired_ownership ready_work stale_run)
+    (active_attempt dependency_bottleneck expired_ownership ready_work
+     unobserved_run)
     true
     Task duration estimates are unavailable
     (active_attempt)
@@ -887,9 +888,16 @@ let%expect_test "selected run readiness and allocation share required path conte
 let%expect_test "stale ownership and runner actions retain actual typed source records" =
   let lease = ok (Allocation_lease.create ~epoch:1 ~now_unix_ms:0L ()) in
   let claim = { Coordinator.Claim.actor; run = Some run; token = 1; lease } in
+  let observed =
+    prepare
+      registered
+      (Observe { id = run; expected_revision = 1; observed_unix_ms = 0L })
+  in
   let stale =
     ok
       (read
+         ~runs:observed
+         ~now:300000L
          [ ticket ~claim ~ready:false "work" "Work" ]
          (Json.obj [ "kinds", `Array [ Json.string "stale_ownership" ] ]))
   in

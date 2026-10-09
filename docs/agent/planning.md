@@ -219,14 +219,15 @@ Requires readiness and no owner; switches to in_progress and clears custom statu
 <method name="ticket.start" envelope="M"><![CDATA[
 Required: ticket_id:id.
 Optional: expected_revision:dec, lease_duration_ms:dec (1..86400000), initial_note:text, attempt_id:id.
-Returns: {ticket_id:id,token:dec}.
+Returns: {ticket_id:id,token:dec,attempt?:{attempt_id:id,revision:dec,state:"running"}}.
 Atomically claims eligible unclaimed work, writes the optional nonblank initial note and starts the optional fresh attempt. An attempt requires attributed run ownership. Revision guards, required paths, external conditions and ownership checks apply before publication. Omitted fields select defaults; explicit null rejects.
 ]]></method>
 <method name="ticket.finish" envelope="M"><![CDATA[
 Required: ticket_id:id, token:dec (positive), evidence:text (nonblank).
-Optional: handoff:{summary:text,next_steps:text,covers_through:dec?}.
-Returns: {completed:true}.
+Optional: handoff:{summary:text,next_steps:text,objective:text?,completed:text?,decisions:text?,blockers:text?,resource_ids:[id]?,covers_through:dec?}.
+Returns: {completed:true,attempt?:{attempt_id:id,revision:dec,state:"completed"}}.
 Publishes the optional handoff, active attempt completion, evidence comment and ticket completion together. Requires current unexpired ownership and rechecks holds, prerequisites, unfinished children and configured acceptance policy. Exact retries recover the original durable receipt.
+Within finish, omitted rich handoff fields and covers_through preserve the prior values; explicit empty strings/lists clear them. A first handoff defaults omitted rich fields to empty and coverage to zero. Completion evidence becomes this new handoff's evidence. Summary and next_steps are required whenever handoff is supplied. This patch behavior differs from standalone handoff.set replacement defaults. Historical handoffs remain immutable.
 ]]></method>
 <method name="ticket.reopen" envelope="M"><![CDATA[
 Required: ticket_id:id, expected_revision:dec, reason:text (nonblank).

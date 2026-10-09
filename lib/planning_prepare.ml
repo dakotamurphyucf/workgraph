@@ -14,6 +14,51 @@ let events t = t.events
 let result t = t.result
 let blobs t = t.blobs
 
+let require_unclaimed (ticket : Ticket.t) =
+  match ticket.claim with
+  | None -> ()
+  | Some claim ->
+    raise
+      (Json.Decode_error
+         (Problem.with_details
+            (Problem.create
+               Already_claimed
+               "ticket is claimed; inspect current ownership")
+            (Ownership
+               { actor_id = Id.Actor.to_string claim.actor
+               ; run_id = Option.map claim.run_id ~f:Id.Run.to_string
+               })))
+;;
+
+let require_ready t ticket ~run ~now_unix_ms =
+  let reasons = eligibility_reasons ?run ?now_unix_ms t ticket in
+  if not (List.is_empty reasons)
+  then (
+    let blockers =
+      List.map reasons ~f:(function
+        | Eligibility_reason.Archived_scope -> "archived_scope"
+        | Status _ -> "status"
+        | Held _ -> "hold"
+        | Claimed _ -> "claimed"
+        | Prerequisite id -> "prerequisite:" ^ Id.Ticket.to_string id
+        | Coordination _ -> "coordination; inspect ticket.readiness"
+        | Coordination_clock_required _ -> "observation_time_required")
+    in
+    raise
+      (Json.Decode_error
+         (Problem.with_details
+            (Problem.create Blocked "ticket is not ready; inspect ticket.readiness")
+            (Readiness
+               { ticket_id = Id.Ticket.to_string ticket.id
+               ; blockers =
+                   (if List.length blockers <= 100
+                    then blockers
+                    else
+                      List.take blockers 99
+                      @ [ "additional blockers omitted; inspect ticket.readiness" ])
+               }))))
+;;
+
 let check_claim_at ticket ~actor ~run ~token ~now_unix_ms =
   check_claim ticket ~actor ~run ~token;
   let claim = Option.value_exn ticket.Ticket.claim in
@@ -237,17 +282,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       let claim ticket_id expected_revision lease_duration_ms : Domain_command.t =
         let ticket = find_ticket t ticket_id in
         Option.iter expected_revision ~f:(expected ticket.revision);
-        require
-          (Option.is_none ticket.claim)
-          Already_claimed
-          ("ticket is claimed: "
-           ^ Json.canonical
-               (Json.obj
-                  [ "ticket_id", Id.Ticket.jsonaf_of_t ticket.id
-                  ; "revision", Json.int ticket.revision
-                  ; ( "claim"
-                    , Option.value_map ticket.claim ~default:`Null ~f:Claim.jsonaf_of_t )
-                  ]));
+        require_unclaimed ticket;
         match lease_duration_ms with
         | None -> Ticket_claim { id = ticket_id; expected_revision = ticket.revision }
         | Some lease_duration_ms ->
@@ -287,7 +322,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                     (Attempt_start
                        { id; run = target_run; ticket = ticket_id; token; sessions = [] })))
          in
-         let _, events, blobs =
+         let started, events, blobs =
            List.fold
              commands
              ~init:(claimed, events, blobs)
@@ -295,15 +330,51 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                let state, added, _, new_blobs = apply state command in
                state, events @ added, blobs @ new_blobs)
          in
+         let result =
+           match attempt_id with
+           | None -> result
+           | Some id ->
+             let attempt =
+               Agent_run.get_attempt started.agent_runs id |> Option.value_exn
+             in
+             (match result with
+              | `Object fields ->
+                Json.obj
+                  (fields
+                   @ [ ( "attempt"
+                       , Agent_run_api.Attempt_result.to_json
+                           (Agent_run_api.Attempt_result.of_attempt attempt) )
+                     ])
+              | _ -> assert false)
+         in
          events, result, blobs
        | Finish { ticket_id; token; evidence; handoff } ->
          let staged, events, blobs =
            match handoff with
            | None -> t, [], []
            | Some h ->
+             let previous = Map.find t.handoffs ticket_id in
              let revision =
-               Option.value_map (Map.find t.handoffs ticket_id) ~default:0 ~f:(fun h ->
-                 h.Handoff.revision)
+               Option.value_map previous ~default:0 ~f:(fun h -> h.Handoff.revision)
+             in
+             let text patch field =
+               Option.value
+                 patch
+                 ~default:(Option.value_map previous ~default:"" ~f:field)
+             in
+             let resources =
+               Option.value
+                 h.resource_ids
+                 ~default:
+                   (Option.value_map previous ~default:[] ~f:(fun h ->
+                      h.Handoff.resources))
+             in
+             let covers_through =
+               Option.value
+                 h.covers_through
+                 ~default:
+                   (Option.value_map previous ~default:0 ~f:(fun h ->
+                      h.Handoff.covers_through))
              in
              let state, events, _, blobs =
                apply
@@ -315,18 +386,37 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                     ; summary = h.summary
                     ; next_steps = h.next_steps
                     ; evidence
-                    ; objective = ""
-                    ; completed = ""
-                    ; decisions = ""
-                    ; blockers = ""
-                    ; resources = []
-                    ; covers_through = h.covers_through
+                    ; objective = text h.objective (fun h -> h.Handoff.objective)
+                    ; completed = text h.completed (fun h -> h.Handoff.completed)
+                    ; decisions = text h.decisions (fun h -> h.Handoff.decisions)
+                    ; blockers = text h.blockers (fun h -> h.Handoff.blockers)
+                    ; resources
+                    ; covers_through = Some covers_through
                     })
              in
              state, events, blobs
          in
-         let _, completion, result, new_blobs =
+         let attempts = active_attempts staged ticket_id in
+         let completed, completion, result, new_blobs =
            apply staged (Ticket_complete { id = ticket_id; token; evidence })
+         in
+         let result =
+           match attempts with
+           | [] -> result
+           | [ previous ] ->
+             let attempt =
+               Agent_run.get_attempt completed.agent_runs previous.id |> Option.value_exn
+             in
+             (match result with
+              | `Object fields ->
+                Json.obj
+                  (fields
+                   @ [ ( "attempt"
+                       , Agent_run_api.Attempt_result.to_json
+                           (Agent_run_api.Attempt_result.of_attempt attempt) )
+                     ])
+              | _ -> assert false)
+           | _ -> assert false
          in
          events @ completion, result, blobs @ new_blobs
        | Recover request ->
@@ -693,6 +783,33 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       in
       let after =
         match command with
+        | Evidence.Command.Review { verdict = Approve; _ } ->
+          let review, submission =
+            List.find_map_exn (Evidence.changes p) ~f:(fun change ->
+              match change.Evidence.Change.update with
+              | Review_added { review; submission } -> Some (review, submission)
+              | Contract_put _
+              | Manifest_put _
+              | Policy_put _
+              | Submission_put _
+              | Validation_added _
+              | Decision_put _
+              | Input_changed _
+              | Reconciliation_put _
+              | Assertion_added _ -> None)
+          in
+          let approval = unwrap_domain (Review_approval.create ~review ~submission) in
+          let message = Review_approval.message approval in
+          let _, events, _, _ =
+            stage
+              with_evidence
+              (Domain_command.Message_send message)
+              ~actor
+              ~run
+              ~timestamp
+              ~now_unix_ms
+          in
+          events
         | Evidence.Command.Review { id; ticket; verdict = Request_changes; evidence; _ }
           ->
           let submission =
@@ -919,8 +1036,6 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       changes @ notifications, Agent_run.result p, []
     | Domain_command.Claim_next
         { attempt; run = target_run; project; lease_duration_ms; leaf_only } ->
-      unwrap_domain
-        (Agent_run_policy.validate_allocation t.policies target_run ~runs:t.agent_runs);
       require
         (Option.value_map run ~default:false ~f:(Id.Run.equal target_run))
         Stale_claim
@@ -940,6 +1055,12 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         (Option.is_none (Agent_run.get_attempt t.agent_runs attempt))
         Conflict
         "attempt ID already exists";
+      let limits =
+        Agent_run_policy.allocation_limits t.policies target_run ~runs:t.agent_runs
+      in
+      let parent_filtered id =
+        leaf_only && not (List.is_empty (unfinished_children t (find_ticket t id)))
+      in
       let candidates =
         Map.data t.tickets
         |> List.filter ~f:(fun ticket ->
@@ -951,18 +1072,34 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
             ~ticket:ticket.Ticket.id
             ~priority:ticket.priority
             ~creation_sequence:ticket.created_order
-            ~ready:
-              (ready ?now_unix_ms ~run:target_run t ticket
-               && ((not leaf_only) || List.is_empty (unfinished_children t ticket)))
+            ~ready:(ready ?now_unix_ms ~run:target_run t ticket)
             ~available:(Option.is_none ticket.claim))
       in
       (match
          unwrap_domain
-           (Allocation.choose candidates ~capabilities:registered.capabilities)
+           (Allocation.choose
+              (List.map candidates ~f:(fun c ->
+                 { c with
+                   Allocation.Candidate.ready = c.ready && not (parent_filtered c.ticket)
+                 }))
+              ~capabilities:registered.capabilities)
+         |> fun choice -> if List.is_empty limits then choice else Allocation.Empty
        with
        | Empty ->
+         let explanation =
+           Allocation.Explanation.create
+             ~captured_workspace_revision:t.revision
+             ~candidates
+             ~capabilities:registered.capabilities
+             ~parent_filtered
+             ~limits
+           |> unwrap_domain
+         in
          ( [ Event.Allocation_empty { run = target_run; attempt } ]
-         , Json.obj [ "kind", Json.string "empty" ]
+         , Json.obj
+             [ "kind", Json.string "empty"
+             ; "explanation", Allocation.Explanation.to_json explanation
+             ]
          , [] )
        | Selected selected ->
          let ticket = find_ticket t selected.ticket in
@@ -1490,11 +1627,8 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       in
       let ticket = find_ticket t id in
       expected ticket.revision expected_revision;
-      require (Option.is_none ticket.claim) Already_claimed "ticket is claimed";
-      require
-        (ready ?run ?now_unix_ms t ticket)
-        Blocked
-        ("ticket is not ready: " ^ Json.canonical (readiness ?run ?now_unix_ms t ticket));
+      require_unclaimed ticket;
+      require_ready t ticket ~run ~now_unix_ms;
       let path_changes =
         match run with
         | None -> []
@@ -1959,7 +2093,7 @@ let prepare t ?run ?now_unix_ms command ~actor ~timestamp =
           , List.rev_append new_blobs blobs
           , operations + count ))
     in
-    validate staged;
+    validate ~previous:t staged;
     List.iter changes ~f:(function
       | Event.Agent_run_changed { update = Agent_run_event.Update.Attempt_put attempt; _ }
         when Attempt.State.equal attempt.state Completed ->
@@ -2036,7 +2170,7 @@ let prepare t ?run ?now_unix_ms command ~actor ~timestamp =
       | Resource_put _ -> ());
     let events =
       Json.obj
-        [ "version", Json.int 1
+        [ "version", Current_format.value Planning_events
         ; "revision", Json.int (t.revision + 1)
         ; "actor", Id.Actor.jsonaf_of_t actor
         ; "timestamp", Json.string timestamp

@@ -88,17 +88,17 @@ let%expect_test "history requests reject legacy forms, aliases and malformed con
   request "session.list" {|{"head":"bad"}|};
   [%expect
     {|
-    unknown field: parent
-    IDs require 1..96 ASCII letters, digits, underscores or hyphens
-    duplicate session scope
-    append requires 1..128 events
-    missing field: kind
-    unknown field: ref
-    expected object
-    decimal exceeds maximum
-    unknown field: after
-    expected canonical nonnegative decimal string
-    invalid blob digest/size (maximum 64MiB)
+    /parent: unknown field
+    /scopes/0: IDs require 1..96 ASCII letters, digits, underscores or hyphens
+    /scopes: duplicate session scope
+    /events: append requires 1..128 events
+    /events/0/payload/kind: missing field: kind
+    /ref: unknown field
+    /part/kind: expected object
+    /part/index: expected canonical decimal string in 0..99
+    /after: unknown field
+    /anchor: expected canonical decimal string in 0..1000000
+    /head: invalid blob digest/size (maximum 64MiB)
     |}]
 ;;
 
@@ -168,7 +168,7 @@ let%expect_test "opaque input bytes and literal provenance survive actual public
     ok
     public payload kind=blob
     storage payload kind absent=true
-    JSON requires valid UTF-8
+    /events/0: JSON requires valid UTF-8
     |}]
 ;;
 

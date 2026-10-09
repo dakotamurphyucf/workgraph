@@ -37,7 +37,7 @@ def emit(event, **fields):
 
 
 def call(method, params):
-    payload = json.dumps({"jsonrpc": "2.0", "id": "bench", "method": method,
+    payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.3", "id": "bench", "method": method,
                           "params": params}, separators=(",", ":")).encode()
     started = time.perf_counter()
     with socket.socket(socket.AF_UNIX) as client:

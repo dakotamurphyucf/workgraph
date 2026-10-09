@@ -22,7 +22,9 @@ end
 (** PRIVATE projection of actual chronological resolved transitions. Each row
     retains exact source refs and its captured source record or explicit excerpt.
     Current-at-through request/thread projections are reconstructed from retained
-    typed changes, never borrowed from a newer live snapshot. *)
+    typed changes, never borrowed from a newer live snapshot. Ticket claim-only
+    transitions (including start/release status changes) are [Ownership]; changes
+    to descriptive or graph fields remain substantive task changes. *)
 type scan
 
 val scan

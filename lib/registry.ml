@@ -116,7 +116,7 @@ let encode t =
     let bytes =
       Json.canonical
         (Json.obj
-           [ "version", Json.int 1
+           [ "version", Current_format.value Registry
            ; "restores", object_map t.restores ~f:Restore_plan.to_json
            ; "exports", object_map t.exports ~f:Export_job.to_json
            ; ( "workspaces"
@@ -154,8 +154,7 @@ let encode t =
 let decode bytes =
   Json.decode (fun () ->
     let json = unwrap (Json.parse bytes) in
-    let version = Json.integer (Json.field json "version") in
-    if version <> 1 then Json.fail Unsupported_version "registry version unsupported";
+    Current_format.validate Registry json |> unwrap;
     Json.fields
       json
       ~allowed:[ "version"; "workspaces"; "receipts"; "creates"; "exports"; "restores" ];

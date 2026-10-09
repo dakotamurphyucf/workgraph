@@ -37,11 +37,11 @@ let%expect_test "run requests use lowercase public enums and distinct target ide
          (json {|{"target_run_id":"worker","objective":"Work","parent_run_id":null}|}));
   [%expect
     {|
-  ok
-  unknown field: id
-  expected string
-  expected string
- |}]
+    ok
+    /id: unknown field
+    /status: expected string
+    /parent_run_id: expected string
+    |}]
 ;;
 
 let%expect_test "checkpoint declarations drive input output and alias schemas" =
@@ -70,11 +70,11 @@ let%expect_test "checkpoint declarations drive input output and alias schemas" =
             {|{"attempt_id":"attempt","expected_revision":"1","checkpoint":{"kind":"handoff","resource_id":"r","revision":"3"}}|}));
   [%expect
     {|
-  attempt.checkpoint
-  {"attempt_id":"attempt","checkpoint":{"kind":"resource","resource_id":"resource","revision":"3"},"expected_revision":"1"}
-  expected object
-  unknown field: resource_id
- |}]
+    attempt.checkpoint
+    {"attempt_id":"attempt","checkpoint":{"kind":"resource","resource_id":"resource","revision":"3"},"expected_revision":"1"}
+    /checkpoint/kind: expected object
+    /checkpoint/resource_id: unknown field
+    |}]
 ;;
 
 let%expect_test
@@ -98,11 +98,11 @@ let%expect_test
             {|{"target_run_id":"worker","requests":[{"reservation_id":"path","mode":["Exclusive"]}]}|}));
   [%expect
     {|
-  ok
-  ok
-  reservation acquisition requires 1..32 requests
-  expected string
- |}]
+    ok
+    ok
+    /requests: reservation acquisition requires 1..32 requests
+    /requests/0/mode: expected string
+    |}]
 ;;
 
 let%expect_test "all-family batch resolution understands new run identity fields" =
@@ -148,12 +148,12 @@ let%expect_test "query codecs do not consume attribution and enforce page guards
   report (Agent_run_api.Query.decode ~method_:"run.list" ~params:(json {|{"limit":"0"}|}));
   [%expect
     {|
-  ok
-  unknown field: run_id
-  offset pages require expected_revision
-  ok
-  limit must be 1..100
- |}]
+    ok
+    /run_id: unknown field
+    offset pages require expected_revision
+    ok
+    /limit: limit must be 1..100
+    |}]
 ;;
 
 let%expect_test "public run projections preserve persisted enum encoding" =
@@ -356,14 +356,14 @@ let%expect_test "stateless run requests enforce domain bounds and terminal evide
             {|{"target_run_id":"worker","requests":[{"reservation_id":"path","mode":"exclusive"},{"reservation_id":"path","mode":"shared"}]}|}));
   [%expect
     {|
-    text exceeds byte limit
-    text must not be blank
-    text exceeds byte limit
-    text exceeds byte limit
+    /objective: expected text of at most 16384 UTF-8 bytes
+    /process_ref: text must not be blank
+    /process_ref: expected text of at most 1024 UTF-8 bytes
+    /worktree_ref: expected text of at most 4096 UTF-8 bytes
     terminal runs require evidence
-    unknown enum value
-    text must not be blank
-    duplicate session reference
-    duplicate reservation reference
+    /state: expected one of: completed, failed, cancelled
+    /evidence: text must not be blank
+    /session_ids: duplicate session reference
+    /requests: duplicate reservation reference
     |}]
 ;;

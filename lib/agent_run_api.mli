@@ -6,6 +6,22 @@ open Core
 val mutation_methods : string list
 
 val query_methods : string list
+
+(** Minimal exact attempt mutation/lifecycle result. [revision] belongs to this
+    attempt and can be used directly as its next [expected_revision]. Lifecycle
+    results omit the entire field when they create/complete no attempt. *)
+module Attempt_result : sig
+  type t =
+    { attempt_id : Attempt.Id.t
+    ; revision : int
+    ; state : Attempt.State.t
+    }
+
+  val codec : t Api_codec.t
+  val of_attempt : Attempt.t -> t
+  val to_json : t -> Jsonaf.t
+end
+
 val request_codec : method_:string -> Jsonaf.t Api_codec.t option
 val response_codec : method_:string -> Jsonaf.t Api_codec.t option
 val descriptor : method_:string -> Api_method.Packed.t option

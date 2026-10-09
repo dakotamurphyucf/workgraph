@@ -281,7 +281,10 @@ val validate_history
   -> event_exists:(Session.Event_ref.t -> bool)
   -> (unit, Problem.t) Result.t
 
-val validate : t -> unit
+(** [previous] supplies the pre-write accounting for capacity diagnostics. Without
+    it, usage describes the projection being validated. All guards are unchanged. *)
+val validate : ?previous:t -> t -> unit
+
 val validate_new_claim_run : t -> Claim.t -> unit
 
 val validate_terminal_reconciliation_owner

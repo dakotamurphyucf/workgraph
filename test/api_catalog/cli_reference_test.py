@@ -33,11 +33,23 @@ with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
     assert method["result"]["required"] == ["data", "meta"]
     assert single == json.loads(call(directory, "help", "ticket.start", "--output", "json").stdout)
     text = call(directory, "help", "ticket.start").stdout
-    assert "ticket.start [mutation]" in text and '"workspace_id"' in text
-    parameters_text = text.split("Result envelope (JSON Schema):")[0]
-    assert '"attempt_id"' in parameters_text and '"evidence"' not in parameters_text
+    assert "ticket.start [mutation]" in text and "workspace_id [required]" in text
+    parameters_text = text.split("Result data:")[0]
+    assert "attempt_id [optional]" in parameters_text and "evidence [" not in parameters_text
+    assert text == call(directory, "help", "ticket.start", "--brief").stdout
+    full = call(directory, "help", "ticket.start", "--full").stdout
+    assert "Result envelope (JSON Schema):" in full and '"workspace_id"' in full
     assert "fact.keys [read]" in call(directory, "methods").stdout
     assert catalog == json.loads(call(directory, "methods", "--output", "json").stdout)
+    core = json.loads(call(directory, "methods", "--core", "--output", "json").stdout)
+    assert core["methods"] == [m for m in catalog["methods"] if m["tier"] == "core"]
+    assert "CLI helpers" in call(directory, "methods", "--core").stdout
+    assert "init [" not in call(directory, "methods", "--core").stdout
+    for method in catalog["methods"]:
+        brief = call(directory, "help", method["name"]).stdout
+        assert len(brief.encode()) <= 8192, method["name"]
+        assert ("Example params:" in brief or "Example skeleton (replace placeholders;" in brief)
+        assert "Result envelope: {data, meta}" in brief
 
     unknown = call(directory, "schema", "does.not.exist", expected=1)
     assert "Not_found" in unknown.stderr

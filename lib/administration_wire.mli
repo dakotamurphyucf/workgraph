@@ -21,6 +21,7 @@ module Health : sig
       ; is_open : bool
       ; open_intent : bool
       ; error : Problem.t option
+      ; capacity : Admission.Summary.t option
       }
 
     val create
@@ -29,6 +30,7 @@ module Health : sig
       -> archived:bool option
       -> is_open:bool
       -> error:Problem.t option
+      -> capacity:Admission.Summary.t option
       -> t
   end
 
@@ -46,7 +48,9 @@ module Health : sig
     :  Registry.t
     -> registry_requires_restart:bool
     -> active_exports:int
-    -> workspace_status:(Id.Workspace.t -> bool option * bool * Problem.t option)
+    -> workspace_status:
+         (Id.Workspace.t
+          -> bool option * bool * Problem.t option * Admission.Summary.t option)
     -> t
 
   val codec : t Api_codec.t

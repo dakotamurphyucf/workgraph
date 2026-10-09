@@ -975,7 +975,15 @@ let entries =
              ++ Fields.required "target_run_id" reference
              ++ Fields.optional "project_id" reference
              ++ Fields.optional "lease_duration_ms" decimal64
-             ++ Fields.optional "leaf_only" boolean)
+             ++ Fields.optional
+                  "leaf_only"
+                  (Api_codec.map
+                     boolean
+                     ~decode:Result.return
+                     ~encode:Fn.id
+                     ~description:
+                       "Exclude tickets with unfinished children; parents remain \
+                        startable without this filter."))
       ; command =
           (fun ((((attempt, run), project), lease_duration_ms), leaf_only) ->
             Claim_next

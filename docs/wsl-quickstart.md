@@ -3,6 +3,10 @@
 This guide installs **Workgraph v0.2.0 preview** on **x86_64/AMD64 AlmaLinux 10**
 inside WSL. Run the commands in your AlmaLinux terminal, as your normal user;
 use `sudo` only where shown. No OCaml, opam, or systemd setup is required.
+Use that package's bundled guides for its matching API. The current checkout
+prepares unpublished v0.3.0; its [source-build instructions](../README.md#build-the-current-checkout-from-source)
+and agent guide apply to that newer preview. This page retains the published
+v0.2.0 download links and workflow.
 
 For a first installation, skip the optional reset and begin with
 [Install v0.2.0](#install-v020).

@@ -176,7 +176,7 @@ let write t ~fs ~destination ~stage ~check_cancelled ~before_publish =
               files := (name, Json.string digest) :: !files)));
     let manifest =
       Json.obj
-        [ "version", Json.int 1
+        [ "version", Current_format.value Workspace_export
         ; "workspace_id", Id.Workspace.jsonaf_of_t (workspace t)
         ; "revision", Json.int (revision t)
         ; "head", Option.value_map t.head ~default:`Null ~f:Json.string
@@ -256,9 +256,7 @@ let verify ~fs ~directory =
       |> Json.parse_with_limit ~max_bytes:max_manifest_bytes
       |> Disk.unwrap
     in
-    let version = Json.integer (Json.field manifest "version") in
-    if version <> 1
-    then Json.fail Unsupported_version "export manifest version unsupported";
+    Current_format.validate Workspace_export manifest |> Disk.unwrap;
     Json.fields
       manifest
       ~allowed:

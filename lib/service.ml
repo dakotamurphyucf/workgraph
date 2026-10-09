@@ -7,7 +7,12 @@ type job =
 type loaded =
   { store : Store.t
   ; state : State.t
+  ; planning_admission : Admission.t list
   }
+
+let loaded_capture ~store ~state =
+  { store; state; planning_admission = State.admission state }
+;;
 
 type message =
   | Request of Jsonaf.t * (Jsonaf.t, Problem.t) Result.t Eio.Promise.u
@@ -33,7 +38,7 @@ type export_work =
   | Export of Export_job.t * Snapshot.t list * Export_run.Control.t
   | Stop_exports
 
-let serve_with ~env ~registry ~listen ~handle_signals =
+let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
   let diagnostic text = Platform.write_string (Eio.Stdenv.stderr env) text in
   Disk.absolute registry;
@@ -60,20 +65,28 @@ let serve_with ~env ~registry ~listen ~handle_signals =
       Eio.Promise.await promise
     in
     let registry_path = Eio.Path.(fs / registry) in
+    let registry_file = Eio.Path.(registry_path / "registry.json") in
     let registry_lock =
       worker (fun () ->
-        Disk.ensure_directory registry_path;
-        let lock =
-          Eio.Path.open_out
-            ~sw:worker_sw
-            ~create:(`If_missing 0o600)
-            Eio.Path.(registry_path / "daemon.lock")
-        in
-        if not (Platform.lock_exclusive lock)
-        then Json.fail Conflict "registry already served";
-        lock)
+        Disk.protect (fun () ->
+          (* Format detection must not create a lock in an unsupported registry. *)
+          (match Eio.Path.kind ~follow:false registry_file with
+           | `Not_found -> ()
+           | _ ->
+             let probe = Disk.read registry_file |> Json.parse |> Disk.unwrap in
+             Current_format.validate Registry probe |> Disk.unwrap);
+          Disk.ensure_directory registry_path;
+          let lock =
+            Eio.Path.open_out
+              ~sw:worker_sw
+              ~create:(`If_missing 0o600)
+              Eio.Path.(registry_path / "daemon.lock")
+          in
+          if not (Platform.lock_exclusive lock)
+          then Json.fail Conflict "registry already served";
+          lock))
+      |> Disk.unwrap
     in
-    let registry_file = Eio.Path.(registry_path / "registry.json") in
     let registry_state = ref Registry.empty in
     let loaded = ref String.Map.empty in
     let failures = ref String.Map.empty in
@@ -144,7 +157,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                 then Json.fail Conflict "registered identity changed";
                 check_known store r)
             with
-            | Ok () -> { store; state }
+            | Ok () -> loaded_capture ~store ~state
             | Error error ->
               worker (fun () -> Store.close store);
               raise (Json.Decode_error error))
@@ -294,9 +307,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
     in
     let dispatch request =
       Json.decode (fun () ->
-        Json.fields request ~allowed:[ "jsonrpc"; "id"; "method"; "params" ];
-        if not (String.equal (Json.text (Json.field request "jsonrpc")) "2.0")
-        then Json.fail Unsupported_version "JSON-RPC 2.0 required";
+        Protocol.validate_server_request request |> Disk.unwrap;
         ignore (Json.field request "id" : Jsonaf.t);
         let method_ = Json.text (Json.field request "method") in
         let params =
@@ -344,7 +355,14 @@ let serve_with ~env ~registry ~listen ~handle_signals =
               let id = Id.Workspace.to_string workspace in
               ( Option.map (Map.find !loaded id) ~f:(fun v -> State.archived v.state)
               , Map.mem !loaded id
-              , Map.find !failures id ))
+              , Map.find !failures id
+              , Option.bind (Map.find !loaded id) ~f:(fun value ->
+                  match worker (fun () -> Store.cached_admission value.store) with
+                  | Error _ -> None
+                  | Ok storage ->
+                    Some
+                      (Admission.Summary.create (value.planning_admission @ storage)
+                       |> Disk.unwrap)) ))
           |> Api_codec.encode Administration_wire.Health.codec
           |> Disk.unwrap
         | "workspace.receipt" ->
@@ -765,7 +783,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                    worker (fun () -> Store.close store);
                    raise (Json.Decode_error error)
                  | Ok response ->
-                   loaded := Map.set !loaded ~key:id ~data:{ store; state };
+                   loaded := Map.set !loaded ~key:id ~data:(loaded_capture ~store ~state);
                    failures := Map.remove !failures id;
                    response)
               | "workspace.open" ->
@@ -796,7 +814,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
                    worker (fun () -> Store.close store);
                    raise (Json.Decode_error error)
                  | Ok response ->
-                   loaded := Map.set !loaded ~key:id ~data:{ store; state };
+                   loaded := Map.set !loaded ~key:id ~data:(loaded_capture ~store ~state);
                    failures := Map.remove !failures id;
                    response)
               | "workspace.close" | "workspace.unregister" ->
@@ -1467,7 +1485,8 @@ let serve_with ~env ~registry ~listen ~handle_signals =
              := Map.set
                   !loaded
                   ~key:id
-                  ~data:{ value with state = State.candidate prepared };
+                  ~data:
+                    (loaded_capture ~store:value.store ~state:(State.candidate prepared));
              Option.iter upload ~f:(fun id ->
                worker (fun () -> Store.forget_upload value.store ~id));
              response))
@@ -1601,6 +1620,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
       Eio.Switch.on_release sw (fun () ->
         ignore (Signal.Expert.signal Signal.int old_int : Signal.Expert.behavior);
         ignore (Signal.Expert.signal Signal.term old_term : Signal.Expert.behavior)));
+    on_ready ();
     let on_error exn = diagnostic (Exn.to_string exn ^ "\n") in
     let respond flow =
       let submit request =
@@ -1625,6 +1645,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
             let query =
               Json.obj
                 [ "jsonrpc", Json.string "2.0"
+                ; "workgraph_api", Current_format.value Application_api
                 ; "id", Json.field request "id"
                 ; "method", Json.string "changes.read"
                 ; "params", Disk.unwrap (Change_feed_api.Request.read_params !current)
@@ -1671,7 +1692,10 @@ let serve_with ~env ~registry ~listen ~handle_signals =
               ~f:Json.integer
           in
           if timeout_ms < 1 || timeout_ms > 25_000
-          then Json.fail Invalid_argument "timeout_ms must be 1..25000";
+          then
+            Json.fail
+              Invalid_argument
+              "inbox.wait timeout_ms: 25-second server cap (1..25000 milliseconds)";
           let fields =
             match params with
             | `Object fields ->
@@ -1681,6 +1705,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
           let query =
             Json.obj
               [ "jsonrpc", Json.string "2.0"
+              ; "workgraph_api", Current_format.value Application_api
               ; "id", Json.field request "id"
               ; "method", Json.string "inbox.read"
               ; "params", Json.obj fields
@@ -1816,6 +1841,7 @@ let serve_with ~env ~registry ~listen ~handle_signals =
       (Request
          ( Json.obj
              [ "jsonrpc", Json.string "2.0"
+             ; "workgraph_api", Current_format.value Application_api
              ; "id", Json.string "shutdown"
              ; "method", Json.string "daemon.health"
              ]
@@ -1843,37 +1869,65 @@ let serve_with ~env ~registry ~listen ~handle_signals =
 ;;
 
 let serve ~env ~registry ~listener =
-  serve_with ~env ~registry ~handle_signals:false ~listen:(fun _ -> listener)
+  serve_with
+    ~env
+    ~registry
+    ~handle_signals:false
+    ~listen:(fun _ -> listener)
+    ~on_ready:ignore
 ;;
 
 let run ~env ~registry ~socket =
-  Disk.absolute socket;
+  Platform.validate_socket_path socket |> Disk.unwrap;
+  Disk.absolute registry;
   let fs = Eio.Stdenv.fs env in
-  serve_with ~env ~registry ~handle_signals:true ~listen:(fun sw ->
-    let socket_path = Eio.Path.(fs / socket) in
-    (match Eio.Path.kind ~follow:false socket_path with
-     | `Not_found -> ()
-     | `Socket ->
-       let active =
-         Eio.Switch.run (fun check_sw ->
-           try
-             ignore (Eio.Net.connect ~sw:check_sw (Eio.Stdenv.net env) (`Unix socket));
-             true
-           with
-           | Eio.Io (Eio.Net.E (Connection_failure (Refused _)), _) -> false)
-       in
-       if active
-       then Json.fail Conflict "socket already served"
-       else Eio.Path.unlink socket_path
-     | _ -> Json.fail Conflict "socket path is occupied");
-    let listener =
-      Eio.Net.listen
-        ~sw
-        ~reuse_addr:false
-        ~backlog:128
-        (Eio.Stdenv.net env)
-        (`Unix socket)
-    in
-    Platform.restrict_socket socket;
-    (listener :> [ `Generic ] Eio.Net.listening_socket_ty Eio.Resource.t))
+  let diagnostic event =
+    try
+      Platform.write_string
+        (Eio.Stdenv.stderr env)
+        (sprintf "workgraph daemon %s registry=%S socket=%S\n" event registry socket)
+    with
+    | Platform.Broken_pipe | Eio.Io _ | Core_unix.Unix_error _ -> ()
+    | Json.Decode_error { kind = Local_io; _ } -> ()
+  in
+  diagnostic "starting";
+  match
+    serve_with
+      ~env
+      ~registry
+      ~handle_signals:true
+      ~on_ready:(fun () -> diagnostic "ready")
+      ~listen:(fun sw ->
+        let socket_path = Eio.Path.(fs / socket) in
+        (match Eio.Path.kind ~follow:false socket_path with
+         | `Not_found -> ()
+         | `Socket ->
+           let active =
+             Eio.Switch.run (fun check_sw ->
+               try
+                 ignore (Eio.Net.connect ~sw:check_sw (Eio.Stdenv.net env) (`Unix socket));
+                 true
+               with
+               | Eio.Io (Eio.Net.E (Connection_failure (Refused _)), _) -> false)
+           in
+           if active
+           then Json.fail Conflict "socket already served"
+           else Eio.Path.unlink socket_path
+         | _ -> Json.fail Conflict "socket path is occupied");
+        let listener =
+          Platform.listen_unix
+            ~sw
+            ~path:socket
+            ~backlog:128
+            ~on_cleanup_error:(fun message ->
+              diagnostic ("socket cleanup failed: " ^ message))
+        in
+        Platform.restrict_socket socket;
+        listener)
+  with
+  | () -> diagnostic "shutdown complete"
+  | exception ((Json.Decode_error _ | Eio.Io _ | Core_unix.Unix_error _) as exn) ->
+    let backtrace = Stdlib.Printexc.get_raw_backtrace () in
+    diagnostic ("failed: " ^ Exn.to_string exn);
+    Stdlib.Printexc.raise_with_backtrace exn backtrace
 ;;

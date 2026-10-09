@@ -1,6 +1,6 @@
 (library
  (name workgraph_api_catalog_tests)
- (modules api_catalog_test)
+ (modules api_catalog_test discovery_test)
  (libraries workgraph core expect_test_helpers_core)
  (inline_tests)
  (preprocess

@@ -7,6 +7,7 @@ module Kind : sig
     | Allocation_blocked
     | Unanswered_request
     | Stale_run
+    | Unobserved_run
     | Stale_ownership
     | Expired_ownership
     | Changed_input
@@ -96,7 +97,8 @@ module Stale_run : sig
     ; liveness : liveness
     }
 
-  (** liveness_is_advisory is literal true in the public codec. *)
+  (** Shared advisory metadata for separately labelled stale and unobserved run
+      rows. liveness_is_advisory is literal true in the public codec. *)
   val codec : t Api_codec.t
 end
 
@@ -161,6 +163,10 @@ module Item : sig
         ; metadata : Ready.t
         }
     | Stale_run of
+        { run_id : Id.Run.t
+        ; metadata : Stale_run.t
+        }
+    | Unobserved_run of
         { run_id : Id.Run.t
         ; metadata : Stale_run.t
         }

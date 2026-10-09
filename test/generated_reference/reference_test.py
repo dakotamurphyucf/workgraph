@@ -38,7 +38,7 @@ def expand(schema):
 class ReferenceTest(unittest.TestCase):
     def catalog(self):
         return {'schema_dialect': 'https://json-schema.org/draft/2020-12/schema', 'methods': [
-            {'name': 'ticket.demo', 'mode': 'read', 'summary': 'Text ]]> with <markup> | and\nline break',
+            {'name': 'ticket.demo', 'mode': 'read', 'tier': 'core', 'summary': 'Text ]]> with <markup> | and\nline break',
              'params': {'type': 'object', 'required': ['ticket_id'], 'properties': {'ticket_id': {'type': 'string'}}},
              'result': {'type': 'object', 'properties': {'data': {'type': 'string'}, 'meta': {'type': 'object'}}}}]}
 
@@ -124,8 +124,13 @@ class ReferenceTest(unittest.TestCase):
             self.assertEqual(checked['status'], 'checked')
             for method in catalog['methods']:
                 doc = document((Path(root) / (method['name'] + '.md')).read_bytes())
-                self.assertEqual(expand(json.loads(doc.findtext('request_schema'))), method['params'])
-                self.assertEqual(expand(json.loads(doc.findtext('result_schema'))), method['result'])
+                self.assertEqual(expand(json.loads(doc.findtext('request_schema'))), expand(method['params']))
+                self.assertEqual(expand(json.loads(doc.findtext('result_schema'))), expand(method['result']))
+                text = (Path(root) / (method['name'] + '.md')).read_text()
+                self.assertIn('common.md', text)
+                self.assertIn('| Input | Presence | Type and constraints |', text)
+                for name, _, _, _ in reference.input_fields(method['params'], method['params']):
+                    self.assertIn('| `' + name + '` |', text)
 
 
 if __name__ == '__main__':

@@ -72,7 +72,13 @@ let markdown items =
       List.filter_map (prose_fields kind) ~f:(fun field ->
         Option.bind (Json.optional record field) ~f:(function
           | `String text when not (String.is_empty text) ->
-            Some (escape field ^ ":\n" ^ block text)
+            let label =
+              match kind, field with
+              | "task", "objective" -> "Ticket description"
+              | "handoff", "objective" -> "Handoff objective"
+              | _ -> field
+            in
+            Some (escape label ^ ":\n" ^ block text)
           | _ -> None))
     in
     let lines =

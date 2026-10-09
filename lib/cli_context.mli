@@ -21,12 +21,28 @@ val apply
   -> fields:(string * Jsonaf.t) list
   -> (string * Jsonaf.t) list
 
-(** Reading uses Eio. *)
+(** Explicit CLI [--self] expansion only. For inbox.read/wait/ack and
+    request.list/acknowledge/accept, supply a missing actor [recipient]. For
+    run.get/transition/observe/link_session, supply missing [target_run_id].
+    Explicit selectors win, even without context. Missing required actor/run
+    context and unsupported methods return actionable Invalid_argument. This
+    operation never defaults general reads, reassign destinations or API params
+    named [self]; raw JSON fields remain subject to normal schema validation. *)
+val apply_self
+  :  t option
+  -> method_:string
+  -> fields:(string * Jsonaf.t) list
+  -> ((string * Jsonaf.t) list, Problem.t) Result.t
+
+(** Reading uses Eio and a bounded regular-file contract. Invalid input paths are
+    Invalid_argument; other expected local I/O failures are Local_io. *)
 val load : fs:_ Eio.Path.t -> string -> (t, Problem.t) Result.t
 
 (** Publish complete synchronized bytes atomically without replacing an existing
     context. Readers never observe a partly written published file. A random
-    private sibling stages the bytes; cancellation and unexpected errors propagate. *)
+    private sibling stages the bytes; invalid input paths are Invalid_argument and
+    other expected local I/O failures are Local_io. Cancellation and unexpected
+    errors propagate. *)
 val save
   :  t
   -> fs:_ Eio.Path.t

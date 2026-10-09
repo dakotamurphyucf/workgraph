@@ -107,6 +107,29 @@ let same_hold =
     && String.equal a.timestamp b.timestamp)
 ;;
 
+let ownership_only (previous : Ticket.t) (current : Ticket.t) =
+  let expected_status =
+    match previous.claim, current.claim with
+    | None, Some _ -> Domain_command.Status.In_progress
+    | Some _, None -> Todo
+    | None, None | Some _, Some _ -> previous.status
+  in
+  (not (same_claim previous.claim current.claim))
+  && Domain_command.Status.equal current.status expected_status
+  && String.equal
+       (Json.canonical (Ticket.jsonaf_of_t previous))
+       (Json.canonical
+          (Ticket.jsonaf_of_t
+             { current with
+               claim = previous.claim
+             ; status = previous.status
+             ; status_id = previous.status_id
+             ; next_token = previous.next_token
+             ; revision = previous.revision
+             ; updated_at = previous.updated_at
+             }))
+;;
+
 let scan t ~scope ~after ~cursor =
   Json.decode (fun () ->
     validate_target t (scope_target scope);
@@ -242,6 +265,7 @@ let scan t ~scope ~after ~cursor =
                                old.Ticket.reopened_token
                                ticket.reopened_token) -> Kind.Reopening
                 | Some old when not (same_hold old.hold ticket.hold) -> Blocker
+                | Some old when ownership_only old ticket -> Ownership
                 | None | Some _ -> Task_changed
               in
               emit

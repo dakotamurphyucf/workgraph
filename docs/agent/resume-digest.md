@@ -24,11 +24,26 @@ exact scopes with no inheritance or inferred relevance. Missing and deleted keys
 are distinct warnings. Ticket fact key discovery is returned separately from
 selected values; it is not a claim that every discovered fact is relevant.
 
+Task description and latest handoff prose use the space remaining after selecting
+records and history, rather than a fixed 256-byte excerpt. Short instructions stay
+complete when they fit. Markdown labels `Ticket description` and `Handoff objective`
+separately and renders the latest handoff once; its structured audit row remains in
+`changes` with the original source and coverage. Omissions still disclose exact bytes.
+
+Discover small memory values with `fact.keys` for the exact scope, then select only
+the keys needed for this task using `fact_selections` as in the example above. Key
+discovery does not load values into the resume automatically.
+
 Handoff freshness follows recorded coverage and the current claim token. A new
 claim by the same actor can make the saved handoff incomplete. Missing coverage,
 new recorded activity, unavailable observation time and omitted sections are
 explicit. The daemon supplies its current observation time; pure State callers
 must supply a time when requesting timed ownership diagnostics.
+
+Post-handoff warnings include activity kinds and counts. `handoff_bookkeeping_activity`
+means only handoff records and claim transitions followed coverage; inspect the
+current owner before acting. `handoff_new_activity` includes other recorded changes.
+Neither warning moves coverage or a cursor, or proves that external work has stopped.
 
 `activity.digest` classifies committed transitions into completion, reopening,
 decision, blocker, request, condition, recovery, ownership, progress, fact, task

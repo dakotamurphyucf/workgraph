@@ -4,6 +4,8 @@ Read [the CLI and wire contract](cli-contract.md) for request construction and r
 Return to [the capability guide](../../AGENT_GUIDE.md) to choose another workflow.
 Each method below links its authoritative generated request/result contract in
 [the API reference](../api-reference/index.md); open only the methods you need.
+The [two-round executable review workflow](../gated-review-workflow.md) documents
+automatic request resolvers and the public JSON approval message body.
 
 ```xml
 <workgraph_reference name="communication-evidence">
@@ -57,10 +59,23 @@ to message pagination; inspect omissions and the adjusted nested next_offset.
 Choose a stable explicit consumer_id and actor/run recipient. inbox.read is pure unread
 enumeration in serial order; inbox.wait adds a bounded wait, with the same filters and
 cursors. Reading, waiting and local processing never acknowledge anything.
+For an actor recipient from explicit context, use:
+  "$WG" --context "$CONTEXT" request inbox.read --self --consumer-id agent-inbox
+Explicit recipient JSON overrides --self. Request list/acknowledge/accept support the
+same actor convenience; current-run selectors are listed in cli-contract.md.
+Optional exclude_self defaults false. With an actor recipient it hides notifications
+initiated by that actor across all runs; with a run recipient it hides only the exact
+attributed run. Absent run attribution remains visible to run recipients. Use
+--exclude-self true for the opt-in filter, or explicit Boolean JSON in raw requests.
 For a frozen notification traversal, preserve returned through and advance after to
 next_after. The notification range stays fixed, while source_current_revision and current
 request/thread bodies remain observations at each read. Require 0 <= after <= through
 <= latest serial. next_after is the last returned ID, or unchanged after on an empty page.
+Retain consumer_id, recipient, exclude_self and the other filters across pages; numeric
+cursors do not encode these settings. To disable exclusion and recover earlier hidden
+notifications, restart the chosen range at its original after rather than keeping an
+advanced filtered cursor. Exclusion runs before pagination/byte fitting; remaining counts
+only matching unread rows. The response echoes exclude_self.
 Filters never consume excluded notifications. Inspect budget omissions/remaining; if
 remaining > 0 and no items fit, increase max_bytes before advancing.
 After the harness has safely processed selected IDs, inbox.ack records them for this exact
@@ -71,6 +86,46 @@ retry the original durable mutation after an uncertain acknowledgement.
 With omitted through, inbox.wait captures newer activity on each poll; explicit through
 stays pinned. Timeout returns an empty capture; disconnect cancels the wait. It runs
 outside serialized transaction dispatch and advances no consumer state.
+The server cap is 25000 milliseconds (25 seconds); use a longer client timeout, such as
+30 seconds. Repeat bounded waits to cover a longer observation window. For example, this
+harness loop expects an existing context with a private request_directory and a durable
+process_once(notification_id, item) callback. The callback owns external side effects and
+must deduplicate by notification ID. Read transport failures back off; acknowledgement
+failure stops so the reported saved request can be retried exactly.
+
+import json, subprocess, time
+WG = "/absolute/workgraph"
+CONTEXT = "/absolute/agent/context.json"
+CONSUMER = "agent-inbox"
+
+def receive_loop(process_once, max_waits=12):
+    def call(method, *options):
+        return subprocess.run(
+            [WG, "--context", CONTEXT, "request", method, "--self",
+             "--consumer-id", CONSUMER, *options],
+            capture_output=True, text=True, timeout=35)
+    for _ in range(max_waits):
+        reply = call("inbox.wait", "--exclude-self", "true",
+                     "--timeout-ms", "25000", "--timeout", "30")
+        if reply.returncode != 0:
+            diagnostic = (json.loads(reply.stderr.splitlines()[-1]) if reply.stderr
+                          else json.loads(reply.stdout)["error"]["data"])
+            if diagnostic["kind"] != "Storage_unavailable":
+                raise RuntimeError(reply.stderr + reply.stdout)
+            time.sleep(1)
+            continue
+        items = json.loads(reply.stdout)["result"]["data"]["items"]
+        for item in items:
+            process_once(item["notification_id"], item)
+        if items:
+            ids = [item["notification_id"] for item in items]
+            ack = call("inbox.ack", "--json-field", "notification_ids", json.dumps(ids))
+            if ack.returncode != 0:
+                raise RuntimeError("Retry the reported saved acknowledgement: " + ack.stderr + ack.stdout)
+
+The loop acknowledges only successfully processed visible IDs. It never acknowledges
+excluded rows. Completed acknowledgements prevent the next wait from redelivering those
+IDs to this consumer; the callback's durable deduplication handles lost acknowledgements.
 ]]></workflow>
 <workflow name="evidence-and-policy"><![CDATA[
 Structured manifests, formal review/acceptance policies and their proofs are opt-in
@@ -95,6 +150,13 @@ pin and queues reconciliation for affected manifests. Historical evidence remain
 A required criterion uses its latest current assertion; a later failure supersedes a pass.
 After target changes, submit a new generation and obtain fresh reviews/validation. Rejection
 preserves the rejected generation and routes an actionable request to the submitter.
+Approval atomically sends a durable message to the recorded submitter actor and optional
+run, binding the exact generation/manifest/contract/review. It preserves submission revision
+and does not imply all gates passed. Its tagged body has gate_status:not_evaluated.
+Automatic formal review requests designate the submitter as resolver; changes requests
+designate the reviewer. Explicitly resolve superseded requests after verification.
+Actor IDs are cooperative attribution, actor catalogs are metadata, and separate_actor
+does not authenticate callers. Claim tokens fence stale writers rather than authenticate them.
 Live manifest/submission/assertion/reconciliation operations require their recorded attempt
 actor/run and current claim/lease. Terminal reconciliation acknowledge/continue may preserve
 historical inputs with the recorded attribution; revised inputs require live ownership.

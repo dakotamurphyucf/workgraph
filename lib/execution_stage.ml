@@ -23,10 +23,10 @@ let capture_file t =
 let encode codec value = Api_codec.encode codec value |> Disk.unwrap |> Json.canonical
 
 let load ~fs ~directory =
-  Disk.protect (fun () ->
+  Local_file.protect ~operation:"load execution stage" ~path:directory (fun () ->
     Disk.absolute directory;
     let path = Eio.Path.(fs / directory) in
-    Disk.require_directory path;
+    Local_file.require_directory path ~operation:"load execution stage";
     let command =
       Disk.read Eio.Path.(path / "command.json")
       |> Json.parse
@@ -105,7 +105,7 @@ module Drain = struct
 end
 
 let run command ~env ~directory =
-  Disk.protect (fun () ->
+  Local_file.protect ~operation:"create execution stage" ~path:directory (fun () ->
     Disk.absolute directory;
     let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
     let path = Eio.Path.(fs / directory) in
@@ -114,7 +114,7 @@ let run command ~env ~directory =
       | Some (parent, _) -> parent
       | None -> Json.fail Invalid_argument "capture directory has no parent"
     in
-    Disk.require_directory parent;
+    Local_file.require_directory parent ~operation:"create execution stage";
     Eio.Path.mkdir ~perm:0o700 path;
     Platform.sync_directory parent;
     Disk.write_new

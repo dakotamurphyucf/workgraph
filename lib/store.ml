@@ -298,6 +298,12 @@ let open_existing ~sw ~fs ~root =
     (match Eio.Path.kind ~follow:false root_path with
      | `Directory -> ()
      | _ -> Json.fail Invalid_argument "workspace root must be a directory");
+    (* Reject an unsupported root before creating locks or repairing directories.
+       The descriptor is read again under the acquired lock below. *)
+    let descriptor_probe =
+      Disk.read Eio.Path.(root_path / "workspace.json") |> Json.parse |> Disk.unwrap
+    in
+    Current_format.validate Workspace descriptor_probe |> Disk.unwrap;
     Disk.ensure_directory Eio.Path.(root_path / ".local");
     let lock_path = Eio.Path.(root_path / ".local/writer.lock") in
     (match Eio.Path.kind ~follow:false lock_path with
@@ -450,7 +456,14 @@ let commit t ~prepared ~key ~request_hash =
       if State.revision (State.candidate prepared) <> t.sequence + 1
       then Json.fail Conflict "stale prepared transaction";
       if t.sequence >= Admission.Limit.maximum Planning_commits
-      then Json.fail Invalid_argument "MVP transaction limit is 100000";
+      then
+        raise
+          (Json.Decode_error
+             (Admission.refusal
+                Planning_commits
+                ~used:t.sequence
+                ~attempted:(t.sequence + 1)
+                ~kind:Invalid_argument));
       validate_domain_history
         (State.candidate prepared)
         (Session_store.capture t.history |> Disk.unwrap);
@@ -464,7 +477,7 @@ let commit t ~prepared ~key ~request_hash =
       in
       let tx =
         Json.obj
-          [ "version", Json.int 1
+          [ "version", Current_format.value Planning_transaction
           ; ( "workspace_id"
             , Id.Workspace.jsonaf_of_t (State.workspace (State.candidate prepared)) )
           ; "sequence", Json.int sequence
@@ -484,7 +497,14 @@ let commit t ~prepared ~key ~request_hash =
       if
         t.retained_bytes + String.length bytes
         > Admission.Limit.maximum Planning_transaction_bytes
-      then Json.fail Invalid_argument "MVP retained transaction bytes exceed 128 MiB";
+      then
+        raise
+          (Json.Decode_error
+             (Admission.refusal
+                Planning_transaction_bytes
+                ~used:t.retained_bytes
+                ~attempted:(t.retained_bytes + String.length bytes)
+                ~kind:Invalid_argument));
       List.iter (State.blobs prepared) ~f:(fun (digest, bytes) ->
         let target = path t ("blobs/" ^ digest) in
         match Eio.Path.kind ~follow:false target with
@@ -650,12 +670,20 @@ let heartbeat_observations t =
   with_history t ~f:(fun _ -> Result.map (heartbeat_cache t) ~f:Heartbeat.observations)
 ;;
 
-let admission t =
-  Disk.protect (fun () ->
-    require_storage_directories t;
+let cached_admission t =
+  Json.decode (fun () ->
+    if t.closed then Json.fail Workspace_closed "workspace is closed";
+    if t.fenced then Json.fail Outcome_unknown "workspace requires close and recovery";
     [ Admission.create Planning_commits ~used:t.sequence |> Disk.unwrap
     ; Admission.create Planning_transaction_bytes ~used:t.retained_bytes |> Disk.unwrap
     ]
-    @ (Session_store.admission t.history |> Disk.unwrap)
+    @ (Session_store.cached_admission t.history |> Disk.unwrap)
     @ Upload.admission t.uploads)
+;;
+
+let admission t =
+  Disk.protect (fun () ->
+    require_storage_directories t;
+    ignore (Session_store.admission t.history |> Disk.unwrap : Admission.t list);
+    cached_admission t |> Disk.unwrap)
 ;;

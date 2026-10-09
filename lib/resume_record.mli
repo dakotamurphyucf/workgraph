@@ -10,7 +10,10 @@ val create
   -> max_field_bytes:int
   -> Jsonaf.t
 
+(** Labels task objective as ticket description and handoff objective separately.
+    Rendering does not change structured source records or coverage. *)
 val markdown : Jsonaf.t list -> string
+
 val count : section:string -> total:int -> returned:int -> Jsonaf.t
 val envelope : revision:int -> Jsonaf.t -> Jsonaf.t
 

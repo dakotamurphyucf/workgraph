@@ -551,7 +551,14 @@ let commit t ~key ~request_hash ~change ~response =
   require_open t;
   let sequence = t.current.sequence + 1 in
   if sequence > Admission.Limit.maximum History_commits
-  then Json.fail Blocked "history capacity exhausted (1000000 commits); nothing deleted";
+  then
+    raise
+      (Json.Decode_error
+         (Admission.refusal
+            History_commits
+            ~used:t.current.sequence
+            ~attempted:sequence
+            ~kind:Blocked));
   let candidate = apply t.current change in
   validate_response candidate ~change ~response;
   let json =
@@ -567,11 +574,17 @@ let commit t ~key ~request_hash ~change ~response =
     |> History_storage.Batch.to_json
   in
   let bytes = Json.canonical json in
-  if
-    String.length bytes > 4 * 1024 * 1024
-    || t.retained_bytes + String.length bytes
-       > Admission.Limit.maximum History_batch_bytes
-  then Json.fail Blocked "history metadata capacity exhausted; nothing deleted";
+  if String.length bytes > 4 * 1024 * 1024
+  then Json.fail Blocked "history batch exceeds 4MiB; reduce the batch before retrying";
+  if t.retained_bytes + String.length bytes > Admission.Limit.maximum History_batch_bytes
+  then
+    raise
+      (Json.Decode_error
+         (Admission.refusal
+            History_batch_bytes
+            ~used:t.retained_bytes
+            ~attempted:(t.retained_bytes + String.length bytes)
+            ~kind:Blocked));
   let digest = Json.hash bytes in
   let candidate = audit candidate ~change ~key ~sequence ~digest in
   let candidate =
@@ -762,10 +775,20 @@ let read_capture_blob capture ~fs ~root ref_ ~offset ~length =
     Blob.read_range path ~offset ~length |> Disk.unwrap)
 ;;
 
-let admission t =
-  Disk.protect (fun () ->
-    require_open t;
+let cached_admission t =
+  Json.decode (fun () ->
+    if t.fenced
+    then
+      Json.fail
+        Outcome_unknown
+        "history owner fenced; reopen workspace before health capture";
     [ Admission.create History_commits ~used:t.current.sequence |> Disk.unwrap
     ; Admission.create History_batch_bytes ~used:t.retained_bytes |> Disk.unwrap
     ])
+;;
+
+let admission t =
+  Disk.protect (fun () ->
+    require_open t;
+    cached_admission t |> Disk.unwrap)
 ;;

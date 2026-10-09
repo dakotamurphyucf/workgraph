@@ -43,9 +43,8 @@ let open_existing ~fs ~root =
       | `Not_found -> Id.Run.Map.empty
       | `Regular_file ->
         let json = Disk.read file |> Json.parse |> Disk.unwrap in
+        Current_format.validate Heartbeat_cache json |> Disk.unwrap;
         Json.fields json ~allowed:[ "version"; "observations" ];
-        if Json.integer (Json.field json "version") <> 1
-        then Json.fail Unsupported_version "unsupported heartbeat cache";
         let entries = Json.list (Json.field json "observations") in
         if List.length entries > 1000
         then Json.fail Corrupt_store "heartbeat cache exceeds 1000 runs";

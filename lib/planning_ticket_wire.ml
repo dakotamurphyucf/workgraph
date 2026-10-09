@@ -536,40 +536,7 @@ module Handoff = struct
   let codec = base
 end
 
-let problem_codec =
-  let names =
-    [ "Invalid_argument", Problem.Invalid_argument
-    ; "Not_found", Not_found
-    ; "Conflict", Conflict
-    ; "Blocked", Blocked
-    ; "Dependency_cycle", Dependency_cycle
-    ; "Already_claimed", Already_claimed
-    ; "Stale_claim", Stale_claim
-    ; "Idempotency_conflict", Idempotency_conflict
-    ; "Corrupt_store", Corrupt_store
-    ; "Storage_unavailable", Storage_unavailable
-    ; "Outcome_unknown", Outcome_unknown
-    ; "Workspace_closed", Workspace_closed
-    ; "Unsupported_version", Unsupported_version
-    ]
-  in
-  let cases =
-    List.map names ~f:(fun (name, kind) ->
-      ( name
-      , Api_codec.object_
-          (Fields.map
-             (Fields.required "kind" (Api_codec.literal name)
-              ++ Fields.required "message" text)
-             ~decode:(fun ((), message) -> Problem.create kind message)
-             ~encode:(fun (value : Problem.t) ->
-               if not (Problem.equal_kind value.kind kind)
-               then Json.fail Invalid_argument "wrong problem constructor";
-               (), value.message)) ))
-  in
-  Api_codec.tagged ~discriminator:"kind" ~cases ~select:(fun (value : Problem.t) ->
-    List.find_map_exn names ~f:(fun (name, kind) ->
-      if Problem.equal_kind kind value.kind then Some name else None))
-;;
+let problem_codec = Problem_wire.codec
 
 module Completion = struct
   module Check = struct

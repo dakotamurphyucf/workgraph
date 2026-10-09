@@ -1,11 +1,16 @@
 # Workgraph format and durability
 
-Workgraph is an early preview with one current schema. The format
-version on every persisted or wire representation is `1`; decoders require that
-version and the complete current shape. Unknown fields, missing required fields,
-and unsupported versions fail closed. There are no legacy readers, automatic
-migrations, or backward compatibility promises. A future format change will be
-designed explicitly and will update its decoder and documentation together.
+Workgraph is an early preview with one current schema per representation. The
+0.3 preview deliberately breaks the 0.2 application API and affected stored roots.
+It has no legacy readers, automatic migrations, or backward compatibility promises.
+A package version, application API identifier and stored-format identifier serve
+different purposes; they need not have the same value.
+
+Readers inspect a root's format marker before decoding its version-dependent
+fields. A missing or unsupported string marker reports `Unsupported_version` with
+`representation`, `observed` and `supported` details. A malformed marker type or
+duplicate field remains `Invalid_argument`. Unknown or missing fields within the
+current format also fail validation. Only the current complete shape is accepted.
 
 Portable workspace storage uses `Storage` and `Storage_event`. Event definitions
 are independent of evolving domain records. A validated bridge converts current
@@ -18,14 +23,34 @@ file hashes, workspace identity, sequence continuity, unique receipt keys, and
 referenced blob bytes. Commit validates before installing blobs or publishing a
 head.
 
-| Representation | Current version | Required contents |
+| Representation | Current identifier | Required contents |
 | --- | --- | --- |
-| Workspace descriptor, HEAD, transaction, event | 1 | Complete current fields; exact schema |
-| Local registry | 1 | Workspaces, receipts, creates, exports, and restores maps |
-| Portable snapshot and export manifest | 1 | Full state, head, history head, options, and files |
-| Export-all container manifest | 1 | Exact workspace vector, omissions, and member manifest hashes |
-| Saved CLI upload plan | 1 | Content size/hash and durable request identity |
-| Wire profile reported by `initialize` | 1 | Current method codecs and envelope/error names |
+| Application request and saved retry envelope | `workgraph_api:"0.3"` | JSON-RPC 2.0 envelope and current method parameters |
+| `initialize` result | `workgraph_api:"0.3"` | Current capabilities; `registry_format_version:"2"` |
+| Workspace descriptor | `version:"2"` | Workspace identity and complete current fields |
+| Planning transaction and planning event envelope | `version:"2"` | Complete current transaction/events and durable receipt |
+| Local registry | `version:"2"` | Workspaces, receipts, creates, exports, and restores maps |
+| Workspace export manifest | `version:"2"` | Full state, head, history head, options, and files |
+| Workspace-set export manifest | `version:"2"` | Exact workspace vector, omissions, and member manifest hashes |
+| Planning HEAD, history HEAD and history batch | `version:"1"` | Their unchanged independent representations |
+| Advisory heartbeat cache | `version:"1"` | Its unchanged independent representation |
+| Saved CLI upload parameters | `transfer_version:"1"` | Content size/hash and durable request identity, inside a current API envelope |
+
+Unchanged nested event representations retain their own identifiers. Changing the
+outer planning envelope does not renumber every nested format.
+
+Use the matching released binary and its bundled guide to inspect older data.
+For this preview, create a fresh registry and fresh workspace roots for 0.3, with
+a separate socket if an older daemon is still running. Preserve older data for use
+with its matching binary. Do not change a marker by hand or point the new daemon
+at old roots expecting a migration. Old saved requests and old exports are not a
+supported route into 0.3.
+
+Unsupported registry startup rejects before creating its daemon lock; unsupported
+workspace descriptors reject before creating workspace lock/repair directories.
+Unsupported export roots reject before restore staging or registration. These
+checks preserve the rejected source trees; they are not a promise that arbitrary
+corruption in a supported format never invokes ordinary recovery.
 
 The registry stores machine-local paths, receipts, jobs, and intents; it is not
 portable workspace data. Snapshot manifests cover the full state and file
@@ -66,8 +91,10 @@ request IDs remain JSON numbers, rather than decimal-string domain counters.
 ## Wire profile and retries
 
 Each Unix-socket connection carries one request and response: four-byte big-endian
-length, then 1..4194304 bytes of JSON. The envelope has `jsonrpc:"2.0"`, an ID,
-method, and optional object params. The OCaml client uses nonempty string IDs of at
+length, then 1..4194304 bytes of JSON. The request envelope has `workgraph_api:"0.3"`, `jsonrpc:"2.0"`, an ID,
+method, and optional object params. The CLI supplies the application marker, including
+in saved requests. Raw clients must supply it even for `initialize`. Responses retain
+the ordinary JSON-RPC envelope; the initialize result reports the application marker. The OCaml client uses nonempty string IDs of at
 most 256 bytes; the server also accepts finite numeric IDs and null. Methods have
 1..128 bytes. Unknown fields, batch envelope arrays, and malformed params are
 rejected. Notifications are discarded without performing any mutation.
@@ -79,7 +106,7 @@ frames/envelopes use code -32600 and null ID. Admitted application failures use
 
 `Invalid_argument`, `Not_found`, `Conflict`, `Blocked`, `Dependency_cycle`,
 `Already_claimed`, `Stale_claim`, `Idempotency_conflict`, `Corrupt_store`,
-`Storage_unavailable`, `Outcome_unknown`, `Workspace_closed`, `Unsupported_version`.
+`Storage_unavailable`, `Local_io`, `Outcome_unknown`, `Workspace_closed`, `Unsupported_version`.
 
 Clients reject unknown codes/discriminators, mismatched IDs, and ambiguous
 envelopes. This restricted profile does not implement every general JSON-RPC error

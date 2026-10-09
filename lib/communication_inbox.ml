@@ -67,6 +67,7 @@ module Query = struct
     ; through : int option
     ; kinds : Notification.Kind.t list option
     ; ticket_id : Id.Ticket.t option
+    ; exclude_self : bool
     ; limit : int
     ; max_bytes : int
     ; timeout_ms : int option
@@ -78,6 +79,7 @@ module Query = struct
   let through t = t.through
   let kinds t = t.kinds
   let ticket_id t = t.ticket_id
+  let exclude_self t = t.exclude_self
   let limit t = t.limit
   let max_bytes t = t.max_bytes
 
@@ -92,8 +94,10 @@ module Query = struct
     in
     let filters =
       Fields.both
-        (Fields.optional "kinds" (Api_codec.list kind_codec ~max_items:8))
-        (Fields.optional "ticket_id" ticket_codec)
+        (Fields.both
+           (Fields.optional "kinds" (Api_codec.list kind_codec ~max_items:8))
+           (Fields.optional "ticket_id" ticket_codec))
+        (Fields.optional "exclude_self" Api_codec.boolean)
     in
     let limits =
       Fields.both
@@ -115,7 +119,7 @@ module Query = struct
 
   let of_fields
         ( ((consumer_id, recipient), (after, through))
-        , ((kinds, ticket_id), (limit, max_bytes)) )
+        , (((kinds, ticket_id), exclude_self), (limit, max_bytes)) )
         ~timeout_ms
     =
     let after = Option.value after ~default:0 in
@@ -129,6 +133,7 @@ module Query = struct
         ; through
         ; kinds
         ; ticket_id
+        ; exclude_self = Option.value exclude_self ~default:false
         ; limit = Option.value limit ~default:50
         ; max_bytes = Option.value max_bytes ~default:65_536
         ; timeout_ms
@@ -137,7 +142,7 @@ module Query = struct
 
   let to_fields t =
     ( ((t.consumer_id, t.recipient), (Some t.after, t.through))
-    , ((t.kinds, t.ticket_id), (Some t.limit, Some t.max_bytes)) )
+    , (((t.kinds, t.ticket_id), Some t.exclude_self), (Some t.limit, Some t.max_bytes)) )
   ;;
 
   let read_codec =
@@ -148,7 +153,12 @@ module Query = struct
     mapped
       (Fields.both
          fields
-         (Fields.optional "timeout_ms" (positive 25_000 "timeout_ms must be 1..25000")))
+         (Fields.optional
+            "timeout_ms"
+            (Api_codec.with_error_context
+               (positive 25_000 "timeout_ms must be 1..25000")
+               ~context:
+                 "inbox.wait timeout_ms: 25-second server cap (1..25000 milliseconds)")))
       (fun (fields, timeout_ms) ->
          of_fields fields ~timeout_ms:(Some (Option.value timeout_ms ~default:20_000)))
       (fun t -> to_fields t, t.timeout_ms)
@@ -353,7 +363,9 @@ let result_codec =
       (Fields.both identity range)
       (Fields.both
          page
-         (Fields.required "items" (Api_codec.list item_codec ~max_items:100)))
+         (Fields.both
+            (Fields.required "exclude_self" Api_codec.boolean)
+            (Fields.required "items" (Api_codec.list item_codec ~max_items:100))))
   in
   Api_codec.map
     (Api_codec.as_json (Api_codec.object_ fields))

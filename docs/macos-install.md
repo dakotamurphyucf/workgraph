@@ -1,5 +1,10 @@
 # macOS ARM64 native installation
 
+This download section installs the published v0.2.0 preview with its own bundled
+guide and API. The current checkout prepares unpublished v0.3.0; build it from
+source using the [README](../README.md#build-the-current-checkout-from-source) or
+the local archive procedure below. No v0.3.0 download is published here.
+
 The native archive is intended for Apple Silicon Macs. It contains the executable,
 complete offline guide and references, examples, dependency license texts and a
 file-hash manifest. Running the executable does not require opam or OCaml.
@@ -26,9 +31,10 @@ The version must print `0.2.0`. Check the release's macOS qualification JSON
 and evidence archive for the source identity and actual macOS version tested.
 
 Keep the extracted directory together so relative guide links remain usable. Add
-its `bin` directory to your PATH if desired. Start with its `AGENT_GUIDE.md` and
-[CLI contract](agent/cli-contract.md). Git is needed for Git workflow examples; Python
-is used by example/qualification drivers, not by the executable itself.
+its `bin` directory to your PATH if desired. Start with its bundled `AGENT_GUIDE.md`
+and `docs/agent/cli-contract.md`, which match that installed preview. Git is needed
+for Git workflow examples; Python is used by example/qualification drivers, not by
+the executable itself.
 
 ## Building and qualifying a local archive
 

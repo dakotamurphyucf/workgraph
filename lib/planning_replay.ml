@@ -531,6 +531,40 @@ let replay t payload =
                    "reopening lacks its exact atomic reassessments, decisions or \
                     notifications")))
          | _ -> ());
+        (match event with
+         | Event.Evidence_changed
+             { update = Evidence_event.Update.Review_added { review; submission }
+             ; attribution
+             ; _
+             }
+           when Evidence.Review.Verdict.equal review.verdict Approve ->
+           let approval = unwrap_domain (Review_approval.create ~review ~submission) in
+           let prepared =
+             unwrap_domain
+               (Communication.prepare_message
+                  state.communication
+                  (Review_approval.message approval)
+                  ~discussion:state.discussion
+                  ~actor:attribution.actor
+                  ~run:attribution.run
+                  ~timestamp:attribution.timestamp
+                  ~sequence:(state.revision + 1))
+           in
+           let expected_effects =
+             List.map (Communication.Message_prepared.changes prepared) ~f:(function
+               | Discussion_change change -> Event.Comment_changed change
+               | Communication_change change -> Event.Communication_changed change)
+           in
+           require
+             (List.equal
+                String.equal
+                (List.map expected_effects ~f:(fun event ->
+                   Json.canonical (Event.jsonaf_of_t event)))
+                (List.take remaining (List.length expected_effects)
+                 |> List.map ~f:(fun event -> Json.canonical (Event.jsonaf_of_t event))))
+             Corrupt_store
+             "approval lacks its exact atomic notification"
+         | _ -> ());
         (match pending_completion, event with
          | ( Some ticket
            , Event.Comment_changed
@@ -687,7 +721,7 @@ let replay t payload =
         apply_resolved (apply_event state event) pending_completion remaining
     in
     let state = apply_resolved t None events in
-    validate state;
+    validate ~previous:t state;
     Map.iter state.tickets ~f:(fun ticket ->
       if
         Domain_command.Status.equal ticket.Ticket.status Done
@@ -713,10 +747,15 @@ let replay t payload =
          | Error error -> raise (Json.Decode_error error))
       | _ -> ());
     let retained_bytes = t.retained_bytes + String.length (Json.canonical payload) in
-    require
-      (retained_bytes <= Admission.Limit.maximum Planning_payload_bytes)
-      Invalid_argument
-      "MVP workspace event data exceeds 64 MiB";
+    if retained_bytes > Admission.Limit.maximum Planning_payload_bytes
+    then
+      raise
+        (Json.Decode_error
+           (Admission.refusal
+              Planning_payload_bytes
+              ~used:t.retained_bytes
+              ~attempted:retained_bytes
+              ~kind:Invalid_argument));
     let audit = audit_payload t state payload events in
     let activity_by_target =
       List.fold

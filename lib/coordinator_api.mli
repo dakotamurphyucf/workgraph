@@ -3,7 +3,7 @@ module Kind = Coordinator_wire.Kind
 
 module Request : sig
   (** Literal exact selectors: project_id/run_id/actor_id, no inferred aliases.
-      Positive stale_after_ms; cursor<=2048 bytes; kinds<=14 distinct allowed
+      Positive stale_after_ms; cursor<=2048 bytes; kinds<=15 distinct allowed
       values. Immutable cursor binds capture head/revision, heartbeat snapshot,
       filters and first-page clock. Unknown run fails Not_found in pure view. *)
   type t

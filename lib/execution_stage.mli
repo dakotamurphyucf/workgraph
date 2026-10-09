@@ -14,7 +14,8 @@ end
 (** Create a fresh private directory at the absolute path and sync the command
     record before launching. Existing directories reject, even if unfinished;
     running this operation again must never rerun a saved command. The parent
-    directory must exist. Cancellation kills the directly owned child, stages an
+    directory must exist. Bad paths/existing destinations are Invalid_argument;
+    other expected local I/O failures are Local_io. Cancellation kills the directly owned child, stages an
     interrupted outcome with observed output, then propagates. Descendant process
     isolation remains the caller's responsibility. Unexpected exceptions propagate.
     The child inherits the client's environment; standard input is immediate EOF.
@@ -26,7 +27,8 @@ val run
   -> (t, Problem.t) Result.t
 
 (** Read a stage without launching any command. Reject malformed records, output
-    digests or a final command differing from the synced launch intent. *)
+    digests or a final command differing from the synced launch intent. Input path
+    errors are Invalid_argument; durable record integrity errors remain Corrupt_store. *)
 val load : fs:_ Eio.Path.t -> directory:string -> (t, Problem.t) Result.t
 
 val directory : t -> string

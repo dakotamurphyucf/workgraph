@@ -8,6 +8,63 @@ type 'a t =
 
 type 'a codec = 'a t
 
+let at_field segment f =
+  try f () with
+  | Json.Decode_error problem ->
+    raise (Json.Decode_error (Problem.at_field problem segment))
+;;
+
+let check_fields json ~allowed =
+  let one_edit left right =
+    let n = String.length left
+    and m = String.length right in
+    if n > 256 || m > 256 || Int.abs (n - m) > 1
+    then false
+    else (
+      let rec walk i j changed =
+        if i = n || j = m
+        then n - i + (m - j) <= if changed then 0 else 1
+        else if Char.equal left.[i] right.[j]
+        then walk (i + 1) (j + 1) changed
+        else if changed
+        then false
+        else if n = m
+        then walk (i + 1) (j + 1) true
+        else if n > m
+        then walk (i + 1) j true
+        else walk i (j + 1) true
+      in
+      walk 0 0 false)
+  in
+  match json with
+  | `Object fields ->
+    let seen = ref String.Set.empty in
+    List.iter fields ~f:(fun (name, _) ->
+      if Set.mem !seen name
+      then at_field name (fun () -> Json.fail Invalid_argument "duplicate field");
+      seen := Set.add !seen name;
+      if not (List.mem allowed name ~equal:String.equal)
+      then (
+        let suggestion =
+          match List.filter allowed ~f:(one_edit name) with
+          | [ name ] -> Some name
+          | [] | _ :: _ :: _ -> None
+        in
+        let expected =
+          "unknown field"
+          ^ Option.value_map suggestion ~default:"" ~f:(fun s ->
+            "; did you mean " ^ s ^ "?")
+        in
+        raise
+          (Json.Decode_error
+             (Problem.at_field
+                (Problem.with_details
+                   (Problem.create Invalid_argument expected)
+                   (Field { path = []; expected; suggestion }))
+                name))))
+  | _ -> Json.fail Invalid_argument "expected object"
+;;
+
 let decode t json = Json.decode (fun () -> t.decode_exn json)
 
 let encode t value =
@@ -18,6 +75,26 @@ let encode t value =
 ;;
 
 let schema t = t.schema
+
+let with_error_context t ~context =
+  { t with
+    decode_exn =
+      (fun json ->
+        try t.decode_exn json with
+        | Json.Decode_error problem ->
+          let append text = text ^ "; " ^ context in
+          let details =
+            Option.map problem.details ~f:(function
+              | Problem.Details.Field field ->
+                Problem.Details.Field { field with expected = append field.expected }
+              | (Revision _ | Ownership _ | Readiness _ | Version _ | Capacity _) as
+                details -> details)
+          in
+          raise
+            (Json.Decode_error { problem with message = append problem.message; details }))
+  ; schema = Json.obj [ "allOf", `Array [ t.schema ]; "description", Json.string context ]
+  }
+;;
 
 let as_json t =
   { decode_exn =
@@ -46,6 +123,49 @@ let rec object_field_names schema =
 ;;
 
 let field_names t = object_field_names t.schema
+
+let cli_value t ~field value =
+  let rec field_schemas schema =
+    match Json.optional schema "properties" with
+    | Some (`Object fields) ->
+      Option.to_list (List.Assoc.find fields field ~equal:String.equal)
+    | _ ->
+      List.concat_map [ "allOf"; "oneOf"; "anyOf" ] ~f:(fun key ->
+        match Json.optional schema key with
+        | Some (`Array schemas) -> List.concat_map schemas ~f:field_schemas
+        | _ -> [])
+  in
+  let rec types schema =
+    match Json.optional schema "type" with
+    | Some (`String name) -> [ name ]
+    | _ ->
+      let alternatives =
+        List.concat_map [ "allOf"; "oneOf"; "anyOf" ] ~f:(fun key ->
+          match Json.optional schema key with
+          | Some (`Array schemas) -> List.concat_map schemas ~f:types
+          | _ -> [])
+      in
+      if List.is_empty alternatives then [ "unknown" ] else alternatives
+  in
+  Json.decode (fun () ->
+    let types =
+      List.concat_map (field_schemas t.schema) ~f:types
+      |> List.dedup_and_sort ~compare:String.compare
+    in
+    at_field field (fun () ->
+      if List.equal String.equal types [ "boolean" ]
+      then (
+        match value with
+        | "true" -> `True
+        | "false" -> `False
+        | _ -> Json.fail Invalid_argument "expected true or false")
+      else if List.mem types "boolean" ~equal:String.equal
+      then
+        Json.fail
+          Invalid_argument
+          "ambiguous field type; use --json-field with explicit JSON"
+      else Json.string value))
+;;
 
 let merge_objects left right =
   let names codec =
@@ -77,7 +197,7 @@ let merge_objects left right =
   in
   { decode_exn =
       (fun json ->
-        Json.fields json ~allowed;
+        check_fields json ~allowed;
         let left_fields, right_fields =
           object_fields json
           |> List.partition_tf ~f:(fun (name, _) ->
@@ -126,7 +246,12 @@ let text ~max_bytes =
   require_bound "text byte limit" (max_bytes >= 0);
   { decode_exn =
       (fun value ->
-        let value = Json.bounded_text value ~max_bytes in
+        let value = Json.text value in
+        if String.length value > max_bytes
+        then
+          Json.fail
+            Invalid_argument
+            ("expected text of at most " ^ Int.to_string max_bytes ^ " UTF-8 bytes");
         let valid =
           Uutf.String.fold_utf_8
             (fun valid _ -> function
@@ -180,8 +305,15 @@ let decimal ~max =
   require_bound "decimal maximum" (max >= 0);
   { decode_exn =
       (fun value ->
-        let value = Json.integer value in
-        if value > max then Json.fail Invalid_argument "decimal exceeds maximum";
+        let expectation =
+          "expected canonical decimal string in 0.." ^ Int.to_string max
+        in
+        let value =
+          match Json.decode (fun () -> Json.integer value) with
+          | Ok value -> value
+          | Error _ -> Json.fail Invalid_argument expectation
+        in
+        if value > max then Json.fail Invalid_argument expectation;
         value)
   ; encode_exn = Json.int
   ; schema = decimal_schema (Int.to_string max)
@@ -192,9 +324,15 @@ let decimal64 ~max =
   require_bound "decimal maximum" (Int64.compare max 0L >= 0);
   { decode_exn =
       (fun value ->
-        let value = Json.integer64 value in
-        if Int64.compare value max > 0
-        then Json.fail Invalid_argument "decimal exceeds maximum";
+        let expectation =
+          "expected canonical decimal string in 0.." ^ Int64.to_string max
+        in
+        let value =
+          match Json.decode (fun () -> Json.integer64 value) with
+          | Ok value -> value
+          | Error _ -> Json.fail Invalid_argument expectation
+        in
+        if Int64.compare value max > 0 then Json.fail Invalid_argument expectation;
         value)
   ; encode_exn = Json.int64
   ; schema = decimal_schema (Int64.to_string max)
@@ -218,8 +356,12 @@ let list t ~max_items =
       (fun value ->
         let values = Json.list value in
         if List.length values > max_items
-        then Json.fail Invalid_argument "list exceeds item limit";
-        List.map values ~f:t.decode_exn)
+        then
+          Json.fail
+            Invalid_argument
+            ("expected at most " ^ Int.to_string max_items ^ " items");
+        List.mapi values ~f:(fun index value ->
+          at_field (Int.to_string index) (fun () -> t.decode_exn value)))
   ; encode_exn = (fun values -> `Array (List.map values ~f:t.encode_exn))
   ; schema =
       Json.obj
@@ -258,7 +400,8 @@ let enum entries ~equal =
       (fun json ->
         match List.Assoc.find entries (Json.text json) ~equal:String.equal with
         | Some value -> value
-        | None -> Json.fail Invalid_argument "unknown enum value")
+        | None ->
+          Json.fail Invalid_argument ("expected one of: " ^ String.concat ~sep:", " names))
   ; encode_exn =
       (fun value ->
         match List.find entries ~f:(fun (_, candidate) -> equal value candidate) with
@@ -352,7 +495,8 @@ module Fields = struct
     check_name name;
     { properties = [ name, codec.schema ]
     ; required = [ name ]
-    ; decode_exn = (fun json -> codec.decode_exn (Json.field json name))
+    ; decode_exn =
+        (fun json -> at_field name (fun () -> codec.decode_exn (Json.field json name)))
     ; encode_exn = (fun value -> [ name, codec.encode_exn value ])
     }
   ;;
@@ -361,7 +505,10 @@ module Fields = struct
     check_name name;
     { properties = [ name, codec.schema ]
     ; required = []
-    ; decode_exn = (fun json -> Option.map (Json.optional json name) ~f:codec.decode_exn)
+    ; decode_exn =
+        (fun json ->
+          at_field name (fun () ->
+            Option.map (Json.optional json name) ~f:codec.decode_exn))
     ; encode_exn =
         (fun value ->
           Option.to_list (Option.map value ~f:(fun value -> name, codec.encode_exn value)))
@@ -391,7 +538,7 @@ let object_ (fields : _ Fields.t) =
   let allowed = List.map fields.properties ~f:fst in
   { decode_exn =
       (fun json ->
-        Json.fields json ~allowed;
+        check_fields json ~allowed;
         fields.decode_exn json)
   ; encode_exn = (fun value -> Json.obj (fields.encode_exn value))
   ; schema =
@@ -416,7 +563,10 @@ let tagged ~discriminator ~cases ~select =
   in
   { decode_exn =
       (fun json ->
-        let codec = branch (Json.text (Json.field json discriminator)) in
+        let codec =
+          at_field discriminator (fun () ->
+            branch (Json.text (Json.field json discriminator)))
+        in
         codec.decode_exn json)
   ; encode_exn = (fun value -> (branch (select value)).encode_exn value)
   ; schema =
@@ -433,7 +583,7 @@ let dictionary value ~max_items ~max_key_bytes =
       if List.length fields > max_items
       then Json.fail Invalid_argument "dictionary exceeds item limit";
       List.map fields ~f:(fun (name, json) ->
-        key.decode_exn (Json.string name), value.decode_exn json)
+        at_field name (fun () -> key.decode_exn (Json.string name), value.decode_exn json))
     | _ -> Json.fail Invalid_argument "expected dictionary object"
   in
   { decode_exn

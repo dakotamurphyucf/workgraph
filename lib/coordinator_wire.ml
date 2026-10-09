@@ -24,6 +24,7 @@ module Kind = struct
     | Allocation_blocked
     | Unanswered_request
     | Stale_run
+    | Unobserved_run
     | Stale_ownership
     | Expired_ownership
     | Changed_input
@@ -41,6 +42,7 @@ module Kind = struct
     ; Allocation_blocked
     ; Unanswered_request
     ; Stale_run
+    ; Unobserved_run
     ; Stale_ownership
     ; Expired_ownership
     ; Changed_input
@@ -59,6 +61,7 @@ module Kind = struct
     | Allocation_blocked -> "allocation_blocked"
     | Unanswered_request -> "unanswered_request"
     | Stale_run -> "stale_run"
+    | Unobserved_run -> "unobserved_run"
     | Stale_ownership -> "stale_ownership"
     | Expired_ownership -> "expired_ownership"
     | Changed_input -> "changed_input"
@@ -77,6 +80,7 @@ module Kind = struct
       ; "allocation_blocked", Allocation_blocked
       ; "unanswered_request", Unanswered_request
       ; "stale_run", Stale_run
+      ; "unobserved_run", Unobserved_run
       ; "stale_ownership", Stale_ownership
       ; "expired_ownership", Expired_ownership
       ; "changed_input", Changed_input
@@ -589,6 +593,10 @@ module Item = struct
         { run_id : Id.Run.t
         ; metadata : Stale_run.t
         }
+    | Unobserved_run of
+        { run_id : Id.Run.t
+        ; metadata : Stale_run.t
+        }
     | Stale_ownership of
         { source : Source.t
         ; metadata : Ownership.t
@@ -617,7 +625,7 @@ module Item = struct
     | Ready_work { ticket_id; _ }
     | Allocation_blocked { ticket_id; _ }
     | Dependency_bottleneck { ticket_id; _ } -> Source.Ticket ticket_id
-    | Stale_run { run_id; _ } -> Source.Run run_id
+    | Stale_run { run_id; _ } | Unobserved_run { run_id; _ } -> Source.Run run_id
     | Stale_ownership { source; _ } | Expired_ownership { source; _ } -> source
     | Unanswered_request { request_id; _ } -> Source.Request request_id
     | Changed_input r ->
@@ -636,6 +644,7 @@ module Item = struct
     | Allocation_blocked _ -> Kind.Allocation_blocked
     | Unanswered_request _ -> Kind.Unanswered_request
     | Stale_run _ -> Kind.Stale_run
+    | Unobserved_run _ -> Kind.Unobserved_run
     | Stale_ownership _ -> Kind.Stale_ownership
     | Expired_ownership _ -> Kind.Expired_ownership
     | Changed_input _ -> Kind.Changed_input
@@ -652,7 +661,7 @@ module Item = struct
     | Ready_work { ticket_id; _ }
     | Allocation_blocked { ticket_id; _ }
     | Dependency_bottleneck { ticket_id; _ } -> Id.Ticket.to_string ticket_id
-    | Stale_run { run_id; _ } -> Id.Run.to_string run_id
+    | Stale_run { run_id; _ } | Unobserved_run { run_id; _ } -> Id.Run.to_string run_id
     | Stale_ownership { source = Source.Ticket id; _ }
     | Expired_ownership { source = Source.Ticket id; _ } ->
       "ticket:" ^ Id.Ticket.to_string id
@@ -744,13 +753,30 @@ module Item = struct
         ; ( "stale_run"
           , branch
               "stale_run"
-              Stale_run.codec
+              (W.checked Stale_run.codec (fun metadata ->
+                 check
+                   (Option.is_some metadata.Stale_run.last_observed_unix_ms)
+                   "stale run requires an observed heartbeat"))
               (fun source metadata ->
                  match source with
                  | Source.Run run_id -> Stale_run { run_id; metadata }
                  | _ -> wrong ())
               (function
                 | Stale_run { run_id; metadata } -> Source.Run run_id, metadata
+                | _ -> wrong ()) )
+        ; ( "unobserved_run"
+          , branch
+              "unobserved_run"
+              (W.checked Stale_run.codec (fun metadata ->
+                 check
+                   (Option.is_none metadata.Stale_run.last_observed_unix_ms)
+                   "unobserved run cannot have an observed heartbeat"))
+              (fun source metadata ->
+                 match source with
+                 | Source.Run run_id -> Unobserved_run { run_id; metadata }
+                 | _ -> wrong ())
+              (function
+                | Unobserved_run { run_id; metadata } -> Source.Run run_id, metadata
                 | _ -> wrong ()) )
         ; ( "unanswered_request"
           , branch
@@ -1024,6 +1050,7 @@ module Response = struct
         | Ready_work _
         | Allocation_blocked _
         | Stale_run _
+        | Unobserved_run _
         | Stale_ownership _
         | Expired_ownership _
         | Unanswered_request _

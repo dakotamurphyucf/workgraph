@@ -32,7 +32,7 @@ module Request = struct
           ++ opt "actor_id" W.actor
           ++ opt
                "kinds"
-               (W.checked (Api_codec.list Kind.codec ~max_items:14) (fun kinds ->
+               (W.checked (Api_codec.list Kind.codec ~max_items:15) (fun kinds ->
                   if
                     List.contains_dup kinds ~compare:(fun a b ->
                       String.compare (Kind.to_string a) (Kind.to_string b))

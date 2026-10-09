@@ -17,10 +17,21 @@ val encode : 'a t -> 'a -> (Jsonaf.t, Problem.t) Result.t
     domain invariants are explained in [description], not inferred as schemas. *)
 val schema : 'a t -> Jsonaf.t
 
+(** Append explanatory context to typed decoding failures, preserving their kind,
+    field paths and suggestions. Underlying validation and wire shape are unchanged;
+    the schema adds the context as a description. Other exceptions propagate. *)
+val with_error_context : 'a t -> context:string -> 'a t
+
 (** Declared top-level object field names, including mapped/tagged object
     alternatives. [None] denotes a scalar, array, nullable object, or dictionary
     with arbitrary keys. Names come from the executable codec declaration. *)
 val field_names : 'a t -> string list option
+
+(** Interpret a named CLI scalar from declared top-level field types. Only an
+    unambiguous Boolean field converts [true]/[false]; text/decimal values remain
+    strings. Mixed Boolean alternatives reject with instructions for explicit JSON.
+    This function is never used for raw JSON or parameter-file input. *)
+val cli_value : 'a t -> field:string -> string -> (Jsonaf.t, Problem.t) Result.t
 
 (** Compose disjoint exact objects into one flat request. Both original decoders
     and mapped invariants still execute; unknown/duplicate fields reject. Invalid

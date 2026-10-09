@@ -774,3 +774,132 @@ let%expect_test
        : bool)];
   [%expect {| (true true true true true true) |}]
 ;;
+
+let%expect_test "resume retains a 289 byte description and spends remaining prose budget" =
+  let make description =
+    step
+      (empty ())
+      "ticket.create"
+      (Json.obj
+         [ "ticket_id", Json.string "task"
+         ; "title", Json.string "Task"
+         ; "description", Json.string description
+         ])
+  in
+  let short = String.make 289 'x' in
+  let result =
+    query (make short) "ticket.resume" {|{"ticket_id":"task","max_bytes":"65536"}|}
+  in
+  let item = List.hd_exn (array (data result) "items") in
+  print_s
+    [%sexp
+      (String.equal short (Json.text (field (field item "record") "objective")) : bool)
+    , (List.is_empty (array item "clipped_fields") : bool)];
+  let long = String.concat (List.init 20000 ~f:(fun _ -> "é")) in
+  let result =
+    query
+      (make long)
+      "ticket.resume"
+      {|{"ticket_id":"task","max_bytes":"16384","include_markdown":true}|}
+  in
+  let item = List.hd_exn (array (data result) "items") in
+  let excerpt = Json.text (field (field item "record") "objective") in
+  let clip =
+    List.find_exn (array item "clipped_fields") ~f:(fun row ->
+      String.equal (Json.text (field row "field")) "objective")
+  in
+  let valid =
+    Uutf.String.fold_utf_8
+      (fun valid _ -> function
+         | `Uchar _ -> valid
+         | `Malformed _ -> false)
+      true
+      excerpt
+  in
+  print_s
+    [%sexp
+      (String.length excerpt > 256 : bool)
+    , (String.is_prefix long ~prefix:excerpt : bool)
+    , (valid : bool)
+    , (Json.integer (field clip "omitted_bytes")
+       = String.length long - String.length excerpt
+       : bool)
+    , (Api_response.encoded_size Planning_read result <= 16384 : bool)];
+  [%expect
+    {|
+    (true true)
+    (true true true true true)
+    |}]
+;;
+
+let%expect_test
+    "resume Markdown deduplicates latest handoff while keeping exact history and coverage"
+  =
+  let state = write (fixture ()) "ticket.start" {|{"ticket_id":"task"}|} in
+  let state =
+    write
+      state
+      "handoff.set"
+      {|{"ticket_id":"task","token":"1","expected_revision":"0","summary":"Saved","next_steps":"Continue","evidence":"Reviewed","objective":"HANDOFF_OBJECTIVE_UNIQUE","covers_through":"2"}|}
+  in
+  let state = write state "ticket.release" {|{"ticket_id":"task","token":"1"}|} in
+  let result =
+    query
+      state
+      "ticket.resume"
+      {|{"ticket_id":"task","max_bytes":"65536","include_markdown":true}|}
+  in
+  let view = data result in
+  let markdown = Json.text (field view "markdown") in
+  let occurrences =
+    String.substr_index_all
+      markdown
+      ~pattern:"HANDOFF_OBJECTIVE_UNIQUE"
+      ~may_overlap:false
+  in
+  let handoff =
+    List.find_exn (array view "items") ~f:(fun item ->
+      String.equal (Json.text (field item "kind")) "handoff")
+  in
+  let history =
+    List.filter (array view "changes") ~f:(fun row ->
+      String.equal (Json.text (field (field row "item") "kind")) "handoff")
+  in
+  let warning =
+    List.find_exn (array view "warnings") ~f:(fun w ->
+      String.equal (Json.text (field w "code")) "handoff_bookkeeping_activity")
+  in
+  print_s
+    [%sexp
+      (List.length occurrences : int)
+    , (List.length history : int)
+    , (Json.integer (field (field handoff "record") "covers_through") : int)
+    , (String.is_substring markdown ~substring:"Ticket description:" : bool)
+    , (String.is_substring markdown ~substring:"Handoff objective:" : bool)];
+  print_endline (Json.text (field warning "detail"));
+  let saved = Json.canonical result in
+  let later =
+    write
+      state
+      "comment.add"
+      {|{"target":{"kind":"ticket","id":"task"},"body":"Later work"}|}
+  in
+  print_s [%sexp (String.equal saved (Json.canonical result) : bool)];
+  let later_resume = query later "ticket.resume" {|{"ticket_id":"task"}|} in
+  let warnings = array (data later_resume) "warnings" in
+  print_s
+    [%sexp
+      (List.exists warnings ~f:(fun w ->
+         String.equal (Json.text (field w "code")) "handoff_new_activity")
+       : bool)
+    , (List.exists warnings ~f:(fun w ->
+         String.equal (Json.text (field w "code")) "handoff_bookkeeping_activity")
+       : bool)];
+  [%expect
+    {|
+    (1 1 2 true true)
+    2 recorded changes follow handoff coverage (claim=1, handoff=1). Only handoff/ownership bookkeeping is recorded; inspect ownership before acting. Coverage is unchanged.
+    true
+    (true false)
+    |}]
+;;

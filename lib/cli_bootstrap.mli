@@ -20,7 +20,9 @@ val create
     process's exit. Concurrent startup/setup reuses matching published identities.
     All administrative writes are synced as exact requests beside the context;
     [on_saved_request] runs after sync and before transmission. No implicit retry
-    of a mutation occurs. Cancellation and unexpected exceptions propagate. *)
+    of a mutation occurs. Local input/file failures use Invalid_argument or
+    Local_io; daemon storage and uncertain mutation errors retain their kinds.
+    Cancellation and unexpected exceptions propagate. *)
 val run
   :  t
   -> env:Eio_unix.Stdenv.base

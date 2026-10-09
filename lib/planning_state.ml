@@ -357,10 +357,15 @@ let active_scope t (ticket : Ticket.t) =
 ;;
 
 let expected actual expected =
-  require
-    (Int.equal actual expected)
-    Conflict
-    (sprintf "revision conflict: expected %d, current %d" expected actual)
+  if not (Int.equal actual expected)
+  then
+    raise
+      (Json.Decode_error
+         (Problem.with_details
+            (Problem.create
+               Conflict
+               (sprintf "revision conflict: expected %d, current %d" expected actual))
+            (Revision { expected; actual })))
 ;;
 
 let path t ~from ~target ~parents =
@@ -817,7 +822,15 @@ let resource_admission_bytes resources =
   Map.fold sizes ~init:0 ~f:(fun ~key:_ ~data:size total -> total + size)
 ;;
 
-let validate t =
+let validate ?previous t =
+  let capacity limit ~used ~attempted =
+    if attempted > Admission.Limit.maximum limit
+    then
+      raise
+        (Json.Decode_error
+           (Admission.refusal limit ~used ~attempted ~kind:Invalid_argument))
+  in
+  let previous_used f = Option.value_map previous ~default:(f t) ~f in
   Map.iter t.ticket_recoveries ~f:(fun recovery ->
     require
       (Map.mem t.tickets recovery.Ticket_recovery.request.ticket_id)
@@ -911,12 +924,18 @@ let validate t =
   bounded t.settings.description 65_536;
   bounded t.settings.instructions 65_536;
   bounded t.settings.summary 65_536;
-  require
-    (Map.length t.tickets <= Admission.Limit.maximum Tickets
-     && Map.length t.projects <= Admission.Limit.maximum Projects
-     && Map.length t.milestones <= Admission.Limit.maximum Milestones)
-    Invalid_argument
-    "workspace entity limit exceeded";
+  capacity
+    Tickets
+    ~used:(previous_used (fun state -> Map.length state.tickets))
+    ~attempted:(Map.length t.tickets);
+  capacity
+    Projects
+    ~used:(previous_used (fun state -> Map.length state.projects))
+    ~attempted:(Map.length t.projects);
+  capacity
+    Milestones
+    ~used:(previous_used (fun state -> Map.length state.milestones))
+    ~attempted:(Map.length t.milestones);
   Map.iter t.projects ~f:(fun p ->
     valid_title p.Project.title;
     bounded p.description 65_536;
@@ -1105,18 +1124,17 @@ let validate t =
       Invalid_argument
       "too many handoff resources";
     List.iter handoff.resources ~f:(fun id -> validate_target t (Resource id)));
-  require
-    (Map.length t.resources <= Admission.Limit.maximum Resources)
-    Invalid_argument
-    "resource count exceeds 10000";
+  capacity
+    Resources
+    ~used:(previous_used (fun state -> Map.length state.resources))
+    ~attempted:(Map.length t.resources);
   Map.iter t.resources ~f:(fun resource ->
     Resource.validate resource;
     List.iter resource.metadata.targets ~f:(validate_target t));
-  require
-    (resource_admission_bytes t.resources
-     <= Admission.Limit.maximum Referenced_resource_bytes)
-    Invalid_argument
-    "referenced blob storage exceeds 512MiB"
+  capacity
+    Referenced_resource_bytes
+    ~used:(previous_used (fun state -> resource_admission_bytes state.resources))
+    ~attempted:(resource_admission_bytes t.resources)
 ;;
 
 let validate_new_claim_run t (claim : Claim.t) =

@@ -454,10 +454,22 @@ let apply t change =
           + if Map.is_empty t.entries then 0 else 1
         in
         let next = { entries; retained_bytes } in
-        if
-          Map.length entries > Admission.Limit.maximum Fact_keys
-          || retained_bytes > Admission.Limit.maximum Fact_version_bytes
-        then Error (Problem.create Blocked "fact retained capacity exceeded")
+        if Map.length entries > Admission.Limit.maximum Fact_keys
+        then
+          Error
+            (Admission.refusal
+               Fact_keys
+               ~used:(Map.length t.entries)
+               ~attempted:(Map.length entries)
+               ~kind:Blocked)
+        else if retained_bytes > Admission.Limit.maximum Fact_version_bytes
+        then
+          Error
+            (Admission.refusal
+               Fact_version_bytes
+               ~used:t.retained_bytes
+               ~attempted:retained_bytes
+               ~kind:Blocked)
         else Ok next))
 ;;
 

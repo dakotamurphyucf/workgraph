@@ -37,6 +37,14 @@ val budget : t -> Id.Run.t -> Budget.t option
     total attempts, while only active attempts consume concurrency. *)
 val validate_allocation : t -> Id.Run.t -> runs:Agent_run.t -> (unit, Problem.t) Result.t
 
+(** The same exhausted attempt/concurrency limits enforced by
+    [validate_allocation], from one staged run snapshot. *)
+val allocation_limits
+  :  t
+  -> Id.Run.t
+  -> runs:Agent_run.t
+  -> Allocation.Budget_limit.t list
+
 val attention : t -> runs:Agent_run.t -> Run_budget.Attention.t list
 
 val validate_references

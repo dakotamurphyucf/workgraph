@@ -1,0 +1,9 @@
+(rule
+ (alias runtest)
+ (deps socket_test.py ../../examples/capacity-rollover.py)
+ (action
+  (run
+   python3
+   %{dep:socket_test.py}
+   %{exe:../../bin/main.exe}
+   %{dep:../../examples/capacity-rollover.py})))

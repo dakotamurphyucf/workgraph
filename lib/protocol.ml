@@ -2,7 +2,10 @@ open Core
 
 let validate_server_request json =
   Json.decode (fun () ->
-    Json.fields json ~allowed:[ "jsonrpc"; "id"; "method"; "params" ];
+    (match Current_format.validate Application_api json with
+     | Ok () -> ()
+     | Error p -> raise (Json.Decode_error p));
+    Json.fields json ~allowed:[ "jsonrpc"; "workgraph_api"; "id"; "method"; "params" ];
     if not (String.equal (Json.text (Json.field json "jsonrpc")) "2.0")
     then Json.fail Unsupported_version "JSON-RPC 2.0 required";
     (match Json.field json "id" with
@@ -32,6 +35,7 @@ module Request = struct
   let to_json t =
     Json.obj
       [ "jsonrpc", Json.string "2.0"
+      ; "workgraph_api", Current_format.value Application_api
       ; "id", Json.string t.id
       ; "method", Json.string t.method_
       ; "params", t.params
@@ -55,7 +59,10 @@ module Request = struct
 
   let of_json json =
     Json.decode (fun () ->
-      Json.fields json ~allowed:[ "jsonrpc"; "id"; "method"; "params" ];
+      (match Current_format.validate Application_api json with
+       | Ok () -> ()
+       | Error p -> raise (Json.Decode_error p));
+      Json.fields json ~allowed:[ "jsonrpc"; "workgraph_api"; "id"; "method"; "params" ];
       if not (String.equal (Json.text (Json.field json "jsonrpc")) "2.0")
       then Json.fail Unsupported_version "JSON-RPC 2.0 required";
       match
@@ -95,6 +102,11 @@ let decode_response request json =
     then Json.fail Invalid_argument "response request ID differs";
     match Json.optional json "result", Json.optional json "error" with
     | Some result, None ->
+      if String.equal request.Request.method_ "initialize"
+      then (
+        match Current_format.validate Application_api (Json.field result "data") with
+        | Ok () -> ()
+        | Error problem -> raise (Json.Decode_error problem));
       (match Api_response.of_json result with
        | Ok _ -> Success result
        | Error problem -> raise (Json.Decode_error problem))
@@ -104,27 +116,15 @@ let decode_response request json =
         match Json.field error "code" with
         | `Number "-32000" -> false
         | `Number "-32600" -> true
-        | _ -> Json.fail Unsupported_version "unsupported v1 error code"
+        | _ -> Json.fail Unsupported_version "unsupported application error code"
       in
       let data = Json.field error "data" in
-      Json.fields data ~allowed:[ "kind"; "message" ];
-      let kind =
-        match Json.text (Json.field data "kind") with
-        | "Invalid_argument" -> Problem.Invalid_argument
-        | "Not_found" -> Not_found
-        | "Conflict" -> Conflict
-        | "Blocked" -> Blocked
-        | "Dependency_cycle" -> Dependency_cycle
-        | "Already_claimed" -> Already_claimed
-        | "Stale_claim" -> Stale_claim
-        | "Idempotency_conflict" -> Idempotency_conflict
-        | "Corrupt_store" -> Corrupt_store
-        | "Storage_unavailable" -> Storage_unavailable
-        | "Outcome_unknown" -> Outcome_unknown
-        | "Workspace_closed" -> Workspace_closed
-        | "Unsupported_version" -> Unsupported_version
-        | _ -> Json.fail Unsupported_version "unknown application error discriminator"
+      let problem =
+        match Problem_wire.of_json data with
+        | Ok problem -> problem
+        | Error error -> raise (Json.Decode_error error)
       in
+      let kind = problem.Problem.kind in
       if
         invalid_envelope
         && not
@@ -136,7 +136,7 @@ let decode_response request json =
       let message = Json.text (Json.field data "message") in
       if not (String.equal message (Json.text (Json.field error "message")))
       then Json.fail Invalid_argument "error messages differ";
-      Failure (Problem.create kind message)
+      Failure problem
     | Some _, Some _ | None, None ->
       Json.fail Invalid_argument "response requires exactly one result or error")
 ;;

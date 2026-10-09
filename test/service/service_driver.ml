@@ -37,6 +37,7 @@ let () =
             (call
                (Json.obj
                   [ "jsonrpc", Json.string "2.0"
+                  ; "workgraph_api", Current_format.value Application_api
                   ; "id", Json.string "stop"
                   ; "method", Json.string "daemon.shutdown"
                   ; "params", Json.obj []

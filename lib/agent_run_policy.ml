@@ -240,19 +240,35 @@ let prepare t command =
     prepared)
 ;;
 
+let allocation_limits t run ~runs =
+  match budget t run with
+  | None -> []
+  | Some budget ->
+    let attempts = Agent_run.attempts_for_run runs run in
+    let active =
+      List.count attempts ~f:(fun a -> not (Attempt.State.terminal a.Attempt.state))
+    in
+    List.filter_map
+      [ Allocation.Budget_limit.Attempts, List.length attempts, budget.max_attempts
+      ; Active_attempts, active, budget.max_active_attempts
+      ]
+      ~f:(fun (kind, used, limit) ->
+        Option.bind limit ~f:(fun limit ->
+          if used >= limit
+          then Some { Allocation.Budget_limit.kind; used; limit }
+          else None))
+;;
+
 let validate_allocation t run ~runs =
-  Json.decode (fun () ->
-    match budget t run with
-    | None -> ()
-    | Some budget ->
-      let attempts = Agent_run.attempts_for_run runs run in
-      Option.iter budget.max_attempts ~f:(fun limit ->
-        require (List.length attempts < limit) Blocked "Run attempt budget is exhausted");
-      let active =
-        List.count attempts ~f:(fun a -> not (Attempt.State.terminal a.Attempt.state))
-      in
-      Option.iter budget.max_active_attempts ~f:(fun limit ->
-        require (active < limit) Blocked "Run concurrency budget is exhausted"))
+  match allocation_limits t run ~runs with
+  | [] -> Ok ()
+  | exhausted :: _ ->
+    Error
+      (Problem.create
+         Blocked
+         (match exhausted.Allocation.Budget_limit.kind with
+          | Attempts -> "Run attempt budget is exhausted"
+          | Active_attempts -> "Run concurrency budget is exhausted"))
 ;;
 
 let usage_run usage ~runs =

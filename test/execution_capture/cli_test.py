@@ -144,7 +144,9 @@ class ExecutionCliTest(unittest.TestCase):
                     cli("evidence-publish", address, "--stage", stage, "--actor-id", "other", expected=1)
                     self.assertEqual((stage / "publication.json").read_bytes(), request_bytes)
                     published = json.loads(cli("evidence-publish", address, "--stage", stage).stdout)
-                    self.assertEqual(published, proxy.receipt)
+                    self.assertEqual(published["jsonrpc"], "2.0")
+                    self.assertEqual(published["id"], saved["id"])
+                    self.assertEqual(published["result"], proxy.receipt)
                     resource = client.call("resource.get", dict(workspace_id="work", resource_id="capture"))
                     self.assertEqual(resource["data"]["resource_id"], "capture")
                     # Only the saved intent/receipt are needed after a committed upload.

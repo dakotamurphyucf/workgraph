@@ -12,25 +12,113 @@ let positive_counter =
 ;;
 
 module Handoff = struct
+  module Wire = struct
+    type t =
+      { summary : string
+      ; next_steps : string
+      ; objective : string option
+      ; completed : string option
+      ; decisions : string option
+      ; blockers : string option
+      ; resource_ids : string list option
+      ; covers_through : int option
+      }
+    [@@deriving sexp]
+
+    let codec =
+      let open Api_codec in
+      let ( ++ ) = Fields.both in
+      let text = text ~max_bytes:65536 in
+      let reference =
+        map
+          (Api_codec.text ~max_bytes:97)
+          ~decode:(fun value ->
+            let identity =
+              if String.is_prefix value ~prefix:"$"
+              then String.drop_prefix value 1
+              else value
+            in
+            Result.map (Id.Resource.of_string identity) ~f:(fun _ -> value))
+          ~encode:Fn.id
+          ~description:"Resource identity or transaction alias"
+      in
+      object_
+        (Fields.map
+           (Fields.required "summary" text
+            ++ Fields.required "next_steps" text
+            ++ Fields.optional "objective" text
+            ++ Fields.optional "completed" text
+            ++ Fields.optional "decisions" text
+            ++ Fields.optional "blockers" text
+            ++ Fields.optional "resource_ids" (list reference ~max_items:100)
+            ++ Fields.optional "covers_through" (decimal ~max:Int.max_value))
+           ~decode:
+             (fun
+               ( ( (((((summary, next_steps), objective), completed), decisions), blockers)
+                 , resource_ids )
+               , covers_through ) ->
+             { summary
+             ; next_steps
+             ; objective
+             ; completed
+             ; decisions
+             ; blockers
+             ; resource_ids
+             ; covers_through
+             })
+           ~encode:(fun t ->
+             ( ( ( ((((t.summary, t.next_steps), t.objective), t.completed), t.decisions)
+                 , t.blockers )
+               , t.resource_ids )
+             , t.covers_through )))
+    ;;
+  end
+
   type t =
     { summary : string
     ; next_steps : string
+    ; objective : string option
+    ; completed : string option
+    ; decisions : string option
+    ; blockers : string option
+    ; resource_ids : Id.Resource.t list option
     ; covers_through : int option
     }
   [@@deriving sexp]
 
+  let of_wire (wire : Wire.t) =
+    { summary = wire.summary
+    ; next_steps = wire.next_steps
+    ; objective = wire.objective
+    ; completed = wire.completed
+    ; decisions = wire.decisions
+    ; blockers = wire.blockers
+    ; resource_ids =
+        Option.map
+          wire.resource_ids
+          ~f:(List.map ~f:(fun value -> Id.Resource.t_of_jsonaf (Json.string value)))
+    ; covers_through = wire.covers_through
+    }
+  ;;
+
+  let to_wire t =
+    { Wire.summary = t.summary
+    ; next_steps = t.next_steps
+    ; objective = t.objective
+    ; completed = t.completed
+    ; decisions = t.decisions
+    ; blockers = t.blockers
+    ; resource_ids = Option.map t.resource_ids ~f:(List.map ~f:Id.Resource.to_string)
+    ; covers_through = t.covers_through
+    }
+  ;;
+
   let codec =
-    let open Api_codec in
-    object_
-      (Fields.map
-         (Fields.both
-            (Fields.required "summary" (text ~max_bytes:65536))
-            (Fields.both
-               (Fields.required "next_steps" (text ~max_bytes:65536))
-               (Fields.optional "covers_through" (decimal ~max:Int.max_value))))
-         ~decode:(fun (summary, (next_steps, covers_through)) ->
-           { summary; next_steps; covers_through })
-         ~encode:(fun t -> t.summary, (t.next_steps, t.covers_through)))
+    Api_codec.map
+      Wire.codec
+      ~decode:(fun wire -> Json.decode (fun () -> of_wire wire))
+      ~encode:to_wire
+      ~description:"Finish handoff patch; omitted rich fields preserve previous values."
   ;;
 end
 
@@ -203,7 +291,7 @@ module Wire = struct
         { ticket_id : string
         ; token : int
         ; evidence : string
-        ; handoff : Handoff.t option
+        ; handoff : Handoff.Wire.t option
         }
     | Recover of Recovery.Wire.t
     | Reopen of
@@ -313,7 +401,7 @@ module Wire = struct
                     (Fields.required "token" token)
                     (Fields.both
                        (Fields.required "evidence" nonblank)
-                       (Fields.optional "handoff" Handoff.codec))))
+                       (Fields.optional "handoff" Handoff.Wire.codec))))
               ~decode:(fun (ticket_id, (token, (evidence, handoff))) ->
                 Finish { ticket_id; token; evidence; handoff })
               ~encode:(function
@@ -415,7 +503,7 @@ module Command = struct
         { ticket_id = Id.Ticket.t_of_jsonaf (Json.string ticket_id)
         ; token
         ; evidence
-        ; handoff
+        ; handoff = Option.map handoff ~f:Handoff.of_wire
         }
     | Wire.Recover request -> Recover (Recovery.of_wire request)
     | Wire.Reopen { ticket_id; expected_revision; reason } ->
@@ -443,7 +531,12 @@ module Command = struct
         ; attempt_id = Option.map attempt_id ~f:Attempt.Id.to_string
         }
     | Finish { ticket_id; token; evidence; handoff } ->
-      Wire.Finish { ticket_id = Id.Ticket.to_string ticket_id; token; evidence; handoff }
+      Wire.Finish
+        { ticket_id = Id.Ticket.to_string ticket_id
+        ; token
+        ; evidence
+        ; handoff = Option.map handoff ~f:Handoff.to_wire
+        }
     | Recover request -> Wire.Recover (Recovery.to_wire request)
     | Reopen { ticket_id; expected_revision; reason } ->
       Wire.Reopen { ticket_id = Id.Ticket.to_string ticket_id; expected_revision; reason }
@@ -484,22 +577,63 @@ let response_codec method_ =
     let ticket_id = Fields.required "ticket_id" identifier in
     let fields =
       match method_ with
-      | "ticket.claim" | "ticket.start" ->
+      | "ticket.claim" ->
         Fields.map
           (Fields.both ticket_id (Fields.required "token" positive_counter))
           ~decode:(fun (id, token) ->
             Json.obj [ "ticket_id", Json.string id; "token", Json.int token ])
           ~encode:(fun j ->
             Json.text (Json.field j "ticket_id"), Json.integer (Json.field j "token"))
+      | "ticket.start" ->
+        Fields.map
+          (Fields.both
+             (Fields.both ticket_id (Fields.required "token" positive_counter))
+             (Fields.optional
+                "attempt"
+                (Coordination_wire.checked
+                   Agent_run_api.Attempt_result.codec
+                   (fun attempt ->
+                      if not (Attempt.State.equal attempt.state Running)
+                      then Json.fail Invalid_argument "start attempt must be running"))))
+          ~decode:(fun ((id, token), attempt) ->
+            Json.obj
+              ([ "ticket_id", Json.string id; "token", Json.int token ]
+               @ Option.to_list
+                   (Option.map attempt ~f:(fun attempt ->
+                      "attempt", Agent_run_api.Attempt_result.to_json attempt))))
+          ~encode:(fun j ->
+            ( (Json.text (Json.field j "ticket_id"), Json.integer (Json.field j "token"))
+            , Option.map
+                (Json.optional j "attempt")
+                ~f:(Coordination_wire.decode_exn Agent_run_api.Attempt_result.codec) ))
       | "ticket.finish" ->
         Fields.map
-          (Fields.required "completed" boolean)
-          ~decode:(fun b -> Json.obj [ ("completed", if b then `True else `False) ])
+          (Fields.both
+             (Fields.required "completed" boolean)
+             (Fields.optional
+                "attempt"
+                (Coordination_wire.checked
+                   Agent_run_api.Attempt_result.codec
+                   (fun attempt ->
+                      if not (Attempt.State.equal attempt.state Completed)
+                      then Json.fail Invalid_argument "finish attempt must be completed"))))
+          ~decode:(fun (b, attempt) ->
+            Json.obj
+              ([ ("completed", if b then `True else `False) ]
+               @ Option.to_list
+                   (Option.map attempt ~f:(fun attempt ->
+                      "attempt", Agent_run_api.Attempt_result.to_json attempt))))
           ~encode:(fun j ->
-            match Json.field j "completed" with
-            | `True -> true
-            | `False -> false
-            | _ -> Json.fail Invalid_argument "boolean required")
+            let completed =
+              match Json.field j "completed" with
+              | `True -> true
+              | `False -> false
+              | _ -> Json.fail Invalid_argument "boolean required"
+            in
+            ( completed
+            , Option.map
+                (Json.optional j "attempt")
+                ~f:(Coordination_wire.decode_exn Agent_run_api.Attempt_result.codec) ))
       | "ticket.reopen" | "ticket.recover" ->
         Fields.map
           (Fields.both ticket_id (Fields.required "revision" positive_counter))

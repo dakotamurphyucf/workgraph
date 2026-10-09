@@ -4,7 +4,7 @@ type t = { execute : Protocol.Request.t -> (Protocol.response, Problem.t) Result
 
 let create ~net ~clock ~socket ~timeout_seconds =
   Json.decode (fun () ->
-    Disk.absolute socket;
+    Platform.validate_socket_path socket |> Disk.unwrap;
     if
       (not (Float.is_finite timeout_seconds))
       || Float.(timeout_seconds <= 0. || timeout_seconds > 3600.)
@@ -36,6 +36,10 @@ let create ~net ~clock ~socket ~timeout_seconds =
                    Protocol.decode_response request response |> Disk.unwrap)))
         with
         | Ok response -> Ok response
+        | Error error
+          when Problem.equal_kind error.kind Unsupported_version
+               && String.equal (Protocol.Request.method_ request) "initialize" ->
+          Error error
         | Error error -> failure error.message
       with
       | Eio.Time.Timeout -> failure "request timed out"

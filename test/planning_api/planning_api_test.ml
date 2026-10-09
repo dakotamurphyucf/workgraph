@@ -47,9 +47,9 @@ let%expect_test "the declared request codec validates omission null and enums" =
   [%expect
     {|
     ok
-    expected string
-    unknown enum value
-    unknown field: ticket
+    /title: expected string
+    /status: expected one of: backlog, todo, in_progress, done, canceled
+    /ticket: unknown field
   |}]
 ;;
 
@@ -96,8 +96,8 @@ let%expect_test "tagged codecs enforce the selected branch" =
     (Api_codec.decode Planning_target.codec (json {|{"kind":"ticket","id":"$new"}|}));
   [%expect
     {|
-    unknown field: id
-    unknown tagged object kind
+    /id: unknown field
+    /kind: unknown tagged object kind
     ok
   |}]
 ;;
@@ -149,8 +149,8 @@ let%expect_test "resource generation and Gregorian date invariants validate publ
     ok
     resource_id is required when expected_revision is nonzero
     ok
-    target_date must be a valid YYYY-MM-DD date
-    target_date must be a valid YYYY-MM-DD date
+    /target_date: target_date must be a valid YYYY-MM-DD date
+    /target_date: target_date must be a valid YYYY-MM-DD date
   |}]
 ;;
 
@@ -183,7 +183,7 @@ let%expect_test "method descriptors execute their real request and receipt codec
   [%expect
     {|
     ok
-    expected string
+    /token: expected canonical decimal string in 0..4611686018427387903
     ticket.release
     handler ran: true
   |}]
@@ -245,7 +245,7 @@ let%expect_test "template receipts use canonical typed projections and closed op
     {|
     {"duplicate":true,"instance":{"instance_id":"instance","parameters":{"title":"Literal $value"},"template_id":"template","template_revision":"1","tickets":[{"alias":"build","capabilities":[],"description":"","parent_ticket_id":null,"prerequisite_ticket_ids":[],"reviewer_ids":[],"separate_actor":false,"ticket_id":"instance-build","title":"Build"}]},"results":[{"data":{"duplicate":true,"revision":"4"},"kind":"instance_register"}]}
     ok
-    unknown field: extra
+    /extra: unknown field
     {"enabled":true,"reviewers":[{"kind":"role","member_ids":["actor"],"name":"reviewer"}],"revision":"1","separate_actor":true,"ticket_id":"instance-build","validators":[]}
     ok
     |}]
@@ -269,7 +269,7 @@ let%expect_test "operation discriminators accept dotted methods and reject unkno
   [%expect
     {|
     ok
-    unknown tagged object kind
+    /method: unknown tagged object kind
     |}]
 ;;
 

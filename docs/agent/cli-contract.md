@@ -38,7 +38,8 @@ Example equivalents:
 Use request for multi-dot methods, e.g. review.policy.put. FAMILY ACTION joins with a dot,
 except reserved CLI prefixes. For request.create use `workgraph request SOCKET request.create
 ...`, not `workgraph request create SOCKET ...`.
-Raw call takes exactly a parameter JSON object; request options are not added to raw call.
+Raw call supplies fields in one parameter JSON object; field flags are not added to it.
+Explicit local context/self options use the same addressing rules as named requests.
 
 Agent-local setup:
 workgraph init --context /abs/agent/context.json --socket /abs/workgraph.sock \
@@ -58,6 +59,14 @@ Explicit --workspace-id, --actor-id and --run-id override context defaults. Read
 receive workspace scope but no automatic actor filter or run attribution. There is
 no shared current ticket or global mutable actor.
 
+--self explicitly supplies a missing actor recipient for inbox.read/wait/ack and
+request.list/acknowledge/accept, or target_run_id for run.get/transition/observe/link_session.
+Explicit recipient/target_run_id wins, even without context. Otherwise supply --context
+with actor/run identity, or an explicit selector. General reads never apply self filters
+by default. --self does not select request.reassign destinations or run.register IDs.
+It is a local flag, not an API field; raw JSON self fields remain unknown parameters.
+Saved-request retry rejects --self so it cannot change the frozen operation.
+
 Options for named requests:
 --output json|text           JSON output (default), or human-readable output.
 --timeout SECONDS            Positive finite timeout, default 30, maximum 3600.
@@ -66,13 +75,16 @@ Options for named requests:
 --field-file FIELD FILE      Read a UTF-8 string from a file.
 --save-request ABS_FILE      Sync a fresh exact retry file before transmission.
 --request-directory ABS_DIR  Sync a fresh random-named file for each durable write.
---FIELD VALUE               Hyphens become underscores. Values are strings except archived,
-                            include_archived, include_tombstones, allow_partial (true/false).
+--self                      Explicit context actor recipient or current run selector.
+--FIELD VALUE               Hyphens become underscores. Declared Boolean fields accept
+                            true/false; text and decimal fields remain strings.
 
 Field names are literal: --actor sets actor, --actor-id sets actor_id, and --text VALUE
 sets text. Output formatting uses --output text. Parameter-file keys are normalized
 from hyphens to underscores, with no workspace/actor aliases. Nested keys are untouched.
-For other booleans use --json-field enabled true, not --enabled true.
+For mixed/nullable Boolean alternatives use --json-field with explicit JSON.
+Raw JSON, --json-field, --field-file and --params-file values are never coerced.
+For example --include-markdown true is Boolean, while --title true is the text "true".
 Configured request directories must already exist for ordinary calls; init creates
 the chosen directory. Files are private, created exclusively and synced with their
 parent before sending; stderr reports saved_request: ABS_FILE. A failed save sends
@@ -93,7 +105,12 @@ The CLI handles transport. Direct clients use a Unix stream socket with JSON-RPC
 4 MiB, maximum JSON nesting depth 64. Params is an object. Send a request id (nonempty
 string <=256 bytes recommended); notifications without an id are not supported.
 Example request:
-{"jsonrpc":"2.0","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
+{"jsonrpc":"2.0","workgraph_api":"0.3","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
+The application marker is required on every request, including initialize and saved exact
+retries. The CLI supplies it; no discovery round trip is needed. Missing/unsupported
+profiles return Unsupported_version before method-dependent interpretation. Package
+version, workgraph_api and independently versioned persisted roots are separate identities.
+Read docs/compatibility.md for the current-root inventory; opening never migrates old data.
 Success: {"jsonrpc":"2.0","id":"read-1","result":{"data":{...},"meta":{...}}}
 Error: {"jsonrpc":"2.0","id":"read-1","error":{"code":-32000,"message":"...","data":{"kind":"Conflict","message":"..."}}}
 Do not interpret the JSON-RPC id as a mutation idempotency key. Validate matching response
@@ -225,7 +242,14 @@ Readiness is an observation, not permission to bypass the mutation's current-sta
 ]]></record_contracts>
 </common_contract>
 <errors_and_recovery><![CDATA[
-Problem={kind:string,message:string}; branch on error.data.kind, not message wording.
+Problem={kind:string,message:string,details?:object}; branch on error.data.kind, not message wording.
+Optional details use a type discriminator: field (path segments, expected, suggestion),
+revision (expected, actual), ownership (actor_id, run_id), readiness (ticket_id, blockers),
+version (representation, observed, supported), or capacity (meter, used, limit, attempted,
+unit, operator_action). Capacity attempted is proposed total usage, not an increment;
+operator_action points to installed recovery guidance. No ownership token is included in these
+diagnostics. Field messages use escaped JSON pointers such as /operations/0/params/title.
+Readiness details are bounded summaries; inspect ticket.readiness for the full current view.
 Invalid_argument: unknown/duplicate fields, wrong type/enum/JSON shape, missing required key,
  bad ID/counter, or a limit. Correct construction before a deliberate new operation.
 Not_found: missing referenced entity/receipt subject; recover identity and current state.
@@ -242,6 +266,10 @@ Idempotency_conflict: an existing ID/key names different content. Recover the or
 Outcome_unknown: commit/publication might have happened. Keep exact request/input bytes.
  If workspace storage is fenced, close/open it or restart for recovery, then inspect its
  receipt and retry the same saved request. A registry fence requires daemon restart first.
+Local_io: expected client-local file/output I/O failed. Fix the named path or permissions;
+ this does not diagnose daemon storage. Missing/nonregular inputs and existing exclusive
+ destinations report Invalid_argument. --field-file requires a regular file up to 4MiB;
+ stdin, pipes and devices are not supported.
 Storage_unavailable: storage operation could not establish success. Preserve request/evidence,
  fix disk/permissions/filesystem availability, recover ownership, then retry the same identity.
 Workspace_closed: open the registered workspace with a fresh admin request when authorized;

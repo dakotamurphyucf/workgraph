@@ -3,8 +3,8 @@ open Core
 let usage =
   {|Usage:
   workgraph --version
-  workgraph methods [--output json|text]
-  workgraph help METHOD [--output json|text]
+  workgraph methods [--core] [--output json|text]
+  workgraph help METHOD [--brief|--full] [--output json|text]
   workgraph schema [METHOD]
   workgraph serve ABS_REGISTRY ABS_SOCKET
   workgraph call ABS_SOCKET METHOD PARAMS_JSON
@@ -23,6 +23,7 @@ let usage =
 Agent-local defaults:
   --context ABS_FILE            Load explicit socket/workspace/actor/run defaults
   --socket ABS_SOCKET           Override context or positional socket
+  --self                        Select context actor recipient or current run explicitly
   --request-directory ABS_DIR   Journal durable writes before transmission
 
 Request options:
@@ -43,6 +44,8 @@ operation. No automatic retries or implicit workspace creation occur.
 
 type options =
   { fields : (string * Jsonaf.t) list
+  ; named_fields : string list
+  ; self : bool
   ; text : bool
   ; timeout_seconds : float
   ; save_request : string option
@@ -54,6 +57,8 @@ let field_name value = String.tr value ~target:'-' ~replacement:'_'
 let parse_options ~fs arguments =
   let initial =
     { fields = []
+    ; named_fields = []
+    ; self = false
     ; text = false
     ; timeout_seconds = 30.
     ; save_request = None
@@ -68,6 +73,9 @@ let parse_options ~fs arguments =
   in
   let rec loop options = function
     | [] -> options
+    | "--self" :: rest ->
+      if options.self then Json.fail Invalid_argument "duplicate --self option";
+      loop { options with self = true } rest
     | "--output" :: "text" :: rest -> loop { options with text = true } rest
     | "--output" :: "json" :: rest -> loop { options with text = false } rest
     | "--request-directory" :: directory :: rest ->
@@ -86,7 +94,11 @@ let parse_options ~fs arguments =
       then Json.fail Invalid_argument "duplicate save-request option";
       loop { options with save_request = Some file } rest
     | "--params-file" :: file :: rest ->
-      let json = Disk.read Eio.Path.(fs / file) |> Json.parse |> Disk.unwrap in
+      let json =
+        Local_file.read Eio.Path.(fs / file) ~operation:"read parameter file"
+        |> Json.parse
+        |> Disk.unwrap
+      in
       let options =
         match json with
         | `Object fields ->
@@ -97,7 +109,7 @@ let parse_options ~fs arguments =
     | "--json-field" :: key :: value :: rest ->
       loop (add options key (Json.parse value |> Disk.unwrap)) rest
     | "--field-file" :: key :: file :: rest ->
-      let bytes = Disk.read Eio.Path.(fs / file) in
+      let bytes = Local_file.read Eio.Path.(fs / file) ~operation:"read field file" in
       if
         not
           (Uutf.String.fold_utf_8
@@ -110,20 +122,8 @@ let parse_options ~fs arguments =
       loop (add options key (Json.string bytes)) rest
     | flag :: value :: rest when String.is_prefix flag ~prefix:"--" ->
       let key = field_name (String.drop_prefix flag 2) in
-      let value =
-        if
-          List.mem
-            [ "archived"; "include_archived"; "include_tombstones"; "allow_partial" ]
-            key
-            ~equal:String.equal
-        then (
-          match value with
-          | "true" -> `True
-          | "false" -> `False
-          | _ -> Json.fail Invalid_argument (key ^ " requires true or false"))
-        else Json.string value
-      in
-      loop (add options key value) rest
+      let options = add options key (Json.string value) in
+      loop { options with named_fields = key :: options.named_fields } rest
     | _ -> Json.fail Invalid_argument "malformed CLI options; use --help"
   in
   loop initial arguments
@@ -146,12 +146,7 @@ let render_text value =
   String.concat ~sep:"\n" (render "" value)
 ;;
 
-let needs_mutation_id request =
-  match Api_catalog.find (Protocol.Request.method_ request) with
-  | Some (Api_method.Packed.Pack method_) ->
-    Api_method.Mode.equal (Api_method.mode method_) Mutation
-  | None -> String.equal (Protocol.Request.method_ request) "resource.upload"
-;;
+let needs_mutation_id = Cli_mutation_identity.required
 
 let run ~env arguments =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
@@ -179,30 +174,12 @@ let run ~env arguments =
       |> Disk.unwrap
     in
     let request =
-      if
-        needs_mutation_id request
-        && Option.is_none (Json.optional (Protocol.Request.params request) "mutation_id")
-      then (
-        match options.save_request, options.request_directory with
-        | None, None ->
-          Json.fail Invalid_argument "mutations require --mutation-id or --save-request"
-        | _ ->
-          let bytes = Cstruct.create 32 in
-          Eio.Flow.read_exact (Eio.Stdenv.secure_random env) bytes;
-          let fields =
-            match Protocol.Request.params request with
-            | `Object fields -> fields
-            | _ -> assert false
-          in
-          Protocol.Request.create
-            ~id:"cli"
-            ~method_:(Protocol.Request.method_ request)
-            ~params:
-              (Json.obj
-                 (("mutation_id", Json.string (Json.hash (Cstruct.to_string bytes)))
-                  :: fields))
-          |> Disk.unwrap)
-      else request
+      Cli_mutation_identity.ensure
+        request
+        ~random:(Eio.Stdenv.secure_random env)
+        ~allow_generate:
+          (Option.is_some options.save_request || Option.is_some options.request_directory)
+      |> Disk.unwrap
     in
     let upload =
       if String.equal (Protocol.Request.method_ request) "resource.upload"
@@ -223,7 +200,7 @@ let run ~env arguments =
       match options.save_request, options.request_directory with
       | Some path, _ -> Some path
       | None, Some directory when needs_mutation_id request ->
-        Disk.require_directory Eio.Path.(fs / directory);
+        Local_file.require_directory Eio.Path.(fs / directory) ~operation:"save request";
         let bytes = Cstruct.create 32 in
         Eio.Flow.read_exact (Eio.Stdenv.secure_random env) bytes;
         Some (Filename.concat directory (Json.hash (Cstruct.to_string bytes) ^ ".json"))
@@ -231,7 +208,8 @@ let run ~env arguments =
     in
     Option.iter save_request ~f:(fun file ->
       Disk.absolute file;
-      Disk.write_new
+      Local_file.write_new
+        ~operation:"save request"
         Eio.Path.(fs / file)
         (Json.canonical (Protocol.Request.to_json request));
       diagnostic ("saved_request: " ^ file));
@@ -266,6 +244,29 @@ let run ~env arguments =
   in
   let context = ref None in
   let request socket method_ options =
+    let options =
+      if options.self
+      then
+        { options with
+          fields =
+            Cli_context.apply_self !context ~method_ ~fields:options.fields |> Disk.unwrap
+        }
+      else options
+    in
+    let options =
+      match Api_catalog.find method_ with
+      | None -> options
+      | Some (Api_method.Packed.Pack method_definition) ->
+        let codec = Api_method.request_codec method_definition in
+        { options with
+          fields =
+            List.map options.fields ~f:(fun (key, value) ->
+              if List.mem options.named_fields key ~equal:String.equal
+              then
+                key, Api_codec.cli_value codec ~field:key (Json.text value) |> Disk.unwrap
+              else key, value)
+        }
+    in
     let fields =
       Option.value_map !context ~default:options.fields ~f:(fun context ->
         Cli_context.apply context ~method_ ~fields:options.fields)
@@ -300,7 +301,7 @@ let run ~env arguments =
           select context_file (Some path) reversed rest
         | (("--json-field" | "--field-file") as flag) :: key :: value :: rest ->
           select context_file socket (value :: key :: flag :: reversed) rest
-        | (("--json" | "--help" | "--version") as flag) :: rest ->
+        | (("--json" | "--help" | "--version" | "--self") as flag) :: rest ->
           select context_file socket (flag :: reversed) rest
         | flag :: value :: rest when String.is_prefix flag ~prefix:"--" ->
           select context_file socket (value :: flag :: reversed) rest
@@ -345,11 +346,8 @@ let run ~env arguments =
       | "evidence-publish" :: rest ->
         let socket, rest = with_socket rest in
         let options = parse_options ~fs rest in
-        if Option.is_some options.save_request || Option.is_some options.request_directory
-        then
-          Json.fail
-            Invalid_argument
-            "evidence publication saves its exact request inside --stage";
+        if options.self
+        then Json.fail Invalid_argument "--self is unsupported for evidence-publish";
         let directory =
           match List.Assoc.find options.fields "stage" ~equal:String.equal with
           | None -> Json.fail Invalid_argument "evidence-publish requires --stage"
@@ -359,7 +357,13 @@ let run ~env arguments =
         let fields = List.Assoc.remove options.fields "stage" ~equal:String.equal in
         let saved = Filename.concat directory "publication.json" in
         let publication =
-          match Eio.Path.kind ~follow:false Eio.Path.(fs / saved) with
+          match
+            Local_file.protect
+              ~operation:"inspect publication intent"
+              ~path:saved
+              (fun () -> Eio.Path.kind ~follow:false Eio.Path.(fs / saved))
+            |> Disk.unwrap
+          with
           | `Not_found ->
             let fields =
               Option.value_map !context ~default:fields ~f:(fun context ->
@@ -382,6 +386,21 @@ let run ~env arguments =
             Execution_publication.load ~fs ~directory |> Disk.unwrap
         in
         diagnostic ("saved_request: " ^ Execution_publication.saved_request publication);
+        let request_directory =
+          match options.request_directory with
+          | Some _ as directory -> directory
+          | None -> Option.bind !context ~f:Cli_context.request_directory
+        in
+        let journal =
+          match options.save_request, request_directory with
+          | Some destination, _ -> Some destination
+          | None, Some directory ->
+            Some (Execution_publication.journal_path publication ~directory |> Disk.unwrap)
+          | None, None -> None
+        in
+        Option.iter journal ~f:(fun destination ->
+          Execution_publication.journal publication ~fs ~destination |> Disk.unwrap;
+          diagnostic ("saved_request: " ^ destination));
         let client =
           Client.create
             ~net:(Eio.Stdenv.net env)
@@ -393,7 +412,14 @@ let run ~env arguments =
         let receipt =
           Execution_publication.publish publication ~client ~fs |> Disk.unwrap
         in
-        output (if options.text then render_text receipt else Json.canonical receipt);
+        output
+          (if options.text
+           then render_text receipt
+           else
+             Protocol.response_json
+               (Execution_publication.request publication)
+               (Protocol.Success receipt)
+             |> Json.canonical);
         0
       | [] | [ "--help" ] | [ "help" ] ->
         output usage;
@@ -408,7 +434,7 @@ let run ~env arguments =
           | [ name ] -> Some name
           | _ -> Json.fail Invalid_argument "schema accepts at most one method name"
         in
-        output (Cli_reference.schema ~method_name |> Disk.unwrap |> Json.canonical);
+        output (Cli_reference.schema ~method_name () |> Disk.unwrap |> Json.canonical);
         0
       | "methods" :: _ | "help" :: _ ->
         let method_name, options =
@@ -417,19 +443,33 @@ let run ~env arguments =
           | "help" :: name :: rest -> Some name, rest
           | _ -> Json.fail Invalid_argument "help requires a method name"
         in
-        let json =
+        let rec parse options json core detail =
           match options with
-          | [] | [ "--output"; "text" ] -> false
-          | [ "--output"; "json" ] -> true
-          | _ -> Json.fail Invalid_argument "reference options: --output json|text"
+          | [] -> json, core, detail
+          | "--output" :: "text" :: rest -> parse rest false core detail
+          | "--output" :: "json" :: rest -> parse rest true core detail
+          | "--core" :: rest when Option.is_none method_name ->
+            parse rest json true detail
+          | "--brief" :: rest when Option.is_some method_name ->
+            parse rest json core Cli_reference.Detail.Brief
+          | "--full" :: rest when Option.is_some method_name ->
+            parse rest json core Cli_reference.Detail.Full
+          | _ ->
+            Json.fail
+              Invalid_argument
+              "reference options: methods --core; help METHOD --brief|--full; --output \
+               json|text"
         in
+        let json, core, detail = parse options false false Cli_reference.Detail.Brief in
         output
           (if json
-           then Cli_reference.schema ~method_name |> Disk.unwrap |> Json.canonical
-           else Cli_reference.help ~method_name |> Disk.unwrap);
+           then
+             Cli_reference.schema ~core ~method_name () |> Disk.unwrap |> Json.canonical
+           else Cli_reference.help ~detail ~core ~method_name () |> Disk.unwrap);
         0
       | ("init" | "bootstrap") :: rest ->
         let options = parse_options ~fs rest in
+        if options.self then Json.fail Invalid_argument "--self is unsupported for init";
         if Option.is_some options.save_request
         then
           Json.fail
@@ -500,11 +540,12 @@ let run ~env arguments =
         let options = parse_options ~fs rest in
         if
           (not (List.is_empty options.fields))
+          || options.self
           || Option.is_some options.save_request
           || Option.is_some options.request_directory
         then Json.fail Invalid_argument "retry cannot change or resave request parameters";
         let request =
-          Disk.read Eio.Path.(fs / file)
+          Local_file.read Eio.Path.(fs / file) ~operation:"read retry request"
           |> Json.parse
           |> Disk.unwrap
           |> Protocol.Request.of_json

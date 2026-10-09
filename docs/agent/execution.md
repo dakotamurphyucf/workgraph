@@ -52,20 +52,42 @@ workgraph evidence-publish /absolute/socket --stage /absolute/new-stage \
   --resource-id CAPTURE_RESOURCE --expected-revision 0 --title "Validation run"
 
 Optional --run-id attributes the upload to a run. A configured --context can supply
-socket/workspace/actor/run on this first publication. expected-revision0 creates a
+socket/workspace/actor/run on this first publication. A missing --mutation-id is
+generated using the same identity helper as ordinary saved CLI writes. For example:
+workgraph --context /absolute/context.json evidence-publish --stage /absolute/new-stage \
+  --resource-id CAPTURE_RESOURCE --expected-revision 0 --title "Validation run"
+
+expected-revision0 creates a
 resource; updating an existing resource requires its observed metadata revision.
 Publication fixes filename execution-capture.json and MIME application/json. It saves
 an atomic exact upload request at STAGE/publication.json before network access.
-Output is the normal {data,meta} durable resource receipt; --output text renders it.
+Output is a normal JSON-RPC response: {jsonrpc:"2.0",id,result:{data,meta}} with a durable
+resource receipt; --output text renders the receipt. evidence-run retains its separate
+local execution summary.
 The receipt supplies the exact resource_id, content version and digest for an evidence
 pin. Creating that resource does not link it to an attempt or validation automatically.
+
+A --request-directory (or context request_directory) also saves the same complete
+request under its SHA256 filename for discovery. Explicit --request-directory overrides
+the context directory; --save-request overrides both with an exact destination path.
+The journal copy has the same identity and bytes as publication.json. Both requested
+saves must be synced before any send; an existing identical journal file is accepted
+only after syncing its file and parent, and different bytes are never overwritten.
 
 If publication fails or its response is lost, retry ONLY the saved intent:
 workgraph evidence-publish /absolute/socket --stage /absolute/new-stage
 
 Alternatively use workgraph retry /absolute/socket /absolute/new-stage/publication.json.
 Retries preserve identity, attribution and bytes; do not pass new request fields to
-evidence-publish once publication.json exists. Transport/output options remain allowed.
+evidence-publish once publication.json exists. Transport/output/journal options remain
+allowed. Current context attribution is ignored for a saved stage.
+If stage saving succeeds but journal saving fails, that invocation sends nothing.
+Retry with the same stage and a working journal destination to save the same request
+before sending. Journal policy is per invocation: a deliberate stage-only retry without
+context or journal options may instead use the authoritative stage request directly.
+Either recovery retains the original identity; it never creates another write identity.
+Malformed existing publication.json or unfinished execution stages reject, with no
+regeneration and no command execution.
 The upload checks its durable receipt first, so a committed retry can succeed even
 after capture.json is removed. It never launches the saved command. Uncommitted uploads
 require the unchanged capture bytes. An execution failure and a publication failure

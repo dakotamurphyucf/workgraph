@@ -38,7 +38,7 @@ class InboxWaitTest(unittest.TestCase):
 
             def send(method, params, *, discard=False, started=None):
                 payload = json.dumps({
-                    "jsonrpc": "2.0", "id": "test", "method": method, "params": params,
+                    "jsonrpc": "2.0", "workgraph_api": "0.3", "id": "test", "method": method, "params": params,
                 }).encode()
                 with socket.socket(socket.AF_UNIX) as connection:
                     connection.settimeout(10)

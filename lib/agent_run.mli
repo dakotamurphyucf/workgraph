@@ -24,6 +24,14 @@ val prepare
 
 val candidate : prepared -> t
 val changes : prepared -> Change.t list
+
+(** Run, pool and ticket-policy mutations return the affected entity's [revision].
+    Attempt mutations return [attempt_id], entity [revision] and current [state].
+    Ticket path policy mutations likewise return their own guarded revision.
+    Aggregate reservation/action/condition/recovery mutations explicitly return
+    [coordination_revision]; nested condition/signal/recovery receipts retain
+    their independent identities and counters. Workspace revision is supplied
+    separately by the enclosing durable response metadata. *)
 val result : prepared -> Jsonaf.t
 
 (** Replay checks counters, immutable provenance, lifecycle and reservation
@@ -62,8 +70,20 @@ val attempts_for_ticket : t -> Id.Ticket.t -> Attempt.t list
 val pending_actions : t -> Runner_action.t list
 val session_references : t -> Session_id.t list
 
-(** Silence is a derived indication, never a terminal transition. Times count
-    UTC milliseconds; a backwards clock reports stale conservatively. *)
+module Liveness : sig
+  type t =
+    | Unobserved
+    | Fresh
+    | Stale
+  [@@deriving sexp, equal]
+end
+
+(** Derived liveness does not change status, observations or ownership. Missing
+    observations are [Unobserved]. Times count UTC milliseconds; an observed
+    backwards clock reports [Stale] conservatively. *)
+val liveness : Record.t -> now_unix_ms:int64 -> after_ms:int64 -> Liveness.t
+
+(** True only for [Stale] observed liveness; unobserved runs are not stale. *)
 val stale : Record.t -> now_unix_ms:int64 -> after_ms:int64 -> bool
 
 val decode : method_:string -> params:Jsonaf.t -> (Command.t, Problem.t) Result.t

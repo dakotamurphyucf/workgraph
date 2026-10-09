@@ -15,8 +15,9 @@ socket. Data stays in folders you choose. No database server, hosted account,
 model credentials, or MCP server is needed.
 
 Workgraph is written in OCaml with Jane Street Core and Eio, and is
-[MIT-licensed](LICENSE). **v0.2.0 is a preview release.** The guides and examples
-here describe v0.2.0; use the guide bundled with your installed package.
+[MIT-licensed](LICENSE). **This checkout prepares the unpublished v0.3.0 preview.**
+The guides and examples here use its `workgraph_api:"0.3"` contract. Build this checkout from source to use
+them; published v0.2.0 packages retain their own matching guide and API.
 
 ## What you can do
 
@@ -34,7 +35,8 @@ here describe v0.2.0; use the guide bundled with your installed package.
 ### Save progress and recover context
 
 - Record comments, progress updates, and handoff notes with completed work,
-  decisions, blockers, evidence, and next steps.
+  decisions, blockers, evidence, and next steps. Atomic finish preserves omitted
+  rich handoff fields; explicit empty values clear them.
 - Read a ticket's context or a project brief to recover the relevant work and
   discussion. Search planning text and read the activity trail.
 - Get a bounded resume brief with current ownership, handoff notes, completion
@@ -91,7 +93,9 @@ here describe v0.2.0; use the guide bundled with your installed package.
 - Record the exact input and output versions used by an attempt, including
   resources, comments, conversation events, and references to Git objects.
 - Require designated reviewers and recorded validation results before a ticket
-  can be completed. Approval applies to the specific submitted result.
+  can be completed. Approval applies to the specific submitted result and delivers
+  immutable references to the recorded submitter. Follow the
+  [two-round review example](docs/gated-review-workflow.md).
 - Set project-wide acceptance requirements and add ticket-specific requirements.
   Check completion readiness before attempting to finish; record explicit,
   attributed overrides when policy permits them.
@@ -111,7 +115,9 @@ here describe v0.2.0; use the guide bundled with your installed package.
   Git sharing uses **one writer at a time**, with an explicit close-and-handoff
   process.
 - Inspect status durations, completions, reported usage and storage admission
-  allowances with `workspace.metrics`. An optional external measurement helper
+  allowances with `workspace.metrics`. Capacity warning bands expose pressure before
+  admission refuses a write; [roll over deliberately](docs/agent/capacity-rollover.md)
+  without silently deleting historical evidence. An optional external measurement helper
   records client calls, failures and latency for workflow comparisons.
 
 ## How it fits into an agent system
@@ -138,7 +144,16 @@ explains what Workgraph can do and when to use it. Keep the accompanying
 [`docs/agent/`](docs/agent/) references accessible so agents can load exact API
 fields and workflows as needed.
 
+Give every agent its own private working directory, context file and request journal.
+Keep a short per-ticket notepad with current IDs, checks, running processes and exact
+retry paths; record shared decisions and handoffs durably in Workgraph. Repository
+contributors use the private scratch layout required by [AGENTS.md](AGENTS.md).
+
 ## Install
+
+The current v0.3.0 preview has no published binary release. Use the source-build
+steps below. Published v0.2.0 packages remain available for existing v0.2 workflows;
+their API and stored planning formats differ from this checkout.
 
 ### AlmaLinux 10 x86_64, including WSL
 
@@ -199,14 +214,15 @@ or path. Direct dependency versions are pinned in `dune-project` and
 
 ## Try it
 
-These commands use the v0.2.0 preview API. Install its package or build it using
-the steps above.
+These commands use the current v0.3.0 preview. Build this checkout using the
+source steps above.
 
 Inspect API methods without starting a daemon:
 
 ```sh
-workgraph methods
-workgraph help ticket.start
+workgraph methods --core
+workgraph help ticket.start --brief
+workgraph help ticket.start --full
 workgraph schema ticket.start
 ```
 
@@ -275,10 +291,13 @@ matching guide; changes in this checkout do not update an existing release.
 | Goal | Start here |
 | --- | --- |
 | Teach an agent the capabilities and where to find exact API details | [XML agent guide](AGENT_GUIDE.md) |
+| Discover common methods without loading full schemas | `methods --core`, `help METHOD --brief`, then [exact contracts](docs/api-reference/index.md) |
 | Follow the task lifecycle | [Task workflow](docs/agent-workflow.md) and [shell example](examples/agent-workflow.sh) |
 | Coordinate workers and reviewers | [Coordination guide](docs/coordination-guide.md) and [parallel-work example](examples/coordination-runner.py) |
 | Use boards, requests, teams, and inboxes | [Communication guide](docs/communication.md) |
+| Complete two rounds of formal review | [Executable gated review](docs/gated-review-workflow.md) |
 | Set up evidence, review requirements, and decisions | [Evidence guide](docs/evidence.md) |
+| Inspect capacity and start a successor workspace | [Capacity rollover](docs/agent/capacity-rollover.md) |
 | Store conversations and recover after context resets | [History integration](docs/history-integration.md) and [recovery demonstration](examples/history-recovery-demo.py) |
 | Look up commands, fields, and response formats | [API reference](docs/api.md) |
 | Operate, back up, restore, or move workspaces | [Operator guide](docs/operator-guide.md) |
@@ -294,7 +313,7 @@ ownership when editing external files.
 
 This preview supports one current storage and wire format. Incompatible prototype
 data has no migration support: keep any required old data with its matching
-executable and start v0.2.0 with fresh registry and workspace folders. Conversation
+executable and start v0.3.0 with fresh registry and workspace folders. Conversation
 history is retained; automatic history pruning and blob cleanup are not available.
 Disconnected workspace histories cannot be merged into one writer history. See
 the operator guide before moving data or handing a workspace to another writer.

@@ -1354,7 +1354,15 @@ let read_inbox t ~discussion ~method_ ~params =
       ~after
       ~through:(Some through)
     |> List.filter ~f:(fun notification ->
-      Option.value_map (Q.kinds query) ~default:true ~f:(fun kinds ->
+      let self =
+        match Q.recipient query with
+        | Recipient.Actor actor ->
+          Id.Actor.equal notification.Notification.attribution.actor actor
+        | Run run ->
+          Option.exists notification.Notification.attribution.run ~f:(Id.Run.equal run)
+      in
+      ((not (Q.exclude_self query)) || not self)
+      && Option.value_map (Q.kinds query) ~default:true ~f:(fun kinds ->
         List.mem kinds notification.Notification.kind ~equal:Notification.Kind.equal)
       && Option.value_map (Q.ticket_id query) ~default:true ~f:(fun id ->
         List.mem (notification_ticket_ids t notification) id ~equal:Id.Ticket.equal))
@@ -1373,6 +1381,7 @@ let read_inbox t ~discussion ~method_ ~params =
     ; "through", Json.int through
     ; "next_after", Json.int next_after
     ; "remaining", Json.int (List.length records - List.length selected)
+    ; ("exclude_self", if Q.exclude_self query then `True else `False)
     ; "items", `Array (List.map selected ~f:(notification_packet t ~discussion))
     ]
 ;;

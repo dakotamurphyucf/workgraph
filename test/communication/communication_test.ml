@@ -915,6 +915,7 @@ let%expect_test "inbox codecs reject malformed selectors and skipped response cu
           ; "through", Json.int 3
           ; "next_after", Json.int 3
           ; "remaining", Json.int 0
+          ; "exclude_self", `False
           ; "items", `Array []
           ]));
   [%expect

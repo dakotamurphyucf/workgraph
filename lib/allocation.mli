@@ -43,6 +43,46 @@ val eligibility : Candidate.t -> capabilities:string list -> Reason.t list
 
 val choose : Candidate.t list -> capabilities:string list -> (t, Problem.t) Result.t
 
+module Budget_limit : sig
+  type kind =
+    | Attempts
+    | Active_attempts
+  [@@deriving sexp, equal]
+
+  type t =
+    { kind : kind
+    ; used : int
+    ; limit : int
+    }
+  [@@deriving sexp]
+
+  (** Only exhausted limits: positive limits with [used >= limit]. *)
+  val codec : t Api_codec.t
+end
+
+module Explanation : sig
+  (** Bounded diagnosis of an empty allocation from the same immutable capture.
+      Candidate reason counts may overlap; examples are at most five ticket IDs
+      per reason, sorted by ID, with explicit omitted counts. No candidate values,
+      owner tokens or unbounded capability/pool lists are exposed. *)
+  type t
+
+  val create
+    :  captured_workspace_revision:int
+    -> candidates:Candidate.t list
+    -> capabilities:string list
+    -> parent_filtered:(Id.Ticket.t -> bool)
+    -> limits:Budget_limit.t list
+    -> (t, Problem.t) Result.t
+
+  (** Includes scoped candidate count, captured revision, reason counts/examples,
+      and exhausted run limits. An empty candidate set is explicitly count zero.
+      The enclosing durable receipt carries the later committed revision. *)
+  val codec : t Api_codec.t
+
+  val to_json : t -> Jsonaf.t
+end
+
 module Definition : sig
   type t =
     { name : string
