@@ -3,3 +3,12 @@
  (deps packaging_test.py ../../tools/package.py ../../packaging/verify.py)
  (action
   (run python3 %{dep:packaging_test.py})))
+
+(rule
+ (alias runtest)
+ (deps
+  notices_test.py
+  ../../packaging/almalinux/collect_notices.py
+  ../../workgraph.opam)
+ (action
+  (run python3 %{dep:notices_test.py})))

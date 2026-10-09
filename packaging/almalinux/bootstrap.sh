@@ -16,7 +16,9 @@ test "$(git -C "$repository" rev-parse HEAD)" = "$repository_commit"
 opam init --yes --bare --no-setup --disable-sandboxing workgraph-snapshot "$repository"
 opam switch create workgraph ocaml-base-compiler.5.3.0 --yes
 cd /opt/workgraph-deps
-opam install --yes --deps-only --with-test ./workgraph.opam dune.3.21.1
+# Dune is a build tool to install, not a root to exclude with --deps-only.
+opam install --yes dune.3.21.1
+opam install --yes --deps-only --with-test ./workgraph.opam
 test "$(opam exec -- ocamlc -version)" = 5.3.0
 test "$(opam exec -- dune --version)" = 3.21.1
 test "$(opam exec -- ocamlformat --version)" = 0.28.1

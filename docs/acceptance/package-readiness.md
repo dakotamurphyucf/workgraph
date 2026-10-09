@@ -47,3 +47,25 @@ establish execution on older macOS versions; Developer ID signing, notarization
 and downloaded Gatekeeper launch are separate untested scopes. AlmaLinux container
 qualification does not establish Windows, an actual WSL kernel or SELinux policy.
 No current-source native AMD64 run or actual WSL run is claimed here.
+
+## First native qualification findings
+
+The first current-source macOS package run on 2026-10-09 passed its build gate
+but stopped during notice collection: the developer switch contained an unrelated
+`trace.0.11` package without a license text in its source archive. The collector
+now starts from `workgraph.opam` and follows the installed recursive dependency
+closure, including optional dependencies and build/test tools. It includes installed
+documentation tools conservatively. It rejects missing required roots, unsupported
+manifest syntax and missing required source licenses; unrelated switch packages
+no longer enter the inventory. The actual host selection contained 152 packages.
+Five independent fake-opam tests passed through the repository gate, covering
+selection, optional dependencies, missing roots and license failures.
+
+The first Linux CI run stopped before testing because a combined dependency-only
+request left Dune uninstalled. Linux, macOS and AlmaLinux provisioning now install
+the pinned Dune version explicitly before installing Workgraph's dependencies.
+Repository and tool versions remain pinned, and isolated switch selection remains
+unchanged. The local `@fmt @runtest @install` gate passed after these corrections.
+Native qualification must be rerun against this corrected source; the failed runs
+are not successful artifact evidence. Read each bundle's accompanying external
+`qualification.json` for its actual installed-runtime result and artifact hashes.
