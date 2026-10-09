@@ -57,7 +57,28 @@ let apply_event t = function
      | Ok agent_runs -> { t with agent_runs }
      | Error error -> raise (Json.Decode_error error))
   | Event.Evidence_changed change ->
+    let active_owner id =
+      let attempt =
+        match Agent_run.get_attempt t.agent_runs id with
+        | Some attempt -> attempt
+        | None -> Json.fail Not_found "evidence consumer attempt not found"
+      in
+      validate_active_attempt_owner
+        t
+        attempt
+        ~actor:change.attribution.actor
+        ~run:change.attribution.run
+    in
     (match change.Evidence.Change.update with
+     | Manifest_put manifest -> active_owner manifest.attempt
+     | Submission_put submission ->
+       let manifest =
+         match Evidence.get_manifest t.evidence submission.manifest with
+         | Some manifest -> manifest
+         | None -> Json.fail Not_found "submission manifest not found"
+       in
+       active_owner manifest.attempt
+     | Assertion_added assertion -> Option.iter assertion.attempt ~f:active_owner
      | Reconciliation_put reconciliation ->
        let attempt =
          match Agent_run.get_attempt t.agent_runs reconciliation.attempt with
@@ -75,11 +96,9 @@ let apply_event t = function
              ~run:change.attribution.run
          | Pending | Revised _ ->
            Json.fail Stale_claim "terminal consumer cannot revise reconciliation inputs")
+       else active_owner attempt.id
      | Contract_put _
-     | Manifest_put _
      | Policy_put _
-     | Assertion_added _
-     | Submission_put _
      | Review_added _
      | Validation_added _
      | Decision_put _
@@ -481,6 +500,37 @@ let replay t payload =
           "ticket completion lacks immutable evidence";
         state
       | event :: remaining ->
+        (match event with
+         | Event.Ticket_put ticket ->
+           Option.iter (Map.find state.tickets ticket.id) ~f:(fun source ->
+             let added =
+               List.drop ticket.reassessments (List.length source.Ticket.reassessments)
+             in
+             List.iter added ~f:(fun reopening ->
+               if Id.Ticket.equal reopening.Reassessment.prerequisite ticket.id
+               then (
+                 let expected_effects =
+                   Planning_reopening.effects_exn
+                     state
+                     ~source
+                     ~reason:reopening.reason
+                     ~actor:reopening.actor
+                     ~run:
+                       (Option.map (Json.optional payload "run_id") ~f:Id.Run.t_of_jsonaf)
+                     ~timestamp:reopening.timestamp
+                 in
+                 require
+                   (List.equal
+                      String.equal
+                      (List.map expected_effects ~f:(fun event ->
+                         Json.canonical (Event.jsonaf_of_t event)))
+                      (List.take (event :: remaining) (List.length expected_effects)
+                       |> List.map ~f:(fun event ->
+                         Json.canonical (Event.jsonaf_of_t event))))
+                   Corrupt_store
+                   "reopening lacks its exact atomic reassessments, decisions or \
+                    notifications")))
+         | _ -> ());
         (match pending_completion, event with
          | ( Some ticket
            , Event.Comment_changed

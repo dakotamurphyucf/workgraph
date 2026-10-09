@@ -9,6 +9,19 @@ let unwrap = function
 
 let encode codec value = unwrap (Api_codec.encode codec value)
 let decode codec json = unwrap (Api_codec.decode codec json)
+
+let validated_sexp codec parse sexp =
+  let value = parse sexp in
+  let validated =
+    let open Result.Let_syntax in
+    let%bind json = Api_codec.encode codec value in
+    Api_codec.decode codec json
+  in
+  match validated with
+  | Ok value -> value
+  | Error problem -> Sexplib.Conv.of_sexp_error problem.message sexp
+;;
+
 let ( <*> ) = Api_codec.Fields.both
 let req = Api_codec.Fields.required
 let opt = Api_codec.Fields.optional
@@ -85,6 +98,7 @@ module Scope = struct
 
   let jsonaf_of_t = encode codec
   let t_of_jsonaf = decode codec
+  let t_of_sexp = validated_sexp codec t_of_sexp
 end
 
 module Requirement = struct
@@ -150,6 +164,7 @@ module Requirement = struct
 
   let jsonaf_of_t = encode codec
   let t_of_jsonaf = decode codec
+  let t_of_sexp = validated_sexp codec t_of_sexp
 end
 
 let reviewers_valid reviewers =
@@ -219,6 +234,7 @@ module Criterion = struct
 
   let jsonaf_of_t = encode codec
   let t_of_jsonaf = decode codec
+  let t_of_sexp = validated_sexp codec t_of_sexp
 
   module Ref = struct
     type t =
@@ -247,6 +263,7 @@ module Criterion = struct
 
     let jsonaf_of_t = encode codec
     let t_of_jsonaf = decode codec
+    let t_of_sexp = validated_sexp codec t_of_sexp
   end
 end
 
@@ -273,6 +290,7 @@ module Source = struct
 
   let jsonaf_of_t = encode codec
   let t_of_jsonaf = decode codec
+  let t_of_sexp = validated_sexp codec t_of_sexp
 end
 
 module Inherited_override = struct
@@ -403,6 +421,7 @@ module Inherited_override = struct
 
   let jsonaf_of_t = encode codec
   let t_of_jsonaf = decode codec
+  let t_of_sexp = validated_sexp codec t_of_sexp
 end
 
 module Definition = struct
@@ -541,6 +560,7 @@ module Definition = struct
 
   let jsonaf_of_t = encode codec
   let t_of_jsonaf = decode codec
+  let t_of_sexp = validated_sexp codec t_of_sexp
 
   let members = function
     | Requirement.Named_actor actor -> [ actor ]
@@ -742,6 +762,7 @@ module Effective = struct
 
   let jsonaf_of_t = encode codec
   let t_of_jsonaf = decode codec
+  let t_of_sexp = validated_sexp codec t_of_sexp
 
   let resolve
         ~ticket_id

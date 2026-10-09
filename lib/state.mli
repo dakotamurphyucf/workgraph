@@ -76,6 +76,10 @@ val blobs : prepared -> (string * string) list
 (** Replay resolved versioned changes, without running the original command.
     Comment versions match transaction attribution. Claimed ticket completion
     requires its adjacent immutable evidence; unrelated completion origins fail.
+    Reopening requires its complete source/dependent decisions, reassessments and
+    captured-claimant notifications at that event boundary. Manifest publication,
+    submission, acceptance and active reconciliation repeat current attempt and
+    claim actor/run guards; retained historical records are not reauthorized.
     New attempts recheck the allocation budget at their recorded event boundary.
     Terminal reconciliation acknowledgement/continued-use events retain their
     recorded consumer actor/run and cannot revise inputs.
@@ -85,8 +89,8 @@ val replay : t -> Jsonaf.t -> (t, Problem.t) Result.t
 
 (** Lists default to 50 items (maximum 100); subsequent offsets require the
     observed workspace revision. Ready work is ordered by priority (1..4, then
-    unspecified 0), creation sequence and ID. Other lists use ascending IDs or
-    activity order. Archived scopes are omitted unless explicitly requested;
+    unspecified 0), creation order (including within a batch), then ID. Other lists
+    use ascending IDs or activity order. Archived scopes are omitted unless explicitly requested;
     direct context queries retain access to their history. [max_bytes] bounds the
     canonical JSON result to 4KiB..1MiB, default 64KiB, with omission metadata.
     [query] searches in-memory sources only; [query_with_texts] also uses bounded

@@ -15,7 +15,7 @@ import tarfile
 
 DIGEST = re.compile(r"[0-9a-f]{64}")
 NATIVE_SOURCE_FILES = frozenset({
-    "README.md", "AGENT_GUIDE.md", "engineering-standards.md", "LICENSE",
+    "README.md", "AGENTS.md", "AGENT_GUIDE.md", "engineering-standards.md", "LICENSE",
     "tools/check_agent_guide.py", "tools/generate_api_reference.py",
     "tools/installed_smoke.py", "packaging/macos/inspect.py", "packaging/verify.py",
 })

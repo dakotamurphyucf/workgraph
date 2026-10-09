@@ -95,8 +95,8 @@ recipients/teams and a resolver. Recipients acknowledge delivery and optionally 
 responsibility. The designated resolver resolves or reassigns; read positions do not do it.
 For review: publish a resource describing the artifact contract, contract.put its exact
 version/digest, manifest.publish the attempt's named inputs/outputs, review.policy.put the
-reviewer/validator requirements, and review.submit the current manifest with explicit
-review_request:null if no linked request. Reviewers use review.record with comment:null
+reviewer/validator requirements, and review.submit the current manifest, omitting
+review_request_id if no linked request. Reviewers use review.record, omitting comment_id
 if no attached comment. Record required validation.add outcomes. review.accept must bind
 that same submission and current inputs. Then complete the attempt/ticket with evidence.
 When a consumed input changes, read reconciliation.list/evidence.context and explicitly

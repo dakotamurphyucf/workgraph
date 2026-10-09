@@ -4,6 +4,7 @@
  (private_modules
   planning_state
   planning_replay
+  planning_reopening
   planning_prepare
   planning_search
   planning_query

@@ -1,7 +1,9 @@
 open Core
 
 (** Immutable project and ticket acceptance requirements. This module performs
-    pure resolution; planning owns membership, ownership and durable history. *)
+    pure resolution; planning owns membership, ownership and durable history.
+    S-expression decoders enforce the same validation and canonicalization as
+    the JSON codecs, including the digest of an effective policy binding. *)
 module Scope : sig
   type t =
     | Project of Id.Project.t

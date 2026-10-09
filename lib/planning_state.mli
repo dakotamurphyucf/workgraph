@@ -261,6 +261,17 @@ val unfinished_children : t -> Ticket.t -> Ticket.t list
 val completion_readiness : t -> Ticket.t -> Jsonaf.t
 val check_complete : t -> Ticket.t -> unit
 val check_claim : Ticket.t -> actor:Id.Actor.t -> run:Id.Run.t option -> token:int -> unit
+
+(** Exact active-attempt actor/run and current ticket-claim guards shared by
+    preparation and resolved replay. Lease observation is checked separately
+    by preparation, which has the server clock. *)
+val validate_active_attempt_owner
+  :  t
+  -> Attempt.t
+  -> actor:Id.Actor.t
+  -> run:Id.Run.t option
+  -> unit
+
 val bounded : string -> int -> unit
 val validate_targets : t -> Entity_ref.t list -> (unit, Problem.t) Result.t
 

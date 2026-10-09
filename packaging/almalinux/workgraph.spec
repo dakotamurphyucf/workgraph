@@ -31,7 +31,7 @@ install -D -m 0755 bin/workgraph %{buildroot}%{_bindir}/workgraph
 install -D -m 0644 LICENSE %{buildroot}%{_licensedir}/%{name}/LICENSE
 cp -r THIRD_PARTY_NOTICES %{buildroot}%{_licensedir}/%{name}/
 mkdir -p %{buildroot}%{_docdir}/%{name}
-cp -r README.md AGENT_GUIDE.md engineering-standards.md docs examples tools packaging MANIFEST.json QUALIFICATION.json \
+cp -r README.md AGENTS.md AGENT_GUIDE.md engineering-standards.md docs examples tools packaging MANIFEST.json QUALIFICATION.json \
   %{buildroot}%{_docdir}/%{name}/
 
 %check

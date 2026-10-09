@@ -718,6 +718,26 @@ let check_claim (ticket : Ticket.t) ~actor ~run ~token =
   | Some _ | None -> Json.fail Stale_claim "claim actor, run or token is stale"
 ;;
 
+let validate_active_attempt_owner t (attempt : Attempt.t) ~actor ~run =
+  let attributed_run =
+    match run with
+    | Some run -> run
+    | None -> Json.fail Stale_claim "attempt mutation requires run attribution"
+  in
+  (match
+     Agent_run.validate_attempt_owner
+       t.agent_runs
+       attempt.id
+       ~actor
+       ~run:attributed_run
+       ~ticket:attempt.ticket
+       ~token:attempt.token
+   with
+   | Ok () -> ()
+   | Error error -> raise (Json.Decode_error error));
+  check_claim (find_ticket t attempt.ticket) ~actor ~run ~token:attempt.token
+;;
+
 let bounded value max_bytes =
   require (String.length value <= max_bytes) Invalid_argument "text exceeds byte limit"
 ;;

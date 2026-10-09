@@ -960,3 +960,82 @@ let%expect_test
     Conflict
     |}]
 ;;
+
+let%expect_test "public policy sexp decoders preserve constructor invariants" =
+  let rejects label decode text =
+    let outcome =
+      try
+        ignore (decode (Sexp.of_string text) : _);
+        "accepted"
+      with
+      | Sexplib.Conv.Of_sexp_error _ -> "rejected"
+    in
+    print_s [%sexp (label : string), (outcome : string)]
+  in
+  rejects
+    "empty reviewer role"
+    P.Requirement.t_of_sexp
+    {|(Role (name tests) (members ()))|};
+  rejects
+    "blank criterion"
+    P.Criterion.t_of_sexp
+    {|((key tests) (description " ") (required true))|};
+  rejects
+    "zero criterion version"
+    P.Criterion.Ref.t_of_sexp
+    {|((scope (Ticket work)) (policy_revision 0) (key tests))|};
+  rejects
+    "zero source version"
+    P.Source.t_of_sexp
+    {|((scope (Project project)) (revision 0))|};
+  rejects
+    "zero override membership"
+    P.Inherited_override.t_of_sexp
+    {|((against ((scope (Project project)) (revision 1)))
+       (membership_revision 0) (reviewers ()) (validators ()) (criteria (tests))
+       (waive_separate_actor false) (reason "Approved exception"))|};
+  rejects
+    "zero definition version"
+    P.Definition.t_of_sexp
+    {|((scope (Ticket work)) (revision 0) (enabled true) (reviewers ())
+       (separate_actor false) (validators ()) (criteria ()) (inherited_override ()))|};
+  let policy = definition ~criteria:[ criterion "Tests pass" ] (P.Scope.Ticket ticket) in
+  let effective = resolve ~ticket:policy () in
+  let forged =
+    match P.Effective.sexp_of_t effective with
+    | Sexp.List fields ->
+      Sexp.List
+        (List.map fields ~f:(function
+           | Sexp.List [ Sexp.Atom "digest"; _ ] ->
+             Sexp.List [ Sexp.Atom "digest"; Sexp.Atom (String.make 64 '0') ]
+           | field -> field))
+    | Sexp.Atom _ -> failwith "expected policy record"
+  in
+  rejects "forged effective digest" P.Effective.t_of_sexp (Sexp.to_string forged);
+  rejects "forged binding digest" P.Effective.Binding.t_of_sexp (Sexp.to_string forged);
+  print_s
+    [%sexp
+      (P.Definition.equal policy (P.Definition.t_of_sexp (P.Definition.sexp_of_t policy))
+       : bool)
+    , (P.Effective.equal
+         effective
+         (P.Effective.t_of_sexp (P.Effective.sexp_of_t effective))
+       : bool)];
+  let normalized =
+    P.Requirement.t_of_sexp (Sexp.of_string {|(Role (name tests) (members (z a)))|})
+  in
+  print_s (P.Requirement.sexp_of_t normalized);
+  [%expect
+    {|
+    ("empty reviewer role" rejected)
+    ("blank criterion" rejected)
+    ("zero criterion version" rejected)
+    ("zero source version" rejected)
+    ("zero override membership" rejected)
+    ("zero definition version" rejected)
+    ("forged effective digest" rejected)
+    ("forged binding digest" rejected)
+    (true true)
+    (Role (name tests) (members (a z)))
+    |}]
+;;

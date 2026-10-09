@@ -49,19 +49,7 @@ let attempt_owner t id ~actor ~run ~now_unix_ms ?(check_lease = true) () =
     | Some a -> a
     | None -> Json.fail Not_found "attempt not found"
   in
-  let attributed_run =
-    match run with
-    | Some run -> run
-    | None -> Json.fail Stale_claim "attempt mutation requires run attribution"
-  in
-  unwrap_domain
-    (Agent_run.validate_attempt_owner
-       t.agent_runs
-       id
-       ~actor
-       ~run:attributed_run
-       ~ticket:attempt.ticket
-       ~token:attempt.token);
+  validate_active_attempt_owner t attempt ~actor ~run;
   if check_lease
   then
     check_claim_at
@@ -69,8 +57,7 @@ let attempt_owner t id ~actor ~run ~now_unix_ms ?(check_lease = true) () =
       ~actor
       ~run
       ~token:attempt.token
-      ~now_unix_ms
-  else check_claim (find_ticket t attempt.ticket) ~actor ~run ~token:attempt.token;
+      ~now_unix_ms;
   attempt
 ;;
 
@@ -363,129 +350,8 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
        | Reopen { ticket_id; expected_revision; reason } ->
          let ticket = find_ticket t ticket_id in
          expected ticket.revision expected_revision;
-         bounded reason 65536;
-         require
-           (not (String.is_empty (String.strip reason)))
-           Invalid_argument
-           "reopening requires a reason";
-         require
-           (Domain_command.Status.equal ticket.status Done)
-           Conflict
-           "only completed tickets can be reopened";
-         let reopening =
-           { Reassessment.prerequisite = ticket_id
-           ; reopened_revision = t.revision + 1
-           ; reason
-           ; actor
-           ; timestamp
-           }
-         in
-         let reopened =
-           { ticket with
-             status = Todo
-           ; status_id = None
-           ; claim = None
-           ; reopened_token = Some ticket.next_token
-           ; reassessments = ticket.reassessments @ [ reopening ]
-           }
-         in
-         let first = update reopened in
-         let initial = apply_event t first in
-         let initial, first_comment, _, _ =
-           apply
-             initial
-             (Comment_add
-                { id = None
-                ; target = Ticket ticket_id
-                ; reply_to = None
-                ; kind = Decision
-                ; body = "Reopened: " ^ reason
-                })
-         in
-         let dependents =
-           Map.data t.tickets
-           |> List.filter ~f:(fun dependent ->
-             List.mem dependent.Ticket.prerequisites ticket_id ~equal:Id.Ticket.equal
-             && not (waived dependent ticket_id))
-         in
-         let _, events =
-           List.fold
-             dependents
-             ~init:(initial, first :: first_comment)
-             ~f:(fun (state, events) dependent ->
-               let reassessment =
-                 { Reassessment.prerequisite = ticket_id
-                 ; reopened_revision = t.revision + 1
-                 ; reason
-                 ; actor
-                 ; timestamp
-                 }
-               in
-               let event =
-                 update
-                   { dependent with
-                     reassessments = dependent.reassessments @ [ reassessment ]
-                   }
-               in
-               let state = apply_event state event in
-               let state, comments, _, _ =
-                 apply
-                   state
-                   (Comment_add
-                      { id = None
-                      ; target = Ticket dependent.id
-                      ; reply_to = None
-                      ; kind = Decision
-                      ; body =
-                          "Prerequisite "
-                          ^ Id.Ticket.to_string ticket_id
-                          ^ " reopened: "
-                          ^ reason
-                      })
-               in
-               let state, notifications =
-                 match dependent.claim with
-                 | None -> state, []
-                 | Some claim ->
-                   let identity =
-                     String.concat
-                       ~sep:":"
-                       [ Int.to_string (t.revision + 1)
-                       ; Id.Ticket.to_string ticket_id
-                       ; Id.Ticket.to_string dependent.id
-                       ]
-                   in
-                   let message_id =
-                     unwrap_domain
-                       (Communication_id.Message.of_string
-                          ("reopen-" ^ Json.hash identity))
-                   in
-                   let recipients =
-                     [ (match claim.run_id with
-                        | Some run -> Communication.Recipient.Run run
-                        | None -> Actor claim.actor)
-                     ]
-                   in
-                   let state, changes, _, _ =
-                     apply
-                       state
-                       (Message_send
-                          { message_id
-                          ; body =
-                              "Prerequisite "
-                              ^ Id.Ticket.to_string ticket_id
-                              ^ " reopened: "
-                              ^ Query_budget.prefix reason ~max_bytes:32768
-                          ; ticket_id = Some dependent.id
-                          ; recipients
-                          ; teams = []
-                          ; reply_to_message_id = None
-                          ; correlation_id = Some (Id.Ticket.to_string ticket_id)
-                          })
-                   in
-                   state, changes
-               in
-               state, events @ (event :: comments) @ notifications)
+         let events =
+           Planning_reopening.effects_exn t ~source:ticket ~reason ~actor ~run ~timestamp
          in
          ( events
          , Json.obj

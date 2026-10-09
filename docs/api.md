@@ -211,7 +211,7 @@ items so byte fitting does not skip records. An explicitly empty, nonadvancing
 partial page requires a larger budget. Defaults and maximums are declared in each
 [query schema](api-reference/index.md).
 
-Ready work sorts by priority, committed creation sequence and ID. Workspace
+Ready work sorts by priority, creation order (including within a batch), then ID. Workspace
 overview shows status counts, active projects, held/blocked work and recent
 changes. Project brief groups ready/in-progress/blocked tickets. Ticket context
 includes activity since handoff coverage. Use [ticket.resume](api-reference/ticket.resume.md)

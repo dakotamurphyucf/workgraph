@@ -59,6 +59,89 @@ let entries result = array (data result) "entries"
 let cursor result = field (data result) "cursor" |> Json.text
 let scope = {|{"kind":"ticket","ticket_id":"task"}|}
 
+let%expect_test "digest identifies replayed reopening without relabeling reassessments" =
+  let replay state method_ params =
+    let command = ok (Domain_command.decode ~method_ ~params:(parse params)) in
+    let prepared =
+      ok
+        (State.prepare
+           state
+           command
+           ~actor
+           ~now_unix_ms:100L
+           ~timestamp:"2026-10-08T00:00:00Z")
+    in
+    ok (State.replay state (State.events prepared))
+  in
+  let state = replay (empty ()) "ticket.create" {|{"ticket_id":"task","title":"Task"}|} in
+  let state = replay state "ticket.start" {|{"ticket_id":"task"}|} in
+  let state =
+    replay state "ticket.finish" {|{"ticket_id":"task","token":"1","evidence":"checked"}|}
+  in
+  let state =
+    replay state "ticket.create" {|{"ticket_id":"dependent","title":"Dependent"}|}
+  in
+  let state =
+    replay state "dependency.add" {|{"ticket_id":"dependent","prerequisite_id":"task"}|}
+  in
+  let state = replay state "ticket.start" {|{"ticket_id":"dependent"}|} in
+  let state =
+    replay
+      state
+      "ticket.finish"
+      {|{"ticket_id":"dependent","token":"1","evidence":"checked"}|}
+  in
+  let before = State.revision state in
+  let state =
+    replay
+      state
+      "ticket.reopen"
+      {|{"ticket_id":"task","expected_revision":"3","reason":"Correct the output"}|}
+  in
+  let page =
+    query state "activity.digest" (sprintf {|{"after":"%d","limit":"1"}|} before)
+  in
+  let state =
+    replay
+      state
+      "ticket.update"
+      {|{"ticket_id":"task","expected_revision":"4","title":"Updated title"}|}
+  in
+  let next =
+    query
+      state
+      "activity.digest"
+      (Json.canonical (Json.obj [ "cursor", Json.string (cursor page) ]))
+  in
+  let task_rows rows =
+    List.filter_map rows ~f:(fun row ->
+      let item = field row "item" in
+      if String.equal (Json.text (field item "kind")) "task"
+      then
+        Some
+          ( Json.text (field (field item "record") "ticket_id")
+          , Json.text (field row "category") )
+      else None)
+  in
+  print_s [%sexp (task_rows (entries page @ entries next) : (string * string) list)];
+  print_s
+    [%sexp
+      (Json.integer (field (field (data next) "capture") "through") = before + 1 : bool)];
+  let latest =
+    query
+      state
+      "activity.digest"
+      (Json.canonical (Json.obj [ "cursor", Json.string (cursor next) ]))
+  in
+  print_s [%sexp (task_rows (entries latest) : (string * string) list)];
+  [%expect
+    {|
+    ((task reopening) (dependent task_changed))
+    true
+    ((task task_changed))
+    |}]
+;;
+
 let%expect_test "resume is deterministic, pinned and budgeted with optional markdown" =
   let state =
     fixture ()

@@ -1,6 +1,25 @@
 (rule
  (alias runtest)
- (deps packaging_test.py ../../tools/package.py ../../packaging/verify.py)
+ (deps
+  packaging_test.py
+  ../../README.md
+  ../../AGENTS.md
+  ../../AGENT_GUIDE.md
+  ../../engineering-standards.md
+  ../../LICENSE
+  ../../.gitignore
+  ../../.gitattributes
+  ../../.dockerignore
+  ../../.ocamlformat
+  ../../dune
+  ../../dune-project
+  ../../dev
+  ../../workgraph.opam
+  ../../lib/version.ml
+  (source_tree ../../docs)
+  (source_tree ../../examples)
+  (source_tree ../../tools)
+  (source_tree ../../packaging))
  (action
   (run python3 %{dep:packaging_test.py})))
 

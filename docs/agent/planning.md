@@ -16,8 +16,8 @@ its inner .result.data. Every query uses Q+P and returns the planning query enve
 
 New tickets are todo. Readiness requires active workspace/project/milestone/ticket scope,
 status todo, no claim, no hold, and all nonwaived prerequisites done. Ready tickets sort
-by priority (unspecified last), then creation sequence, then ID. Parent and dependency
-graphs are separately acyclic. A parent cannot complete until every child is done, even
+by priority (unspecified last), then creation order (including within a batch), then ID.
+Parent and dependency graphs are separately acyclic. A parent cannot complete until every child is done, even
 if a child is canceled. Related links are symmetric information, not dependencies.
 Catalog entries archive rather than disappear; archived entries cannot be newly assigned.
 Status categories never change. A custom status sets the category; category/claim changes

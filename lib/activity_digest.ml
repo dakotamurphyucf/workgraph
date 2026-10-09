@@ -233,6 +233,14 @@ let scan t ~scope ~after ~cursor =
                   when (not (Domain_command.Status.equal old.Ticket.status Done))
                        && Domain_command.Status.equal ticket.status Done ->
                   Kind.Completion
+                | Some old
+                  when Domain_command.Status.equal ticket.status Todo
+                       && Option.is_some ticket.reopened_token
+                       && not
+                            (Option.equal
+                               Int.equal
+                               old.Ticket.reopened_token
+                               ticket.reopened_token) -> Kind.Reopening
                 | Some old when not (same_hold old.hold ticket.hold) -> Blocker
                 | None | Some _ -> Task_changed
               in

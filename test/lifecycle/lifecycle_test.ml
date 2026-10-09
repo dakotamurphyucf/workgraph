@@ -624,3 +624,339 @@ let%expect_test
     Corrupt_store
     Corrupt_store |}]
 ;;
+
+let reopening_fixture () =
+  let state = create (empty ()) "source" |> fun s -> create s "dependent" in
+  let state =
+    apply state "dependency.add" {|{"ticket_id":"dependent","prerequisite_id":"source"}|}
+  in
+  let state = complete state "source" in
+  apply state "ticket.start" {|{"ticket_id":"dependent"}|}
+;;
+
+let replace_changes payload changes =
+  match payload with
+  | `Object fields ->
+    `Object (List.Assoc.add fields "changes" (`Array changes) ~equal:String.equal)
+  | _ -> assert false
+;;
+
+let%expect_test "full UTF8 reopening reasons survive bounded generated prose" =
+  let state = reopening_fixture () in
+  let reason = String.concat (List.init 32768 ~f:(fun _ -> "é")) in
+  let command =
+    Domain_command.Lifecycle
+      (Reopen
+         { ticket_id = ok (Id.Ticket.of_string "source"); expected_revision = 3; reason })
+  in
+  let prepared = ok (State.prepare state command ~actor:other ~timestamp:"now") in
+  let reopened = State.candidate prepared in
+  List.iter [ "source"; "dependent" ] ~f:(fun id ->
+    let context =
+      get
+        reopened
+        "ticket.context"
+        (sprintf {|{"ticket_id":"%s","max_bytes":"1048576"}|} id)
+    in
+    let reassessment =
+      Json.field (Json.field context "ticket") "reassessments"
+      |> Json.list
+      |> List.last_exn
+    in
+    print_s
+      [%sexp (String.equal reason (Json.text (Json.field reassessment "reason")) : bool)]);
+  let comments =
+    get reopened "comment.list" {|{"max_bytes":"1048576"}|}
+    |> fun data ->
+    Json.list (Json.field data "items")
+    |> List.filter ~f:(fun comment ->
+      String.equal (Json.text (Json.field comment "actor_id")) "other")
+  in
+  print_s
+    [%sexp
+      (List.length comments : int)
+    , (List.for_all comments ~f:(fun comment ->
+         let body = Json.text (Json.field comment "body") in
+         String.length body <= 65536
+         && Result.is_ok
+              (Api_codec.decode (Api_codec.text ~max_bytes:65536) (Json.string body))
+         && String.is_substring body ~substring:"full reason retained")
+       : bool)];
+  print_s
+    [%sexp
+      (String.equal
+         (Json.canonical (State.to_json reopened))
+         (Json.canonical
+            (State.to_json (ok (State.replay state (State.events prepared)))))
+       : bool)];
+  [%expect
+    {|
+    true
+    true
+    (3 true)
+    true
+    |}]
+;;
+
+let%expect_test "replay rejects stripped or altered reopening effects independently" =
+  let state = reopening_fixture () in
+  let prepared =
+    ok
+      (prepare
+         ~actor:other
+         state
+         "ticket.reopen"
+         {|{"ticket_id":"source","expected_revision":"3","reason":"new finding"}|})
+  in
+  let payload = State.events prepared in
+  let changes = Json.list (Json.field payload "changes") in
+  outcome (State.replay state (replace_changes payload [ List.hd_exn changes ]));
+  List.iteri changes ~f:(fun index _ ->
+    if index > 0
+    then
+      outcome
+        (State.replay
+           state
+           (replace_changes
+              payload
+              (List.filteri changes ~f:(fun i _ -> not (Int.equal i index))))));
+  let rec alter_body = function
+    | `Object fields ->
+      `Object
+        (List.map fields ~f:(fun (key, value) ->
+           ( key
+           , if String.equal key "body" then Json.string "altered" else alter_body value )))
+    | `Array values -> `Array (List.map values ~f:alter_body)
+    | value -> value
+  in
+  outcome (State.replay state (alter_body payload));
+  let rec alter_routing = function
+    | `Object fields ->
+      `Object
+        (List.map fields ~f:(fun (key, value) ->
+           ( key
+           , if String.equal key "direct_recipients"
+             then `Array [ json {|{"kind":"actor","id":"other"}|} ]
+             else alter_routing value )))
+    | `Array values -> `Array (List.map values ~f:alter_routing)
+    | value -> value
+  in
+  outcome (State.replay state (alter_routing payload));
+  [%expect
+    {|
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    |}]
+;;
+
+let%expect_test "same-source reopenings and later changes remain one valid transaction" =
+  let state = reopening_fixture () in
+  let prepared =
+    ok
+      (prepare
+         state
+         "transaction.apply"
+         {|{"operations":[{"method":"ticket.reopen","params":{"ticket_id":"source","expected_revision":"3","reason":"first finding"}},{"method":"ticket.start","params":{"ticket_id":"source"}},{"method":"ticket.finish","params":{"ticket_id":"source","token":"2","evidence":"first correction"}},{"method":"ticket.reopen","params":{"ticket_id":"source","expected_revision":"6","reason":"second finding"}},{"method":"ticket.update","params":{"ticket_id":"source","expected_revision":"7","title":"Still reopened"}}]}|})
+  in
+  let reopened = State.candidate prepared in
+  let context = get reopened "ticket.context" {|{"ticket_id":"dependent"}|} in
+  print_s
+    [%sexp
+      (Json.text
+         (Json.field
+            (Json.field
+               (get reopened "ticket.context" {|{"ticket_id":"source"}|})
+               "ticket")
+            "title")
+       : string)
+    , (List.length (Json.list (Json.field (Json.field context "ticket") "reassessments"))
+       : int)];
+  let inbox =
+    ok
+      (State.query
+         reopened
+         ~method_:"inbox.read"
+         ~params:
+           (json
+              {|{"consumer_id":"repeat","recipient":{"kind":"actor","id":"worker"},"after":"0"}|}))
+  in
+  print_s [%sexp (List.length (Json.list (Json.field inbox "items")) : int)];
+  print_s
+    [%sexp
+      (String.equal
+         (Json.canonical (State.to_json reopened))
+         (Json.canonical
+            (State.to_json (ok (State.replay state (State.events prepared)))))
+       : bool)];
+  [%expect
+    {|
+    ("Still reopened" 2)
+    2
+    true
+    |}]
+;;
+
+let%expect_test
+    "evidence replay repeats captured attempt ownership with terminal reconciliation \
+     exceptions"
+  =
+  let ticket = ok (Id.Ticket.of_string "reviewed") in
+  let attempt = ok (Attempt.Id.of_string "original") in
+  let contract_id = ok (Evidence_id.Contract.of_string "contract") in
+  let manifest_id = ok (Evidence_id.Manifest.of_string "manifest") in
+  let manifest = { Evidence.Manifest_ref.id = manifest_id; revision = 1 } in
+  let state = create (empty ()) "reviewed" |> register in
+  let state =
+    apply
+      state
+      "resource.put_text"
+      {|{"resource_id":"schema","expected_revision":"0","title":"schema","text":"{}"}|}
+  in
+  let state =
+    apply ~run state "ticket.start" {|{"ticket_id":"reviewed","attempt_id":"original"}|}
+  in
+  let evidence state command =
+    ok
+      (State.prepare state (Domain_command.Evidence command) ~actor ~run ~timestamp:"now")
+  in
+  let schema =
+    { Evidence.Resource_pin.id = ok (Id.Resource.of_string "schema")
+    ; revision = 1
+    ; digest = Json.hash "{}"
+    }
+  in
+  let contract expected_revision =
+    Evidence.Command.Contract_put
+      { id = contract_id
+      ; expected_revision
+      ; schema_version = 1
+      ; schema
+      ; required_inputs = []
+      ; required_outputs = []
+      }
+  in
+  let state = State.candidate (evidence state (contract 0)) in
+  let publication =
+    evidence
+      state
+      (Manifest_publish
+         { id = manifest_id
+         ; expected_revision = 0
+         ; schema_version = 1
+         ; attempt
+         ; ticket
+         ; contract = { id = contract_id; revision = 1 }
+         ; inputs = []
+         ; outputs = []
+         })
+  in
+  let forge ~actor_id ~run_id payload =
+    let rec rewrite = function
+      | `Object fields ->
+        `Object
+          (List.filter_map fields ~f:(fun (key, value) ->
+             match key, run_id with
+             | "run_id", `Null -> None
+             | _ ->
+               Some
+                 ( key
+                 , if String.equal key "actor"
+                   then Json.string actor_id
+                   else if String.equal key "run" || String.equal key "run_id"
+                   then run_id
+                   else rewrite value )))
+      | `Array items -> `Array (List.map items ~f:rewrite)
+      | value -> value
+    in
+    rewrite payload
+  in
+  let check label state prepared =
+    print_endline label;
+    outcome (State.replay state (State.events prepared));
+    outcome
+      (State.replay
+         state
+         (forge ~actor_id:"other" ~run_id:(Json.string "run") (State.events prepared)));
+    outcome
+      (State.replay
+         state
+         (forge
+            ~actor_id:"worker"
+            ~run_id:(Json.string "another-run")
+            (State.events prepared)));
+    outcome
+      (State.replay
+         state
+         (forge ~actor_id:"worker" ~run_id:`Null (State.events prepared)))
+  in
+  check "manifest publication" state publication;
+  let state = State.candidate publication in
+  let submitted =
+    evidence
+      state
+      (Submit { ticket; expected_revision = 0; manifest; review_request = None })
+  in
+  check "submission" state submitted;
+  let state = State.candidate submitted in
+  let accepted = evidence state (Accept { ticket; expected_revision = 1 }) in
+  check "acceptance" state accepted;
+  let state = State.candidate accepted in
+  let state = State.candidate (evidence state (contract 1)) in
+  let acknowledge =
+    Evidence.Command.Reconcile
+      { serial = 1; expected_revision = 1; disposition = Acknowledge }
+  in
+  let reconciled = evidence state acknowledge in
+  check "active reconciliation" state reconciled;
+  let cancelled =
+    apply
+      ~run
+      state
+      "attempt.finish"
+      {|{"attempt_id":"original","expected_revision":"1","state":"cancelled","evidence":"stopped"}|}
+  in
+  let reconciled = evidence cancelled acknowledge in
+  check "terminal reconciliation" cancelled reconciled;
+  let continued =
+    evidence
+      cancelled
+      (Reconcile
+         { serial = 1; expected_revision = 1; disposition = Continue "intentional" })
+  in
+  outcome (State.replay cancelled (State.events continued));
+  [%expect
+    {|
+    manifest publication
+    ok
+    Conflict
+    Stale_claim
+    Stale_claim
+    submission
+    ok
+    Conflict
+    Stale_claim
+    Stale_claim
+    acceptance
+    ok
+    Conflict
+    Stale_claim
+    Stale_claim
+    active reconciliation
+    ok
+    Conflict
+    Stale_claim
+    Stale_claim
+    terminal reconciliation
+    ok
+    Stale_claim
+    Stale_claim
+    Stale_claim
+    ok
+    |}]
+;;

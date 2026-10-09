@@ -3,7 +3,11 @@
 import hashlib
 import io
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import posixpath
+import re
+import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -81,6 +85,54 @@ class PackageQualification(unittest.TestCase):
         (installed / "docs/example.md").write_text("changed")
         with self.assertRaisesRegex(ValueError, "hash mismatch"):
             verify.verify_installation(native, installed)
+
+    def test_native_package_keeps_offline_documentation_links(self):
+        # Stage source files explicitly: Dune's build tree can contain compiled
+        # outputs and is not itself the source tree the packager should consume.
+        project = self.directory / "source"
+        for name in ["README.md", "AGENTS.md", "AGENT_GUIDE.md", "engineering-standards.md",
+                     "LICENSE", ".gitignore", ".gitattributes", ".dockerignore", ".ocamlformat",
+                     "dune", "dune-project", "dev", "workgraph.opam", "lib/version.ml"]:
+            path = project / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / name, path)
+        for directory in ["docs", "examples", "tools", "packaging"]:
+            shutil.copytree(ROOT / directory, project / directory,
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        executable = self.directory / "workgraph"
+        executable.write_bytes(self.native_files["bin/workgraph"][0])
+        notices = self.directory / "notices"
+        for name, (data, _) in self.native_files.items():
+            if name.startswith("THIRD_PARTY_NOTICES/"):
+                path = notices / name.removeprefix("THIRD_PARTY_NOTICES/")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+        output = self.directory / "packages"
+        subprocess.run([sys.executable, str(project / "tools/package.py"), str(output),
+                        "--binary", str(executable), "--platform", "macos-arm64",
+                        "--notices", str(notices)], check=True, capture_output=True, timeout=30)
+        source = verify.read_archive(next(output.glob("*-source.tar.gz")))
+        native = verify.read_archive(next(output.glob("*-macos-arm64.tar.gz")))
+        verify.verify_pair(source, native)
+        self.assertEqual(native.files["AGENTS.md"], (ROOT / "AGENTS.md").read_bytes())
+        checked = 0
+        for name, data in native.files.items():
+            if not name.endswith(".md"):
+                continue
+            for markdown, xml in re.findall(r'\]\(([^)\n]+)\)|href="([^"]+)"',
+                                            data.decode("utf-8")):
+                target = (markdown or xml).strip("<>").split("#", 1)[0]
+                if not target or re.match(r"[A-Za-z][A-Za-z0-9+.-]*:", target):
+                    continue
+                resolved = posixpath.normpath(str(PurePosixPath(name).parent / target))
+                with self.subTest(document=name, target=target):
+                    self.assertFalse(resolved.startswith(("../", "/")))
+                    self.assertTrue(resolved in native.files or
+                                    any(path.startswith(resolved.rstrip("/") + "/")
+                                        for path in native.files),
+                                    "native package omits offline link target: " + resolved)
+                checked += 1
+        self.assertGreater(checked, 100)
 
     def test_rpm_exact_mapping_includes_inspection_and_licenses(self):
         _, native = self.pair()
