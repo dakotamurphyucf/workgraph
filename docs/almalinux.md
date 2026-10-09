@@ -1,5 +1,8 @@
 # AlmaLinux 10 on x86_64, including WSL
 
+For copy-and-paste installation, optional removal of an older setup, and a first
+ticket workflow, use the [WSL reset and quick-start guide](wsl-quickstart.md).
+
 The native package targets ordinary AlmaLinux 10 x86_64/AMD64 userspace. It runs
 in the foreground and requires no systemd service, automatic startup or OCaml
 toolchain. The RPM and native tarball contain the same executable.
