@@ -546,3 +546,73 @@ let%expect_test "claim renewal retains exact accepted instruction beyond the old
  (101)
  |}]
 ;;
+
+let%expect_test "Done projections retain instruction history without pending obligations" =
+  let state =
+    publish (task ())
+    |> fun state ->
+    step state "ticket.amendment.acknowledge" ack
+    |> fun state -> step state "ticket.finish" finish
+  in
+  let show state =
+    let context = query state "ticket.context" {|{"ticket_id":"task"}|} in
+    let brief = query state "ticket.brief" {|{"ticket_id":"task","max_bytes":"4096"}|} in
+    let context_count key =
+      Json.field (Json.field context key) "items" |> Json.list |> List.length
+    in
+    let brief_count key = Json.field (Json.field brief key) "total" |> Json.integer in
+    let acknowledgements =
+      query
+        state
+        "ticket.amendment.acknowledgements"
+        {|{"amendment_id":"instruction","revision":"1"}|}
+      |> fun page -> Json.field page "items" |> Json.list |> List.length
+    in
+    let direct =
+      query state "ticket.amendment.get" {|{"amendment_id":"instruction"}|}
+      |> fun result -> Json.field result "pending_acknowledgement"
+    in
+    print_s
+      [%sexp
+        (( context_count "amendments"
+         , brief_count "amendments"
+         , context_count "pending_amendment_acknowledgements"
+         , brief_count "pending_amendment_acknowledgements"
+         , acknowledgements
+         , direct )
+         : int * int * int * int * int * Jsonaf.t)];
+    Json.field (Json.field context "ticket") "revision" |> Json.text
+  in
+  let revision = show state in
+  let state =
+    step
+      ~by:"lead"
+      state
+      "ticket.reopen"
+      (sprintf
+         {|{"ticket_id":"task","expected_revision":"%s","reason":"More work"}|}
+         revision)
+  in
+  let revision = show state in
+  let state =
+    step
+      state
+      "ticket.claim"
+      (sprintf {|{"ticket_id":"task","expected_revision":"%s"}|} revision)
+  in
+  ignore (show state : string);
+  let state =
+    step
+      state
+      "ticket.amendment.acknowledge"
+      {|{"amendment_id":"instruction","expected_revision":"1","ticket_id":"task","token":"2"}|}
+  in
+  ignore (show state : string);
+  [%expect
+    {|
+    (1 1 0 0 1 False)
+    (1 1 1 1 1 True)
+    (1 1 1 1 1 True)
+    (1 1 0 0 2 False)
+    |}]
+;;

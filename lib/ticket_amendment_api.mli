@@ -20,6 +20,11 @@ val query
   :  Ticket_amendment.t
   -> workspace_revision:int
   -> ownership:(Id.Ticket.t -> Ticket_amendment.Ownership.t option)
+  -> ticket_completed:(Id.Ticket.t -> bool)
   -> method_:string
   -> params:Jsonaf.t
   -> (Jsonaf.t, Problem.t) Result.t
+
+(** Ownership and completion callbacks must come from the same captured workspace.
+    Completed tickets have no current pending obligation; retained acknowledgements
+    and immutable amendment records remain available. *)

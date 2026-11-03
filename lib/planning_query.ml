@@ -634,10 +634,13 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
               |> List.map ~f:(fun r -> r.Ticket_amendment.Revision.reference)
               |> page
           ; pending_amendment_acknowledgements =
-              Ticket_amendment.pending
-                t.amendments
-                ~ticket:id
-                ~ownership:(amendment_ownership t id)
+              (if Domain_command.Status.equal ticket.status Done
+               then []
+               else
+                 Ticket_amendment.pending
+                   t.amendments
+                   ~ticket:id
+                   ~ownership:(amendment_ownership t id))
               |> page
           ; attempts = Agent_run.attempts_for_ticket t.agent_runs id |> page
           ; evidence
@@ -870,10 +873,13 @@ let query ?now_unix_ms t ~method_ ~params =
               Ticket_amendment.heads t.amendments ~ticket:(Some id)
               |> List.map ~f:(fun r -> r.Ticket_amendment.Revision.reference)
           ; pending_amendment_acknowledgements =
-              Ticket_amendment.pending
-                t.amendments
-                ~ticket:id
-                ~ownership:(amendment_ownership t id)
+              (if Domain_command.Status.equal ticket.status Done
+               then []
+               else
+                 Ticket_amendment.pending
+                   t.amendments
+                   ~ticket:id
+                   ~ownership:(amendment_ownership t id))
           ; decisions
           ; resources
           }
@@ -1023,6 +1029,8 @@ let query ?now_unix_ms t ~method_ ~params =
         t.amendments
         ~workspace_revision:t.revision
         ~ownership:(amendment_ownership t)
+        ~ticket_completed:(fun id ->
+          Domain_command.Status.equal (find_ticket t id).status Done)
         ~method_
         ~params
       |> unwrap_domain)

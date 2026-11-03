@@ -336,7 +336,7 @@ let methods =
             else page_result A.Revision.codec)))
 ;;
 
-let query t ~workspace_revision ~ownership ~method_ ~params =
+let query t ~workspace_revision ~ownership ~ticket_completed ~method_ ~params =
   Json.decode (fun () ->
     ignore
       (Api_codec.decode
@@ -415,9 +415,10 @@ let query t ~workspace_revision ~ownership ~method_ ~params =
         | Withdrawn _ | Superseded _ -> false
       in
       let pending =
-        List.exists
-          (A.pending t ~ticket:record.ticket ~ownership:(ownership record.ticket))
-          ~f:(A.Reference.equal reference)
+        (not (ticket_completed record.ticket))
+        && List.exists
+             (A.pending t ~ticket:record.ticket ~ownership:(ownership record.ticket))
+             ~f:(A.Reference.equal reference)
       in
       let data item ~required_bytes =
         Json.obj

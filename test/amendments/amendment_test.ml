@@ -235,6 +235,7 @@ let query state method_ fields =
     state
     ~workspace_revision:10
     ~ownership:(lookup 1)
+    ~ticket_completed:(Fn.const false)
     ~method_
     ~params:(Json.obj fields)
 ;;
