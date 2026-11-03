@@ -6,6 +6,9 @@
     Retry preserves the saved request, without applying context fields or resaving.
     Unknown methods fail locally before journaling or transmission; upload/download
     helpers remain explicit local operations outside the daemon method catalog.
+    Method spellings resolve against that catalog, including dotted and nested
+    forms. Help resolves before context loading, journaling or socket access;
+    option values and literal child argv following [--] are never help flags.
     Init/bootstrap are the only workspace-creating setup operations and may start
     a detached daemon with an explicit registry/log; ordinary calls never do so. *)
 val run : env:Eio_unix.Stdenv.base -> string list -> int

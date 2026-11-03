@@ -9,7 +9,8 @@ let usage =
   workgraph serve ABS_REGISTRY ABS_SOCKET
   workgraph call ABS_SOCKET METHOD PARAMS_JSON
   workgraph request [ABS_SOCKET] METHOD [OPTIONS] [--FIELD VALUE ...]
-  workgraph FAMILY ACTION [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
+  workgraph METHOD [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
+  workgraph FAMILY ACTION... [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
   workgraph retry [ABS_SOCKET] REQUEST_FILE [--timeout SECONDS] [--output text]
   workgraph evidence-run --stage ABS_DIR --cwd ABS_DIR [--source-root ABS_GIT_ROOT]
     [--output-limit BYTES] -- COMMAND ARG...
@@ -148,6 +149,63 @@ let render_text value =
 
 let needs_mutation_id = Cli_mutation_identity.required
 
+(* Help is a local operation. Option values and literal child argv cannot turn
+   an execution into help, even when a value happens to be "--help". *)
+let normalize_help arguments =
+  let rec words reversed = function
+    | word :: rest
+      when not (String.is_prefix word ~prefix:"--" || Filename.is_absolute word) ->
+      words (word :: reversed) rest
+    | rest -> List.rev reversed, rest
+  in
+  let rec help_flag = function
+    | [] | "--" :: _ -> false
+    | "--help" :: _ -> true
+    | ("--json-field" | "--field-file") :: _ :: _ :: rest -> help_flag rest
+    | ("--self" | "--json" | "--brief" | "--full") :: rest -> help_flag rest
+    | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> help_flag rest
+    | _ :: rest -> help_flag rest
+  in
+  let name names =
+    match names with
+    | "request" :: (_ :: _ as rest) ->
+      (match Cli_reference.resolve_method names with
+       | Ok (method_, []) -> method_
+       | Ok (_, _ :: _) | Error _ ->
+         (match Cli_reference.resolve_method rest with
+          | Ok (method_, []) -> method_
+          | Ok (_, _ :: _) | Error _ -> String.concat ~sep:"." names))
+    | _ -> String.concat ~sep:"." names
+  in
+  let rec reference_options = function
+    | [] | "--" :: _ -> []
+    | (("--full" | "--brief") as flag) :: rest -> flag :: reference_options rest
+    | "--output" :: value :: rest -> "--output" :: value :: reference_options rest
+    | ("--json-field" | "--field-file") :: _ :: _ :: rest -> reference_options rest
+    | ("--self" | "--json" | "--help") :: rest -> reference_options rest
+    | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> reference_options rest
+    | _ :: rest -> reference_options rest
+  in
+  match arguments with
+  | "help" :: rest | "schema" :: rest ->
+    let names, options = words [] rest in
+    let prefix = List.hd_exn arguments in
+    if List.is_empty names then arguments else prefix :: name names :: options
+  | [] | [ "--help" ] -> arguments
+  | _ when help_flag arguments ->
+    let names, _ =
+      match arguments with
+      | "request" :: socket :: rest when Filename.is_absolute socket -> words [] rest
+      | _ -> words [] arguments
+    in
+    if List.equal String.equal names [ "methods" ]
+    then "methods" :: reference_options arguments
+    else if List.is_empty names
+    then [ "--help" ]
+    else "help" :: name names :: reference_options arguments
+  | _ -> arguments
+;;
+
 let run ~env arguments =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
   let output text = Platform.write_string (Eio.Stdenv.stdout env) (text ^ "\n") in
@@ -161,12 +219,17 @@ let run ~env arguments =
               [ "resource.upload"; "resource.download" ]
               method_
               ~equal:String.equal)
-    then
-      Json.fail
-        Invalid_argument
-        ("unknown method: "
-         ^ method_
-         ^ "; use workgraph methods to list methods; ticket.get reads ticket context");
+    then (
+      match Cli_reference.resolve_method [ method_ ] with
+      | Error problem -> raise (Json.Decode_error problem)
+      | Ok (canonical, _) ->
+        Json.fail
+          Invalid_argument
+          ("method is not executable: "
+           ^ method_
+           ^ "; use "
+           ^ canonical
+           ^ " for a new request; saved retries never change methods"));
     let client =
       Client.create
         ~net:(Eio.Stdenv.net env)
@@ -246,9 +309,7 @@ let run ~env arguments =
   in
   let context = ref None in
   let request socket method_ options =
-    let method_ =
-      if String.equal method_ "ticket.get" then "ticket.context" else method_
-    in
+    let method_ = Cli_reference.canonical_method_name method_ in
     let options =
       if options.self
       then
@@ -314,6 +375,7 @@ let run ~env arguments =
         | [] -> context_file, socket, List.rev reversed
       in
       let context_file, socket_override, arguments = select None None [] arguments in
+      let arguments = normalize_help arguments in
       let offline =
         match arguments with
         | []
@@ -586,37 +648,35 @@ let run ~env arguments =
               Invalid_argument
               "request requires an action: --context ABS_FILE request get/list/...; or \
                request ABS_SOCKET METHOD"
-          | action :: tail when not explicit_socket ->
-            let domain_method = "request." ^ action in
-            let method_ =
-              if Option.is_some (Api_catalog.find domain_method)
-              then domain_method
-              else if
-                String.contains action '.' || Option.is_some (Api_catalog.find action)
-              then action
-              else
+          | _ :: _ when not explicit_socket ->
+            let method_, tail =
+              match Cli_reference.resolve_method ("request" :: rest) with
+              | Ok method_ -> method_
+              | Error _ -> Cli_reference.resolve_method rest |> Disk.unwrap
+            in
+            let socket, tail =
+              match tail, default_socket with
+              | socket :: _, _ when Filename.is_absolute socket -> with_socket tail
+              | _, Some _ -> with_socket tail
+              | _, None ->
                 Json.fail
                   Invalid_argument
-                  "use --context ABS_FILE request get/list/... or request ABS_SOCKET \
-                   METHOD"
+                  "supply --context ABS_FILE or --socket ABS_SOCKET for request actions; \
+                   generic transport is request ABS_SOCKET METHOD"
             in
-            if Option.is_none default_socket
-            then
-              Json.fail
-                Invalid_argument
-                "supply --context ABS_FILE or --socket ABS_SOCKET for request actions; \
-                 generic transport is request ABS_SOCKET METHOD";
-            with_socket (method_ :: tail)
+            socket, method_ :: tail
           | _ -> with_socket rest
         in
         (match rest with
-         | method_ :: rest -> request socket method_ (parse_options ~fs rest)
+         | _ :: _ ->
+           let method_, rest = Cli_reference.resolve_method rest |> Disk.unwrap in
+           request socket method_ (parse_options ~fs rest)
          | [] ->
            Json.fail Invalid_argument "request requires METHOD: request ABS_SOCKET METHOD")
-      | family :: action :: rest ->
+      | _ :: _ ->
+        let method_, rest = Cli_reference.resolve_method arguments |> Disk.unwrap in
         let socket, rest = with_socket rest in
-        request socket (family ^ "." ^ action) (parse_options ~fs rest)
-      | _ -> Json.fail Invalid_argument "invalid command; use --help")
+        request socket method_ (parse_options ~fs rest))
   in
   match result with
   | Ok code -> code

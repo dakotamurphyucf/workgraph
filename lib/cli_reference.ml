@@ -12,6 +12,161 @@ let canonical_method_name = function
   | name -> name
 ;;
 
+let local_methods = [ "resource.upload"; "resource.download" ]
+
+let helper_help = function
+  | "init" | "bootstrap" -> Some Cli_bootstrap.help
+  | "evidence-run" ->
+    Some
+      "evidence-run [local helper]\n\
+       Usage: workgraph evidence-run --stage ABS_NEW_DIR --cwd ABS_DIR\n\
+       [--source-root ABS_GIT_ROOT] [--output-limit BYTES] -- COMMAND ARG...\n\
+       Create only the stage parent; the stage itself must be fresh. Everything after\n\
+       -- is literal child argv, including --help and --context. No daemon is used.\n\
+       Each stream retains its first BYTES (default 65536, range 1..1048576), drains\n\
+       and hashes observed bytes, and stores binary output as base64 in capture.json.\n\
+       JSON stdout: stage, capture_file, outcome, stdout/stderr counts and truncation,\n\
+       source_drift, publication:not_attempted. Exit 0: observed command success;\n\
+       2: captured nonzero/signal/launch failure; 1: infrastructure/argument error.\n\
+       Partial provenance is not whole-tree proof. A capture is not approval.\n\
+       Example: workgraph evidence-run --stage /absolute/stages/check-1 --cwd \
+       /absolute/checkout -- python3 -m unittest\n\
+       Read docs/agent/execution.md for output, provenance and publication contracts."
+  | "evidence-publish" ->
+    Some
+      "evidence-publish [local helper]\n\
+       Usage: workgraph --context ABS_FILE evidence-publish --stage ABS_STAGE\n\
+       --resource-id ID --expected-revision REV --title TEXT\n\
+       Or supply ABS_SOCKET, --workspace-id ID and --actor-id ID explicitly.\n\
+       Optional --run-id attributes publication. The context supplies admitted defaults.\n\
+       Save the exact publication.json before sending; a missing mutation_id is generated.\n\
+       Retry: workgraph --socket ABS_SOCKET evidence-publish --stage ABS_STAGE\n\
+       Saved-stage retry accepts transport/output/journal options only; it never reruns\n\
+       execution or changes attribution. Missing, unfinished or malformed stages reject.\n\
+       JSON stdout is the normal JSON-RPC receipt: .result.data.resource_id, .revision\n\
+       and .version.{revision,digest}. Journal paths are diagnostics on stderr.\n\
+       --output json|text and --timeout SECONDS are local options. Publication does not\n\
+       automatically link or approve a ticket. Read docs/agent/execution.md."
+  | "resource.upload" ->
+    Some
+      "resource.upload [local helper]\n\
+       Usage: workgraph --context ABS_FILE resource upload --resource-id ID\n\
+       --expected-revision REV --title TEXT --file ABS_REGULAR_FILE\n\
+       Optional --filename BASENAME, --mime-type TYPE/SUBTYPE and --run-id ID.\n\
+       File bytes are bounded to 64MiB. Save the exact upload plan with --save-request\n\
+       ABS_NEW_FILE, a configured request directory, or supply a stable --mutation-id.\n\
+       Retry only the saved plan with workgraph retry; changed source bytes reject.\n\
+       Result paths: .result.data.resource_id; .revision is the entity guard,\n\
+       .version.{revision,digest} is the immutable evidence identity.\n\
+       This helper is not a daemon method. Read docs/agent/resources.md."
+  | "resource.download" ->
+    Some
+      "resource.download [local helper]\n\
+       Usage: workgraph --context ABS_FILE resource download --resource-id ID\n\
+       --destination ABS_NEW_FILE [--version CONTENT_VERSION]\n\
+       No actor/run/mutation fields. The destination parent must exist; never replaces\n\
+       a destination. Pins the first immutable version and verifies all chunks and\n\
+       the complete digest before publishing the private downloaded file.\n\
+       Result paths: .result.data.resource_id, .version, .digest, .size_bytes, \
+       .destination.\n\
+       A post-publication directory-sync error is Outcome_unknown; inspect the retained\n\
+       destination rather than deleting it blindly. Read docs/agent/resources.md."
+  | "retry" ->
+    Some
+      "retry [local helper]\n\
+       Usage: workgraph retry [ABS_SOCKET] ABS_SAVED_REQUEST\n\
+       [--timeout SECONDS] [--output json|text]\n\
+       --context/--socket may select transport. Retry preserves saved method, params,\n\
+       mutation identity and attribution; parameter overrides and --self reject.\n\
+       Understands saved resource upload plans. Never reruns an evidence command."
+  | "serve" ->
+    Some
+      "serve [local helper]\n\
+       Usage: workgraph serve ABS_REGISTRY_DIRECTORY ABS_SOCKET\n\
+       Run in a separate process. Preserve managed data and ownership guards; never\n\
+       remove an occupied socket based only on connection refusal. SIGTERM, Ctrl-C\n\
+       or daemon.shutdown drains admitted work. Read docs/agent/administration.md."
+  | "call" ->
+    Some
+      "call [local helper]\n\
+       Usage: workgraph call [ABS_SOCKET] METHOD PARAMS_JSON\n\
+       PARAMS_JSON is one object. Use --context/--socket for transport defaults.\n\
+       Named parameter flags cannot be merged into the raw object. Read help METHOD\n\
+       for the exact schema and docs/agent/cli-contract.md for retry rules."
+  | _ -> None
+;;
+
+let method_names =
+  "ticket.get"
+  :: (local_methods
+      @ List.map Api_catalog.methods ~f:(fun (Api_method.Packed.Pack method_) ->
+        Api_method.name method_))
+;;
+
+let edit_distance left right =
+  let previous = ref (Array.init (String.length right + 1) ~f:Fn.id) in
+  String.iteri left ~f:(fun i a ->
+    let next = Array.create ~len:(String.length right + 1) (i + 1) in
+    String.iteri right ~f:(fun j b ->
+      next.(j + 1)
+      <- Int.min
+           (Int.min (next.(j) + 1) (!previous.(j + 1) + 1))
+           (!previous.(j) + if Char.equal a b then 0 else 1));
+    previous := next);
+  !previous.(String.length right)
+;;
+
+let unknown_method ~kind name =
+  let suggestions =
+    if String.length name > 128
+    then []
+    else
+      method_names
+      |> List.map ~f:(fun candidate -> edit_distance name candidate, candidate)
+      |> List.filter ~f:(fun (distance, _) -> distance <= 3)
+      |> List.sort ~compare:(fun (a, left) (b, right) ->
+        match Int.compare a b with
+        | 0 -> String.compare left right
+        | order -> order)
+      |> Fn.flip List.take 3
+      |> List.map ~f:snd
+  in
+  Problem.create
+    kind
+    ("unknown method: "
+     ^ Query_budget.prefix name ~max_bytes:128
+     ^ (if String.length name > 128 then "..." else "")
+     ^
+     if List.is_empty suggestions
+     then "; use workgraph methods or help FAMILY"
+     else "; did you mean " ^ String.concat ~sep:", " suggestions ^ "?")
+;;
+
+let resolve_method arguments =
+  let finish name = function
+    | Some value -> Ok value
+    | None -> Error (unknown_method ~kind:Invalid_argument name)
+  in
+  let rec loop parts best = function
+    | word :: rest
+      when not (String.is_prefix word ~prefix:"--" || Filename.is_absolute word) ->
+      let parts = parts @ [ word ] in
+      let name = String.concat ~sep:"." parts in
+      let best =
+        if List.mem method_names name ~equal:String.equal
+        then Some (canonical_method_name name, rest)
+        else best
+      in
+      if
+        List.exists method_names ~f:(fun candidate ->
+          String.is_prefix candidate ~prefix:(name ^ "."))
+      then loop parts best rest
+      else finish name best
+    | _ -> finish (String.concat ~sep:"." parts) best
+  in
+  loop [] None arguments
+;;
+
 let descriptions ~core ~method_name =
   match method_name with
   | None ->
@@ -21,7 +176,14 @@ let descriptions ~core ~method_name =
   | Some name ->
     (match Api_catalog.find (canonical_method_name name) with
      | Some method_ -> Ok [ method_ ]
-     | None -> Error (Problem.create Not_found ("no executable method schema: " ^ name)))
+     | None ->
+       (match helper_help name with
+        | Some _ ->
+          Error
+            (Problem.create
+               Not_found
+               (name ^ " is a local CLI helper, not a daemon schema; use help " ^ name))
+        | None -> Error (unknown_method ~kind:Not_found name)))
 ;;
 
 let schema ?(core = false) ~method_name () =
@@ -207,7 +369,24 @@ let rec example ?(field = "") ?(nonempty = false) ?(path_target = false) schema 
           then "YQ=="
           else if String.equal field "mime_type"
           then "text/plain"
-          else "example")
+          else (
+            match field with
+            | "workspace_id" -> "demo"
+            | "actor_id" | "resolver_id" -> "worker"
+            | "run_id" | "target_run_id" -> "worker-run"
+            | "ticket_id" | "prerequisite_id" -> "task"
+            | "attempt_id" -> "task-attempt"
+            | "mutation_id" -> "saved-operation"
+            | "project_id" -> "project"
+            | "resource_id" -> "notes"
+            | "request_id" -> "question"
+            | "consumer_id" -> "worker-inbox"
+            | "key" -> "result"
+            | "title" -> "Investigate the failure"
+            | "objective" -> "Implement and check the assigned task"
+            | "body" -> "Checked the implementation; details are recorded on the ticket."
+            | "evidence" -> "Tests passed; exact output is linked to this ticket."
+            | _ -> "example"))
      | _ ->
        (match values schema "allOf", values schema "oneOf" @ values schema "anyOf" with
         | first :: rest, _ ->
@@ -267,6 +446,8 @@ let preconditions name mode request =
          never text."
       ; "Discover each operation's inputs with help METHOD; schema transaction.apply is \
          complete."
+      ; "workspace_id, actor_id, run_id and mutation_id belong to the outer call, not \
+         operation params. Separate commands are independent commits."
       ]
     | "resource.put_text" ->
       [ "title is required on both create and update; omitted filename/MIME metadata is \
@@ -277,8 +458,16 @@ let preconditions name mode request =
          revision."
       ]
     | "ticket.start" ->
-      [ "The ticket must be ready and claimable; retain the returned token and \
-         attempt_id."
+      [ "The ticket must be ready and claimable; retain the returned token. Supply \
+         run_id and attempt_id to start an attempt atomically."
+      ]
+    | "ticket.claim" ->
+      [ "Claims ownership only; no attempt is started. Use ticket.start with attempt_id \
+         or ticket.claim_next to start an attempt atomically."
+      ]
+    | "fact.put" ->
+      [ "expected_revision 0 creates a new key; otherwise use the observed fact \
+         revision. Values are at most 4096 canonical JSON bytes. Scope is explicit."
       ]
     | "ticket.claim_next" ->
       [ "target_run_id must identify a registered live run owned by actor_id; run_id \
@@ -296,6 +485,31 @@ let preconditions name mode request =
     | _ -> []
   in
   common @ guarded @ specific @ descriptions_in request
+;;
+
+let result_paths = function
+  | "ticket.context" ->
+    ".result.data.ticket.{ticket_id,description,status,claim}; .result.data.handoff"
+  | "ticket.list" | "ticket.ready" ->
+    ".result.data.items[].ticket_id; .result.data.next_offset; \
+     .result.meta.workspace_revision"
+  | "ticket.claim_next" ->
+    ".result.data.kind; when claimed: .result.data.claim.{ticket_id,token}; \
+     .result.data.attempt"
+  | "resource.get" ->
+    ".result.data.metadata.title; .result.data.revision (entity guard); \
+     .result.data.current_version.{revision,digest} (content pin)"
+  | "resource.read" ->
+    ".result.data.text; .result.data.version (content version); .result.data.digest"
+  | "resource.list" | "fact.list" ->
+    ".result.data.items; .result.data.next_offset; .result.meta.workspace_revision"
+  | "fact.keys" -> ".result.data.items; .result.data.remaining; .result.data.total"
+  | "transaction.apply" ->
+    ".result.data.results[] has method and data, in operation order"
+  | "request.get" ->
+    ".result.data.{revision,thread_revision}; with include_messages: \
+     .result.data.related.{source_message,messages.items}"
+  | _ -> ".result.data contains the fields above; .result.meta carries response metadata"
 ;;
 
 let brief method_ =
@@ -359,7 +573,12 @@ let brief method_ =
       let sample =
         if
           List.mem
-            [ "resource.put_text"; "resource.finish_upload"; "board.put"; "thread.put" ]
+            [ "resource.put_text"
+            ; "resource.finish_upload"
+            ; "board.put"
+            ; "thread.put"
+            ; "fact.put"
+            ]
             name
             ~equal:String.equal
         then set sample "expected_revision" (Json.string "0")
@@ -367,7 +586,28 @@ let brief method_ =
       in
       let sample =
         if String.equal name "ticket.claim_next"
-        then set sample "run_id" (Json.string "example")
+        then set sample "run_id" (Json.string "worker-run")
+        else sample
+      in
+      let sample =
+        if String.equal name "fact.put"
+        then
+          set
+            (set
+               sample
+               "scope"
+               (Json.obj [ "kind", Json.string "ticket"; "id", Json.string "task" ]))
+            "value"
+            (Json.obj [ "tests_passed", `Number "12"; "notes", Json.string "notes" ])
+        else sample
+      in
+      let sample =
+        if List.mem [ "inbox.read"; "inbox.wait"; "inbox.ack" ] name ~equal:String.equal
+        then
+          set
+            sample
+            "recipient"
+            (Json.obj [ "kind", Json.string "actor"; "id", Json.string "worker" ])
         else sample
       in
       if
@@ -376,11 +616,15 @@ let brief method_ =
           name
           ~equal:String.equal
       then (
-        let _, recipients, _, _ =
-          List.find_exn (fields request) ~f:(fun (field, _, _, _) ->
-            String.equal field "recipients")
+        let sample =
+          if List.mem [ "request.create"; "request.ask" ] name ~equal:String.equal
+          then set sample "resolver_id" (Json.string "lead")
+          else sample
         in
-        set sample "recipients" (example ~nonempty:true recipients))
+        set
+          sample
+          "recipients"
+          (`Array [ Json.obj [ "kind", Json.string "actor"; "id", Json.string "lead" ] ]))
       else sample)
   in
   (* Examples are suggestions, never a second validator. Try two bounded schema
@@ -426,7 +670,10 @@ let brief method_ =
          (preconditions name (Api_method.mode method_) request)
          ~f:(fun text -> "  " ^ text)
      @ [ sample_label ^ Json.canonical sample
+       ; "  References and guards are illustrative; use observed IDs/revisions for live \
+          work."
        ; "Result data: " ^ results
+       ; "Result paths: " ^ result_paths name
        ; "Result envelope: {data, meta}; meta carries captured revisions, durability and \
           bounded-output diagnostics when applicable."
        ; "Complete contracts: workgraph help "
@@ -438,49 +685,73 @@ let brief method_ =
 ;;
 
 let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
-  match method_name with
-  | Some ("init" | "bootstrap") -> Ok Cli_bootstrap.help
-  | None | Some _ ->
-    Result.map (descriptions ~core ~method_name) ~f:(fun methods ->
-      let rendered =
-        List.map methods ~f:(fun (Api_method.Packed.Pack method_) ->
-          let mode =
-            match Api_method.mode method_ with
-            | Read -> "read"
-            | Write -> "write"
-            | Mutation -> "mutation"
-          in
-          let heading =
-            Api_method.name method_ ^ " [" ^ mode ^ "] — " ^ Api_method.summary method_
-          in
-          match method_name, detail with
-          | None, _ -> heading
-          | Some _, Brief -> heading ^ "\n" ^ brief method_
-          | Some _, Full ->
-            let description = Api_method.describe method_ in
-            String.concat
-              ~sep:"\n"
-              [ heading
-              ; "Parameters (JSON Schema):"
-              ; Jsonaf.to_string_hum (Json.field description "params")
-              ; "Result envelope (JSON Schema):"
-              ; Jsonaf.to_string_hum (Json.field description "result")
-              ])
-        |> String.concat ~sep:"\n"
-      in
-      match method_name with
-      | Some _ -> rendered
-      | None ->
-        "Daemon methods"
-        ^ (if core then " (core everyday tier)" else " (complete index)")
-        ^ ":\n"
-        ^ rendered
-        ^ "\n\
-           CLI helpers (local workflows): init, bootstrap, upload, download, \
-           evidence-run, evidence-publish, retry.\n\
-           CLI spelling: ticket.get (canonical ticket.context); request get/list/... \
-           select request-domain methods with --context/--socket.\n\
-           Generic transport: request ABS_SOCKET METHOD; dotted METHOD is also accepted.\n\
-           Use methods --core for everyday methods; help METHOD for concise inputs; help \
-           METHOD --full for complete contracts.")
+  match Option.bind method_name ~f:helper_help with
+  | Some usage -> Ok usage
+  | None ->
+    let family_methods =
+      Option.value_map method_name ~default:[] ~f:(fun name ->
+        if Option.is_some (Api_catalog.find (canonical_method_name name))
+        then []
+        else
+          List.filter Api_catalog.methods ~f:(fun (Api_method.Packed.Pack method_) ->
+            String.is_prefix (Api_method.name method_) ~prefix:(name ^ ".")))
+    in
+    if not (List.is_empty family_methods)
+    then
+      Ok
+        ("Daemon method family "
+         ^ Option.value_exn method_name
+         ^ ":\n"
+         ^ String.concat
+             ~sep:"\n"
+             (List.map family_methods ~f:(fun (Api_method.Packed.Pack method_) ->
+                Api_method.name method_ ^ " — " ^ Api_method.summary method_))
+         ^ "\nUse workgraph help METHOD for exact inputs, examples and result paths."
+         ^
+         if Option.equal String.equal method_name (Some "resource")
+         then "\nLocal helpers: resource.upload, resource.download (help each helper)."
+         else "")
+    else
+      Result.map (descriptions ~core ~method_name) ~f:(fun methods ->
+        let rendered =
+          List.map methods ~f:(fun (Api_method.Packed.Pack method_) ->
+            let mode =
+              match Api_method.mode method_ with
+              | Read -> "read"
+              | Write -> "write"
+              | Mutation -> "mutation"
+            in
+            let heading =
+              Api_method.name method_ ^ " [" ^ mode ^ "] — " ^ Api_method.summary method_
+            in
+            match method_name, detail with
+            | None, _ -> heading
+            | Some _, Brief -> heading ^ "\n" ^ brief method_
+            | Some _, Full ->
+              let description = Api_method.describe method_ in
+              String.concat
+                ~sep:"\n"
+                [ heading
+                ; "Parameters (JSON Schema):"
+                ; Jsonaf.to_string_hum (Json.field description "params")
+                ; "Result envelope (JSON Schema):"
+                ; Jsonaf.to_string_hum (Json.field description "result")
+                ])
+          |> String.concat ~sep:"\n"
+        in
+        match method_name with
+        | Some _ -> rendered
+        | None ->
+          "Daemon methods"
+          ^ (if core then " (core everyday tier)" else " (complete index)")
+          ^ ":\n"
+          ^ rendered
+          ^ "\n\
+             CLI helpers (local workflows): init, bootstrap, upload, download, \
+             evidence-run, evidence-publish, retry.\n\
+             CLI spelling: ticket.get (canonical ticket.context); request get/list/... \
+             select request-domain methods with --context/--socket.\n\
+             Generic transport: request ABS_SOCKET METHOD; dotted METHOD is also accepted.\n\
+             Use methods --core for everyday methods; help METHOD for concise inputs; \
+             help METHOD --full for complete contracts.")
 ;;

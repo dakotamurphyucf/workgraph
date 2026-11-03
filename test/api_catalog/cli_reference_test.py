@@ -19,9 +19,11 @@ def call(directory, *arguments, expected=0):
 
 
 with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
-    for helper in ["init", "bootstrap"]:
+    for helper in ["init", "bootstrap", "evidence-run", "evidence-publish", "resource.upload", "resource.download", "retry", "serve", "call"]:
         local_help = call(directory, helper, "--help").stdout
-        assert "[local helper]" in local_help and "--start-daemon true" in local_help
+        assert "[local helper]" in local_help
+        if helper in ("init", "bootstrap"):
+            assert "--start-daemon true" in local_help
         assert local_help == call(directory, "help", helper).stdout
         assert local_help == call(directory, "--context", str(Path(directory) / "missing-context"), helper, "--help").stdout
         assert local_help == call(directory, "--context", str(Path(directory) / "missing-context"), "help", helper).stdout
@@ -30,9 +32,30 @@ with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
     incomplete_socket = call(directory, "request", str(Path(directory) / "missing-socket"), expected=1)
     assert "request ABS_SOCKET METHOD" in incomplete_socket.stderr
     ambiguous = call(directory, "request", "relative-socket", "request.list", expected=1)
-    assert "request ABS_SOCKET METHOD" in ambiguous.stderr
+    assert "unknown method" in ambiguous.stderr
     no_transport = call(directory, "request", "get", expected=1)
     assert "--context ABS_FILE" in no_transport.stderr
+    for spelling in [["ticket", "start"], ["ticket.start"], ["request", "ticket.start"], ["request", "ticket", "start"]]:
+        missing = str(Path(directory) / "missing-context")
+        assert "ticket.start [mutation]" in call(directory, "--context", missing, *spelling, "--help").stdout
+    assert "--start-daemon true" in call(directory, "init", "--workspace-id", "unused", "--help").stdout
+    assert "ticket.start [mutation]" in call(
+        directory, "ticket", "start", "--params-file", "missing-parameters.json", "--help"
+    ).stdout
+    assert "evidence-publish [local helper]" in call(
+        directory, "--context", str(Path(directory) / "missing-context"),
+        "evidence-publish", "--stage", str(Path(directory) / "missing-stage"), "--help"
+    ).stdout
+    for family in ["resource", "ticket", "review.submission", "request"]:
+        assert "Daemon method family " + family in call(directory, family, "--help").stdout
+    assert "review.submission.get" in call(directory, "help", "review", "submission").stdout
+    assert "fact.put" in call(directory, "help", "fact.set", expected=1).stderr
+    assert "ticket.start" in call(directory, "ticket.strat", "--help", expected=1).stderr
+    assert "Parameters (JSON Schema):" in call(directory, "ticket", "start", "--help", "--full").stdout
+    assert "local CLI helper" in call(directory, "schema", "evidence-run", expected=1).stderr
+    oversized = call(directory, "help", "🙂" * 100, expected=1)
+    assert json.loads(oversized.stderr)["kind"] == "Not_found"
+    assert len(oversized.stderr.encode()) < 512
     catalog = json.loads(call(directory, "schema").stdout)
     assert catalog["schema_dialect"] == "https://json-schema.org/draft/2020-12/schema"
     names = [method["name"] for method in catalog["methods"]]
