@@ -89,6 +89,16 @@ let%expect_test "readiness pages are fenced and oversized blockers retain exact 
   assert (List.length (items expanded) = 1);
   assert (List.is_empty (items one_less));
   assert (Api_response.encoded_size Planning_read expanded = required);
+  let oversized =
+    report
+      [ ticket ~problem:(Problem.create Blocked (String.make 600000 '"')) "large" Done ]
+    |> ok
+  in
+  (match query oversized {|{"project_id":"p"}|} with
+   | Error p ->
+     assert (Problem.equal_kind p.kind Invalid_argument);
+     assert (String.is_substring p.message ~substring:"1048576-byte query limit")
+   | Ok _ -> assert false);
   print_endline
     "exact pages, stale-capture rejection and minimum whole-row budget verified";
   [%expect

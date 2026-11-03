@@ -516,3 +516,25 @@ module Handoff = struct
     | Error p -> Sexplib.Conv.of_sexp_error p.Problem.message sexp
   ;;
 end
+
+module Command = struct
+  type t =
+    { project : Id.Project.t
+    ; expected_revision : int
+    ; evidence : string
+    ; handoff : Ticket_lifecycle.Handoff.t
+    }
+  [@@deriving sexp]
+
+  let codec =
+    Api_codec.object_
+      (F.map
+         (F.required "project_id" (W.id Id.Project.of_string Id.Project.to_string)
+          ++ F.required "expected_revision" W.positive
+          ++ F.required "evidence" (W.nonblank ~max_bytes:65536)
+          ++ F.required "handoff" Ticket_lifecycle.Handoff.codec)
+         ~decode:(fun (((project, expected_revision), evidence), handoff) ->
+           { project; expected_revision; evidence; handoff })
+         ~encode:(fun t -> ((t.project, t.expected_revision), t.evidence), t.handoff))
+  ;;
+end

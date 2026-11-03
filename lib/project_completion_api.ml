@@ -12,26 +12,7 @@ let unwrap = function
 
 let project_id = W.id Id.Project.of_string Id.Project.to_string
 
-module Command = struct
-  type t =
-    { project : Id.Project.t
-    ; expected_revision : int
-    ; evidence : string
-    ; handoff : Ticket_lifecycle.Handoff.t
-    }
-
-  let codec =
-    Api_codec.object_
-      (F.map
-         (F.required "project_id" project_id
-          ++ F.required "expected_revision" W.positive
-          ++ F.required "evidence" (W.nonblank ~max_bytes:65536)
-          ++ F.required "handoff" Ticket_lifecycle.Handoff.codec)
-         ~decode:(fun (((project, expected_revision), evidence), handoff) ->
-           { project; expected_revision; evidence; handoff })
-         ~encode:(fun t -> ((t.project, t.expected_revision), t.evidence), t.handoff))
-  ;;
-end
+module Command = P.Command
 
 let request =
   Api_codec.as_json
@@ -191,6 +172,12 @@ let query t ~params =
       else (
         let rec minimum budget =
           let needed = Int.max 4096 (page ~budget 1 ~required_bytes:None |> measure) in
+          if needed > 1048576
+          then
+            Json.fail
+              Invalid_argument
+              "project readiness blocker exceeds the 1048576-byte query limit; inspect \
+               the member ticket's readiness separately";
           if needed = budget then needed else minimum needed
         in
         Some (minimum 4096))

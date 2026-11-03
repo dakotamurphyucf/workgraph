@@ -119,3 +119,17 @@ module Handoff : sig
   val sexp_of_t : t -> Sexp.t
   val t_of_sexp : Sexp.t -> t
 end
+
+(** Guarded project finish command. Evidence must be nonblank and the structured
+    handoff follows ticket-finish patch semantics. *)
+module Command : sig
+  type t =
+    { project : Id.Project.t
+    ; expected_revision : int
+    ; evidence : string
+    ; handoff : Ticket_lifecycle.Handoff.t
+    }
+  [@@deriving sexp]
+
+  val codec : t Api_codec.t
+end
