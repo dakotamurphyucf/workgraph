@@ -700,6 +700,18 @@ let run ~env arguments =
           | file :: rest -> file, rest
           | [] -> Json.fail Invalid_argument "retry requires a request file"
         in
+        let rec validate_retry_options = function
+          | [] -> ()
+          | "--timeout" :: _ :: rest
+          | "--output" :: ("json" | "text") :: rest
+          | "--json" :: rest -> validate_retry_options rest
+          | _ ->
+            Json.fail
+              Invalid_argument
+              "retry cannot change or resave request parameters; only --timeout and \
+               --output json|text are accepted"
+        in
+        validate_retry_options rest;
         let options = parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest in
         if
           (not (List.is_empty options.fields))

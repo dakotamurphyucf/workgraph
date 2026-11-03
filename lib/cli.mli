@@ -4,6 +4,8 @@
     no current-ticket or process-global actor is selected. Durable writes journal
     prepared requests to exclusive synced files before transmission when configured.
     Retry preserves the saved request, without applying context fields or resaving.
+    Its transport/output option allowlist is checked before reading parameter
+    files, stdin or the saved request; retry never materializes new payload input.
     Unknown methods fail locally before journaling or transmission; upload/download
     helpers remain explicit local operations outside the daemon method catalog.
     Method spellings resolve against that catalog, including dotted and nested

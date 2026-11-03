@@ -2,8 +2,10 @@
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 import socket
+import select
 import struct
 import subprocess
 import sys
@@ -72,7 +74,31 @@ with tempfile.TemporaryDirectory(prefix="wg-text-") as temporary:
     frozen = saved.read_bytes()
     assert json.loads(frozen)["params"]["text"].encode() == text
     first = requests[-1]
-    exchange(["retry", saved], [None], b"different ignored stdin", 1)
+    retry_journals = sorted(journal.iterdir())
+    # Leave the writer open and seed bytes: retry must neither consume nor await input.
+    for unsupported in [["--params-file", "-"], ["--field-file", "text", "-"]]:
+        read_fd, write_fd = os.pipe()
+        untouched = b"input must stay unread\n"
+        process = None
+        try:
+            os.write(write_fd, untouched)
+            process = subprocess.Popen([binary, "--context", str(context), "retry", str(saved), *unsupported], stdin=read_fd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            assert process.wait(timeout=2) == 1
+            assert b"retry cannot change" in process.stderr.read()
+            assert select.select([read_fd], [], [], 0)[0], "retry consumed stdin bytes"
+            assert os.read(read_fd, len(untouched)) == untouched
+            assert saved.read_bytes() == frozen and sorted(journal.iterdir()) == retry_journals
+        finally:
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.wait(timeout=2)
+            os.close(read_fd)
+            os.close(write_fd)
+    for unsupported in [["--params-file", str(root / "missing-input")], ["--field-file", "text", str(root / "missing-input")]]:
+        result = invoke("retry", root / "missing-saved", *unsupported, code=1)
+        assert b"retry cannot change" in result.stderr
+        assert saved.read_bytes() == frozen and sorted(journal.iterdir()) == retry_journals
+    exchange(["retry", saved, "--timeout", "1", "--output", "json"], [None], b"different ignored stdin", 1)
     assert requests[-1] == first and saved.read_bytes() == frozen
     params = {"resource_id": "note", "expected_revision": "0", "title": "Note", "text": text.decode()}
     exchange(["resource.put_text", "--params-file", "-"], [None], json.dumps(params).encode(), 1)
@@ -99,7 +125,6 @@ with tempfile.TemporaryDirectory(prefix="wg-text-") as temporary:
     assert process.wait(timeout=2) == 1
     process.stdin.close()
     fifo = root / "pipe"
-    import os
     os.mkfifo(fifo)
     assert b"regular file" in invoke("resource.put_text", "--params-file", fifo, code=1).stderr
     assert sorted(journal.iterdir()) == before
