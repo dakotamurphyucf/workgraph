@@ -549,8 +549,16 @@ module Acquisition = struct
         ~ready:true
         ~available:true
     in
+    let actor_policy =
+      Option.value_map
+        (Agent_run.get_ticket_policy t.agent_runs ticket.id)
+        ~default:Actor_eligibility.unrestricted
+        ~f:(fun policy -> policy.Allocation.Ticket_policy.allowed_actor_ids)
+    in
     let constrained =
-      not (List.is_empty candidate.required_capabilities && List.is_empty candidate.pools)
+      Option.is_some (Actor_eligibility.allowed_actors actor_policy)
+      || not
+           (List.is_empty candidate.required_capabilities && List.is_empty candidate.pools)
     in
     let needs_run = constrained || Intent.equal intent Attempt in
     let registered = Option.bind run ~f:(Agent_run.get_run t.agent_runs) in
@@ -573,6 +581,7 @@ module Acquisition = struct
         @ (if Agent_run.Status.terminal registered.status
            then [ Terminal_run { run_id } ]
            else [])
+        @ Option.to_list (Actor_eligibility.assess actor_policy ~actor:registered.actor)
         @ List.filter_map candidate.required_capabilities ~f:(fun capability ->
           if List.mem registered.capabilities capability ~equal:String.equal
           then None
@@ -625,6 +634,7 @@ module Acquisition = struct
             | Allocation_admission_reason.Run_actor_mismatch _ | Terminal_run _ -> true
             | Run_required
             | Unregistered_run _
+            | Actor_not_allowed _
             | Missing_capability _
             | Pool_full _
             | Budget_exhausted _ -> false)
@@ -900,6 +910,7 @@ module Allocation_capture = struct
         let allocation =
           List.filter_map entry.allocation_reasons ~f:(function
             | Allocation_admission_reason.Terminal_run _ -> Some Run_terminal
+            | Actor_not_allowed _ -> Some Actor_not_allowed
             | Missing_capability _ -> Some Missing_capability
             | Pool_full _ -> Some Pool_full
             | Budget_exhausted _ -> None

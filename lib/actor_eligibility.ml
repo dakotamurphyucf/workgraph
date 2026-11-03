@@ -38,6 +38,15 @@ let permits t ~actor =
   | Allowed actors -> List.mem actors actor ~equal:Id.Actor.equal
 ;;
 
+let assess t ~actor =
+  if permits t ~actor
+  then None
+  else
+    Some
+      (Allocation_admission_reason.Actor_not_allowed
+         { actor_id = Id.Actor.to_string actor })
+;;
+
 let codec =
   Api_codec.map
     (Api_codec.nullable

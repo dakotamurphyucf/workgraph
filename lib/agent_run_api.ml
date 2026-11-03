@@ -200,6 +200,7 @@ module Allocation_ticket_policy_put_request = struct
     ; expected_revision : int
     ; required_capabilities : string list
     ; pools : string list
+    ; allowed_actor_ids : Actor_eligibility.t option
     }
 end
 
@@ -339,38 +340,59 @@ let entries =
                (Fields.required "ticket_id" reference
                 ++ Fields.required "expected_revision" decimal
                 ++ Fields.required "required_capabilities" names
-                ++ Fields.required "pools" names)
+                ++ Fields.required "pools" names
+                ++ Fields.optional "allowed_actor_ids" Actor_eligibility.codec)
                ~decode:
                  (fun
-                   (((ticket, expected_revision), required_capabilities), pools) ->
+                   ( (((ticket, expected_revision), required_capabilities), pools)
+                   , allowed_actor_ids ) ->
                  { Allocation_ticket_policy_put_request.ticket
                  ; expected_revision
                  ; required_capabilities
                  ; pools
+                 ; allowed_actor_ids
                  })
                ~encode:
                  (fun
-                   ({ ticket; expected_revision; required_capabilities; pools } :
+                   ({ ticket
+                    ; expected_revision
+                    ; required_capabilities
+                    ; pools
+                    ; allowed_actor_ids
+                    } :
                      Allocation_ticket_policy_put_request.t) ->
-                 ((ticket, expected_revision), required_capabilities), pools))
+                 ( (((ticket, expected_revision), required_capabilities), pools)
+                 , allowed_actor_ids )))
       ; command =
-          (fun ({ ticket; expected_revision; required_capabilities; pools } :
+          (fun ({ ticket
+                ; expected_revision
+                ; required_capabilities
+                ; pools
+                ; allowed_actor_ids
+                } :
                  Allocation_ticket_policy_put_request.t) ->
             Ticket_policy_put
               { ticket = (fun value -> Id.Ticket.t_of_jsonaf (Json.string value)) ticket
               ; expected_revision
               ; required_capabilities
               ; pools
+              ; allowed_actor_ids
               })
       ; project =
           (function
             | Ticket_policy_put
-                { ticket; expected_revision; required_capabilities; pools } ->
+                { ticket
+                ; expected_revision
+                ; required_capabilities
+                ; pools
+                ; allowed_actor_ids
+                } ->
               Some
                 { Allocation_ticket_policy_put_request.ticket = Id.Ticket.to_string ticket
                 ; expected_revision
                 ; required_capabilities
                 ; pools
+                ; allowed_actor_ids
                 }
             | _ -> None)
       }

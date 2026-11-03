@@ -365,12 +365,20 @@ let ticket_policy =
        (Fields.required "ticket_id" ticket_id
         ++ Fields.required "revision" positive
         ++ Fields.required "required_capabilities" strings
-        ++ Fields.required "pools" strings)
-       ~decode:(fun (((ticket, revision), required_capabilities), pools) ->
-         { Allocation.Ticket_policy.ticket; revision; required_capabilities; pools })
+        ++ Fields.required "pools" strings
+        ++ Fields.required "allowed_actor_ids" Actor_eligibility.codec)
+       ~decode:
+         (fun
+           ((((ticket, revision), required_capabilities), pools), allowed_actor_ids) ->
+         { Allocation.Ticket_policy.ticket
+         ; revision
+         ; required_capabilities
+         ; pools
+         ; allowed_actor_ids
+         })
        ~encode:
          (fun
-           ({ ticket; revision; required_capabilities; pools } :
+           ({ ticket; revision; required_capabilities; pools; allowed_actor_ids } :
              Allocation.Ticket_policy.t) ->
-         ((ticket, revision), required_capabilities), pools))
+         (((ticket, revision), required_capabilities), pools), allowed_actor_ids))
 ;;

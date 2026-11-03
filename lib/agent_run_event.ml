@@ -277,7 +277,8 @@ let t_of_jsonaf json =
     | [ `String "Ticket_policy_put"; value ] ->
       Json.fields
         value
-        ~allowed:[ "ticket"; "revision"; "required_capabilities"; "pools" ];
+        ~allowed:
+          [ "ticket"; "revision"; "required_capabilities"; "pools"; "allowed_actor_ids" ];
       Update.Ticket_policy_put
         { Allocation.Ticket_policy.ticket =
             Id.Ticket.t_of_jsonaf (Json.field value "ticket")
@@ -285,6 +286,8 @@ let t_of_jsonaf json =
         ; required_capabilities =
             List.map (Json.list (Json.field value "required_capabilities")) ~f:Json.text
         ; pools = List.map (Json.list (Json.field value "pools")) ~f:Json.text
+        ; allowed_actor_ids =
+            Actor_eligibility.t_of_jsonaf (Json.field value "allowed_actor_ids")
         }
     | [ `String "Run_put"; value ] -> Update.Run_put (Record.t_of_jsonaf value)
     | [ `String "Attempt_started"; value ] ->

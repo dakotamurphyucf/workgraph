@@ -18,6 +18,7 @@ type t =
       ; expected_actor : string
       ; actual_actor : string
       }
+  | Actor_not_allowed of { actor_id : string }
   | Terminal_run of { run_id : string }
   | Missing_capability of
       { run_id : string

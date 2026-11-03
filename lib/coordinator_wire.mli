@@ -50,6 +50,7 @@ end
 module Allocation_reason : sig
   type t =
     | Allocation of Allocation.Reason.t
+    | Admission of Allocation_admission_reason.t
     | Run_terminal
     | Run_budget of Problem.t
     | Coordination of Agent_run.Start_blocker.t

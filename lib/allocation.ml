@@ -132,6 +132,7 @@ module Explanation = struct
       | Pool_full
       | Parent_filtered
       | Run_terminal
+      | Actor_not_allowed
     [@@deriving equal]
 
     let all =
@@ -144,6 +145,7 @@ module Explanation = struct
       ; Pool_full
       ; Parent_filtered
       ; Run_terminal
+      ; Actor_not_allowed
       ]
     ;;
 
@@ -158,6 +160,7 @@ module Explanation = struct
         ; "pool_full", Pool_full
         ; "parent_filtered", Parent_filtered
         ; "run_terminal", Run_terminal
+        ; "actor_not_allowed", Actor_not_allowed
         ]
         ~equal
     ;;
@@ -225,7 +228,7 @@ module Explanation = struct
       (Api_codec.object_
          (F.required "captured_workspace_revision" counter
           ++ F.required "candidate_count" counter
-          ++ F.required "reasons" (Api_codec.list Reason_count.codec ~max_items:9)
+          ++ F.required "reasons" (Api_codec.list Reason_count.codec ~max_items:10)
           ++ F.required "run_limits" (Api_codec.list Budget_limit.codec ~max_items:2)))
       ~decode:
         (fun
@@ -318,6 +321,7 @@ module Ticket_policy = struct
     ; revision : int
     ; required_capabilities : string list
     ; pools : string list
+    ; allowed_actor_ids : Actor_eligibility.t
     }
   [@@deriving sexp, equal, jsonaf]
 end

@@ -65,6 +65,15 @@ let allocation_reason =
           (run_id, expected_actor), actual_actor
         | _ -> invalid_arg "actor mismatch expected")
   in
+  let actor_not_allowed =
+    branch
+      "actor_not_allowed"
+      (F.required "actor_id" identity)
+      ~decode:(fun actor_id -> Ok (Actor_not_allowed { actor_id }))
+      ~encode:(function
+        | Actor_not_allowed { actor_id } -> actor_id
+        | _ -> invalid_arg "actor not allowed expected")
+  in
   let terminal =
     branch
       "terminal_run"
@@ -127,6 +136,7 @@ let allocation_reason =
       [ "run_required", run_required
       ; "unregistered_run", unregistered
       ; "run_actor_mismatch", mismatch
+      ; "actor_not_allowed", actor_not_allowed
       ; "terminal_run", terminal
       ; "missing_capability", missing
       ; "pool_full", pool
@@ -136,6 +146,7 @@ let allocation_reason =
       | Run_required -> "run_required"
       | Unregistered_run _ -> "unregistered_run"
       | Run_actor_mismatch _ -> "run_actor_mismatch"
+      | Actor_not_allowed _ -> "actor_not_allowed"
       | Terminal_run _ -> "terminal_run"
       | Missing_capability _ -> "missing_capability"
       | Pool_full _ -> "pool_full"

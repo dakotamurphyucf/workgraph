@@ -14,6 +14,7 @@ type t =
       ; expected_revision : int
       ; required_capabilities : string list
       ; pools : string list
+      ; allowed_actor_ids : Actor_eligibility.t option
       }
   | Register of
       { id : Id.Run.t

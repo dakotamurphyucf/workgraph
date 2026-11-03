@@ -97,6 +97,7 @@ let%expect_test
          ; expected_revision = 0
          ; required_capabilities = []
          ; pools = [ "build" ]
+         ; allowed_actor_ids = None
          })
       state
   in
@@ -107,6 +108,7 @@ let%expect_test
          ; expected_revision = 1
          ; required_capabilities = [ "ocaml" ]
          ; pools = [ "build" ]
+         ; allowed_actor_ids = None
          })
       state
   in
@@ -129,9 +131,9 @@ let%expect_test
     true
     {"limit":"3","name":"build","revision":"2"}
     true
-    {"pools":["build"],"required_capabilities":[],"revision":"1","ticket_id":"task"}
+    {"allowed_actor_ids":null,"pools":["build"],"required_capabilities":[],"revision":"1","ticket_id":"task"}
     true
-    {"pools":["build"],"required_capabilities":["ocaml"],"revision":"2","ticket_id":"task"}
+    {"allowed_actor_ids":null,"pools":["build"],"required_capabilities":["ocaml"],"revision":"2","ticket_id":"task"}
     true
     {"actor_id":"worker","last_observed_unix_ms":"100","revision":"4","run_id":"run","session_ids":["session"],"status":"completed"} |}]
 ;;
@@ -406,7 +408,14 @@ let%expect_test "every coordination mutation schema names its guarded revision f
       assert (has_fields [ "name"; "revision"; "limit" ]);
       counts := entity + 1, attempt, coordination
     | "allocation.ticket_policy_put" ->
-      assert (has_fields [ "ticket_id"; "revision"; "required_capabilities"; "pools" ]);
+      assert (
+        has_fields
+          [ "ticket_id"
+          ; "revision"
+          ; "required_capabilities"
+          ; "pools"
+          ; "allowed_actor_ids"
+          ]);
       counts := entity + 1, attempt, coordination
     | "ticket.paths.put" ->
       assert (List.equal String.equal fields [ "revision" ]);

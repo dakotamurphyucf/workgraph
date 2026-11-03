@@ -9,11 +9,14 @@ type t =
       ; expected_revision : int
       ; limit : int
       }
+  (** Actor policy omission preserves on update and defaults to unrestricted on
+      creation. Explicit unrestricted clears the allowlist. *)
   | Ticket_policy_put of
       { ticket : Id.Ticket.t
       ; expected_revision : int
       ; required_capabilities : string list
       ; pools : string list
+      ; allowed_actor_ids : Actor_eligibility.t option
       }
   | Register of
       { id : Id.Run.t

@@ -72,6 +72,7 @@ module Explanation : sig
       | Pool_full
       | Parent_filtered
       | Run_terminal
+      | Actor_not_allowed
     [@@deriving equal]
   end
 
@@ -122,12 +123,16 @@ end
 
 module Ticket_policy : sig
   (** Planning rejects policy replacement while this ticket has a claim or a
-      nonterminal attempt. Requirements cannot change beneath an existing grant. *)
+      nonterminal attempt. Requirements cannot change beneath an existing grant.
+      [allowed_actor_ids] is cooperative registered-run selection, not authentication.
+      A constrained actor policy requires a registered compatible run even for
+      direct claims; changing policy requires explicit release/attempt completion. *)
   type t =
     { ticket : Id.Ticket.t
     ; revision : int
     ; required_capabilities : string list
     ; pools : string list
+    ; allowed_actor_ids : Actor_eligibility.t
     }
   [@@deriving sexp, equal, jsonaf]
 end

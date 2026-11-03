@@ -628,6 +628,20 @@ let rec apply_exn ?started_at t (change : Change.t) =
                 ~f:(fun c -> List.mem record.capabilities c ~equal:String.equal))
              Blocked
              "Run lacks a required capability";
+           Option.iter
+             (Actor_eligibility.assess policy.allowed_actor_ids ~actor:record.actor)
+             ~f:(fun reason ->
+               raise
+                 (Json.Decode_error
+                    (Problem.with_details
+                       (Problem.create
+                          Blocked
+                          "Run actor is not allowed by ticket policy")
+                       (Problem.Details.Allocation
+                          { ticket_id = Id.Ticket.to_string attempt.ticket
+                          ; reasons = [ reason ]
+                          ; omitted_reasons = 0
+                          }))));
            (* Planning owns pool admission across claims and attempts. *)
            ());
          require
@@ -1184,7 +1198,8 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
          expected_revision;
        emit
          (Pool_put { Allocation.Definition.name; revision = expected_revision + 1; limit })
-     | Ticket_policy_put { ticket; expected_revision; required_capabilities; pools } ->
+     | Ticket_policy_put
+         { ticket; expected_revision; required_capabilities; pools; allowed_actor_ids } ->
        expected
          (Option.value_map (Map.find t.ticket_policies ticket) ~default:0 ~f:(fun p ->
             p.Allocation.Ticket_policy.revision))
@@ -1195,6 +1210,14 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
             ; revision = expected_revision + 1
             ; required_capabilities
             ; pools
+            ; allowed_actor_ids =
+                Option.value
+                  allowed_actor_ids
+                  ~default:
+                    (Option.value_map
+                       (Map.find t.ticket_policies ticket)
+                       ~default:Actor_eligibility.unrestricted
+                       ~f:(fun p -> p.Allocation.Ticket_policy.allowed_actor_ids))
             })
      | Command.Register
          { id

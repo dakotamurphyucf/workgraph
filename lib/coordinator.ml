@@ -298,6 +298,15 @@ let read
                 ~f:(fun value -> Wire.Allocation_reason.Allocation value)
             in
             let reasons =
+              match Agent_run.get_ticket_policy runs ticket.id with
+              | None -> reasons
+              | Some policy ->
+                Option.value_map
+                  (Actor_eligibility.assess policy.allowed_actor_ids ~actor:record.actor)
+                  ~default:reasons
+                  ~f:(fun reason -> Wire.Allocation_reason.Admission reason :: reasons)
+            in
+            let reasons =
               if Agent_run.Status.terminal record.status
               then Wire.Allocation_reason.Run_terminal :: reasons
               else reasons

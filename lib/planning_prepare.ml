@@ -183,6 +183,7 @@ let instantiate_plan t ~template ~template_revision ~id ~parameters =
                 ; expected_revision = 0
                 ; required_capabilities = node.capabilities
                 ; pools = []
+                ; allowed_actor_ids = None
                 })))
   in
   let reviews =

@@ -537,6 +537,7 @@ let%expect_test "run readiness uses capabilities, active pool counts and attempt
          ; expected_revision = 0
          ; required_capabilities = capabilities
          ; pools
+         ; allowed_actor_ids = None
          })
   in
   let runs = policy runs "capability" [ "rust" ] [] in

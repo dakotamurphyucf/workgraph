@@ -418,6 +418,7 @@ let%expect_test "run capabilities and explicit composed pool occupancy stay sepa
       ; expected_revision = 0
       ; required_capabilities = capabilities
       ; pools = [ "compile" ]
+      ; allowed_actor_ids = None
       }
   in
   let t = apply t (policy "a" [ "ocaml" ]) in

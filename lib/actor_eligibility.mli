@@ -11,6 +11,10 @@ val allowed : Id.Actor.t list -> (t, Problem.t) Result.t
 val allowed_actors : t -> Id.Actor.t list option
 val permits : t -> actor:Id.Actor.t -> bool
 
+(** Shared typed admission result for the recorded actor of a registered run.
+    Run existence, invocation ownership and run status are independent checks. *)
+val assess : t -> actor:Id.Actor.t -> Allocation_admission_reason.t option
+
 (** [null] explicitly means unrestricted; a nonempty ID array means allowed.
     Omission is the enclosing command's preserve-on-update patch state, never
     confused with [null]. Empty/duplicate/oversized arrays reject. Canonical

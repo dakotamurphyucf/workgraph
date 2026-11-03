@@ -2,7 +2,13 @@ open Core
 
 (** Public run/allocation/attempt/reservation methods. Raw typed requests retain
     transaction aliases until the resolver supplies stable IDs. Persisted event
-    codecs are independent of these lowercase enum/tagged-object wire codecs. *)
+    codecs are independent of these lowercase enum/tagged-object wire codecs.
+
+    [allocation.ticket_policy_put] optionally patches [allowed_actor_ids]: omission
+    preserves, null clears, and a nonempty distinct ID array restricts registered
+    run actors. This is cooperative routing, not authentication. Direct claims
+    remain distinct from attempts; [run.budget_put.max_active_attempts] limits
+    nonterminal attempts in that run and does not count direct claims. *)
 val mutation_methods : string list
 
 val query_methods : string list

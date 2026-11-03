@@ -225,6 +225,7 @@ end
 module Allocation_reason = struct
   type t =
     | Allocation of Allocation.Reason.t
+    | Admission of Allocation_admission_reason.t
     | Run_terminal
     | Run_budget of Problem.t
     | Coordination of Agent_run.Start_blocker.t
@@ -275,6 +276,14 @@ module Allocation_reason = struct
               (function
                 | Allocation (Pool_full v) -> v
                 | _ -> wrong ()) )
+        ; ( "admission"
+          , branch
+              "admission"
+              (req "reason" Problem_wire.allocation_reason)
+              (fun reason -> Admission reason)
+              (function
+                | Admission reason -> reason
+                | _ -> wrong ()) )
         ; ( "run_terminal"
           , branch
               "run_terminal"
@@ -305,6 +314,7 @@ module Allocation_reason = struct
         | Allocation Claimed -> "claimed"
         | Allocation (Missing_capability _) -> "missing_capability"
         | Allocation (Pool_full _) -> "pool_full"
+        | Admission _ -> "admission"
         | Run_terminal -> "run_terminal"
         | Run_budget _ -> "run_budget"
         | Coordination _ -> "coordination")
