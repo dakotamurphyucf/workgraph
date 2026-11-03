@@ -116,7 +116,7 @@ let expand_codec method_ selector =
              (req "workspace_id" workspace_id
               ++ selector
               ++
-              if String.equal method_ "resource.read"
+              if String.equal method_ "resource.read_chunk"
               then F.empty
               else
                 F.map
@@ -136,7 +136,12 @@ let resource_expand =
 ;;
 
 let content_expand =
-  expand_codec "resource.read" (req "resource_id" resource_id ++ req "version" positive)
+  expand_codec
+    "resource.read_chunk"
+    (req "resource_id" resource_id
+     ++ req "version" positive
+     ++ req "offset" (Api_codec.literal "0")
+     ++ req "length" (Api_codec.literal "65536"))
 ;;
 
 let comment_expand =
@@ -152,7 +157,7 @@ let expand method_ ~workspace fields =
       , Json.obj
           ((("workspace_id", Id.Workspace.jsonaf_of_t workspace) :: fields)
            @
-           if String.equal method_ "resource.read"
+           if String.equal method_ "resource.read_chunk"
            then []
            else [ "max_bytes", Json.int 1048576 ]) )
     ]
@@ -218,6 +223,10 @@ let handoff =
      ++ req "summary" Excerpt.codec
      ++ req "next_steps" Excerpt.codec
      ++ req "decisions" Excerpt.codec
+     ++ req "objective" Excerpt.codec
+     ++ req "completed" Excerpt.codec
+     ++ req "blockers" Excerpt.codec
+     ++ req "evidence" Excerpt.codec
      ++ req "resource_count" W.counter
      ++ req "expand" (ticket_expand "handoff.get"))
 ;;
@@ -447,6 +456,10 @@ let ticket input ~workspace ~workspace_revision ~max_bytes =
             ; "summary", excerpt prose h.summary
             ; "next_steps", excerpt prose h.next_steps
             ; "decisions", excerpt prose h.decisions
+            ; "objective", excerpt prose h.objective
+            ; "completed", excerpt prose h.completed
+            ; "blockers", excerpt prose h.blockers
+            ; "evidence", excerpt prose h.evidence
             ; "resource_count", Json.int (List.length h.resource_ids)
             ; ( "expand"
               , ticket_expansion "handoff.get" t.ticket_id ~workspace ~workspace_revision
@@ -536,10 +549,12 @@ let resource r ~workspace ~workspace_revision ~max_bytes =
           ; "expand", resource_expansion r.id ~workspace ~workspace_revision
           ; ( "content_expand"
             , expand
-                "resource.read"
+                "resource.read_chunk"
                 ~workspace
                 [ "resource_id", Id.Resource.jsonaf_of_t r.id
                 ; "version", Json.int v.revision
+                ; "offset", Json.int 0
+                ; "length", Json.int 65536
                 ] )
           ]
       in

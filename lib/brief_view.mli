@@ -1,7 +1,10 @@
 open Core
 
-(** Explicit compact projections. Every omitted body byte/item is counted;
-    identifiers, revisions, ownership and expansion selectors are never clipped. *)
+(** Explicit compact projections. Every excerpt and limited collection counts its
+    omitted bytes/items; identifiers, revisions, ownership and expansion selectors
+    are never clipped. Handoff includes all seven prose fields. Resource content
+    expansion selects the first 64KiB binary range of an immutable version; use the
+    returned next_offset for further chunks or the CLI text/download helper. *)
 module Excerpt : sig
   type t =
     { text : string

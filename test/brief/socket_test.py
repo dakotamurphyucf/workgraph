@@ -1,4 +1,6 @@
 """Explicit briefs preserve current fences, exact expansion and full read contracts."""
+import base64
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -43,7 +45,7 @@ class BriefTest(unittest.TestCase):
                     write('workspace.create', name='Brief', root=str(root/'workspace'))
                     write('ticket.create', ticket_id='task', title='Task', description='é'*10000)
                     claim = write('ticket.claim', ticket_id='task')['data']
-                    write('handoff.set', ticket_id='task', expected_revision='0', token=claim['token'], summary='summary'*1000, next_steps='next'*1000, evidence='evidence', decisions='handoff-decisions'*1000)
+                    write('handoff.set', ticket_id='task', expected_revision='0', token=claim['token'], summary='summary'*1000, next_steps='next'*1000, evidence='evidence', decisions='handoff-decisions'*1000, objective='objective'*1000, completed='completed'*1000, blockers='blockers'*1000)
                     for i in range(9):
                         write('comment.add', comment_id='note-'+str(i), target={'kind': 'ticket', 'id': 'task'}, kind='decision', body='decision '+str(i)+' é'*1000)
                     write('comment.edit', comment_id='note-0', expected_revision='1', body='newest decision')
@@ -71,6 +73,10 @@ class BriefTest(unittest.TestCase):
                     excerpt = data['description']
                     self.assertEqual(int(excerpt['total_bytes']), len(('é'*10000).encode()))
                     self.assertEqual(int(excerpt['omitted_bytes'])+len(excerpt['text'].encode()), int(excerpt['total_bytes']))
+                    for key in ['summary', 'next_steps', 'decisions', 'objective', 'completed', 'blockers', 'evidence']:
+                        value = data['handoff'][key]
+                        self.assertEqual(int(value['total_bytes']), len(full['data']['handoff'][key].encode()))
+                        self.assertEqual(int(value['total_bytes']), len(value['text'].encode()) + int(value['omitted_bytes']))
                     larger = read('ticket.brief', ticket_id='task')['data']
                     self.assertEqual(larger['decision_comments']['items'][0]['comment_id'], 'note-0')
                     self.assertEqual(larger['decision_comments']['items'][0]['revision'], '2')
@@ -83,16 +89,25 @@ class BriefTest(unittest.TestCase):
                     self.assertEqual(resource['current_version']['revision'], '1')
                     self.assertEqual(resource['content_expand']['params']['version'], '1')
                     content = client.call(resource['content_expand']['method'], resource['content_expand']['params'])
-                    self.assertEqual(content['data']['text'], 'content 0')
+                    self.assertEqual(base64.b64decode(content['data']['data_base64']), b'content 0')
                     meta = client.call(resource['expand']['method'], resource['expand']['params'])
                     self.assertEqual(meta['data']['metadata']['description'], 'resource-description'*3000)
                     # An immutable content selector keeps the old bytes after later publication.
                     write('resource.put_text', resource_id='asset-0', expected_revision='3', text='new content')
-                    self.assertEqual(client.call(resource['content_expand']['method'], resource['content_expand']['params'])['data']['text'], 'content 0')
+                    self.assertEqual(base64.b64decode(client.call(resource['content_expand']['method'], resource['content_expand']['params'])['data']['data_base64']), b'content 0')
                     self.assertEqual(read('resource.brief', resource_id='asset-0')['data']['current_version']['revision'], '2')
                     write('comment.add', comment_id='unrelated', target={'kind':'ticket','id':'task'}, kind='progress', body='changed capture')
                     with self.assertRaises(RuntimeError):
                         client.call(data['expand']['method'], data['expand']['params'])
+                    # The expansion remains usable for arbitrary bytes exceeding the text-read cap.
+                    payload = bytes(range(256)) * 300
+                    read('upload.begin', actor_id='agent', upload_id='binary-upload', size_bytes=str(len(payload)), digest=hashlib.sha256(payload).hexdigest())
+                    read('upload.chunk', actor_id='agent', upload_id='binary-upload', offset='0', data_base64=base64.b64encode(payload).decode())
+                    write('resource.finish_upload', resource_id='binary', expected_revision='0', title='Binary', filename='binary.dat', mime_type='application/octet-stream', upload_id='binary-upload')
+                    binary = read('resource.brief', resource_id='binary')['data']
+                    first = client.call(binary['content_expand']['method'], binary['content_expand']['params'])['data']
+                    self.assertEqual(first['next_offset'], '65536')
+                    self.assertEqual(base64.b64decode(first['data_base64']), payload[:65536])
                     client.call('daemon.shutdown', {})
                     self.assertEqual(daemon.wait(timeout=10), 0)
                     start()
