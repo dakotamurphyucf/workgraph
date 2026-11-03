@@ -1343,8 +1343,6 @@ let validate ?previous t =
       (Id.Ticket.equal key (Hierarchy_policy.Definition.ticket definition))
       Corrupt_store
       "Hierarchy policy key differs");
-  Hierarchy_graph.validate (hierarchy_graph t) ~tickets:(Map.keys t.tickets)
-  |> unwrap_domain;
   Map.iter t.ticket_recoveries ~f:(fun recovery ->
     require
       (Map.mem t.tickets recovery.Ticket_recovery.request.ticket_id)
@@ -1677,6 +1675,10 @@ let validate ?previous t =
         (Int.equal claim.token (Allocation_lease.epoch claim.lease))
         Corrupt_store
         "claim lease epoch differs from fencing token"));
+  (* Preserve the direct-edge cycle paths above before checking the additional
+     edges introduced by inheritance. Both checks validate the final state. *)
+  Hierarchy_graph.validate (hierarchy_graph t) ~tickets:(Map.keys t.tickets)
+  |> unwrap_domain;
   Map.iter t.handoffs ~f:(fun handoff ->
     require
       (List.length handoff.Handoff.resources <= 100)
