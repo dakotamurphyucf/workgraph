@@ -370,28 +370,39 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
             process = subprocess.Popen(["/bin/bash",str(ROOT / "tools/wgx.sh"),"--context",str(context),"dash"],stdin=slave,stdout=slave,stderr=slave,
                                        env=dict(os.environ,HOME=str(root),WG=str(stub),TERM="xterm",LINES="24",COLUMNS="80"),preexec_fn=foreground_session)
             self.addCleanup(stop_pty_job,process)
-            def until(marker):
+            def until(marker, predicate=lambda data: True):
                 data = b""
                 deadline = time.monotonic()+12
-                while marker not in data:
+                while marker not in data or not predicate(data):
                     self.assertLess(time.monotonic(),deadline,data[-1000:])
                     if select.select([master],[],[],.2)[0]:
                         part = read_pty(master)
                         self.assertTrue(part, data[-1000:])
                         data += part
                 return data
-            first = until(b"\x1b[54;1H")
+            first = until(b"q quit")
+            self.assertIn(b"\x1b[54;1H",first)
             screen = first.rsplit(b"\x1b[H",1)[-1].split(b"\x1b[54;1H")[0]
             self.assertEqual(screen.count(b"\n"),53,first[:1800]+b" ... "+first[-500:])
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack("HHHH",36,120,0,0))
             foreground = os.tcgetpgrp(master)
             self.assertEqual(foreground,process.pid)
             os.killpg(foreground,signal.SIGWINCH)
-            resized = until(b"\x1b[36;1H")
+            resized = until(b"q quit")
+            self.assertIn(b"\x1b[36;1H",resized)
             screen = resized.rsplit(b"\x1b[H",1)[-1].split(b"\x1b[36;1H")[0]
             self.assertEqual(screen.count(b"\n"),35,resized[-1000:])
             os.write(master,b"G")
-            until(b"\x1b[36;1H")
+            footer_pattern = rb"lines (\d+)-(\d+) of\s+(\d+)[^\r\n]*q quit"
+            def at_bottom(data):
+                return any(int(match[1]) > 1 and match[2] == match[3]
+                           for match in re.finditer(footer_pattern, data))
+            # PTY reads can split or coalesce the cursor marker and footer.
+            # Keep the complete bottom frame before asking the process to quit.
+            bottom = until(b"q quit", at_bottom)
+            footer = list(re.finditer(footer_pattern, bottom))[-1]
+            self.assertGreater(int(footer[1]),1) # G reached bottom, not top
+            self.assertEqual(footer[2],footer[3])
             os.write(master,b"q")
             tail = b""
             deadline = time.monotonic()+10
@@ -408,10 +419,6 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
                 tail += part
             self.assertIn(b"\x1b[?7h",tail)  # wrap mode restored
             self.assertIn(b"\x1b[?25h",tail) # cursor restored
-            footer = re.search(rb"lines (\d+)-(\d+) of\s+(\d+)",tail)
-            self.assertIsNotNone(footer,tail)
-            self.assertGreater(int(footer[1]),1) # G reached bottom, not top
-            self.assertEqual(footer[2],footer[3])
             self.assertEqual(process.returncode,0)
             self.assertEqual(terminal_modes(master),before_modes)
 
