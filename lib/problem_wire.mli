@@ -1,5 +1,8 @@
 open Core
 
+(** Shared strict admission-reason codec for diagnostics and readiness views. *)
+val allocation_reason : Allocation_admission_reason.t Api_codec.t
+
 (** Current public diagnostics with closed tagged details. Decoding validates
     bounded paths/text/identities and counters; no internal state is exposed. *)
 val details : Problem.Details.t Api_codec.t
