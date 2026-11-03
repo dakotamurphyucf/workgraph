@@ -475,7 +475,13 @@ let%expect_test
          if Attempt.Id.equal id attempt then Some attempt_record else None)
        ~pin_exists:(function
          | Resource p -> not (Id.Resource.equal p.id source.id)
-         | Event _ | Commit _ | Checksum _ | Comment _ | Contract _ | Decision _ -> true)
+         | Event _
+         | Commit _
+         | Checksum _
+         | Comment _
+         | Contract _
+         | Decision _
+         | Amendment _ -> true)
        ~entity_exists:(fun _ -> true)
        ~review_request_exists:(fun _ -> true));
   let command = publish 1 in
