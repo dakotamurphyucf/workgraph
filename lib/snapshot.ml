@@ -139,6 +139,22 @@ let write t ~fs ~destination ~stage ~check_cancelled ~before_publish =
         write
           "history/index.json"
           (Json.canonical (Session_store.Capture.to_json history));
+        Sequence.iter
+          (Readable_history.files history ~read_text:(fun blob ~max_bytes ->
+             check_cancelled ();
+             Session_store.read_capture_blob
+               history
+               ~fs
+               ~root:t.source_root
+               blob
+               ~offset:0
+               ~length:(Int.min max_bytes blob.size_bytes)
+             |> Disk.unwrap
+             |> fst))
+          ~f:(fun (name, bytes) ->
+            check_cancelled ();
+            Disk.ensure_directory Eio.Path.(stage_path / Filename.dirname name);
+            write name bytes);
         List.iter (Session_store.Capture.sessions history) ~f:(fun session ->
           write
             ("history/" ^ Session_id.to_string (Session.id session) ^ ".json")

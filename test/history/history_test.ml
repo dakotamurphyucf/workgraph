@@ -69,6 +69,82 @@ let current store = Session_store.capture store |> Disk.unwrap
 let ref_ sequence = Session.Event_ref.create ~session ~sequence |> Disk.unwrap
 let count capture = Session_store.Capture.upper_bound capture ~session
 
+let%expect_test
+    "readable history pages pin events and expose clipped text and binary links"
+  =
+  with_store (fun _env fs root store ->
+    ignore (create store : Jsonaf.t);
+    let text = String.make 4095 'x' ^ "😀tail" in
+    let inputs =
+      input ~text "unicode" "\255\000binary"
+      :: input "opaque" "\255opaque"
+      :: List.init 99 ~f:(fun index ->
+        input ~text:"recorded output" ("event-" ^ Int.to_string index) "payload")
+    in
+    ignore (append store ~key:"readable" inputs |> Disk.unwrap : Jsonaf.t);
+    let capture = current store in
+    ignore
+      (append store ~key:"later" [ input ~text:"not in capture" "later" "later" ]
+       |> Disk.unwrap
+       : Jsonaf.t);
+    let files =
+      Readable_history.files capture ~read_text:(fun blob ~max_bytes ->
+        Session_store.read_capture_blob
+          capture
+          ~fs
+          ~root
+          blob
+          ~offset:0
+          ~length:(Int.min max_bytes blob.size_bytes)
+        |> Disk.unwrap
+        |> fst)
+      |> Sequence.to_list
+    in
+    let first =
+      List.Assoc.find_exn files "history/conversation/page-1.md" ~equal:String.equal
+    in
+    let second =
+      List.Assoc.find_exn files "history/conversation/page-2.md" ~equal:String.equal
+    in
+    printf "index and two pages: %d\n" (List.length files);
+    printf
+      "first page ends at 100: %b\n"
+      (String.is_substring first ~substring:"## Event 100\n"
+       && not (String.is_substring first ~substring:"## Event 101\n"));
+    printf
+      "second page starts at 101: %b\n"
+      (String.is_substring second ~substring:"## Event 101\n");
+    printf
+      "later event excluded: %b\n"
+      (not (String.is_substring second ~substring:"not in capture"));
+    printf
+      "Unicode omitted whole: %b\n"
+      (String.is_substring first ~substring:"This preview omits 8 bytes."
+       && not (String.is_substring first ~substring:"😀"));
+    printf
+      "portable payload link: %b\n"
+      (String.is_substring
+         first
+         ~substring:("../../portable/blobs/" ^ Json.hash "\255opaque"));
+    printf
+      "no fabricated binary text: %b\n"
+      (String.is_substring first ~substring:"No readable text was supplied");
+    printf
+      "exact event identity: %b\n"
+      (String.is_substring first ~substring:"\"source_id\": \"unicode\""));
+  [%expect
+    {|
+    index and two pages: 3
+    first page ends at 100: true
+    second page starts at 101: true
+    later event excluded: true
+    Unicode omitted whole: true
+    portable payload link: true
+    no fabricated binary text: true
+    exact event identity: true
+    |}]
+;;
+
 let%expect_test "read bounds include empty capture metadata and final page flags" =
   with_store (fun _env _fs _root store ->
     ignore (create store : Jsonaf.t);

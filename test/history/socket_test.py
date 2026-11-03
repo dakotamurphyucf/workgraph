@@ -147,6 +147,42 @@ class HistorySocketTest(unittest.TestCase):
                     old = read("history.read", session_id="conversation", direction="after", head=head)
                     self.assertEqual(old, page)
                     self.assertIs(read("session.get", session_id="conversation")["data"]["session"]["archived"], True)
+                    # Readable views and exact bytes share one verified capture.
+                    # Adversarial session names must not collide with page filenames.
+                    mutate("session.create", "page-named-session", session_id="conversation-page-1",
+                           title="Page-like session name")
+                    destination = directory / "readable-export"
+                    job = call("workspace.export", workspace_id="history", actor_id="agent",
+                               mutation_id="export", destination=str(destination))["data"]
+                    deadline = time.monotonic() + 10
+                    while True:
+                        status = call("export.get", job_id=job["job_id"])["data"]
+                        if status["status"] == "completed":
+                            break
+                        self.assertNotIn(status["status"], ["failed", "canceled"], status)
+                        self.assertLess(time.monotonic(), deadline)
+                        time.sleep(.01)
+                    index = destination / "history/conversation/index.md"
+                    page_file = index.parent / "page-1.md"
+                    readable = page_file.read_text()
+                    self.assertIn(text.decode(), readable)
+                    self.assertIn("## Event 2", readable)
+                    self.assertIn("[Events 1–2](page-1.md)", index.read_text())
+                    self.assertTrue((destination / "history/conversation-page-1/index.md").is_file())
+                    payload_path = page_file.parent / ("../../portable/blobs/" + hashlib.sha256(payload).hexdigest())
+                    self.assertEqual(payload_path.read_bytes(), payload)
+                    manifest = json.loads((destination / "manifest.json").read_text())
+                    for name in ["history/conversation/index.md", "history/conversation/page-1.md"]:
+                        self.assertEqual(manifest["files"][name],
+                                         hashlib.sha256((destination / name).read_bytes()).hexdigest())
+                    self.assertTrue(call("export.verify", directory=str(destination))["data"]["verified"])
+                    call("workspace.unregister", workspace_id="history", actor_id="agent", mutation_id="unregister")
+                    call("workspace.restore", actor_id="agent", mutation_id="restore",
+                         directory=str(destination), root=str(directory / "restored"))
+                    call("workspace.open", workspace_id="history", actor_id="agent", mutation_id="open")
+                    restored_payload = read("history.payload", event_ref=event_ref, head=head, length="262144")
+                    self.assertEqual(base64.b64decode(restored_payload["data"]["bytes_base64"]), payload)
+                    self.assertEqual(read("history.read", session_id="conversation", direction="after", head=head), old)
                     call("daemon.shutdown")
                     self.assertEqual(daemon.wait(timeout=10), 0)
                 finally:

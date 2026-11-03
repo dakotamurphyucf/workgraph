@@ -23,7 +23,10 @@ val head : t -> string option
 
 (** Render a full deterministic snapshot to a fresh staging directory. Invoke
     [check_cancelled] between files; [before_publish] must atomically reject
-    cancellation or claim publication. Sync every file before the final rename. *)
+    cancellation or claim publication. Sync every file before the final rename.
+    Readable history pages contain at most 100 events and 4096 UTF-8 preview bytes
+    per event, with explicit omissions and links to complete verified blob bytes.
+    All readable additions participate in the export inventory and size bounds. *)
 val write
   :  t
   -> fs:_ Eio.Path.t

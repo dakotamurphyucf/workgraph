@@ -3,6 +3,31 @@ open Planning_state
 
 let readable_files t =
   let values map = Map.to_sequence map |> Sequence.map ~f:snd in
+  let discussion target =
+    Discussion.since t.discussion ~target ~after:0
+    |> List.map ~f:(fun version ->
+      let field name = Json.field version name |> Json.text in
+      "\n## "
+      ^ String.capitalize (field "kind")
+      ^ " — "
+      ^ field "comment_id"
+      ^ " (revision "
+      ^ field "revision"
+      ^ ")\n\nActor: "
+      ^ field "actor"
+      ^ "; recorded: "
+      ^ field "timestamp"
+      ^ ".\n\n"
+      ^ (if
+           Api_codec.decode Api_codec.boolean (Json.field version "tombstone")
+           |> Disk.unwrap
+         then "_This revision removed the comment._\n"
+         else Readable_markdown.literal (field "body"))
+      ^ "\n<details><summary>Exact comment version</summary>\n\n"
+      ^ Readable_markdown.literal (Json.pretty version)
+      ^ "\n</details>\n")
+    |> String.concat
+  in
   let resources =
     values t.resources
     |> Sequence.map ~f:(fun resource ->
@@ -32,7 +57,8 @@ let readable_files t =
         ^ p.description
         ^ "\n\n```json\n"
         ^ Json.pretty (Project.jsonaf_of_t p)
-        ^ "\n```\n" ))
+        ^ "\n```\n"
+        ^ discussion (Entity_ref.Project p.id) ))
   in
   let milestones =
     values t.milestones
@@ -62,23 +88,37 @@ let readable_files t =
   let tickets =
     values t.tickets
     |> Sequence.map ~f:(fun ticket ->
-      let updates =
-        Discussion.since
-          t.discussion
-          ~target:(Entity_ref.Ticket ticket.Ticket.id)
-          ~after:0
-        |> List.map ~f:(fun update ->
-          "\n## Comment revision\n\n```json\n" ^ Json.pretty update ^ "\n```\n")
-      in
       let handoff =
         Option.value_map (Map.find t.handoffs ticket.id) ~default:"" ~f:(fun h ->
-          "\n## Handoff\n\n"
-          ^ h.Handoff.summary
-          ^ "\n\nNext steps: "
-          ^ h.next_steps
-          ^ "\n\nEvidence: "
-          ^ h.evidence
-          ^ "\n")
+          "\n## Handoff\n\nRevision "
+          ^ Int.to_string h.Handoff.revision
+          ^ "; actor "
+          ^ Id.Actor.to_string h.actor
+          ^ "; recorded "
+          ^ h.timestamp
+          ^ "; covers through workspace revision "
+          ^ Int.to_string h.covers_through
+          ^ ".\n"
+          ^ (List.map
+               [ "Summary", h.summary
+               ; "Objective", h.objective
+               ; "Completed", h.completed
+               ; "Decisions", h.decisions
+               ; "Blockers", h.blockers
+               ; "Next steps", h.next_steps
+               ; "Evidence and checks", h.evidence
+               ]
+               ~f:(fun (heading, body) -> Readable_markdown.section ~heading body)
+             |> String.concat)
+          ^ "\n### Resources\n\n"
+          ^
+          if List.is_empty h.resources
+          then "_None recorded._\n"
+          else
+            List.map h.resources ~f:(fun id ->
+              let id = Id.Resource.to_string id in
+              "- [" ^ id ^ "](../resources/" ^ id ^ ".md)\n")
+            |> String.concat)
       in
       ( "tickets/" ^ Id.Ticket.to_string ticket.id ^ ".md"
       , "# "
@@ -91,7 +131,7 @@ let readable_files t =
         ^ Json.pretty (Ticket.jsonaf_of_t ticket)
         ^ "\n```\n"
         ^ handoff
-        ^ String.concat updates ))
+        ^ discussion (Entity_ref.Ticket ticket.id) ))
   in
   Sequence.append
     (Sequence.of_lazy
