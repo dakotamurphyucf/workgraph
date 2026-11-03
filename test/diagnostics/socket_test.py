@@ -47,8 +47,13 @@ class DiagnosticsTest(unittest.TestCase):
                     raw = rpc('ticket.resume', workspace_id='w', ticket_id='t', include_markdown='true')
                     self.assertEqual(raw['error']['data']['details']['path'], ['include_markdown'])
                     params = root/'params.json'; params.write_text(json.dumps({'workspace_id':'w','ticket_id':'t','include_markdown':'true'}))
-                    _, raw = invoke(['request', address,'ticket.resume','--params-file',str(params)])
-                    self.assertEqual(raw['error']['data']['details']['path'], ['include_markdown'])
+                    saved = root/'invalid-saved.json'
+                    rejected, local = invoke(['request', address,'ticket.resume','--params-file',str(params),'--save-request',str(saved)])
+                    self.assertEqual(rejected.returncode, 1)
+                    self.assertEqual(rejected.stdout, '')
+                    self.assertEqual(local['kind'], 'Invalid_argument')
+                    self.assertEqual(local['details']['path'], ['include_markdown'])
+                    self.assertFalse(saved.exists())
                     bad = write('transaction.apply', operations=[{'method':'ticket.update','params':{'ticket_id':'t','expected_revision':'oops','title':'true'}}])
                     path = bad['error']['data']['details']['path']
                     self.assertEqual(path, ['operations','0','params','expected_revision'])
