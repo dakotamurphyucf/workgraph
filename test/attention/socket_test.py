@@ -202,6 +202,64 @@ class AttentionTest(unittest.TestCase):
                 scoped = {"kinds": ["fact"], "project_id": "selected-project", "run_id": "worker", "fact_prefix": "scoped."}
                 self.assertEqual(len(read(filter=scoped)["items"]), 1)
                 self.assertEqual(read(filter={**scoped, "run_id": "holder"})["items"], [])
+                # A frozen page must not acquire old readiness rows when later
+                # dependency/pool/path routing changes make those old events relevant.
+                write("ticket.create", ticket_id="routing-selected", project_id="selected-project", title="Routing selected")
+                write("ticket.create", ticket_id="routing-outside", project_id="other-project", title="Routing outside")
+                frozen_filter = {"kinds": ["readiness", "fact"], "project_id": "selected-project", "ticket_ids": ["routing-selected"]}
+                frozen_base = read(filter=frozen_filter)["cursor"]
+                write("ticket.claim", ticket_id="routing-outside", run_id="holder")
+                write("allocation.pool_put", name="routing-pool", expected_revision="0", limit="1")
+                routing_path = {"worktree_id": "tree", "kind": "subtree", "path": "routing"}
+                write("reservation.paths.acquire", target_run_id="holder", requests=[{"target": routing_path, "mode": "exclusive"}])
+                for i in range(2):
+                    write("fact.put", scope={"kind": "ticket", "id": "routing-selected"}, key=f"frozen-{i}", expected_revision="0", value=i)
+                expected = read(filter=frozen_filter, cursor=frozen_base, max_bytes="1048576")
+                frozen = read(filter=frozen_filter, cursor=frozen_base, limit="1")
+                self.assertEqual(len(expected["items"]), 2)
+                self.assertTrue(frozen["has_more"])
+                def still_frozen():
+                    continued = read(filter=frozen_filter, cursor=frozen["cursor"], max_bytes="1048576")
+                    self.assertEqual(continued["through"], frozen["through"])
+                    self.assertEqual(frozen["items"] + continued["items"], expected["items"])
+                write("dependency.add", ticket_id="routing-selected", prerequisite_id="routing-outside")
+                still_frozen()
+                write("allocation.ticket_policy_put", ticket_id="routing-selected", expected_revision="0", required_capabilities=[], pools=["routing-pool"])
+                still_frozen()
+                write("ticket.paths.put", ticket_id="routing-selected", expected_revision="0", require_reservations=True,
+                      declarations=[{"target": routing_path, "mode": "exclusive"}])
+                still_frozen()
+                # Moving selected membership after capturing pool invalidation must
+                # not remove that old row and skip a following fact fragment.
+                membership_base = read(filter=frozen_filter)["cursor"]
+                write("allocation.pool_put", name="routing-pool", expected_revision="1", limit="2")
+                for i in range(2):
+                    write("fact.put", scope={"kind": "ticket", "id": "routing-selected"}, key=f"membership-{i}", expected_revision="0", value=i)
+                membership_expected = read(filter=frozen_filter, cursor=membership_base, max_bytes="1048576")
+                membership_first = read(filter=frozen_filter, cursor=membership_base, limit="1")
+                ticket = read("ticket.context", ticket_id="routing-selected")["ticket"]
+                write("ticket.move", ticket_id="routing-selected", expected_revision=ticket["revision"], project_id="other-project", milestone_id=None, parent_ticket_id=None)
+                membership_rest = read(filter=frozen_filter, cursor=membership_first["cursor"], max_bytes="1048576")
+                self.assertEqual(membership_first["items"] + membership_rest["items"], membership_expected["items"])
+                # Claims without attempts occupy shared pools too. Releasing one
+                # in another project invalidates selected run eligibility.
+                write("allocation.pool_put", name="cross-project", expected_revision="0", limit="1")
+                for identity, project in (("pool-selected", "selected-project"), ("pool-outside", "other-project")):
+                    write("ticket.create", ticket_id=identity, project_id=project, title=identity)
+                    write("allocation.ticket_policy_put", ticket_id=identity, expected_revision="0", required_capabilities=[], pools=["cross-project"])
+                claim = write("ticket.claim", ticket_id="pool-outside", run_id="holder")["data"]
+                held = read("actor.overview", actor_id="alice", run_id="holder", kinds=["claim", "attempt"])
+                self.assertTrue(any(row["kind"] == "claim" and row["ticket_id"] == "pool-outside" for row in held["items"]))
+                self.assertFalse(any(row["kind"] == "attempt" for row in held["items"]))
+                cross_filter = {"kinds": ["readiness"], "project_id": "selected-project", "ticket_ids": ["pool-selected"], "run_id": "worker"}
+                blocked = read(filter=cross_filter, initial_readiness=True)
+                self.assertEqual(blocked["readiness"]["items"], [])
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(read, "attention.wait", filter=cross_filter, cursor=blocked["cursor"], timeout_ms="2000")
+                    time.sleep(.04)
+                    write("ticket.release", ticket_id="pool-outside", run_id="holder", token=claim["token"])
+                    available = future.result(timeout=4)
+                    self.assertEqual(available["readiness"]["items"][0]["source"]["ticket_id"], "pool-selected")
                 # Timeout is nondurable and safely advances unmatched audit ranges.
                 empty_filter = {"kinds": ["fact"], "fact_prefix": "never."}
                 prior = read(filter=empty_filter)

@@ -40,6 +40,72 @@ let self filter (n : N.t) =
     | Run run -> Option.exists n.attribution.run ~f:(Id.Run.equal run))
 ;;
 
+module Routing = struct
+  module Ticket = struct
+    type t =
+      { id : Id.Ticket.t
+      ; project : Id.Project.t option
+      ; milestone : Id.Milestone.t option
+      ; prerequisites : Id.Ticket.t list
+      }
+  end
+
+  type t =
+    { tickets : Ticket.t Id.Ticket.Map.t
+    ; pools : string list Id.Ticket.Map.t
+    ; paths : Ticket_paths.Declaration.t list Id.Ticket.Map.t
+    }
+
+  let capture events =
+    List.fold
+      events
+      ~init:
+        { tickets = Id.Ticket.Map.empty
+        ; pools = Id.Ticket.Map.empty
+        ; paths = Id.Ticket.Map.empty
+        }
+      ~f:(fun routing (_, changes) ->
+        List.fold changes ~init:routing ~f:(fun routing -> function
+          | Event.Ticket_put ticket ->
+            let head =
+              { Ticket.id = ticket.id
+              ; project = ticket.project
+              ; milestone = ticket.milestone
+              ; prerequisites = ticket.prerequisites
+              }
+            in
+            { routing with tickets = Map.set routing.tickets ~key:ticket.id ~data:head }
+          | Agent_run_changed { update = Ticket_policy_put policy; _ } ->
+            { routing with
+              pools = Map.set routing.pools ~key:policy.ticket ~data:policy.pools
+            }
+          | Agent_run_changed { update = Ticket_paths_put paths; _ } ->
+            { routing with
+              paths =
+                Map.set
+                  routing.paths
+                  ~key:paths.ticket_id
+                  ~data:(if paths.require_reservations then paths.declarations else [])
+            }
+          | Facts_changed _
+          | Communication_changed _
+          | Agent_run_changed _
+          | Evidence_changed _
+          | Policy_changed _
+          | Policy_unchanged _
+          | Allocation_empty _
+          | Settings_changed _
+          | Workspace_updated _
+          | Project_put _
+          | Milestone_put _
+          | Ticket_recovered _
+          | Signal_receipt _
+          | Comment_changed _
+          | Handoff_put _
+          | Resource_changed _ -> routing))
+  ;;
+end
+
 let current_ready_rows t ~now_unix_ms filter =
   let tickets =
     Planning_state.coordination_tickets ?run:filter.A.Filter.run ~now_unix_ms t
@@ -129,7 +195,17 @@ let read t ~now_unix_ms ~params =
         ~now_unix_ms
       |> unwrap
     in
-    (* Only small source-routing heads are reduced. Readiness never replays old state. *)
+    let events =
+      List.rev t.activity
+      |> List.filter ~f:(fun event ->
+        Json.field event "revision" |> Json.integer <= capture.through)
+      |> List.map ~f:(fun event ->
+        event, Json.field event "changes" |> Json.list |> List.map ~f:Event.t_of_jsonaf)
+    in
+    (* A frozen routing index determines durable relevance. It contains only
+       membership/dependency IDs, pool names and required path declarations;
+       current eligibility still comes from the separately labelled live capture. *)
+    let routing = Routing.capture events in
     let tickets = ref Id.Ticket.Map.empty in
     let milestones = ref Id.Milestone.Map.empty in
     let threads = ref Communication_id.Thread.Map.empty in
@@ -194,55 +270,52 @@ let read t ~now_unix_ms ~params =
           then depends rest seen
           else (
             let prerequisites =
-              Option.value_map (Map.find t.tickets ticket) ~default:[] ~f:(fun ticket ->
-                ticket.Ticket.prerequisites)
+              Option.value_map
+                (Map.find routing.tickets ticket)
+                ~default:[]
+                ~f:(fun ticket -> ticket.Routing.Ticket.prerequisites)
             in
             depends (List.rev_append prerequisites rest) (Set.add seen ticket))
       in
       (project_matches filter project && ticket_matches filter id)
-      || Map.exists t.tickets ~f:(fun ticket ->
+      || Map.exists routing.tickets ~f:(fun ticket ->
         project_matches filter ticket.project
         && ticket_matches filter ticket.id
         && depends ticket.prerequisites Id.Ticket.Set.empty)
     in
     let scoped_tickets =
-      Map.data t.tickets
+      Map.data routing.tickets
       |> List.filter ~f:(fun ticket ->
-        project_matches filter ticket.Ticket.project && ticket_matches filter ticket.id)
+        project_matches filter ticket.Routing.Ticket.project
+        && ticket_matches filter ticket.id)
     in
     let scoped_pools =
       List.concat_map scoped_tickets ~f:(fun ticket ->
-        Option.value_map
-          (Agent_run.get_ticket_policy t.agent_runs ticket.id)
-          ~default:[]
-          ~f:(fun policy -> policy.Allocation.Ticket_policy.pools))
+        Option.value (Map.find routing.pools ticket.Routing.Ticket.id) ~default:[])
       |> String.Set.of_list
     in
     let pool_relevant name = Set.mem scoped_pools name in
+    let ticket_pool_relevant id =
+      Option.exists (Map.find routing.pools id) ~f:(List.exists ~f:pool_relevant)
+    in
     let attempt_relevant (attempt : Attempt.t) =
       Option.exists filter.run ~f:(Id.Run.equal attempt.run)
       || relevant_ticket attempt.ticket (ticket_project attempt.ticket)
-      || Option.exists
-           (Agent_run.get_ticket_policy t.agent_runs attempt.ticket)
-           ~f:(fun policy -> List.exists policy.pools ~f:pool_relevant)
+      || ticket_pool_relevant attempt.ticket
     in
     let path_relevant target =
       List.exists scoped_tickets ~f:(fun ticket ->
-        Option.exists (Agent_run.get_ticket_paths t.agent_runs ticket.id) ~f:(fun paths ->
-          paths.require_reservations
-          && List.exists paths.declarations ~f:(fun declaration ->
-            Path_scope.overlaps target declaration.Ticket_paths.Declaration.target)))
+        Option.exists
+          (Map.find routing.paths ticket.Routing.Ticket.id)
+          ~f:(fun declarations ->
+            List.exists declarations ~f:(fun declaration ->
+              Path_scope.overlaps target declaration.Ticket_paths.Declaration.target)))
     in
     let invalidation revision index reason =
       if selected filter Readiness
       then add revision index "readiness_invalidated" [ "reason", Json.string reason ]
     in
-    let events =
-      List.rev t.activity
-      |> List.filter ~f:(fun event ->
-        Json.field event "revision" |> Json.integer <= capture.through)
-    in
-    List.iter events ~f:(fun event ->
+    List.iter events ~f:(fun (event, changes) ->
       let revision = Json.field event "revision" |> Json.integer in
       let emit = revision > capture.after in
       let source_run_matches =
@@ -250,9 +323,6 @@ let read t ~now_unix_ms ~params =
           match Json.optional event "run_id" with
           | Some (`String _ as json) -> Id.Run.equal id (Id.Run.t_of_jsonaf json)
           | None | Some _ -> false)
-      in
-      let changes =
-        Json.field event "changes" |> Json.list |> List.map ~f:Event.t_of_jsonaf
       in
       let indexed = List.mapi changes ~f:(fun index change -> index, change) in
       let request_operations =
@@ -364,7 +434,8 @@ let read t ~now_unix_ms ~params =
               changed
               && (relevant_ticket ticket.id ticket.project
                   || Option.exists previous ~f:(fun old ->
-                    relevant_ticket old.id old.project))
+                    relevant_ticket old.id old.project)
+                  || ticket_pool_relevant ticket.id)
             then invalidation revision index "ticket_readiness")
         | Facts_changed fact ->
           if
