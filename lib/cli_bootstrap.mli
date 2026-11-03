@@ -21,7 +21,12 @@ val create
 (** Create/select/open the explicitly identified workspace and publish a fresh
     private synced context file. Existing files are never overwritten. Optional
     daemon startup uses an explicit registry and private log and survives this
-    process's exit. Concurrent startup/setup reuses matching published identities.
+    process's exit. Readiness requires a valid protocol response, racing the
+    spawned child's exit against a monotonic configured timeout. Child failures
+    retain their typed diagnostic with a bounded current-startup log tail;
+    timeout reports the last handshake failure and log path. A timeout does not
+    prove the detached daemon stopped. Concurrent startup/setup reuses matching
+    published identities.
     All administrative writes are synced as exact requests beside the context;
     [on_saved_request] runs after sync and before transmission. No implicit retry
     of a mutation occurs. Local input/file failures use Invalid_argument or

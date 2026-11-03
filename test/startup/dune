@@ -1,0 +1,16 @@
+(executable
+ (name bootstrap_fixture)
+ (modules bootstrap_fixture)
+ (libraries workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))
+
+(rule
+ (alias runtest)
+ (deps socket_test.py)
+ (action
+  (run
+   python3
+   %{dep:socket_test.py}
+   %{exe:../../bin/main.exe}
+   %{exe:bootstrap_fixture.exe})))

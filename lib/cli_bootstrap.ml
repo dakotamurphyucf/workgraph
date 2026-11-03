@@ -167,6 +167,133 @@ let random_name env =
   Json.hash (Cstruct.to_string bytes)
 ;;
 
+let startup_log file ~after =
+  let result =
+    Disk.protect (fun () ->
+      let size = Eio.File.size file in
+      let maximum a b = if Optint.Int63.compare a b >= 0 then a else b in
+      let offset = maximum after (Optint.Int63.sub size (Optint.Int63.of_int 8192)) in
+      let count =
+        Optint.Int63.to_int (maximum Optint.Int63.zero (Optint.Int63.sub size offset))
+      in
+      let bytes = Cstruct.create count in
+      Eio.File.pread_exact file ~file_offset:offset [ bytes ];
+      let text = Cstruct.to_string bytes in
+      if Optint.Int63.compare offset after > 0
+      then (
+        match String.lsplit2 text ~on:'\n' with
+        | Some (_, rest) -> rest
+        | None -> "[startup log tail omitted an incomplete line]")
+      else text)
+  in
+  match result with
+  | Ok text ->
+    let problem =
+      String.split_lines text
+      |> List.rev
+      |> List.find_map ~f:(fun line ->
+        Result.bind (Json.parse line) ~f:Problem_wire.of_json |> Result.ok)
+    in
+    text, problem
+  | Error problem -> "[cannot read startup log: " ^ problem.message ^ "]", None
+;;
+
+let probe_listing client request =
+  Result.bind (Client.execute client request) ~f:(function
+    | Protocol.Failure _ as response -> Ok response
+    | Success value ->
+      Result.map
+        (Api_codec.decode (Api_response.codec Administration_wire.Health.codec) value)
+        ~f:(fun _ -> Protocol.Success value))
+;;
+
+let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
+  Eio.Switch.run (fun sw ->
+    let fs = Eio.Stdenv.fs env in
+    let file =
+      Eio.Path.open_out ~sw ~append:true ~create:(`If_missing 0o600) Eio.Path.(fs / log)
+    in
+    let after = Eio.File.size file in
+    (* The supervisor owns the child until we observe readiness or its exit.
+       USR1 releases supervision after a valid handshake; unlike an Eio-managed
+       daemon child, the nohup process survives release of this short switch. *)
+    let supervisor =
+      Eio.Process.spawn
+        ~sw
+        (Eio.Stdenv.process_mgr env)
+        ~stdout:file
+        ~stderr:file
+        [ "/bin/sh"
+        ; "-c"
+        ; {|trap 'exit 0' USR1; umask 077; nohup "$1" serve "$2" "$3" </dev/null & wait "$!"|}
+        ; "workgraph-bootstrap"
+        ; Stdlib.Sys.executable_name
+        ; registry
+        ; Cli_context.socket t.context
+        ]
+    in
+    let last_problem = ref initial_problem in
+    let rec ready () =
+      match probe_listing client list_request with
+      | Ok (Protocol.Success value) -> value
+      | Ok (Failure problem) -> raise (Json.Decode_error problem)
+      | Error problem ->
+        last_problem := problem;
+        Eio.Time.Mono.sleep (Eio.Stdenv.mono_clock env) 0.05;
+        ready ()
+    in
+    let failure status =
+      let tail, problem = startup_log file ~after in
+      let problem =
+        Option.value problem ~default:(Problem.create Storage_unavailable "daemon exited")
+      in
+      { problem with
+        message =
+          sprintf
+            "daemon startup failed (%s): %s; log %S: %s; last handshake: %s"
+            status
+            problem.message
+            log
+            tail
+            !last_problem.message
+      }
+    in
+    try
+      Eio.Time.Timeout.run_exn
+        (Eio.Time.Timeout.seconds (Eio.Stdenv.mono_clock env) t.timeout_seconds)
+        (fun () ->
+           match
+             Eio.Fiber.first
+               (fun () -> `Ready (ready ()))
+               (fun () -> `Exited (Eio.Process.await supervisor))
+           with
+           | `Ready value ->
+             Eio.Process.signal supervisor Stdlib.Sys.sigusr1;
+             ignore (Eio.Process.await supervisor : Eio.Process.exit_status);
+             value
+           | `Exited status ->
+             (* A competing bootstrap may own this exact socket and still be
+               recovering its registry. Its valid handshake is the only success
+               condition; the losing child's exit is not itself readiness. *)
+             let _, problem = startup_log file ~after in
+             if
+               Option.exists problem ~f:(fun problem ->
+                 Problem.equal_kind problem.kind Conflict
+                 && String.equal
+                      problem.message
+                      "socket path already has an active Workgraph owner")
+             then ready ()
+             else
+               raise
+                 (Json.Decode_error (failure (Fmt.str "%a" Eio.Process.pp_status status))))
+    with
+    | Eio.Time.Timeout ->
+      let problem =
+        failure "startup deadline exceeded; detached daemon may still start"
+      in
+      raise (Json.Decode_error problem))
+;;
+
 let run t ~env ~on_saved_request =
   Disk.protect (fun () ->
     let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
@@ -220,32 +347,21 @@ let run t ~env ~on_saved_request =
     in
     let list () = Client.invoke client list_request in
     let listing =
-      match list () with
-      | Ok value -> value
+      match probe_listing client list_request with
+      | Ok (Protocol.Success value) -> value
+      | Ok (Failure problem) -> raise (Json.Decode_error problem)
       | Error problem ->
         (match t.startup with
          | Existing -> raise (Json.Decode_error problem)
          | Start { registry; log } ->
-           Eio.Process.run
-             (Eio.Stdenv.process_mgr env)
-             [ "/bin/sh"
-             ; "-c"
-             ; {|umask 077; nohup "$1" serve "$2" "$3" </dev/null >>"$4" 2>&1 &|}
-             ; "workgraph-bootstrap"
-             ; Stdlib.Sys.executable_name
-             ; registry
-             ; Cli_context.socket t.context
-             ; log
-             ];
-           let rec wait remaining =
-             match list () with
-             | Ok value -> value
-             | Error problem when remaining = 0 -> raise (Json.Decode_error problem)
-             | Error _ ->
-               Eio.Time.sleep (Eio.Stdenv.clock env) 0.1;
-               wait (remaining - 1)
-           in
-           wait 50)
+           start_daemon
+             t
+             ~env
+             ~client
+             ~list_request
+             ~initial_problem:problem
+             ~registry
+             ~log)
     in
     let find listing =
       Json.field (Json.field listing "data") "workspaces"

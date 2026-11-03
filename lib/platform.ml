@@ -45,7 +45,7 @@ let restrict_socket path =
 
 let realpath path = Eio_unix.run_in_systhread (fun () -> Unix.realpath path)
 
-let listen_unix ~sw ~path ~backlog ~on_cleanup_error =
+let listen_unix_with_identity ~sw ~path ~backlog ~on_cleanup_error ~on_bound =
   (match validate_socket_path path with
    | Ok () -> ()
    | Error error -> raise (Json.Decode_error error));
@@ -73,9 +73,160 @@ let listen_unix ~sw ~path ~backlog ~on_cleanup_error =
       with
       | Unix.Unix_error _ as exn -> on_cleanup_error (Exn.to_string exn)
       | Eio.Io _ as exn -> on_cleanup_error (Exn.to_string exn));
+    on_bound identity;
     with_fd listener (fun descriptor -> Unix.listen descriptor backlog);
     (listener :> [ `Generic ] Eio.Net.listening_socket_ty Eio.Resource.t))
 ;;
+
+let listen_unix ~sw ~path ~backlog ~on_cleanup_error =
+  listen_unix_with_identity ~sw ~path ~backlog ~on_cleanup_error ~on_bound:ignore
+;;
+
+module Socket_owner = struct
+  type t =
+    { path : string
+    ; canonical_path : string
+    ; guard_path : string
+    ; guard : Eio.File.rw_ty Eio.Resource.t
+    ; guard_identity : Unix.stats
+    }
+
+  let occupied () =
+    Json.fail
+      Conflict
+      "socket path is occupied by an unrecognized owner; stop all possible owners before \
+       explicitly removing an abandoned socket, or choose another socket path"
+  ;;
+
+  let same_identity a b =
+    Int.equal a.Unix.st_dev b.Unix.st_dev && Int.equal a.st_ino b.st_ino
+  ;;
+
+  let verify_guard t =
+    Eio_unix.run_in_systhread (fun () ->
+      let current = Unix.lstat t.guard_path in
+      match current.st_kind with
+      | S_REG when same_identity current t.guard_identity -> ()
+      | S_REG | S_DIR | S_CHR | S_BLK | S_LNK | S_FIFO | S_SOCK ->
+        Json.fail Conflict "socket owner guard was replaced")
+  ;;
+
+  let recognized t identity =
+    let length = Eio.File.size t.guard in
+    if
+      Optint.Int63.compare length Optint.Int63.zero <= 0
+      || Optint.Int63.compare length (Optint.Int63.of_int 4096) > 0
+    then false
+    else (
+      let bytes = Cstruct.create (Optint.Int63.to_int length) in
+      Eio.File.pread_exact t.guard ~file_offset:Optint.Int63.zero [ bytes ];
+      match
+        Json.decode (fun () ->
+          let value =
+            match Json.parse (Cstruct.to_string bytes) with
+            | Ok value -> value
+            | Error error -> raise (Json.Decode_error error)
+          in
+          Json.fields
+            value
+            ~allowed:
+              [ "workgraph_socket_owner"; "path"; "device"; "inode"; "change_time" ];
+          String.equal (Json.text (Json.field value "workgraph_socket_owner")) "1"
+          && String.equal (Json.text (Json.field value "path")) t.canonical_path
+          && Int.equal (Json.integer (Json.field value "device")) identity.Unix.st_dev
+          && Int.equal (Json.integer (Json.field value "inode")) identity.st_ino
+          && String.equal
+               (Json.text (Json.field value "change_time"))
+               (Int64.to_string (Int64.bits_of_float identity.st_ctime)))
+      with
+      | Ok matches -> matches
+      | Error _ -> false)
+  ;;
+
+  let acquire ~sw ~fs ~path =
+    (match validate_socket_path path with
+     | Ok () -> ()
+     | Error error -> raise (Json.Decode_error error));
+    let directory = realpath (Filename.dirname path) in
+    let canonical_path = Filename.concat directory (Filename.basename path) in
+    let guard_path =
+      Filename.concat directory (".workgraph-socket-" ^ Json.hash canonical_path ^ ".lock")
+    in
+    let guard_location = Eio.Path.(fs / guard_path) in
+    (match Eio.Path.kind ~follow:false guard_location with
+     | `Not_found | `Regular_file -> ()
+     | _ -> Json.fail Conflict "socket owner guard must be a real regular file");
+    let guard = Eio.Path.open_out ~sw ~create:(`If_missing 0o600) guard_location in
+    let guard_identity = with_fd guard Unix.fstat in
+    let t = { path; canonical_path; guard_path; guard; guard_identity } in
+    verify_guard t;
+    if not (lock_exclusive guard)
+    then Json.fail Conflict "socket path already has an active Workgraph owner";
+    sync_directory Eio.Path.(fs / directory);
+    let identity =
+      Eio_unix.run_in_systhread (fun () ->
+        match Unix.lstat path with
+        | identity -> Some identity
+        | exception Unix.Unix_error (ENOENT, _, _) -> None)
+    in
+    Option.iter identity ~f:(fun identity ->
+      match identity.Unix.st_kind with
+      | S_SOCK when recognized t identity ->
+        verify_guard t;
+        Eio_unix.run_in_systhread (fun () ->
+          let current = Unix.lstat path in
+          match current.st_kind with
+          | S_SOCK
+            when same_identity current identity
+                 && Float.equal current.st_ctime identity.st_ctime -> Unix.unlink path
+          | S_REG | S_DIR | S_CHR | S_BLK | S_LNK | S_FIFO | S_SOCK -> occupied ());
+        sync_directory Eio.Path.(fs / directory)
+      | S_REG | S_DIR | S_CHR | S_BLK | S_LNK | S_FIFO | S_SOCK -> occupied ());
+    t
+  ;;
+
+  let listen t ~sw ~backlog ~on_cleanup_error =
+    verify_guard t;
+    listen_unix_with_identity
+      ~sw
+      ~path:t.path
+      ~backlog
+      ~on_cleanup_error
+      ~on_bound:(fun identity ->
+        verify_guard t;
+        restrict_socket t.path;
+        let current = Eio_unix.run_in_systhread (fun () -> Unix.lstat t.path) in
+        if not (same_identity current identity) then occupied ();
+        let marker =
+          Json.canonical
+            (Json.obj
+               [ "workgraph_socket_owner", Json.string "1"
+               ; "path", Json.string t.canonical_path
+               ; "device", Json.int identity.Unix.st_dev
+               ; "inode", Json.int identity.st_ino
+               ; ( "change_time"
+                 , Json.string (Int64.to_string (Int64.bits_of_float current.st_ctime)) )
+               ])
+        in
+        Eio.File.pwrite_all
+          t.guard
+          ~file_offset:Optint.Int63.zero
+          [ Cstruct.of_string marker ];
+        Eio.File.truncate t.guard (Optint.Int63.of_int (String.length marker));
+        Eio.File.sync t.guard;
+        (* Graceful release must invalidate the marker before removing its
+           socket: an unrelated later inode can reuse the same device/number. *)
+        Eio.Switch.on_release sw (fun () ->
+          try
+            verify_guard t;
+            Eio.File.truncate t.guard Optint.Int63.zero;
+            Eio.File.sync t.guard
+          with
+          | Unix.Unix_error _ as exn -> on_cleanup_error (Exn.to_string exn)
+          | Eio.Io _ as exn -> on_cleanup_error (Exn.to_string exn)
+          | Json.Decode_error problem -> on_cleanup_error problem.message))
+  ;;
+end
 
 let link_exclusive ~src ~dst =
   let target = Eio.Path.native_exn src

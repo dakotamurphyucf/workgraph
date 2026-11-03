@@ -1873,16 +1873,6 @@ let serve ~env ~registry ~listener =
 let run ~env ~registry ~socket =
   Platform.validate_socket_path socket |> Disk.unwrap;
   Disk.absolute registry;
-  let fs = Eio.Stdenv.fs env in
-  (* Refused connects also occur while a live owner has bound but not listened.
-     Occupancy can reject startup, but cannot authorize removing another inode. *)
-  (match Eio.Path.kind ~follow:false Eio.Path.(fs / socket) with
-   | `Not_found -> ()
-   | _ ->
-     Json.fail
-       Conflict
-       "socket path is occupied; stop all possible owners before explicitly removing a \
-        stale path and restarting");
   let diagnostic event =
     Platform.write_diagnostic
       (Eio.Stdenv.stderr env)
@@ -1890,22 +1880,25 @@ let run ~env ~registry ~socket =
   in
   diagnostic "starting";
   match
-    serve_with
-      ~env
-      ~registry
-      ~handle_signals:true
-      ~on_ready:(fun () -> diagnostic "ready")
-      ~listen:(fun sw ->
-        let listener =
-          Platform.listen_unix
+    Eio.Switch.run (fun owner_sw ->
+      let owner =
+        Platform.Socket_owner.acquire
+          ~sw:owner_sw
+          ~fs:(Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t)
+          ~path:socket
+      in
+      serve_with
+        ~env
+        ~registry
+        ~handle_signals:true
+        ~on_ready:(fun () -> diagnostic "ready")
+        ~listen:(fun sw ->
+          Platform.Socket_owner.listen
+            owner
             ~sw
-            ~path:socket
             ~backlog:128
             ~on_cleanup_error:(fun message ->
-              diagnostic ("socket cleanup failed: " ^ message))
-        in
-        Platform.restrict_socket socket;
-        listener)
+              diagnostic ("socket cleanup failed: " ^ message))))
   with
   | () -> diagnostic "shutdown complete"
   | exception ((Json.Decode_error _ | Eio.Io _ | Core_unix.Unix_error _) as exn) ->

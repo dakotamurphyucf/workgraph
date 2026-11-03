@@ -26,6 +26,35 @@ val listen_unix
   -> on_cleanup_error:(string -> unit)
   -> [ `Generic ] Eio.Net.listening_socket_ty Eio.Resource.t
 
+module Socket_owner : sig
+  (** A pathname-scoped exclusive guard, held until the supplied switch closes.
+      Aliased parent directories and different registries share this guard. Its
+      permanent regular lock file is never unlinked. A synced local ownership
+      record identifies only the socket device/inode/change time successfully
+      bound by Workgraph. Graceful release clears the record before unlinking.
+      This is cooperative local ownership, not an authentication boundary. *)
+  type t
+
+  (** Acquire before initializing a registry. Refuse held/replaced/symlink guards
+      and unknown occupied paths. An abandoned socket is removed only when its
+      native device/inode/change time and type match the recognized ownership
+      record.
+      Connection refusal alone never authorizes removal. Expected failures raise
+      [Json.Decode_error] or I/O exceptions; cancellation propagates. *)
+  val acquire : sw:Eio.Switch.t -> fs:Eio.Fs.dir_ty Eio.Path.t -> path:string -> t
+
+  (** Bind under the guard, sync its identity before listening, and clean up only
+      that inode. A crash between bind and identity publication conservatively
+      leaves an unrecognized occupied path; no unrecognized path is guessed safe.
+      The listener belongs to [sw], which must close before the guard's switch. *)
+  val listen
+    :  t
+    -> sw:Eio.Switch.t
+    -> backlog:int
+    -> on_cleanup_error:(string -> unit)
+    -> [ `Generic ] Eio.Net.listening_socket_ty Eio.Resource.t
+end
+
 (** Output sink closed its pipe. Only [write_string] raises this exception;
     transport writes remain ordinary transport failures. CLI entrypoints may
     treat this as quiet successful termination. *)
