@@ -5,6 +5,14 @@
  (preprocess
   (pps ppx_jane)))
 
+(library
+ (name startup_diagnostic_tests)
+ (modules diagnostic_test)
+ (libraries workgraph core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
 (rule
  (alias runtest)
  (deps socket_test.py)

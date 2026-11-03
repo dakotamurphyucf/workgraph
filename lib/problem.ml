@@ -32,6 +32,7 @@ module Details = struct
         { actor_id : string
         ; run_id : string option
         }
+    | Socket_owner of { socket_path : string }
     | Readiness of
         { ticket_id : string
         ; blockers : string list
@@ -72,6 +73,8 @@ module Details = struct
         ]
     | Ownership { actor_id; run_id } ->
       tagged "ownership" [ "actor_id", text actor_id; "run_id", optional run_id ]
+    | Socket_owner { socket_path } ->
+      tagged "socket_owner" [ "socket_path", text socket_path ]
     | Readiness { ticket_id; blockers } ->
       tagged "readiness" [ "ticket_id", text ticket_id; "blockers", strings blockers ]
     | Version { representation; observed; supported } ->

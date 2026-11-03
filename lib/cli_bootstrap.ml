@@ -210,6 +210,8 @@ let probe_listing client request =
 let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
   Eio.Switch.run (fun sw ->
     let fs = Eio.Stdenv.fs env in
+    (* Eio.Path.open_out opens for reading and writing on both POSIX and Linux;
+       append constrains writes only, so pread can inspect this same descriptor. *)
     let file =
       Eio.Path.open_out ~sw ~append:true ~create:(`If_missing 0o600) Eio.Path.(fs / log)
     in
@@ -277,11 +279,9 @@ let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
                condition; the losing child's exit is not itself readiness. *)
              let _, problem = startup_log file ~after in
              if
-               Option.exists problem ~f:(fun problem ->
-                 Problem.equal_kind problem.kind Conflict
-                 && String.equal
-                      problem.message
-                      "socket path already has an active Workgraph owner")
+               Option.exists problem ~f:(function
+                 | { Problem.kind = Conflict; details = Some (Socket_owner _); _ } -> true
+                 | _ -> false)
              then ready ()
              else
                raise

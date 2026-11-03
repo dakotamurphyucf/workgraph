@@ -161,7 +161,14 @@ module Socket_owner = struct
     let t = { path; canonical_path; guard_path; guard; guard_identity } in
     verify_guard t;
     if not (lock_exclusive guard)
-    then Json.fail Conflict "socket path already has an active Workgraph owner";
+    then
+      raise
+        (Json.Decode_error
+           (Problem.with_details
+              (Problem.create
+                 Conflict
+                 "socket path already has an active Workgraph owner")
+              (Socket_owner { socket_path = canonical_path })));
     sync_directory Eio.Path.(fs / directory);
     let identity =
       Eio_unix.run_in_systhread (fun () ->

@@ -36,6 +36,10 @@ module Details : sig
         { actor_id : string
         ; run_id : string option
         }
+    | Socket_owner of { socket_path : string }
+    (** With [Conflict], an active Workgraph guard owns this canonical socket
+        pathname. This identifies competition, not readiness or peer health.
+        Human-readable message text is not a discriminator. *)
     | Readiness of
         { ticket_id : string
         ; blockers : string list

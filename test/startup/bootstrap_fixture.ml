@@ -16,7 +16,22 @@ let () =
       then
         Option.iter (Sys.getenv "WORKGRAPH_STARTUP_FIXTURE_DELAY") ~f:(fun seconds ->
           Eio.Time.Mono.sleep (Eio.Stdenv.mono_clock env) (Float.of_string seconds));
-      if serving && Option.is_some (Sys.getenv "WORKGRAPH_STARTUP_FIXTURE_FAIL")
+      if serving && Option.is_some (Sys.getenv "WORKGRAPH_STARTUP_FIXTURE_OWNER")
+      then (
+        let problem =
+          match Sys.getenv "WORKGRAPH_STARTUP_FIXTURE_OWNER" with
+          | Some "typed" ->
+            Problem.with_details
+              (Problem.create Conflict "competing launcher holds this path")
+              (Socket_owner { socket_path = List.last_exn args })
+          | _ ->
+            Problem.create Conflict "socket path already has an active Workgraph owner"
+        in
+        Platform.write_string
+          (Eio.Stdenv.stderr env)
+          (Json.canonical (Problem.to_json problem) ^ "\n");
+        18)
+      else if serving && Option.is_some (Sys.getenv "WORKGRAPH_STARTUP_FIXTURE_FAIL")
       then (
         Platform.write_string
           (Eio.Stdenv.stderr env)

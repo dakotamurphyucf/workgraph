@@ -39,8 +39,10 @@ module Socket_owner : sig
       and unknown occupied paths. An abandoned socket is removed only when its
       native device/inode/change time and type match the recognized ownership
       record.
-      Connection refusal alone never authorizes removal. Expected failures raise
-      [Json.Decode_error] or I/O exceptions; cancellation propagates. *)
+      Connection refusal alone never authorizes removal. A held guard raises
+      [Json.Decode_error] with [Conflict] and [Problem.Details.Socket_owner].
+      Other expected failures raise [Json.Decode_error] or I/O exceptions;
+      cancellation propagates. *)
   val acquire : sw:Eio.Switch.t -> fs:Eio.Fs.dir_ty Eio.Path.t -> path:string -> t
 
   (** Bind under the guard, sync its identity before listening, and clean up only

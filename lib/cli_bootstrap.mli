@@ -25,7 +25,10 @@ val create
     spawned child's exit against a monotonic configured timeout. Child failures
     retain their typed diagnostic with a bounded current-startup log tail;
     timeout reports the last handshake failure and log path. A timeout does not
-    prove the detached daemon stopped. Concurrent startup/setup reuses matching
+    prove the detached daemon stopped; the short supervisor is reaped while its
+    detached child may continue. Only typed [Conflict]/[Socket_owner] competition
+    permits waiting for another owner, and success still requires its valid
+    handshake. Concurrent startup/setup reuses matching
     published identities.
     All administrative writes are synced as exact requests beside the context;
     [on_saved_request] runs after sync and before transmission. No implicit retry

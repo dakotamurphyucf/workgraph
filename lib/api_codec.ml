@@ -87,8 +87,12 @@ let with_error_context t ~context =
             Option.map problem.details ~f:(function
               | Problem.Details.Field field ->
                 Problem.Details.Field { field with expected = append field.expected }
-              | (Revision _ | Ownership _ | Readiness _ | Version _ | Capacity _) as
-                details -> details)
+              | ( Revision _
+                | Ownership _
+                | Socket_owner _
+                | Readiness _
+                | Version _
+                | Capacity _ ) as details -> details)
           in
           raise
             (Json.Decode_error { problem with message = append problem.message; details }))

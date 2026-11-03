@@ -3,7 +3,6 @@ import concurrent.futures
 import json
 import os
 from pathlib import Path
-import signal
 import socket
 import struct
 import subprocess
@@ -42,7 +41,13 @@ class StartupTest(unittest.TestCase):
             log.close()
         self.temporary.cleanup()
 
-    def cli(self, *args, executable=EXE, timeout=10, env=None):
+    def cli(self, *args, executable=EXE, timeout=10, env=None, observer=None):
+        if observer is not None:
+            with subprocess.Popen([str(executable), *map(str, args)], stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, text=True, env=env) as process:
+                observer(process)
+                stdout, stderr = process.communicate(timeout=timeout)
+                return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
         return subprocess.run([str(executable), *map(str, args)], capture_output=True,
                               text=True, timeout=timeout, env=env)
 
@@ -79,13 +84,13 @@ class StartupTest(unittest.TestCase):
         self.assertEqual(0, response.returncode, response.stderr + response.stdout)
         return json.loads(response.stdout)
 
-    def init(self, address, registry, *, executable=EXE, env=None, timeout="3"):
+    def init(self, address, registry, *, executable=EXE, env=None, timeout="3", observer=None):
         self.sockets.append(address)
         return self.cli("init", "--context", self.root / "context.json", "--socket", address,
                         "--workspace-id", "test", "--actor-id", "worker", "--name", "Test",
                         "--root", self.root / "workspace", "--start-daemon", "true",
                         "--registry", registry, "--daemon-log", self.root / "bootstrap.log",
-                        "--timeout", timeout, executable=executable, env=env)
+                        "--timeout", timeout, executable=executable, env=env, observer=observer)
 
     def rejected_serve(self, address, registry):
         response = self.cli("serve", registry, address)
@@ -215,6 +220,37 @@ class StartupTest(unittest.TestCase):
         self.assertNotIn("old failure", problem["message"])
         self.assertFalse((self.root / "context.json").exists())
 
+    def test_bootstrap_competition_is_typed_and_independent_of_message(self):
+        address, registry = self.root / "s", self.root / "registry"
+        env = {**os.environ, "WORKGRAPH_STARTUP_FIXTURE_OWNER": "typed"}
+
+        def start_winner():
+            deadline = time.monotonic() + 3
+            log = self.root / "bootstrap.log"
+            while time.monotonic() < deadline:
+                if log.exists() and "competing launcher" in log.read_text():
+                    # Let the losing child exit before the winner becomes ready.
+                    time.sleep(.2)
+                    return self.serve(address, registry)
+                time.sleep(.01)
+            raise AssertionError("fixture never emitted its typed competition diagnostic")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            winner = pool.submit(start_winner)
+            response = self.init(address, registry, executable=FIXTURE, env=env)
+            process = winner.result(timeout=5)
+        self.assertEqual(0, response.returncode, response.stderr)
+        self.ready(address, process)
+
+    def test_bootstrap_owner_message_without_typed_detail_is_failure(self):
+        env = {**os.environ, "WORKGRAPH_STARTUP_FIXTURE_OWNER": "untyped"}
+        before = time.monotonic()
+        response = self.init(self.root / "s", self.root / "registry", executable=FIXTURE, env=env)
+        self.assertNotEqual(0, response.returncode)
+        self.assertLess(time.monotonic() - before, 2)
+        self.assertIn("18", response.stderr)
+        self.assertNotIn("startup deadline exceeded", response.stderr)
+
     def test_bootstrap_recovers_recognized_crash(self):
         address, registry = self.root / "s", self.root / "registry"
         process = self.serve(address, registry)
@@ -254,16 +290,38 @@ class StartupTest(unittest.TestCase):
 
     def test_bootstrap_timeout_does_not_claim_detached_child_stopped(self):
         address, registry = self.root / "s", self.root / "registry"
-        env = {**os.environ, "WORKGRAPH_STARTUP_FIXTURE_DELAY": ".5"}
+        env = {**os.environ, "WORKGRAPH_STARTUP_FIXTURE_DELAY": "1"}
+        observed = {}
+
+        def observe_tree(cli):
+            deadline = time.monotonic() + .4
+            while time.monotonic() < deadline:
+                rows = subprocess.check_output(["ps", "-axo", "pid=,ppid="], text=True)
+                parents = {int(pid): int(parent) for pid, parent in
+                           (row.split() for row in rows.splitlines())}
+                supervisors = [pid for pid, parent in parents.items() if parent == cli.pid]
+                if len(supervisors) == 1:
+                    children = [pid for pid, parent in parents.items() if parent == supervisors[0]]
+                    if len(children) == 1:
+                        observed.update(supervisor=supervisors[0], daemon=children[0])
+                        return
+                time.sleep(.01)
+            self.fail("did not observe exact CLI/supervisor/daemon process chain")
+
         before = time.monotonic()
-        response = self.init(address, registry, executable=FIXTURE, env=env, timeout=".1")
+        response = self.init(address, registry, executable=FIXTURE, env=env, timeout=".5",
+                             observer=observe_tree)
         self.assertNotEqual(0, response.returncode)
         self.assertLess(time.monotonic() - before, 2)
         self.assertIn("startup deadline exceeded", response.stderr)
         self.assertIn("daemon may still start", response.stderr)
         self.assertFalse((self.root / "context.json").exists())
-        # Explicitly verify the detached daemon later, then tearDown stops it.
+        with self.assertRaises(ProcessLookupError):
+            os.kill(observed["supervisor"], 0)
+        os.kill(observed["daemon"], 0)
+        # The exact child survives; no supervisor remains to leak or kill it.
         self.ready(address)
+        os.kill(observed["daemon"], 0)
 
     def test_registry_failure_is_visible_in_bootstrap_diagnostics(self):
         address, registry = self.root / "s", self.root / "registry"

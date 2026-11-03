@@ -63,6 +63,15 @@ let details =
         | Problem.Details.Readiness { ticket_id; blockers } -> ticket_id, blockers
         | _ -> invalid_arg "readiness diagnostic expected")
   in
+  let socket_owner =
+    branch
+      "socket_owner"
+      (F.required "socket_path" text)
+      ~decode:(fun socket_path -> Problem.Details.Socket_owner { socket_path })
+      ~encode:(function
+        | Problem.Details.Socket_owner { socket_path } -> socket_path
+        | _ -> invalid_arg "socket owner diagnostic expected")
+  in
   let version =
     branch
       "version"
@@ -99,6 +108,7 @@ let details =
       [ "field", field
       ; "revision", revision
       ; "ownership", ownership
+      ; "socket_owner", socket_owner
       ; "readiness", readiness
       ; "version", version
       ; "capacity", capacity
@@ -107,6 +117,7 @@ let details =
       | Problem.Details.Field _ -> "field"
       | Revision _ -> "revision"
       | Ownership _ -> "ownership"
+      | Socket_owner _ -> "socket_owner"
       | Readiness _ -> "readiness"
       | Version _ -> "version"
       | Capacity _ -> "capacity")
