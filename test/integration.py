@@ -1142,7 +1142,7 @@ class Integration(unittest.TestCase):
         self.ticket()
         root = self.root / "verified-export"
         manifest = self.export({"workspace_id": "demo", "destination": str(root)})
-        self.assertEqual("3", manifest["version"])
+        self.assertEqual("4", manifest["version"])
         self.assertEqual(json.loads((root / "portable/HEAD.json").read_text())["digest"], manifest["head"])
         verified = self.data("export.verify", {"directory": str(root)})
         self.assertTrue(verified["verified"])
@@ -1180,7 +1180,7 @@ class Integration(unittest.TestCase):
                 changed.pop("options")
                 expected_kind = "Invalid_argument"
             elif change == "unsupported-version":
-                changed["version"] = "4"
+                changed["version"] = "5"
                 expected_kind = "Unsupported_version"
             else:
                 changed.pop("head")
