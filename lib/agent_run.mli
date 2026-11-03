@@ -153,18 +153,51 @@ val start_blockers
   -> now_unix_ms:int64
   -> Start_blocker.t list
 
+(** Bounded token-free conflicting path owners for a claim's requirements. *)
+val start_conflict : t -> ticket:Id.Ticket.t -> run:Id.Run.t option -> Problem.t option
+
 (** Immutable preparation of all missing required paths. The lifecycle stages
     these changes with claim/attempt changes in one serialized durable commit.
-    New automatic holds are indefinite; renew timed existing holds explicitly. *)
+    New automatic holds are indefinite. Compatible existing Manual holds are
+    reused without adoption; Automatic holds record the exact claim borrower.
+    [previous_claim] is removed before reassignment acquisition, atomically.
+    Direct attempt finish retains the borrower while the ticket claim remains.
+    [actor]/[run] attribute the invoking transaction; destination ownership is
+    [claim.actor]/[claim.run], which may differ during administrative reassignment.
+    Full admission and exact claim-transition authority belong to Planning
+    composition and replay, not this lower-level holder preparation helper. *)
 val prepare_start_reservations
   :  t
-  -> ticket:Id.Ticket.t
-  -> run:Id.Run.t
+  -> claim:Reservation.Claim.t
+  -> previous_claim:Reservation.Claim.t option
   -> actor:Id.Actor.t
+  -> run:Id.Run.t option
   -> timestamp:string
   -> sequence:int
   -> now_unix_ms:int64
   -> (prepared, Problem.t) Result.t
+
+(** Pure exact cleanup computation. Preserves Manual holds and sibling borrowers;
+    increments coordination revision once iff ownership changes. This lower-level
+    primitive is not public command authority: Planning requires the logged
+    transition below followed by the exact permitted claim exit/recovery. *)
+val release_claim_reservations : t -> Reservation.Claim.t -> (t, Problem.t) Result.t
+
+(** Logged exact cleanup; Planning couples this internal event to the next
+    permitted claim exit/recovery. No public standalone release command exists. *)
+val prepare_release_claim_reservations
+  :  t
+  -> claim:Reservation.Claim.t
+  -> actor:Id.Actor.t
+  -> run:Id.Run.t option
+  -> timestamp:string
+  -> sequence:int
+  -> (prepared, Problem.t) Result.t
+
+val validate_claim_borrowers
+  :  t
+  -> claim_exists:(Reservation.Claim.t -> bool)
+  -> (unit, Problem.t) Result.t
 
 val get_path_reservation : t -> Path_scope.t -> Path_reservation.t option
 val get_ticket_paths : t -> Id.Ticket.t -> Ticket_paths.t option

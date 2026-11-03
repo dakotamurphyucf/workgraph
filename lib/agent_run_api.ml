@@ -907,7 +907,11 @@ module Query = struct
         ; ticket : Id.Ticket.t option
         ; run : Id.Run.t option
         }
-    | Reservations of Page.t
+    | Reservations of
+        { page : Page.t
+        ; run : Id.Run.t option
+        ; actor : Id.Actor.t option
+        }
     | Actions of Page.t
 
   let resolved of_string to_string =
@@ -976,12 +980,25 @@ module Query = struct
         (function
           | Runs page -> page
           | _ -> Json.fail Invalid_argument "wrong query kind")
-    ; page
-        "reservation.list"
-        (fun page -> Reservations page)
-        (function
-          | Reservations page -> page
-          | _ -> Json.fail Invalid_argument "wrong query kind")
+    ; ( "reservation.list"
+      , Api_codec.map
+          (Api_codec.object_
+             (Fields.map
+                (Page.fields
+                 ++ Fields.optional "target_run_id" run_id
+                 ++ Fields.optional
+                      "actor_id"
+                      (resolved Id.Actor.of_string Id.Actor.to_string))
+                ~decode:(fun ((page, run), actor) -> Reservations { page; run; actor })
+                ~encode:(function
+                  | Reservations { page; run; actor } -> (page, run), actor
+                  | _ -> Json.fail Invalid_argument "wrong query kind")))
+          ~decode:(function
+            | Reservations ({ page; _ } as p) ->
+              Result.map (Page.validate page) ~f:(fun _ -> Reservations p)
+            | _ -> Json.fail Invalid_argument "wrong query kind")
+          ~encode:Fn.id
+          ~description:"Holder run/actor filters applied before stable paging." )
     ; page
         "run.actions"
         (fun page -> Actions page)
@@ -1061,6 +1078,36 @@ let page_data codec =
           ~encode:(fun (items, next_offset, omitted) -> (items, next_offset), omitted)))
 ;;
 
+let acquisition_holds =
+  Coordination_wire.checked
+    (Api_codec.list
+       (Api_codec.object_
+          (Fields.required
+             "reservation_id"
+             (Coordination_wire.id Reservation.Name.of_string Reservation.Name.to_string)
+           ++ Fields.required "holder" Agent_run_wire.holder))
+       ~max_items:32)
+    (fun rows ->
+       if
+         List.is_empty rows
+         || not
+              (List.is_sorted_strictly
+                 (List.map rows ~f:fst)
+                 ~compare:Reservation.Name.compare)
+       then
+         Json.fail
+           Invalid_argument
+           "Acquisition receipt needs 1..32 distinct sorted names";
+       let first = snd (List.hd_exn rows) in
+       List.iter rows ~f:(fun (_, h) ->
+         if
+           not
+             (Id.Run.equal h.run first.run
+              && Id.Actor.equal h.actor first.actor
+              && Reservation.Origin.equal h.origin Manual)
+         then Json.fail Invalid_argument "Acquisition receipt owners or origins differ"))
+;;
+
 let response_codec ~method_ =
   match Agent_coordination_api.response_codec ~method_ with
   | Some codec -> Some codec
@@ -1090,10 +1137,16 @@ let response_codec ~method_ =
             (Coordination_wire.checked Attempt_result.codec (fun result ->
                if not (Attempt.State.terminal result.state)
                then Json.fail Invalid_argument "finished attempt must be terminal")))
-     | "reservation.acquire"
-     | "reservation.renew"
-     | "reservation.release"
-     | "run.action_acknowledge" -> Some coordination_receipt
+     | "reservation.acquire" ->
+       Some
+         (json_codec
+            (Api_codec.object_
+               (Fields.required
+                  "coordination_revision"
+                  (Api_codec.decimal ~max:Int.max_value)
+                ++ Fields.required "holds" acquisition_holds)))
+     | "reservation.renew" | "reservation.release" | "run.action_acknowledge" ->
+       Some coordination_receipt
      | _ ->
        (match method_ with
         | "run.get" -> Some (json_codec Agent_run_wire.run)

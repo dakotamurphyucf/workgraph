@@ -53,6 +53,26 @@ let error_response_json ~id ~code (problem : Problem.t) =
                  then Int.max_value
                  else omitted_reasons + extra)
           }
+      | Reservation_conflict conflict ->
+        let original = List.length conflict.owners in
+        let rec fit owners =
+          let extra = original - List.length owners in
+          let omitted_owners =
+            Int.min
+              (Int.max_value - List.length owners)
+              (if conflict.omitted_owners > Int.max_value - extra
+               then Int.max_value
+               else conflict.omitted_owners + extra)
+          in
+          let bounded = { conflict with owners; omitted_owners } in
+          if
+            List.length owners > 1
+            && String.length (Json.canonical (Reservation_conflict.to_json bounded))
+               > 48_000
+          then fit (List.drop_last_exn owners)
+          else Problem.Details.Reservation_conflict bounded
+        in
+        fit (List.take conflict.owners 16)
       | Readiness { ticket_id; blockers } ->
         Readiness { ticket_id; blockers = List.map (List.take blockers 16) ~f:short }
       | Version { representation; observed; supported } ->

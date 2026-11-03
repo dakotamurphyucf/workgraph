@@ -47,6 +47,7 @@ module Details : sig
         }
     (** At most 16 exact admission reasons; the total is the listed count plus
         [omitted_reasons]. No other owner's fencing tokens are disclosed. *)
+    | Reservation_conflict of Reservation_conflict.t
     | Readiness of
         { ticket_id : string
         ; blockers : string list

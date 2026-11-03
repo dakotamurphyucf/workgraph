@@ -225,8 +225,9 @@ let%expect_test "required paths demand a run and prepare atomic reusable ownersh
     unwrap
       (Agent_run.prepare_start_reservations
          t
-         ~ticket
-         ~run
+         ~claim:{ Reservation.Claim.ticket; run; actor; token = 1 }
+         ~previous_claim:None
+         ~run:(Some run)
          ~actor
          ~timestamp:"now"
          ~sequence:1
@@ -246,8 +247,9 @@ let%expect_test "required paths demand a run and prepare atomic reusable ownersh
     unwrap
       (Agent_run.prepare_start_reservations
          (Agent_run.candidate p)
-         ~ticket
-         ~run
+         ~claim:{ Reservation.Claim.ticket; run; actor; token = 1 }
+         ~previous_claim:None
+         ~run:(Some run)
          ~actor
          ~timestamp:"now"
          ~sequence:2
@@ -447,8 +449,9 @@ let%expect_test
   report
     (Agent_run.prepare_start_reservations
        expired
-       ~ticket
-       ~run
+       ~claim:{ Reservation.Claim.ticket; run; actor; token = 1 }
+       ~previous_claim:None
+       ~run:(Some run)
        ~actor
        ~timestamp:"now"
        ~sequence:1
@@ -465,7 +468,8 @@ let%expect_test
        ((run run) (actor actor) (token 1) (mode Shared)
         (lease
          ((epoch 1) (revision 1) (policy Indefinite) (last_unix_ms 0)
-          (deadline_unix_ms ())))))))
+          (deadline_unix_ms ())))
+        (origin Manual)))))
     Blocked
     1
     |}]

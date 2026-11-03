@@ -38,6 +38,7 @@ module Details = struct
         ; reasons : Allocation_admission_reason.t list
         ; omitted_reasons : int
         }
+    | Reservation_conflict of Reservation_conflict.t
     | Readiness of
         { ticket_id : string
         ; blockers : string list
@@ -87,6 +88,7 @@ module Details = struct
         ; "reasons", `Array (List.map reasons ~f:Allocation_admission_reason.to_json)
         ; "omitted_reasons", text (Int.to_string omitted_reasons)
         ]
+    | Reservation_conflict conflict -> Reservation_conflict.to_json conflict
     | Readiness { ticket_id; blockers } ->
       tagged "readiness" [ "ticket_id", text ticket_id; "blockers", strings blockers ]
     | Version { representation; observed; supported } ->

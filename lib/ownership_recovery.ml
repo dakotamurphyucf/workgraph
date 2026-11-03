@@ -191,20 +191,42 @@ type t =
   ; run_id : Id.Run.t option
   ; timestamp : string
   ; sequence : int
+  ; borrowers : Reservation.Claim.t list
   }
 [@@deriving sexp, equal]
 
 let codec =
-  Api_codec.object_
-    (Fields.map
-       (Fields.required "request" Request.codec
-        ++ Fields.required "actor_id" W.actor
-        ++ Fields.required "run_id" (Api_codec.nullable W.run)
-        ++ Fields.required "timestamp" (W.nonblank ~max_bytes:128)
-        ++ Fields.required "sequence" W.positive)
-       ~decode:(fun ((((request, actor_id), run_id), timestamp), sequence) ->
-         { request; actor_id; run_id; timestamp; sequence })
-       ~encode:(fun t -> (((t.request, t.actor_id), t.run_id), t.timestamp), t.sequence))
+  W.checked
+    (Api_codec.object_
+       (Fields.map
+          (Fields.required "request" Request.codec
+           ++ Fields.required "actor_id" W.actor
+           ++ Fields.required "run_id" (Api_codec.nullable W.run)
+           ++ Fields.required "timestamp" (W.nonblank ~max_bytes:128)
+           ++ Fields.required "sequence" W.positive
+           ++ Fields.required
+                "borrowers"
+                (Api_codec.list Reservation.Claim.codec ~max_items:100))
+          ~decode:
+            (fun
+              (((((request, actor_id), run_id), timestamp), sequence), borrowers) ->
+            { request; actor_id; run_id; timestamp; sequence; borrowers })
+          ~encode:(fun t ->
+            ((((t.request, t.actor_id), t.run_id), t.timestamp), t.sequence), t.borrowers)))
+    (fun t ->
+       (match t.request.target with
+        | Named _ ->
+          if not (List.is_empty t.borrowers)
+          then Json.fail Invalid_argument "Named recovery has no automatic borrowers"
+        | Path _ -> ());
+       if not (List.is_empty t.borrowers)
+       then Reservation.Origin.validate (Automatic t.borrowers);
+       List.iter t.borrowers ~f:(fun c ->
+         if
+           not
+             (Id.Run.equal c.run t.request.old_run_id
+              && Id.Actor.equal c.actor t.request.old_actor_id)
+         then Json.fail Invalid_argument "Recovery borrower owner differs"))
 ;;
 
 let jsonaf_of_t = W.encode_exn codec

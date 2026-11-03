@@ -43,13 +43,17 @@ module Request : sig
 end
 
 (** Durable attributed assertion that the old external process stopped or was
-    isolated. The daemon does not terminate or inspect processes. *)
+    isolated. The daemon does not terminate or inspect processes. [borrowers]
+    records the exact impacted automatic claims from the removed holder, sorted
+    and unique (maximum 100); empty for manual/named holds. Remaining claims
+    require current ownership checks before further work. *)
 type t =
   { request : Request.t
   ; actor_id : Id.Actor.t
   ; run_id : Id.Run.t option
   ; timestamp : string
   ; sequence : int
+  ; borrowers : Reservation.Claim.t list
   }
 [@@deriving sexp, equal]
 

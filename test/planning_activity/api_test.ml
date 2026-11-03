@@ -16,7 +16,7 @@ let replace json name value =
 
 let fixture =
   Jsonaf.of_string
-    {|{"revision":"3","actor_id":"owner","run_id":null,"timestamp":"now","targets":[{"kind":"ticket","ticket_id":"task"}],"changes":[{"kind":"facts_changed","fact":{"scope":{"kind":"ticket","id":"task"},"key":"nullable","revision":"1","deleted":false,"value":null,"actor_id":"owner","timestamp":"now","changed_at_revision":"3"}}]}|}
+    {|{"revision":"3","actor_id":"owner","run_id":null,"timestamp":"now","targets":[{"kind":"ticket","ticket_id":"task"}],"changes":[{"kind":"facts_changed","fact":{"scope":{"kind":"ticket","id":"task"},"key":"nullable","revision":"1","deleted":false,"value":null,"references":[],"actor_id":"owner","timestamp":"now","changed_at_revision":"3"}}]}|}
 ;;
 
 let%expect_test

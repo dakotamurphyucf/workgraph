@@ -190,6 +190,16 @@ module Update = struct
     | Attempt_put of Attempt.t
     | Reservation_put of Reservation.t
     | Path_reservation_put of Path_reservation.t
+    | Claim_paths_reserved of
+        { claim : Reservation.Claim.t
+        ; previous_claim : Reservation.Claim.t option
+        ; now_unix_ms : int64
+        ; targets : Path_scope.t list
+        }
+    | Claim_paths_released of
+        { claim : Reservation.Claim.t
+        ; targets : Path_scope.t list
+        }
     | Ticket_paths_put of Ticket_paths.t
     | External_condition_changed of External_condition.Change.t
     | Ownership_recovered of
@@ -219,7 +229,34 @@ let validate t =
   if t.revision < 1 || t.sequence < 1
   then Json.fail Invalid_argument "Invalid run event counters";
   if String.is_empty t.timestamp || String.length t.timestamp > 128
-  then Json.fail Invalid_argument "Invalid run timestamp"
+  then Json.fail Invalid_argument "Invalid run timestamp";
+  let targets claim targets =
+    Reservation.Claim.validate claim;
+    if
+      List.is_empty targets
+      || List.length targets > 200
+      || not (List.is_sorted_strictly targets ~compare:Path_scope.compare)
+    then
+      Json.fail Invalid_argument "Automatic transition needs 1..200 sorted distinct paths"
+  in
+  match t.update with
+  | Claim_paths_reserved { claim; previous_claim; now_unix_ms; targets = paths } ->
+    targets claim paths;
+    Option.iter previous_claim ~f:Reservation.Claim.validate;
+    if Int64.(now_unix_ms < 0L)
+    then Json.fail Invalid_argument "Reservation clock must be nonnegative"
+  | Claim_paths_released { claim; targets = paths } -> targets claim paths
+  | Pool_put _
+  | Ticket_policy_put _
+  | Run_put _
+  | Attempt_started _
+  | Attempt_put _
+  | Reservation_put _
+  | Path_reservation_put _
+  | Ticket_paths_put _
+  | External_condition_changed _
+  | Ownership_recovered _
+  | Actions_set _ -> ()
 ;;
 
 let t_of_jsonaf json =
@@ -261,6 +298,23 @@ let t_of_jsonaf json =
       Reservation_put (Reservation.t_of_jsonaf value)
     | [ `String "Path_reservation_put"; value ] ->
       Path_reservation_put (Path_reservation.t_of_jsonaf value)
+    | [ `String "Claim_paths_reserved"; value ] ->
+      Json.fields value ~allowed:[ "claim"; "previous_claim"; "now_unix_ms"; "targets" ];
+      Claim_paths_reserved
+        { claim = Reservation.Claim.t_of_jsonaf (Json.field value "claim")
+        ; previous_claim =
+            optional (Json.field value "previous_claim") Reservation.Claim.t_of_jsonaf
+        ; now_unix_ms = Json.integer64 (Json.field value "now_unix_ms")
+        ; targets =
+            List.map (Json.list (Json.field value "targets")) ~f:Path_scope.t_of_jsonaf
+        }
+    | [ `String "Claim_paths_released"; value ] ->
+      Json.fields value ~allowed:[ "claim"; "targets" ];
+      Claim_paths_released
+        { claim = Reservation.Claim.t_of_jsonaf (Json.field value "claim")
+        ; targets =
+            List.map (Json.list (Json.field value "targets")) ~f:Path_scope.t_of_jsonaf
+        }
     | [ `String "Ticket_paths_put"; value ] ->
       Ticket_paths_put (Ticket_paths.t_of_jsonaf value)
     | [ `String "External_condition_changed"; value ] ->

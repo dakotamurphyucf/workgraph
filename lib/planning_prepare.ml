@@ -14,6 +14,26 @@ let events t = t.events
 let result t = t.result
 let blobs t = t.blobs
 
+let claim_path_cleanup t (ticket : Ticket.t) ~actor ~run ~timestamp =
+  Option.value_map ticket.claim ~default:[] ~f:(fun claim ->
+    Option.value_map claim.run_id ~default:[] ~f:(fun owner_run ->
+      Agent_run.prepare_release_claim_reservations
+        t.agent_runs
+        ~claim:
+          { Reservation.Claim.ticket = ticket.id
+          ; token = claim.token
+          ; actor = claim.actor
+          ; run = owner_run
+          }
+        ~actor
+        ~run
+        ~timestamp
+        ~sequence:(t.revision + 1)
+      |> unwrap_domain
+      |> Agent_run.changes
+      |> List.map ~f:(fun c -> Event.Agent_run_changed c)))
+;;
+
 let require_unclaimed (ticket : Ticket.t) =
   match ticket.claim with
   | None -> ()
@@ -34,6 +54,9 @@ let require_ready t ticket ~run ~now_unix_ms =
   let reasons = eligibility_reasons ?run ?now_unix_ms t ticket in
   if not (List.is_empty reasons)
   then (
+    Option.iter
+      (Agent_run.start_conflict t.agent_runs ~ticket:ticket.Ticket.id ~run)
+      ~f:(fun p -> raise (Json.Decode_error { p with kind = Blocked }));
     let blockers =
       List.map reasons ~f:(function
         | Eligibility_reason.Archived_scope -> "archived_scope"
@@ -428,10 +451,14 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
            ; sequence = t.revision + 1
            }
          in
+         let cleanup =
+           claim_path_cleanup t (find_ticket t request.ticket_id) ~actor ~run ~timestamp
+         in
+         let staged = List.fold cleanup ~init:t ~f:apply_event in
          let event = Event.Ticket_recovered recovery in
-         let recovered = apply_event t event in
+         let recovered = apply_event staged event in
          let ticket = find_ticket recovered request.ticket_id in
-         ( [ event ]
+         ( cleanup @ [ event ]
          , Json.obj
              [ "ticket_id", Id.Ticket.jsonaf_of_t ticket.id
              ; "revision", Json.int ticket.revision
@@ -921,7 +948,13 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
        | Reservation_release _
        | Reservation_renew _
        | Action_acknowledge _
-       | Pool_put _
+       | Pool_put _ -> ()
+       | Coordination (Ticket_paths_put { ticket_id; _ }) ->
+         require
+           (Option.is_none (find_ticket t ticket_id).claim
+            && List.is_empty (active_attempts t ticket_id))
+           Conflict
+           "Cannot change required paths while ticket has a claim or active attempt"
        | Coordination _ -> ()
        | Ticket_policy_put { ticket; _ } ->
          require
@@ -930,14 +963,15 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
            "Cannot change allocation policy while ticket has a claim");
       let path_prepared =
         match command with
-        | Agent_run.Command.Attempt_start { run = target_run; ticket; _ } ->
+        | Agent_run.Command.Attempt_start { run = target_run; ticket; token; _ } ->
           Some
             (unwrap_domain
                (Agent_run.prepare_start_reservations
                   t.agent_runs
-                  ~ticket
-                  ~run:target_run
+                  ~claim:{ Reservation.Claim.ticket; run = target_run; actor; token }
+                  ~previous_claim:None
                   ~actor
+                  ~run
                   ~timestamp
                   ~sequence:(t.revision + 1)
                   ~now_unix_ms:(Option.value now_unix_ms ~default:0L)))
@@ -1772,19 +1806,35 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
              ~run:claim.run_id
              ~intent:Reassign));
       let path_changes =
-        Option.value_map claim ~default:[] ~f:(fun claim ->
-          Option.value_map claim.Claim.run_id ~default:[] ~f:(fun run ->
-            Agent_run.prepare_start_reservations
-              t.agent_runs
-              ~ticket:id
-              ~run
-              ~actor:claim.actor
-              ~timestamp
-              ~sequence:(t.revision + 1)
-              ~now_unix_ms:(Option.value now_unix_ms ~default:0L)
-            |> unwrap_domain
-            |> Agent_run.changes
-            |> List.map ~f:(fun change -> Event.Agent_run_changed change)))
+        Option.value_map
+          claim
+          ~default:(claim_path_cleanup t ticket ~actor ~run ~timestamp)
+          ~f:(fun claim ->
+            Option.value_map claim.Claim.run_id ~default:[] ~f:(fun target_run ->
+              Agent_run.prepare_start_reservations
+                t.agent_runs
+                ~claim:
+                  { Reservation.Claim.ticket = id
+                  ; run = target_run
+                  ; actor = claim.actor
+                  ; token = claim.token
+                  }
+                ~previous_claim:
+                  (Option.bind ticket.claim ~f:(fun previous ->
+                     Option.map previous.run_id ~f:(fun run ->
+                       { Reservation.Claim.ticket = id
+                       ; run
+                       ; actor = previous.actor
+                       ; token = previous.token
+                       })))
+                ~actor
+                ~run
+                ~timestamp
+                ~sequence:(t.revision + 1)
+                ~now_unix_ms:(Option.value now_unix_ms ~default:0L)
+              |> unwrap_domain
+              |> Agent_run.changes
+              |> List.map ~f:(fun change -> Event.Agent_run_changed change)))
       in
       let status =
         if Option.is_some claim then Domain_command.Status.In_progress else Todo
@@ -1839,15 +1889,17 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       require_unclaimed ticket;
       require_ready t ticket ~run ~now_unix_ms;
       unwrap_domain (Acquisition.ensure t ~ticket ~actor ~run ~intent:Claim);
+      let token = ticket.next_token in
       let path_changes =
         match run with
         | None -> []
         | Some run ->
           Agent_run.prepare_start_reservations
             t.agent_runs
-            ~ticket:id
-            ~run
+            ~claim:{ Reservation.Claim.ticket = id; run; actor; token }
+            ~previous_claim:None
             ~actor
+            ~run:(Some run)
             ~timestamp
             ~sequence:(t.revision + 1)
             ~now_unix_ms:(Option.value now_unix_ms ~default:0L)
@@ -1855,7 +1907,6 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           |> Agent_run.changes
           |> List.map ~f:(fun c -> Event.Agent_run_changed c)
       in
-      let token = ticket.next_token in
       ( path_changes
         @ [ update
               { ticket with
@@ -1919,7 +1970,11 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           in
           List.map (Agent_run.changes p) ~f:(fun c -> Event.Agent_run_changed c))
       in
-      ( finished @ [ update { ticket with claim = None; status = Todo; status_id = None } ]
+      let staged = List.fold finished ~init:t ~f:apply_event in
+      let cleanup = claim_path_cleanup staged ticket ~actor ~run ~timestamp in
+      ( finished
+        @ cleanup
+        @ [ update { ticket with claim = None; status = Todo; status_id = None } ]
       , Json.obj [ "released", `True; "ticket_revision", Json.int (ticket.revision + 1) ]
       , [] )
     | Ticket_complete { id; token; evidence } ->
@@ -1957,7 +2012,10 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           in
           List.map (Agent_run.changes p) ~f:(fun c -> Event.Agent_run_changed c))
       in
+      let staged = List.fold finished ~init:t ~f:apply_event in
+      let cleanup = claim_path_cleanup staged ticket ~actor ~run ~timestamp in
       ( finished
+        @ cleanup
         @ [ update { ticket with claim = None; status = Done; status_id = None }
           ; comment ~origin:Completion id Evidence evidence
           ]

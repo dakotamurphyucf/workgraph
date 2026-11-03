@@ -1,6 +1,12 @@
 open Core
 open Planning_state
 
+module Claim_path_transition = struct
+  type t =
+    | Reserved of Reservation.Claim.t
+    | Released of Reservation.Claim.t
+end
+
 let apply_event t = function
   | Event.Facts_changed change ->
     require
@@ -51,6 +57,80 @@ let apply_event t = function
               ~actor:change.actor
               ~run:change.actor_run
               ~intent:Attempt))
+     | Claim_paths_reserved { claim; previous_claim; _ } ->
+       let ticket = find_ticket t claim.ticket in
+       let exact (old : Claim.t) reference =
+         Int.equal old.token reference.Reservation.Claim.token
+         && Id.Actor.equal old.actor reference.actor
+         && Option.equal Id.Run.equal old.run_id (Some reference.run)
+       in
+       let retained =
+         Option.value_map ticket.claim ~default:false ~f:(fun old -> exact old claim)
+       in
+       require
+         (retained || Int.equal claim.token ticket.next_token)
+         Corrupt_store
+         "Path borrower is not the exact current or next ticket claim";
+       if retained || Option.is_none ticket.claim
+       then
+         require
+           (Id.Actor.equal change.actor claim.actor
+            && Option.equal Id.Run.equal change.actor_run (Some claim.run))
+           Corrupt_store
+           "Path reservation invocation differs from claim owner";
+       let expected_previous =
+         if retained
+         then None
+         else
+           Option.bind ticket.claim ~f:(fun old ->
+             Option.map old.run_id ~f:(fun run ->
+               { Reservation.Claim.ticket = ticket.id
+               ; token = old.token
+               ; actor = old.actor
+               ; run
+               }))
+       in
+       require
+         (Option.equal Reservation.Claim.equal previous_claim expected_previous)
+         Corrupt_store
+         "Path borrower transfer differs from the exact previous claim";
+       if not retained
+       then
+         require
+           (List.for_all
+              (Agent_run.attempts_for_ticket t.agent_runs ticket.id)
+              ~f:(fun a -> Attempt.State.terminal a.Attempt.state))
+           Conflict
+           "Cannot transfer paths from an active ticket attempt";
+       unwrap_domain
+         (Acquisition.ensure
+            t
+            ~ticket
+            ~actor:claim.actor
+            ~run:(Some claim.run)
+            ~intent:
+              (if retained
+               then Attempt
+               else if Option.is_some ticket.claim
+               then Reassign
+               else Claim))
+     | Claim_paths_released { claim; _ } ->
+       let ticket = find_ticket t claim.ticket in
+       require
+         (Option.value_map ticket.claim ~default:false ~f:(fun old ->
+            Int.equal old.token claim.token
+            && Id.Actor.equal old.actor claim.actor
+            && Option.equal Id.Run.equal old.run_id (Some claim.run)))
+         Corrupt_store
+         "Released path borrower differs from current exact claim"
+     | Ticket_paths_put paths ->
+       require
+         (Option.is_none (find_ticket t paths.ticket_id).claim
+          && List.for_all
+               (Agent_run.attempts_for_ticket t.agent_runs paths.ticket_id)
+               ~f:(fun a -> Attempt.State.terminal a.Attempt.state))
+         Conflict
+         "Cannot change required paths while ticket has a claim or active attempt"
      | Ticket_policy_put policy ->
        require
          (Option.is_none (find_ticket t policy.ticket).claim)
@@ -61,7 +141,6 @@ let apply_event t = function
      | Actions_set _
      | Pool_put _
      | Path_reservation_put _
-     | Ticket_paths_put _
      | External_condition_changed _
      | Ownership_recovered _ -> ());
     (match Agent_run.apply t.agent_runs change with
@@ -155,6 +234,25 @@ let apply_event t = function
     let recovered_ticket = ticket_after_recovery_exn ticket ~recovery in
     let agent_runs =
       unwrap_domain (Agent_run.cancel_recovered_attempts t.agent_runs request)
+    in
+    let agent_runs =
+      Option.value_map ticket.claim ~default:agent_runs ~f:(fun claim ->
+        Option.value_map claim.run_id ~default:agent_runs ~f:(fun run ->
+          let checked =
+            unwrap_domain
+              (Agent_run.release_claim_reservations
+                 agent_runs
+                 { Reservation.Claim.ticket = ticket.id
+                 ; token = claim.token
+                 ; actor = claim.actor
+                 ; run
+                 })
+          in
+          require
+            (Int.equal (Agent_run.revision checked) (Agent_run.revision agent_runs))
+            Corrupt_store
+            "Ticket recovery lacks explicit automatic path cleanup";
+          agent_runs))
     in
     let ticket = recovered_ticket in
     { t with
@@ -331,9 +429,15 @@ let apply_event t = function
               unwrap_domain
                 (Agent_run.prepare_start_reservations
                    t.agent_runs
-                   ~ticket:ticket.id
-                   ~run
+                   ~claim:
+                     { Reservation.Claim.ticket = ticket.id
+                     ; run
+                     ; actor = claim.actor
+                     ; token = claim.token
+                     }
+                   ~previous_claim:None
                    ~actor:claim.actor
+                   ~run:(Some run)
                    ~timestamp:ticket.updated_at
                    ~sequence:(t.revision + 1)
                    ~now_unix_ms:(Allocation_lease.last_unix_ms claim.lease))
@@ -351,8 +455,38 @@ let apply_event t = function
         t.Ticket.revision)
     in
     expected ticket.revision (previous + 1);
+    let agent_runs =
+      Option.value_map (Map.find t.tickets ticket.id) ~default:t.agent_runs ~f:(fun old ->
+        Option.value_map old.claim ~default:t.agent_runs ~f:(fun claim ->
+          let retained =
+            Option.value_map ticket.claim ~default:false ~f:(fun next ->
+              Int.equal claim.token next.token
+              && Id.Actor.equal claim.actor next.actor
+              && Option.equal Id.Run.equal claim.run_id next.run_id)
+          in
+          if retained
+          then t.agent_runs
+          else
+            Option.value_map claim.run_id ~default:t.agent_runs ~f:(fun run ->
+              let checked =
+                unwrap_domain
+                  (Agent_run.release_claim_reservations
+                     t.agent_runs
+                     { Reservation.Claim.ticket = ticket.id
+                     ; token = claim.token
+                     ; actor = claim.actor
+                     ; run
+                     })
+              in
+              require
+                (Int.equal (Agent_run.revision checked) (Agent_run.revision t.agent_runs))
+                Corrupt_store
+                "Claim exit lacks explicit automatic path cleanup";
+              t.agent_runs)))
+    in
     { t with
-      tickets = Map.set t.tickets ~key:ticket.id ~data:ticket
+      agent_runs
+    ; tickets = Map.set t.tickets ~key:ticket.id ~data:ticket
     ; ticket_keys = Map.set t.ticket_keys ~key:display_key ~data:ticket.id
     }
   | Comment_changed change ->
@@ -431,6 +565,8 @@ let audit_payload previous current payload changes =
               | None -> Json.fail Corrupt_store "condition signal has no declaration"
             in
             [ Entity_ref.Ticket declaration.ticket_id ]
+          | Claim_paths_reserved { claim; _ } | Claim_paths_released { claim; _ } ->
+            [ Entity_ref.Ticket claim.ticket ]
           | Path_reservation_put _ | Ownership_recovered _ -> [ Entity_ref.Workspace ]
           | Run_put _
           | Reservation_put _
@@ -510,14 +646,102 @@ let replay t payload =
       (List.length events > 0 && List.length events <= 10_064)
       Corrupt_store
       "invalid event count";
-    let rec apply_resolved state pending_completion = function
+    let rec apply_resolved
+              state
+              pending_completion
+              (pending_paths : Claim_path_transition.t option)
+      = function
       | [] ->
+        require
+          (Option.is_none pending_paths)
+          Corrupt_store
+          "Automatic path transition lacks its ordered claim transition";
         require
           (Option.is_none pending_completion)
           Corrupt_store
           "ticket completion lacks immutable evidence";
         state
       | event :: remaining ->
+        let pending_paths =
+          let open Claim_path_transition in
+          let decision id =
+            match remaining with
+            | Event.Comment_changed
+                (Discussion.Change.Create
+                   { target = Ticket target
+                   ; kind = Decision
+                   ; origin = Authored
+                   ; version
+                   ; _
+                   })
+              :: _ ->
+              Id.Ticket.equal id target
+              && not (String.is_empty (String.strip version.body))
+            | _ -> false
+          in
+          let invocation_matches (claim : Reservation.Claim.t) =
+            Id.Actor.equal claim.actor (Id.Actor.t_of_jsonaf (Json.field payload "actor"))
+            && Option.equal
+                 Id.Run.equal
+                 (Some claim.run)
+                 (Option.map (Json.optional payload "run_id") ~f:Id.Run.t_of_jsonaf)
+          in
+          let exact (claim : Claim.t) (borrower : Reservation.Claim.t) =
+            Int.equal claim.token borrower.token
+            && Id.Actor.equal claim.actor borrower.actor
+            && Option.equal Id.Run.equal claim.run_id (Some borrower.run)
+          in
+          match pending_paths, event with
+          | ( None
+            , Event.Agent_run_changed { update = Claim_paths_reserved { claim; _ }; _ } )
+            -> Some (Reserved claim)
+          | ( None
+            , Event.Agent_run_changed { update = Claim_paths_released { claim; _ }; _ } )
+            -> Some (Released claim)
+          | Some (Reserved claim), Event.Ticket_put ticket
+            when Id.Ticket.equal ticket.id claim.ticket
+                 && Option.value_map ticket.claim ~default:false ~f:(fun c ->
+                   exact c claim) ->
+            let previous = find_ticket state ticket.id in
+            require
+              (not
+                 (Option.value_map previous.claim ~default:false ~f:(fun c ->
+                    exact c claim)))
+              Corrupt_store
+              "Reserved paths require a new claim installation or attempt start";
+            require
+              (Option.is_none previous.claim || decision ticket.id)
+              Corrupt_store
+              "Path transfer lacks its reassignment decision";
+            None
+          | ( Some (Reserved claim)
+            , Event.Agent_run_changed { update = Attempt_started { attempt; _ }; _ } )
+            when Id.Ticket.equal attempt.ticket claim.ticket
+                 && Int.equal attempt.token claim.token
+                 && Id.Run.equal attempt.run claim.run -> None
+          | Some (Released claim), Event.Ticket_put ticket
+            when Id.Ticket.equal ticket.id claim.ticket
+                 && not
+                      (Option.value_map ticket.claim ~default:false ~f:(fun c ->
+                         exact c claim)) ->
+            require
+              ((invocation_matches claim && Option.is_none ticket.claim)
+               || decision ticket.id)
+              Corrupt_store
+              "Path release attribution lacks owner or explicit reassignment decision";
+            None
+          | Some (Released claim), Event.Ticket_recovered recovery
+            when Id.Ticket.equal recovery.request.ticket_id claim.ticket
+                 && Int.equal recovery.request.token claim.token
+                 && Id.Actor.equal recovery.request.old_actor_id claim.actor
+                 && Option.equal Id.Run.equal recovery.request.old_run_id (Some claim.run)
+            -> None
+          | None, _ -> None
+          | Some _, _ ->
+            Json.fail
+              Corrupt_store
+              "Automatic path transition lacks its exact ordered claim transition"
+        in
         (match event with
          | Event.Ticket_put ticket ->
            Option.iter (Map.find state.tickets ticket.id) ~f:(fun source ->
@@ -736,9 +960,13 @@ let replay t payload =
              | _ -> false)
             Corrupt_store
             "publication lacks its exact atomic input change");
-        apply_resolved (apply_event state event) pending_completion remaining
+        apply_resolved
+          (apply_event state event)
+          pending_completion
+          pending_paths
+          remaining
     in
-    let state = apply_resolved t None events in
+    let state = apply_resolved t None None events in
     validate ~previous:t state;
     Map.iter state.tickets ~f:(fun ticket ->
       if

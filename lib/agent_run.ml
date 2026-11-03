@@ -192,6 +192,59 @@ let live holder now =
     Valid
 ;;
 
+let conflict_target target =
+  Reservation_conflict.Target.Path
+    { worktree_id = Path_scope.Worktree_id.to_string (Path_scope.worktree_id target)
+    ; kind =
+        (match Path_scope.kind target with
+         | File -> Reservation_conflict.Path_kind.File
+         | Subtree -> Subtree)
+    ; path = Path_scope.path target
+    }
+;;
+
+let conflict_owner target (holder : Reservation.Holder.t) =
+  { Reservation_conflict.Owner.target
+  ; actor_id = Id.Actor.to_string holder.actor
+  ; run_id = Id.Run.to_string holder.run
+  ; mode =
+      (match holder.mode with
+       | Exclusive -> Reservation_conflict.Mode.Exclusive
+       | Shared -> Shared)
+  }
+;;
+
+let conflict_problem requested owners =
+  Problem.with_details
+    (Problem.create
+       Already_claimed
+       "Reservation is unavailable; inspect conflicting owners")
+    (Reservation_conflict
+       { requested
+       ; owners = List.take owners 16
+       ; omitted_owners = Int.max 0 (List.length owners - 16)
+       })
+;;
+
+let path_conflict t ~target ~mode ~run =
+  let owners =
+    Map.data t.path_reservations
+    |> List.concat_map ~f:(fun reservation ->
+      let holders =
+        Path_reservation.conflicts reservation ~target ~mode ~excluding_run:run
+      in
+      List.map holders ~f:(conflict_owner (conflict_target reservation.target)))
+  in
+  if List.is_empty owners
+  then None
+  else Some (conflict_problem (conflict_target target) owners)
+;;
+
+let start_conflict t ~ticket ~run =
+  List.find_map (required_declarations t ticket) ~f:(fun d ->
+    path_conflict t ~target:d.target ~mode:d.mode ~run)
+;;
+
 let start_blockers t ~ticket ~run ~now_unix_ms =
   let path_blockers =
     List.concat_map (required_declarations t ticket) ~f:(fun declaration ->
@@ -237,6 +290,170 @@ let start_blockers t ~ticket ~run ~now_unix_ms =
   path_blockers
   @ List.map (External_condition.blockers t.conditions ~ticket) ~f:(fun b ->
     Start_blocker.External_condition b)
+;;
+
+let remove_claim_paths t (claim : Reservation.Claim.t) =
+  { t with
+    path_reservations =
+      Map.map t.path_reservations ~f:(fun reservation ->
+        { reservation with
+          Path_reservation.holders =
+            List.filter_map reservation.holders ~f:(fun holder ->
+              match holder.Reservation.Holder.origin with
+              | Manual -> Some holder
+              | Automatic claims ->
+                let claims =
+                  List.filter claims ~f:(fun c -> not (Reservation.Claim.equal c claim))
+                in
+                if List.is_empty claims
+                then None
+                else Some { holder with origin = Automatic claims })
+        })
+  }
+;;
+
+let paths_equal a b =
+  Map.equal Path_reservation.equal a.path_reservations b.path_reservations
+;;
+
+let changed_paths before after =
+  List.dedup_and_sort
+    (Map.keys before.path_reservations @ Map.keys after.path_reservations)
+    ~compare:Path_scope.compare
+  |> List.filter ~f:(fun target ->
+    not
+      (Option.equal
+         Path_reservation.equal
+         (Map.find before.path_reservations target)
+         (Map.find after.path_reservations target)))
+;;
+
+let validate_changed_paths before after targets =
+  require
+    ((not (List.is_empty targets))
+     && List.length targets <= 200
+     && List.equal Path_scope.equal targets (changed_paths before after))
+    Conflict
+    "Automatic path transition targets differ from exact changed paths"
+;;
+
+let release_claim_reservations t claim =
+  Json.decode (fun () ->
+    Reservation.Claim.validate claim;
+    let next = remove_claim_paths t claim in
+    if paths_equal t next
+    then t
+    else (
+      require (t.revision < Int.max_value) Conflict "Coordination counter exhausted";
+      { next with revision = t.revision + 1 }))
+;;
+
+let reserve_claim_paths_exn t ~(claim : Reservation.Claim.t) ~previous_claim ~now_unix_ms =
+  Reservation.Claim.validate claim;
+  require
+    Int64.(now_unix_ms >= 0L)
+    Invalid_argument
+    "Reservation clock must be nonnegative";
+  Option.iter previous_claim ~f:(fun previous ->
+    Reservation.Claim.validate previous;
+    require
+      (Id.Ticket.equal previous.ticket claim.ticket && previous.token < claim.token)
+      Conflict
+      "Previous path borrower is not an earlier claim of this ticket");
+  let t = Option.value_map previous_claim ~default:t ~f:(remove_claim_paths t) in
+  Option.iter (start_conflict t ~ticket:claim.ticket ~run:(Some claim.run)) ~f:(fun p ->
+    raise (Json.Decode_error p));
+  require
+    (List.is_empty
+       (start_blockers t ~ticket:claim.ticket ~run:(Some claim.run) ~now_unix_ms))
+    Blocked
+    "Required paths or external conditions block ticket start";
+  List.fold (required_declarations t claim.ticket) ~init:t ~f:(fun current declaration ->
+    let covering =
+      List.filter (owned_covering current declaration claim.run) ~f:(fun (_, h) ->
+        live h now_unix_ms)
+    in
+    (* Prefer manual coverage, without adopting or changing it. Otherwise record
+       this exact borrower on one deterministic covering automatic holder. *)
+    if List.exists covering ~f:(fun (_, h) -> Reservation.Origin.equal h.origin Manual)
+    then current
+    else (
+      let target, reservation =
+        match covering with
+        | (target, holder) :: _ ->
+          let reservation = find current.path_reservations target in
+          let claims =
+            match holder.origin with
+            | Automatic claims -> claims
+            | Manual -> assert false
+          in
+          let claims =
+            List.dedup_and_sort (claim :: claims) ~compare:Reservation.Claim.compare
+          in
+          Reservation.Origin.validate (Automatic claims);
+          ( target
+          , { reservation with
+              holders =
+                List.map reservation.holders ~f:(fun h ->
+                  if Id.Run.equal h.Reservation.Holder.run claim.run
+                  then { h with origin = Automatic claims }
+                  else h)
+            } )
+        | [] ->
+          let target = declaration.target in
+          let old =
+            Option.value
+              (Map.find current.path_reservations target)
+              ~default:{ Path_reservation.target; epoch = 0; holders = [] }
+          in
+          let acquired =
+            Path_reservation.acquire
+              old
+              ~run:claim.run
+              ~actor:claim.actor
+              ~mode:declaration.mode
+              ~now_unix_ms
+              ~lease_duration_ms:None
+          in
+          ( target
+          , { acquired with
+              holders =
+                List.map acquired.holders ~f:(fun h ->
+                  if Id.Run.equal h.Reservation.Holder.run claim.run
+                  then { h with origin = Automatic [ claim ] }
+                  else h)
+            } )
+      in
+      Path_reservation.validate reservation;
+      { current with
+        path_reservations =
+          Map.set current.path_reservations ~key:target ~data:reservation
+      }))
+;;
+
+let validate_claim_borrowers t ~claim_exists =
+  Json.decode (fun () ->
+    ignore
+      (Map.fold
+         t.path_reservations
+         ~init:Id.Ticket.Map.empty
+         ~f:(fun ~key:_ ~data:reservation counts ->
+           List.fold reservation.holders ~init:counts ~f:(fun counts holder ->
+             match holder.Reservation.Holder.origin with
+             | Manual -> counts
+             | Automatic claims ->
+               List.fold claims ~init:counts ~f:(fun counts claim ->
+                 require
+                   (claim_exists claim)
+                   Conflict
+                   "Automatic path borrower lacks its exact live claim";
+                 let used = Option.value (Map.find counts claim.ticket) ~default:0 + 1 in
+                 require
+                   (used <= 100)
+                   Conflict
+                   "Claim automatic path footprint exceeds 100";
+                 Map.set counts ~key:claim.ticket ~data:used)))
+       : int Id.Ticket.Map.t))
 ;;
 
 let rec apply_exn ?started_at t (change : Change.t) =
@@ -503,6 +720,25 @@ let rec apply_exn ?started_at t (change : Change.t) =
       { t with
         reservations = Map.set t.reservations ~key:reservation.name ~data:reservation
       }
+    | Claim_paths_reserved { claim; previous_claim; now_unix_ms; targets } ->
+      let record = find t.runs claim.run in
+      active record;
+      require
+        (Id.Actor.equal claim.actor record.actor)
+        Conflict
+        "Path claim actor differs";
+      Option.iter change.actor_run ~f:(fun run ->
+        owner (find t.runs run) change.actor (Some run));
+      let next = reserve_claim_paths_exn t ~claim ~previous_claim ~now_unix_ms in
+      validate_changed_paths t next targets;
+      next
+    | Claim_paths_released { claim; targets } ->
+      Reservation.Claim.validate claim;
+      Option.iter change.actor_run ~f:(fun run ->
+        owner (find t.runs run) change.actor (Some run));
+      let next = remove_claim_paths t claim in
+      validate_changed_paths t next targets;
+      next
     | Path_reservation_put reservation ->
       Path_reservation.validate reservation;
       let old =
@@ -557,6 +793,10 @@ let rec apply_exn ?started_at t (change : Change.t) =
        | [], [ h ] ->
          owner (find t.runs h.run) change.actor change.actor_run;
          require
+           (Reservation.Origin.equal h.origin Manual)
+           Conflict
+           "Automatic path ownership must be released through its claim lifecycle";
+         require
            (Path_reservation.equal
               (Path_reservation.release old ~run:h.run ~token:h.token)
               reservation)
@@ -590,6 +830,13 @@ let rec apply_exn ?started_at t (change : Change.t) =
           Map.set t.path_reservations ~key:reservation.target ~data:reservation
       }
     | Ticket_paths_put policy ->
+      require
+        (not
+           (Map.exists t.attempts ~f:(fun a ->
+              Id.Ticket.equal a.Attempt.ticket policy.ticket_id
+              && not (Attempt.State.terminal a.state))))
+        Conflict
+        "Cannot change required paths while ticket has an active attempt";
       Ticket_paths.validate policy;
       let old = Map.find t.ticket_paths policy.ticket_id in
       let previous_revision =
@@ -647,6 +894,10 @@ let rec apply_exn ?started_at t (change : Change.t) =
             Conflict
             "Recovery named target differs";
           let old = find t.reservations name in
+          require
+            (List.is_empty recovery.borrowers)
+            Conflict
+            "Named recovery cannot contain path borrowers";
           Ownership_recovery.Request.validate_holder
             request
             ~epoch:old.epoch
@@ -668,6 +919,19 @@ let rec apply_exn ?started_at t (change : Change.t) =
             request
             ~epoch:old.epoch
             ~holders:old.holders;
+          let holder =
+            List.find_exn old.holders ~f:(fun h ->
+              Id.Run.equal h.Reservation.Holder.run request.old_run_id)
+          in
+          let borrowers =
+            match holder.origin with
+            | Manual -> []
+            | Automatic claims -> claims
+          in
+          require
+            (List.equal Reservation.Claim.equal recovery.borrowers borrowers)
+            Conflict
+            "Recovery impacted borrowers differ";
           require
             (Path_reservation.equal
                (Path_reservation.release old ~run:request.old_run_id ~token:request.token)
@@ -769,6 +1033,26 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
                     Invalid_argument
                     "Timed path reservation requires server clock"
               in
+              Option.iter
+                (path_conflict
+                   !current
+                   ~target:request.target
+                   ~mode:request.mode
+                   ~run:(Some owner_run))
+                ~f:(fun p -> raise (Json.Decode_error p));
+              let own =
+                List.filter old.holders ~f:(fun h ->
+                  Id.Run.equal h.Reservation.Holder.run owner_run)
+              in
+              if not (List.is_empty own)
+              then
+                raise
+                  (Json.Decode_error
+                     (conflict_problem
+                        (conflict_target request.target)
+                        (List.map
+                           own
+                           ~f:(conflict_owner (conflict_target request.target)))));
               emit
                 (Path_reservation_put
                    (Path_reservation.acquire
@@ -851,6 +1135,22 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
             ; run_id = run
             ; timestamp
             ; sequence
+            ; borrowers =
+                (match request.target with
+                 | Named _ -> []
+                 | Path target ->
+                   let old = find t.path_reservations target in
+                   Ownership_recovery.Request.validate_holder
+                     request
+                     ~epoch:old.epoch
+                     ~holders:old.holders;
+                   let holder =
+                     List.find_exn old.holders ~f:(fun h ->
+                       Id.Run.equal h.Reservation.Holder.run request.old_run_id)
+                   in
+                   (match holder.origin with
+                    | Manual -> []
+                    | Automatic claims -> claims))
             }
           in
           let after =
@@ -995,6 +1295,20 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
                (get_reservation !current request.name)
                ~default:{ Reservation.name = request.name; epoch = 0; holders = [] }
            in
+           let blockers =
+             List.filter old.holders ~f:(fun h ->
+               Id.Run.equal h.Reservation.Holder.run owner_run
+               || Reservation.Mode.equal request.mode Exclusive
+               || Reservation.Mode.equal h.mode Exclusive)
+           in
+           if not (List.is_empty blockers)
+           then (
+             let target =
+               Reservation_conflict.Target.Named (Reservation.Name.to_string request.name)
+             in
+             raise
+               (Json.Decode_error
+                  (conflict_problem target (List.map blockers ~f:(conflict_owner target)))));
            emit
              (Reservation_put
                 (Reservation.acquire
@@ -1063,12 +1377,45 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
           (Agent_run_api.Attempt_result.of_attempt (find !current.attempts id))
       | Coordination (Ticket_paths_put { ticket_id; _ }) ->
         entity (find !current.ticket_paths ticket_id).Ticket_paths.revision
-      | Coordination
-          (Paths_acquire _ | Path_renew _ | Path_release _ | Condition _ | Recover _)
-      | Reservation_acquire _
-      | Reservation_renew _
-      | Reservation_release _
-      | Action_acknowledge _ -> coordination ()
+      | Coordination (Paths_acquire { run; requests }) ->
+        let holds =
+          List.map
+            (List.sort requests ~compare:(fun a b ->
+               Path_scope.compare a.Path_reservation.Request.target b.target))
+            ~f:(fun request ->
+              let reservation = find !current.path_reservations request.target in
+              let holder =
+                List.find_exn reservation.holders ~f:(fun h ->
+                  Id.Run.equal h.Reservation.Holder.run run)
+              in
+              Json.obj
+                [ "target", Coordination_wire.encode_exn Path_scope.codec request.target
+                ; "holder", Coordination_wire.encode_exn Agent_run_wire.holder holder
+                ])
+        in
+        Json.obj
+          [ "coordination_revision", Json.int !current.revision; "holds", `Array holds ]
+      | Reservation_acquire { run; requests } ->
+        let holds =
+          List.map
+            (List.sort requests ~compare:(fun a b ->
+               Reservation.Name.compare a.Reservation.name b.name))
+            ~f:(fun request ->
+              let reservation = find !current.reservations request.name in
+              let holder =
+                List.find_exn reservation.holders ~f:(fun h ->
+                  Id.Run.equal h.Reservation.Holder.run run)
+              in
+              Json.obj
+                [ "reservation_id", Reservation.Name.jsonaf_of_t request.name
+                ; "holder", Coordination_wire.encode_exn Agent_run_wire.holder holder
+                ])
+        in
+        Json.obj
+          [ "coordination_revision", Json.int !current.revision; "holds", `Array holds ]
+      | Coordination (Path_renew _ | Path_release _ | Condition _ | Recover _)
+      | Reservation_renew _ | Reservation_release _ | Action_acknowledge _ ->
+        coordination ()
     in
     { candidate = !current; changes = List.rev !emitted; result })
 ;;
@@ -1095,48 +1442,70 @@ let start_clock_required t ~ticket ~run =
       if timed && not indefinite then Some d.target else None)
 ;;
 
-let prepare_start_reservations t ~ticket ~run ~actor ~timestamp ~sequence ~now_unix_ms =
-  match start_blockers t ~ticket ~run:(Some run) ~now_unix_ms with
-  | _ :: _ ->
-    Error
-      (Problem.create Blocked "Required paths or external conditions block ticket start")
-  | [] ->
-    let missing =
-      required_declarations t ticket
-      |> List.filter ~f:(fun d ->
-        not (List.exists (owned_covering t d run) ~f:(fun (_, h) -> live h now_unix_ms)))
-    in
-    (* Acquisition batches stay within the public 32-target bound; one prepared
-       value combines every batch, so the lifecycle commits all or none. *)
-    let rec acquire current changes = function
-      | [] ->
-        Ok
-          { candidate = current
-          ; changes = List.rev changes
-          ; result = Json.obj [ "coordination_revision", Json.int current.revision ]
-          }
-      | remaining ->
-        let batch = List.take remaining 32 in
-        let rest = List.drop remaining 32 in
-        let requests =
-          List.map batch ~f:(fun d ->
-            { Path_reservation.Request.target = d.Ticket_paths.Declaration.target
-            ; mode = d.mode
-            ; lease_duration_ms = None
-            })
-        in
-        Result.bind
-          (prepare
-             current
-             ~now_unix_ms
-             (Command.Coordination (Paths_acquire { run; requests }))
-             ~actor
-             ~run:(Some run)
-             ~timestamp
-             ~sequence)
-          ~f:(fun p -> acquire p.candidate (List.rev_append p.changes changes) rest)
-    in
-    acquire t [] missing
+let prepare_start_reservations
+      t
+      ~claim
+      ~previous_claim
+      ~actor
+      ~run
+      ~timestamp
+      ~sequence
+      ~now_unix_ms
+  =
+  Json.decode (fun () ->
+    let candidate = reserve_claim_paths_exn t ~claim ~previous_claim ~now_unix_ms in
+    if paths_equal t candidate
+    then
+      { candidate = t
+      ; changes = []
+      ; result = Json.obj [ "coordination_revision", Json.int t.revision ]
+      }
+    else (
+      let change =
+        { Change.version = 1
+        ; revision = t.revision + 1
+        ; actor
+        ; actor_run = run
+        ; timestamp
+        ; sequence
+        ; update =
+            Claim_paths_reserved
+              { claim; previous_claim; now_unix_ms; targets = changed_paths t candidate }
+        }
+      in
+      let candidate = apply_exn t change in
+      { candidate
+      ; changes = [ change ]
+      ; result = Json.obj [ "coordination_revision", Json.int candidate.revision ]
+      }))
+;;
+
+let prepare_release_claim_reservations t ~claim ~actor ~run ~timestamp ~sequence =
+  Json.decode (fun () ->
+    Reservation.Claim.validate claim;
+    let candidate = remove_claim_paths t claim in
+    if paths_equal t candidate
+    then
+      { candidate = t
+      ; changes = []
+      ; result = Json.obj [ "coordination_revision", Json.int t.revision ]
+      }
+    else (
+      let change =
+        { Change.version = 1
+        ; revision = t.revision + 1
+        ; actor
+        ; actor_run = run
+        ; timestamp
+        ; sequence
+        ; update = Claim_paths_released { claim; targets = changed_paths t candidate }
+        }
+      in
+      let candidate = apply_exn t change in
+      { candidate
+      ; changes = [ change ]
+      ; result = Json.obj [ "coordination_revision", Json.int candidate.revision ]
+      }))
 ;;
 
 let get_path_reservation t target = Map.find t.path_reservations target
@@ -1357,10 +1726,30 @@ let coordination_query t ~method_ ~params =
         get max_bytes (Agent_coordination_api.condition_json t.conditions d)
       | Recovery_get { recovery; max_bytes } ->
         get max_bytes (Ownership_recovery.jsonaf_of_t (find t.recoveries recovery))
-      | Paths bounds ->
+      | Paths { page = bounds; run; actor; worktree; overlaps } ->
         page
           bounds
-          (List.map (path_reservations t) ~f:Agent_coordination_api.path_reservation_json)
+          (path_reservations t
+           |> List.filter ~f:(fun reservation ->
+             Option.value_map worktree ~default:true ~f:(fun tree ->
+               Path_scope.Worktree_id.equal
+                 tree
+                 (Path_scope.worktree_id reservation.target))
+             && Option.value_map
+                  overlaps
+                  ~default:true
+                  ~f:(Path_scope.overlaps reservation.target)
+             &&
+             if Option.is_none run && Option.is_none actor
+             then true
+             else
+               List.exists reservation.holders ~f:(fun h ->
+                 Option.value_map
+                   run
+                   ~default:true
+                   ~f:(Id.Run.equal h.Reservation.Holder.run)
+                 && Option.value_map actor ~default:true ~f:(Id.Actor.equal h.actor)))
+           |> List.map ~f:Agent_coordination_api.path_reservation_json)
       | Ticket_paths bounds ->
         page bounds (List.map (ticket_paths t) ~f:Ticket_paths.jsonaf_of_t)
       | Conditions { page = bounds; ticket } ->
@@ -1450,10 +1839,21 @@ let query t ~method_ ~params =
             (List.map (Map.data t.ticket_policies) ~f:Agent_run_api.ticket_policy_json)
         | Runs bounds ->
           page bounds (List.map (Map.data t.runs) ~f:Agent_run_api.run_json)
-        | Reservations bounds ->
+        | Reservations { page = bounds; run; actor } ->
           page
             bounds
-            (List.map (Map.data t.reservations) ~f:Agent_run_api.reservation_json)
+            (Map.data t.reservations
+             |> List.filter ~f:(fun reservation ->
+               if Option.is_none run && Option.is_none actor
+               then true
+               else
+                 List.exists reservation.holders ~f:(fun h ->
+                   Option.value_map
+                     run
+                     ~default:true
+                     ~f:(Id.Run.equal h.Reservation.Holder.run)
+                   && Option.value_map actor ~default:true ~f:(Id.Actor.equal h.actor)))
+             |> List.map ~f:Agent_run_api.reservation_json)
         | Actions bounds -> page bounds (List.map t.actions ~f:Agent_run_api.action_json)
         | Attempts { page = bounds; ticket; run } ->
           page

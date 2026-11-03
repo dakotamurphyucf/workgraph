@@ -18,5 +18,8 @@ val ticket_policy : Allocation.Ticket_policy.t Api_codec.t
 (** Shared exact public holder codec for named and path reservations. *)
 val holder : Reservation.Holder.t Api_codec.t
 
+val claim : Reservation.Claim.t Api_codec.t
+val origin : Reservation.Origin.t Api_codec.t
+
 (** Shared existing exact fenced lease declaration. *)
 val lease : Allocation_lease.t Api_codec.t

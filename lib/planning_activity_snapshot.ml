@@ -525,6 +525,8 @@ let agent_update : Agent_run_event.Update.t Api_codec.t =
       | Agent_run_event.Update.Attempt_put _ -> "attempt_put"
       | Agent_run_event.Update.Reservation_put _ -> "reservation_put"
       | Agent_run_event.Update.Path_reservation_put _ -> "path_reservation_put"
+      | Agent_run_event.Update.Claim_paths_reserved _ -> "claim_paths_reserved"
+      | Agent_run_event.Update.Claim_paths_released _ -> "claim_paths_released"
       | Agent_run_event.Update.Ticket_paths_put _ -> "ticket_paths_put"
       | Agent_run_event.Update.External_condition_changed _ ->
         "external_condition_changed"
@@ -598,6 +600,33 @@ let agent_update : Agent_run_event.Update.t Api_codec.t =
                  Agent_run_event.Update.Path_reservation_put value)
                ~encode:(function
                  | Agent_run_event.Update.Path_reservation_put value -> (), value
+                 | _ -> wrong ())) )
+      ; ( "claim_paths_reserved"
+        , Api_codec.object_
+            (F.map
+               (F.required "kind" (Api_codec.literal "claim_paths_reserved")
+                ++ F.required "claim" Agent_run_wire.claim
+                ++ F.required "previous_claim" (Api_codec.nullable Agent_run_wire.claim)
+                ++ F.required "now_unix_ms" (Api_codec.decimal64 ~max:Int64.max_value)
+                ++ F.required "targets" (Api_codec.list Path_scope.codec ~max_items:200))
+               ~decode:(fun (((((), claim), previous_claim), now_unix_ms), targets) ->
+                 Agent_run_event.Update.Claim_paths_reserved
+                   { claim; previous_claim; now_unix_ms; targets })
+               ~encode:(function
+                 | Agent_run_event.Update.Claim_paths_reserved
+                     { claim; previous_claim; now_unix_ms; targets } ->
+                   ((((), claim), previous_claim), now_unix_ms), targets
+                 | _ -> wrong ())) )
+      ; ( "claim_paths_released"
+        , Api_codec.object_
+            (F.map
+               (F.required "kind" (Api_codec.literal "claim_paths_released")
+                ++ F.required "claim" Agent_run_wire.claim
+                ++ F.required "targets" (Api_codec.list Path_scope.codec ~max_items:200))
+               ~decode:(fun (((), claim), targets) ->
+                 Agent_run_event.Update.Claim_paths_released { claim; targets })
+               ~encode:(function
+                 | Claim_paths_released { claim; targets } -> ((), claim), targets
                  | _ -> wrong ())) )
       ; ( "ticket_paths_put"
         , Api_codec.object_

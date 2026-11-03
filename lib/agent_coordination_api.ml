@@ -39,7 +39,9 @@ let ticket_declarations =
     (Api_codec.list Ticket_paths.Declaration.codec ~max_items:100)
     ~decode:Ticket_paths.canonicalize
     ~encode:Fn.id
-    ~description:"At most 100 distinct targets, normalized and ordered by path target."
+    ~description:
+      "At most 100 distinct canonical targets. Policy edits require no ticket claim or \
+       nonterminal attempt; explicitly release/recover first."
 ;;
 
 let ticket_paths_fields ticket =
@@ -284,7 +286,13 @@ module Query = struct
         { recovery : Coordination_id.Recovery.t
         ; max_bytes : int
         }
-    | Paths of Page.t
+    | Paths of
+        { page : Page.t
+        ; run : Id.Run.t option
+        ; actor : Id.Actor.t option
+        ; worktree : Path_scope.Worktree_id.t option
+        ; overlaps : Path_scope.t option
+        }
     | Ticket_paths of Page.t
     | Conditions of
         { page : Page.t
@@ -355,10 +363,26 @@ module Query = struct
             | Recovery_get p -> p.recovery, p.max_bytes
             | _ -> wrong ()) )
     ; ( "reservation.path.list"
-      , page
-          (fun p -> Paths p)
+      , W.checked
+          (Api_codec.object_
+             (Fields.map
+                (Page.fields
+                 ++ Fields.optional "target_run_id" W.run
+                 ++ Fields.optional "actor_id" W.actor
+                 ++ Fields.optional
+                      "worktree_id"
+                      (W.id
+                         Path_scope.Worktree_id.of_string
+                         Path_scope.Worktree_id.to_string)
+                 ++ Fields.optional "overlaps" Path_scope.codec)
+                ~decode:(fun ((((page, run), actor), worktree), overlaps) ->
+                  Paths { page; run; actor; worktree; overlaps })
+                ~encode:(function
+                  | Paths { page; run; actor; worktree; overlaps } ->
+                    (((page, run), actor), worktree), overlaps
+                  | _ -> wrong ())))
           (function
-            | Paths p -> p
+            | Paths { page; _ } -> Page.validate page
             | _ -> wrong ()) )
     ; ( "ticket.paths.list"
       , page
@@ -469,6 +493,32 @@ let mutation_record name codec =
   json (Api_codec.object_ (coordination_revision ++ Fields.required name codec))
 ;;
 
+let acquisition_holds =
+  W.checked
+    (Api_codec.list
+       (Api_codec.object_
+          (Fields.required "target" Path_scope.codec
+           ++ Fields.required "holder" Agent_run_wire.holder))
+       ~max_items:32)
+    (fun rows ->
+       if
+         List.is_empty rows
+         || not
+              (List.is_sorted_strictly (List.map rows ~f:fst) ~compare:Path_scope.compare)
+       then
+         Json.fail
+           Invalid_argument
+           "Acquisition receipt needs 1..32 distinct sorted targets";
+       let first = snd (List.hd_exn rows) in
+       List.iter rows ~f:(fun (_, h) ->
+         if
+           not
+             (Id.Run.equal h.run first.run
+              && Id.Actor.equal h.actor first.actor
+              && Reservation.Origin.equal h.origin Manual)
+         then Json.fail Invalid_argument "Acquisition receipt owners or origins differ"))
+;;
+
 let response_codec ~method_ =
   match method_ with
   | "condition.put" ->
@@ -476,8 +526,12 @@ let response_codec ~method_ =
   | "condition.signal" -> Some (mutation_record "signal" External_condition.Signal.codec)
   | "reservation.recover" | "reservation.path.recover" ->
     Some (mutation_record "recovery" Ownership_recovery.codec)
-  | "reservation.paths.acquire" | "reservation.path.renew" | "reservation.path.release" ->
-    Some coordination_receipt
+  | "reservation.paths.acquire" ->
+    Some
+      (json
+         (Api_codec.object_
+            (coordination_revision ++ Fields.required "holds" acquisition_holds)))
+  | "reservation.path.renew" | "reservation.path.release" -> Some coordination_receipt
   | "ticket.paths.put" -> Some entity_receipt
   | "reservation.path.get" -> Some (json path_reservation)
   | "ticket.paths.get" -> Some (json Ticket_paths.codec)

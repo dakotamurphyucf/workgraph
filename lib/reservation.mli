@@ -8,6 +8,32 @@ module Mode : sig
   [@@deriving sexp, equal, jsonaf]
 end
 
+(** Exact ticket claim fence borrowing a path hold. Tokens are positive claim
+    epochs, not attempt identifiers. A borrower belongs to its holder actor/run. *)
+module Claim : sig
+  type t =
+    { ticket : Id.Ticket.t
+    ; token : int
+    ; run : Id.Run.t
+    ; actor : Id.Actor.t
+    }
+  [@@deriving sexp, compare, equal, jsonaf]
+
+  val validate : t -> unit
+  val codec : t Api_codec.t
+end
+
+module Origin : sig
+  type t =
+    | Manual
+    | Automatic of Claim.t list
+  [@@deriving sexp, equal, jsonaf]
+
+  (** Automatic holds are indefinite. Borrowers are sorted, unique and nonempty, with at most 100
+      exact claims. Manual ownership is never adopted by lifecycle operations. *)
+  val validate : t -> unit
+end
+
 module Holder : sig
   type t =
     { run : Id.Run.t
@@ -15,8 +41,11 @@ module Holder : sig
     ; token : int
     ; mode : Mode.t
     ; lease : Allocation_lease.t
+    ; origin : Origin.t
     }
   [@@deriving sexp, equal, jsonaf]
+
+  val validate : t -> unit
 end
 
 (** Shared pure holder/lease rules used by named and path reservations. *)

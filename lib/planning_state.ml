@@ -1030,6 +1030,19 @@ let validate ?previous t =
    | Ok () -> ()
    | Error error -> raise (Json.Decode_error error));
   (match
+     Agent_run.validate_claim_borrowers t.agent_runs ~claim_exists:(fun borrower ->
+       Option.value_map
+         (Map.find t.tickets borrower.Reservation.Claim.ticket)
+         ~default:false
+         ~f:(fun ticket ->
+           Option.value_map ticket.claim ~default:false ~f:(fun claim ->
+             Int.equal claim.token borrower.token
+             && Id.Actor.equal claim.actor borrower.actor
+             && Option.equal Id.Run.equal claim.run_id (Some borrower.run))))
+   with
+   | Ok () -> ()
+   | Error error -> raise (Json.Decode_error error));
+  (match
      Agent_run.validate_coordination_references
        t.agent_runs
        ~ticket_exists:(Map.mem t.tickets)

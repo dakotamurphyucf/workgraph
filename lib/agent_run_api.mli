@@ -23,7 +23,12 @@ module Attempt_result : sig
 end
 
 val request_codec : method_:string -> Jsonaf.t Api_codec.t option
+
+(** [reservation.acquire] returns [coordination_revision] and [holds], sorted
+    [{reservation_id;holder}] rows containing exact granted fencing/lease data.
+    Batches commit all grants and the receipt atomically. *)
 val response_codec : method_:string -> Jsonaf.t Api_codec.t option
+
 val descriptor : method_:string -> Api_method.Packed.t option
 
 val decode_command
@@ -67,7 +72,11 @@ module Query : sig
         ; ticket : Id.Ticket.t option
         ; run : Id.Run.t option
         }
-    | Reservations of Page.t
+    | Reservations of
+        { page : Page.t
+        ; run : Id.Run.t option
+        ; actor : Id.Actor.t option
+        } (** Run/actor filters intersect on the same holder, before pagination. *)
     | Actions of Page.t
 
   val decode : method_:string -> params:Jsonaf.t -> (t, Problem.t) Result.t

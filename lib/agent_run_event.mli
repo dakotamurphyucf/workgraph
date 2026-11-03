@@ -74,6 +74,16 @@ module Update : sig
     | Attempt_put of Attempt.t
     | Reservation_put of Reservation.t
     | Path_reservation_put of Path_reservation.t
+    | Claim_paths_reserved of
+        { claim : Reservation.Claim.t
+        ; previous_claim : Reservation.Claim.t option
+        ; now_unix_ms : int64
+        ; targets : Path_scope.t list
+        }
+    | Claim_paths_released of
+        { claim : Reservation.Claim.t
+        ; targets : Path_scope.t list
+        }
     | Ticket_paths_put of Ticket_paths.t
     | External_condition_changed of External_condition.Change.t
     | Ownership_recovered of

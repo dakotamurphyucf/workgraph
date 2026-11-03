@@ -519,6 +519,11 @@ let read t ~now_unix_ms ~params =
               | Pool_put pool -> pool_relevant pool.name
               | Reservation_put _ -> false
               | Path_reservation_put reservation -> path_relevant reservation.target
+              | Claim_paths_reserved { claim; targets; _ }
+              | Claim_paths_released { claim; targets } ->
+                relevant_ticket claim.ticket (ticket_project claim.ticket)
+                || ticket_pool_relevant claim.ticket
+                || List.exists targets ~f:path_relevant
               | Ownership_recovered { after = Path reservation; _ } ->
                 path_relevant reservation.target
               | Ownership_recovered { after = Named _; _ } -> false

@@ -255,18 +255,57 @@ let attempt =
     "Validated attempt counters, unique links, checkpoints and terminal evidence."
 ;;
 
+let claim = Reservation.Claim.codec
+
+let origin =
+  let manual =
+    Api_codec.object_
+      (Fields.map
+         (Fields.required "kind" (Api_codec.literal "manual"))
+         ~decode:(fun () -> Reservation.Origin.Manual)
+         ~encode:(function
+           | Reservation.Origin.Manual -> ()
+           | Automatic _ -> Json.fail Invalid_argument "Wrong reservation origin"))
+  in
+  let automatic =
+    Api_codec.object_
+      (Fields.map
+         (Fields.required "kind" (Api_codec.literal "automatic")
+          ++ Fields.required "borrowers" (Api_codec.list claim ~max_items:100))
+         ~decode:(fun ((), claims) -> Reservation.Origin.Automatic claims)
+         ~encode:(function
+           | Reservation.Origin.Automatic claims -> (), claims
+           | Manual -> Json.fail Invalid_argument "Wrong reservation origin"))
+  in
+  validate
+    (Api_codec.tagged
+       ~discriminator:"kind"
+       ~cases:[ "manual", manual; "automatic", automatic ]
+       ~select:(function
+         | Reservation.Origin.Manual -> "manual"
+         | Automatic _ -> "automatic"))
+    Reservation.Origin.validate
+    "Manual ownership or sorted nonempty exact claim borrowers (maximum 100)."
+;;
+
 let holder =
-  Api_codec.object_
-    (Fields.map
-       (Fields.required "run_id" run_id
-        ++ Fields.required "actor_id" actor_id
-        ++ Fields.required "token" positive
-        ++ Fields.required "mode" reservation_mode
-        ++ Fields.required "lease" lease)
-       ~decode:(fun ((((run, actor), token), mode), lease) ->
-         { Reservation.Holder.run; actor; token; mode; lease })
-       ~encode:(fun ({ run; actor; token; mode; lease } : Reservation.Holder.t) ->
-         (((run, actor), token), mode), lease))
+  let codec =
+    Api_codec.object_
+      (Fields.map
+         (Fields.required "run_id" run_id
+          ++ Fields.required "actor_id" actor_id
+          ++ Fields.required "token" positive
+          ++ Fields.required "mode" reservation_mode
+          ++ Fields.required "lease" lease
+          ++ Fields.required "origin" origin)
+         ~decode:(fun (((((run, actor), token), mode), lease), origin) ->
+           { Reservation.Holder.run; actor; token; mode; lease; origin })
+         ~encode:
+           (fun
+             ({ run; actor; token; mode; lease; origin } : Reservation.Holder.t) ->
+           ((((run, actor), token), mode), lease), origin))
+  in
+  validate codec Reservation.Holder.validate "Validated holder fence, lease and origin."
 ;;
 
 let reservation =

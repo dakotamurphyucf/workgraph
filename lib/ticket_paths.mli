@@ -12,7 +12,9 @@ end
 
 (** At most 100 declarations in target order, each target present once.
     Required paths acquire compatible ownership atomically on claim/start.
-    Worktree identities are explicit and independent of run metadata. *)
+    Worktree identities are explicit and independent of run metadata. Full
+    Planning preparation/replay rejects policy edits under a claim or nonterminal
+    attempt: explicitly release/recover, edit, then reclaim. No implicit cleanup. *)
 type t =
   { ticket_id : Id.Ticket.t
   ; revision : int

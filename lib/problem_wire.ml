@@ -142,6 +142,105 @@ let allocation_reason =
       | Budget_exhausted _ -> "budget_exhausted")
 ;;
 
+let reservation_conflict =
+  let module F = Api_codec.Fields in
+  let ( ++ ) = F.both in
+  let identity =
+    Api_codec.map
+      (Api_codec.text ~max_bytes:96)
+      ~decode:(fun text -> Result.map (Id.Run.of_string text) ~f:Id.Run.to_string)
+      ~encode:Fn.id
+      ~description:"Stable owner identity."
+  in
+  let target =
+    Api_codec.tagged
+      ~discriminator:"kind"
+      ~cases:
+        [ ( "named"
+          , Api_codec.object_
+              (F.map
+                 (F.required "kind" (Api_codec.literal "named")
+                  ++ F.required "reservation_id" identity)
+                 ~decode:(fun ((), name) -> Reservation_conflict.Target.Named name)
+                 ~encode:(function
+                   | Named name -> (), name
+                   | Path _ -> Json.fail Invalid_argument "Expected named conflict")) )
+        ; ( "path"
+          , Api_codec.object_
+              (F.map
+                 (F.required "kind" (Api_codec.literal "path")
+                  ++ F.required "target" Path_scope.codec)
+                 ~decode:(fun ((), path) ->
+                   Reservation_conflict.Target.Path
+                     { worktree_id =
+                         Path_scope.Worktree_id.to_string (Path_scope.worktree_id path)
+                     ; kind =
+                         (match Path_scope.kind path with
+                          | File -> Reservation_conflict.Path_kind.File
+                          | Subtree -> Subtree)
+                     ; path = Path_scope.path path
+                     })
+                 ~encode:(function
+                   | Path { worktree_id; kind; path } ->
+                     let worktree_id =
+                       match Path_scope.Worktree_id.of_string worktree_id with
+                       | Ok x -> x
+                       | Error e -> raise (Json.Decode_error e)
+                     in
+                     let kind =
+                       match kind with
+                       | Reservation_conflict.Path_kind.File -> Path_scope.Kind.File
+                       | Subtree -> Subtree
+                     in
+                     ( ()
+                     , (match Path_scope.create ~worktree_id ~kind ~path with
+                        | Ok x -> x
+                        | Error e -> raise (Json.Decode_error e)) )
+                   | Named _ -> Json.fail Invalid_argument "Expected path conflict")) )
+        ]
+      ~select:(function
+        | Named _ -> "named"
+        | Path _ -> "path")
+  in
+  let mode =
+    Api_codec.enum
+      [ "exclusive", Reservation_conflict.Mode.Exclusive; "shared", Shared ]
+      ~equal:Reservation_conflict.Mode.equal
+  in
+  let owner =
+    Api_codec.object_
+      (F.map
+         (F.required "target" target
+          ++ F.required "actor_id" identity
+          ++ F.required "run_id" identity
+          ++ F.required "mode" mode)
+         ~decode:(fun (((target, actor_id), run_id), mode) ->
+           { Reservation_conflict.Owner.target; actor_id; run_id; mode })
+         ~encode:(fun (o : Reservation_conflict.Owner.t) ->
+           ((o.target, o.actor_id), o.run_id), o.mode))
+  in
+  Api_codec.map
+    (Api_codec.object_
+       (F.map
+          (F.required "type" (Api_codec.literal "reservation_conflict")
+           ++ F.required "requested" target
+           ++ F.required "owners" (Api_codec.list owner ~max_items:16)
+           ++ F.required "omitted_owners" (Api_codec.decimal ~max:Int.max_value))
+          ~decode:(fun ((((), requested), owners), omitted_owners) ->
+            { Reservation_conflict.requested; owners; omitted_owners })
+          ~encode:(fun c ->
+            (((), c.Reservation_conflict.requested), c.owners), c.omitted_owners)))
+    ~decode:(fun c ->
+      if List.is_empty c.owners || c.omitted_owners > Int.max_value - List.length c.owners
+      then Error (Problem.create Invalid_argument "Invalid reservation conflict counts")
+      else Ok (Problem.Details.Reservation_conflict c))
+    ~encode:(function
+      | Reservation_conflict c -> c
+      | _ -> Json.fail Invalid_argument "Expected reservation conflict")
+    ~description:
+      "Bounded conflicting owner metadata with exact omissions; fencing tokens excluded."
+;;
+
 let details =
   let module F = Api_codec.Fields in
   let ( ++ ) = F.both in
@@ -270,6 +369,7 @@ let details =
       ; "ownership", ownership
       ; "socket_owner", socket_owner
       ; "allocation", allocation
+      ; "reservation_conflict", reservation_conflict
       ; "readiness", readiness
       ; "version", version
       ; "capacity", capacity
@@ -280,6 +380,7 @@ let details =
       | Ownership _ -> "ownership"
       | Socket_owner _ -> "socket_owner"
       | Allocation _ -> "allocation"
+      | Reservation_conflict _ -> "reservation_conflict"
       | Readiness _ -> "readiness"
       | Version _ -> "version"
       | Capacity _ -> "capacity")

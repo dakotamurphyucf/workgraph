@@ -504,6 +504,8 @@ let scan t ~scope ~after ~cursor =
                | Ticket_policy_put _
                | Reservation_put _
                | Path_reservation_put _
+               | Claim_paths_reserved _
+               | Claim_paths_released _
                | Actions_set _ -> skip ())
             | Milestone_put milestone ->
               milestones := Map.set !milestones ~key:milestone.id ~data:milestone;

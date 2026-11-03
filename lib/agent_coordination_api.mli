@@ -3,8 +3,14 @@ open Core
 val mutation_methods : string list
 val query_methods : string list
 val request_codec : method_:string -> Jsonaf.t Api_codec.t option
+
+(** [reservation.paths.acquire] returns [coordination_revision] and [holds]:
+    one sorted [{target;holder}] row per requested grant, with the exact own
+    fencing token, mode, lease and origin. All grants and the receipt are atomic. *)
 val response_codec : method_:string -> Jsonaf.t Api_codec.t option
 
+(** [ticket.paths.put] is rejected while its ticket has a claim or nonterminal
+    attempt. Release/recover first; expiry and terminal run status do not suffice. *)
 val decode_command
   :  method_:string
   -> params:Jsonaf.t
@@ -41,7 +47,15 @@ module Query : sig
         { recovery : Coordination_id.Recovery.t
         ; max_bytes : int
         }
-    | Paths of Page.t
+    | Paths of
+        { page : Page.t
+        ; run : Id.Run.t option
+        ; actor : Id.Actor.t option
+        ; worktree : Path_scope.Worktree_id.t option
+        ; overlaps : Path_scope.t option
+        }
+    (** Optional holder run/actor and worktree/path-overlap filters intersect;
+        one holder must match both owner filters. Filters precede pagination. *)
     | Ticket_paths of Page.t
     | Conditions of
         { page : Page.t

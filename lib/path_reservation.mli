@@ -12,7 +12,10 @@ module Request : sig
 end
 
 (** Reuses named-reservation holder fences/lease rules through a shared pure
-    Ownership implementation, preserving named Reservation APIs and wire shape. *)
+    Ownership implementation. Explicit acquisitions are Manual; lifecycle
+    transitions create indefinite Automatic holders with exact claim borrowers.
+    Pure [release] remains the exact-fence primitive for guarded recovery; the
+    full Agent_run command layer rejects direct release of borrowed holds. *)
 type t =
   { target : Path_scope.t
   ; epoch : int
