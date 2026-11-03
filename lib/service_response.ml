@@ -53,6 +53,7 @@ let layout method_ =
     | "workspace.get"
     | "usage.aggregate"
     | "workspace.metrics"
+    | "transaction.preflight"
     | "ticket.resume"
     | "activity.digest"
     | "workspace.overview"

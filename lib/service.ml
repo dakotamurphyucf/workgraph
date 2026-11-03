@@ -305,6 +305,15 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
       Eio.Flow.read_exact (Eio.Stdenv.secure_random env) bytes;
       prefix ^ Json.hash (Cstruct.to_string bytes)
     in
+    let fresh_domain_id kind =
+      fresh_id
+        (match kind with
+         | Id_resolution.Kind.Project -> "project_"
+         | Milestone -> "milestone_"
+         | Ticket -> "ticket_"
+         | Comment -> "comment_"
+         | Resource -> "resource_")
+    in
     let dispatch request =
       Json.decode (fun () ->
         Protocol.validate_server_request request |> Disk.unwrap;
@@ -1171,6 +1180,36 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
             in
             Resource_read.Text.create request ~version ~text)
           |> Disk.unwrap
+        | "transaction.preflight" ->
+          let value = get_loaded (Json.text (get "workspace_id")) in
+          let query_params =
+            match params with
+            | `Object fields ->
+              Json.obj (List.Assoc.remove fields "workspace_id" ~equal:String.equal)
+            | _ -> Json.fail Invalid_argument "params must be an object"
+          in
+          let simulation =
+            Api_codec.decode Preflight_api.Request.codec query_params |> Disk.unwrap
+          in
+          let timestamp =
+            Time_ns.of_span_since_epoch
+              (Time_ns.Span.of_sec (Eio.Time.now (Eio.Stdenv.clock env)))
+            |> Time_ns.to_string_utc
+          in
+          let prepared =
+            Transaction_preflight.run
+              value.state
+              simulation
+              ~fresh:fresh_domain_id
+              ~now_unix_ms:observed_unix_ms
+              ~timestamp
+            |> Disk.unwrap
+          in
+          Json.obj
+            [ "workspace_revision", Json.int prepared.workspace_revision
+            ; ( "data"
+              , Api_codec.encode Preflight_api.Response.codec prepared |> Disk.unwrap )
+            ]
         | "search.query" ->
           let value = get_loaded (Json.text (get "workspace_id")) in
           let resources = State.search_resources value.state ~params |> Disk.unwrap in
@@ -1415,14 +1454,10 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
              receipt.response
            | None ->
              let command_params =
-               Id_resolution.resolve ~method_ ~params:command_params ~fresh:(fun kind ->
-                 fresh_id
-                   (match kind with
-                    | Id_resolution.Kind.Project -> "project_"
-                    | Milestone -> "milestone_"
-                    | Ticket -> "ticket_"
-                    | Comment -> "comment_"
-                    | Resource -> "resource_"))
+               Id_resolution.resolve
+                 ~method_
+                 ~params:command_params
+                 ~fresh:fresh_domain_id
                |> Disk.unwrap
              in
              let command, upload =

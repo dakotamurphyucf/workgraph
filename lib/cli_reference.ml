@@ -516,6 +516,16 @@ let preconditions name mode request =
       ; "workspace_id, actor_id, run_id and mutation_id belong to the outer call, not \
          operation params. Separate commands are independent commits."
       ]
+    | "transaction.preflight" ->
+      [ "operations: the same 1..32 ordered {method, params, as?} objects as \
+         transaction.apply; preview runs domain preparation without committing."
+      ; "Supply explicit actor_id/run_id for the intended writer. Generated IDs and \
+         proposed revision are unreserved; a later write repeats every check."
+      ; "Preview does not check storage commit admission or filesystem health. No \
+         mutation_id, durable receipt or automatic plan splitting."
+      ; "Discover operation fields with help METHOD; schema transaction.preflight \
+         includes the complete union."
+      ]
     | "resource.put_text" ->
       [ "Creation requires title; updating may omit it to preserve current title under \
          the exact entity expected_revision guard. Omitted filename/MIME are retained. \
@@ -592,7 +602,12 @@ let brief method_ =
         if conditional then "conditional" else if required then "required" else "optional"
       in
       let kind =
-        if String.equal name "transaction.apply" && String.equal field "operations"
+        if
+          List.mem
+            [ "transaction.apply"; "transaction.preflight" ]
+            name
+            ~equal:String.equal
+          && String.equal field "operations"
         then "array of {method: string, params: object, as?: string}; 1..32 items"
         else shape schema ~depth:1
       in
@@ -608,12 +623,11 @@ let brief method_ =
       | descriptions -> " — " ^ String.concat ~sep:" " descriptions)
   in
   let sample ~nonempty =
-    if String.equal name "transaction.apply"
+    if List.mem [ "transaction.apply"; "transaction.preflight" ] name ~equal:String.equal
     then
       Json.obj
         [ "workspace_id", Json.string "workspace"
         ; "actor_id", Json.string "actor"
-        ; "mutation_id", Json.string "unique-mutation"
         ; ( "operations"
           , `Array
               [ Json.obj
@@ -625,6 +639,14 @@ let brief method_ =
                   ]
               ] )
         ]
+      |> fun sample ->
+      if String.equal name "transaction.apply"
+      then (
+        match sample with
+        | `Object fields ->
+          Json.obj (("mutation_id", Json.string "unique-mutation") :: fields)
+        | _ -> assert false)
+      else sample
     else (
       let sample =
         example

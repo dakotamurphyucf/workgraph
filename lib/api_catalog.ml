@@ -233,6 +233,7 @@ let methods =
   @ Change_feed_api.methods
   @ List.map Coordinator_api.methods ~f:scoped
   @ [ scoped (Api_method.Packed.Pack Transaction_api.method_) ]
+  @ [ scoped (Api_method.Packed.Pack Preflight_api.method_) ]
   @ [ scoped (Api_method.Packed.Pack Workspace_metrics.method_)
     ; scoped Usage_rollup_api.method_
     ]
