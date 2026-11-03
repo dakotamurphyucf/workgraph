@@ -53,6 +53,15 @@ let read
       ~params
   =
   Json.decode (fun () ->
+    let allocated_tickets =
+      List.fold tickets ~init:Id.Ticket.Set.empty ~f:(fun ids ticket ->
+        if Option.is_some ticket.Ticket.claim then Set.add ids ticket.id else ids)
+      |> fun claimed ->
+      List.fold (Agent_run.attempts runs) ~init:claimed ~f:(fun ids attempt ->
+        if Attempt.State.terminal attempt.Attempt.state
+        then ids
+        else Set.add ids attempt.ticket)
+    in
     let request = Coordination_wire.decode_exn Coordinator_api.Request.codec params in
     require
       (revision >= 0 && Int64.(now_unix_ms >= zero))
@@ -276,6 +285,7 @@ let read
             let candidate =
               Agent_run.allocation_candidate
                 runs
+                ~allocated_tickets
                 ~ticket:ticket.id
                 ~priority:0
                 ~creation_sequence:0

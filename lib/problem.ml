@@ -33,6 +33,11 @@ module Details = struct
         ; run_id : string option
         }
     | Socket_owner of { socket_path : string }
+    | Allocation of
+        { ticket_id : string
+        ; reasons : Allocation_admission_reason.t list
+        ; omitted_reasons : int
+        }
     | Readiness of
         { ticket_id : string
         ; blockers : string list
@@ -75,6 +80,13 @@ module Details = struct
       tagged "ownership" [ "actor_id", text actor_id; "run_id", optional run_id ]
     | Socket_owner { socket_path } ->
       tagged "socket_owner" [ "socket_path", text socket_path ]
+    | Allocation { ticket_id; reasons; omitted_reasons } ->
+      tagged
+        "allocation"
+        [ "ticket_id", text ticket_id
+        ; "reasons", `Array (List.map reasons ~f:Allocation_admission_reason.to_json)
+        ; "omitted_reasons", text (Int.to_string omitted_reasons)
+        ]
     | Readiness { ticket_id; blockers } ->
       tagged "readiness" [ "ticket_id", text ticket_id; "blockers", strings blockers ]
     | Version { representation; observed; supported } ->

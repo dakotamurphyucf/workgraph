@@ -880,7 +880,12 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
            "Recovery ID already exists"
        | Agent_run.Command.Attempt_start { run = target_run; ticket; token; _ } ->
          unwrap_domain
-           (Agent_run_policy.validate_allocation t.policies target_run ~runs:t.agent_runs);
+           (Acquisition.ensure
+              t
+              ~ticket:(find_ticket t ticket)
+              ~actor
+              ~run:(Some target_run)
+              ~intent:Attempt);
          require
            (Option.value_map run ~default:false ~f:(Id.Run.equal target_run))
            Stale_claim
@@ -917,8 +922,12 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
        | Reservation_renew _
        | Action_acknowledge _
        | Pool_put _
-       | Coordination _
-       | Ticket_policy_put _ -> ());
+       | Coordination _ -> ()
+       | Ticket_policy_put { ticket; _ } ->
+         require
+           (Option.is_none (find_ticket t ticket).claim)
+           Conflict
+           "Cannot change allocation policy while ticket has a claim");
       let path_prepared =
         match command with
         | Agent_run.Command.Attempt_start { run = target_run; ticket; _ } ->
@@ -1066,6 +1075,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       let parent_filtered id =
         leaf_only && not (List.is_empty (unfinished_children t (find_ticket t id)))
       in
+      let allocated_tickets = Acquisition.allocated_tickets t in
       let candidates =
         Map.data t.tickets
         |> List.filter ~f:(fun ticket ->
@@ -1074,6 +1084,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         |> List.map ~f:(fun ticket ->
           Agent_run.allocation_candidate
             t.agent_runs
+            ~allocated_tickets
             ~ticket:ticket.Ticket.id
             ~priority:ticket.priority
             ~creation_sequence:ticket.created_order
@@ -1750,12 +1761,36 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           ; lease = new_lease ~token ~duration:None ~now_unix_ms
           })
       in
+      Option.iter claim ~f:(fun claim ->
+        unwrap_domain
+          (Acquisition.ensure
+             t
+             ~ticket
+             ~actor:claim.actor
+             ~run:claim.run_id
+             ~intent:Reassign));
+      let path_changes =
+        Option.value_map claim ~default:[] ~f:(fun claim ->
+          Option.value_map claim.Claim.run_id ~default:[] ~f:(fun run ->
+            Agent_run.prepare_start_reservations
+              t.agent_runs
+              ~ticket:id
+              ~run
+              ~actor:claim.actor
+              ~timestamp
+              ~sequence:(t.revision + 1)
+              ~now_unix_ms:(Option.value now_unix_ms ~default:0L)
+            |> unwrap_domain
+            |> Agent_run.changes
+            |> List.map ~f:(fun change -> Event.Agent_run_changed change)))
+      in
       let status =
         if Option.is_some claim then Domain_command.Status.In_progress else Todo
       in
-      ( [ update { ticket with claim; status; status_id = None; next_token = token + 1 }
-        ; comment id Decision reason
-        ]
+      ( path_changes
+        @ [ update { ticket with claim; status; status_id = None; next_token = token + 1 }
+          ; comment id Decision reason
+          ]
       , Json.obj [ ("token", if Option.is_some claim then Json.int token else `Null) ]
       , [] )
     | Dependency_add { ticket; prerequisite } ->
@@ -1801,6 +1836,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       expected ticket.revision expected_revision;
       require_unclaimed ticket;
       require_ready t ticket ~run ~now_unix_ms;
+      unwrap_domain (Acquisition.ensure t ~ticket ~actor ~run ~intent:Claim);
       let path_changes =
         match run with
         | None -> []

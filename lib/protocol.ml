@@ -40,6 +40,19 @@ let error_response_json ~id ~code (problem : Problem.t) =
       | Ownership _ as details -> details
       | Socket_owner { socket_path } ->
         Socket_owner { socket_path = text socket_path ~max_bytes:4096 }
+      | Allocation { ticket_id; reasons; omitted_reasons } ->
+        let listed = List.take reasons 16 in
+        let extra = List.length reasons - List.length listed in
+        Allocation
+          { ticket_id
+          ; reasons = listed
+          ; omitted_reasons =
+              Int.min
+                (Int.max_value - List.length listed)
+                (if omitted_reasons > Int.max_value - extra
+                 then Int.max_value
+                 else omitted_reasons + extra)
+          }
       | Readiness { ticket_id; blockers } ->
         Readiness { ticket_id; blockers = List.map (List.take blockers 16) ~f:short }
       | Version { representation; observed; supported } ->

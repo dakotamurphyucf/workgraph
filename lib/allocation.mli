@@ -84,6 +84,9 @@ module Explanation : sig
 end
 
 module Definition : sig
+  (** [limit] measures distinct allocated tickets in this named pool. Reducing
+      it preserves existing grants and blocks new occupancy until room exists;
+      starting an eligible attempt for an already claimed ticket adds no slot. *)
   type t =
     { name : string
     ; revision : int
@@ -93,6 +96,8 @@ module Definition : sig
 end
 
 module Ticket_policy : sig
+  (** Planning rejects policy replacement while this ticket has a claim or a
+      nonterminal attempt. Requirements cannot change beneath an existing grant. *)
   type t =
     { ticket : Id.Ticket.t
     ; revision : int

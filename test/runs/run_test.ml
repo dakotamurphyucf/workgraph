@@ -409,7 +409,7 @@ let%expect_test
     |}]
 ;;
 
-let%expect_test "durable ticket capabilities and shared pools enforce explicit starts" =
+let%expect_test "run capabilities and explicit composed pool occupancy stay separate" =
   let t = apply Agent_run.empty (register "worker") in
   let t = apply t (Pool_put { name = "compile"; expected_revision = 0; limit = 1 }) in
   let policy ticket capabilities =
@@ -429,6 +429,7 @@ let%expect_test "durable ticket capabilities and shared pools enforce explicit s
   let candidate =
     Agent_run.allocation_candidate
       t
+      ~allocated_tickets:(Id.Ticket.Set.singleton (ticket_id "a"))
       ~ticket:(ticket_id "b")
       ~priority:1
       ~creation_sequence:0
@@ -453,7 +454,7 @@ let%expect_test "durable ticket capabilities and shared pools enforce explicit s
   [%expect
     {|
     Blocked
-    Blocked
+    ok
     ((Pool_full compile))
     ok
     |}]

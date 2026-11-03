@@ -407,6 +407,7 @@ let decode ~method_ ~params =
         | ( ( "target"
             | "scope"
             | "links"
+            | "references"
             | "affected"
             | "recipient"
             | "recipients"

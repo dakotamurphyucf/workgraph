@@ -12,6 +12,10 @@ type prepared
 val empty : t
 val revision : t -> int
 
+(** This subsystem enforces run/attempt lifecycle, ownership and capabilities.
+    Full Workgraph admission is enforced by Planning preparation and replay,
+    which compose ticket claims with attempts. Pool slots are not inferred from
+    attempts alone here; callers must use the Planning facade for acquisitions. *)
 val prepare
   :  t
   -> ?now_unix_ms:int64
@@ -94,8 +98,14 @@ val query_methods : string list
 val to_json : t -> Jsonaf.t
 val get_ticket_policy : t -> Id.Ticket.t -> Allocation.Ticket_policy.t option
 
+(** Pool admission belongs to Planning's composition of claims and attempts.
+    [allocated_tickets] must be the immutable union of claimed tickets and live
+    attempts, deduplicated by ticket. A ticket consumes one unit in each pool.
+    The snapshot is caller-supplied data, not authorization to omit occupancy.
+    Run/attempt ownership and capability invariants remain enforced here. *)
 val allocation_candidate
   :  t
+  -> allocated_tickets:Id.Ticket.Set.t
   -> ticket:Id.Ticket.t
   -> priority:int
   -> creation_sequence:int

@@ -233,6 +233,40 @@ val reachable : t -> from:Id.Ticket.t -> target:Id.Ticket.t -> parents:bool -> b
 val waived : Ticket.t -> Id.Ticket.t -> bool
 val blockers : t -> Ticket.t -> Id.Ticket.t list
 
+module Acquisition : sig
+  module Intent : sig
+    type t =
+      | Claim
+      | Attempt
+      | Reassign
+    [@@deriving sexp, equal]
+  end
+
+  val allocated_tickets : t -> Id.Ticket.Set.t
+
+  (** Pure assessment from this staged snapshot. Constrained claims require a
+      registered compatible invocation; unconstrained opaque claims remain legal.
+      Retained occupancy (own attempt/reassignment) consumes no additional pool
+      slot even after capacity shrinks, but every eligibility check still applies.
+      Attempt budgets apply only to a new attempt. Readiness and exact claim
+      fences are checked separately by the acquisition operation. *)
+  val assess
+    :  t
+    -> ticket:Ticket.t
+    -> actor:Id.Actor.t
+    -> run:Id.Run.t option
+    -> intent:Intent.t
+    -> Allocation_admission_reason.t list
+
+  val ensure
+    :  t
+    -> ticket:Ticket.t
+    -> actor:Id.Actor.t
+    -> run:Id.Run.t option
+    -> intent:Intent.t
+    -> (unit, Problem.t) Result.t
+end
+
 module Eligibility_reason : sig
   type t =
     | Archived_scope

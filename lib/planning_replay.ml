@@ -39,16 +39,27 @@ let apply_event t = function
      | Attempt_put attempt | Attempt_started { attempt; _ } ->
        if Option.is_none (Agent_run.get_attempt t.agent_runs attempt.id)
        then (
-         match
-           Agent_run_policy.validate_allocation t.policies attempt.run ~runs:t.agent_runs
-         with
-         | Ok () -> ()
-         | Error error -> raise (Json.Decode_error error))
+         check_claim
+           (find_ticket t attempt.ticket)
+           ~actor:change.actor
+           ~run:change.actor_run
+           ~token:attempt.token;
+         unwrap_domain
+           (Acquisition.ensure
+              t
+              ~ticket:(find_ticket t attempt.ticket)
+              ~actor:change.actor
+              ~run:change.actor_run
+              ~intent:Attempt))
+     | Ticket_policy_put policy ->
+       require
+         (Option.is_none (find_ticket t policy.ticket).claim)
+         Conflict
+         "Cannot change allocation policy while ticket has a claim"
      | Run_put _
      | Reservation_put _
      | Actions_set _
      | Pool_put _
-     | Ticket_policy_put _
      | Path_reservation_put _
      | Ticket_paths_put _
      | External_condition_changed _
@@ -299,6 +310,13 @@ let apply_event t = function
               "claim lease renewal payload differs"))
         else (
           validate_new_claim_run t claim;
+          unwrap_domain
+            (Acquisition.ensure
+               t
+               ~ticket
+               ~actor:claim.actor
+               ~run:claim.run_id
+               ~intent:(if Option.is_some previous.claim then Reassign else Claim));
           require
             (List.is_empty
                (Agent_run.start_blockers

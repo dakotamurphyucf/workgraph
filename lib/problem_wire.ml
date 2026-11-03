@@ -1,5 +1,147 @@
 open Core
 
+let allocation_reason =
+  let open Allocation_admission_reason in
+  let module F = Api_codec.Fields in
+  let ( ++ ) = F.both in
+  let identity =
+    Api_codec.map
+      (Api_codec.text ~max_bytes:96)
+      ~decode:(fun text -> Result.map (Id.Actor.of_string text) ~f:Id.Actor.to_string)
+      ~encode:Fn.id
+      ~description:"Stable actor or run identifier."
+  in
+  let name = Api_codec.text ~max_bytes:96 in
+  let counter = Api_codec.decimal ~max:Int.max_value in
+  let counts =
+    F.required "used" counter
+    ++ F.required "limit" counter
+    ++ F.required "attempted" counter
+  in
+  let branch tag fields ~decode ~encode =
+    Api_codec.map
+      (Api_codec.object_ (F.required "kind" (Api_codec.literal tag) ++ fields))
+      ~decode:(fun ((), fields) -> decode fields)
+      ~encode:(fun value -> (), encode value)
+      ~description:("Allocation " ^ tag ^ " reason.")
+  in
+  let counts_valid used limit attempted =
+    limit > 0
+    && used >= limit
+    && attempted = if used = Int.max_value then used else used + 1
+  in
+  let run_required =
+    branch
+      "run_required"
+      F.empty
+      ~decode:(fun () -> Ok Run_required)
+      ~encode:(function
+        | Run_required -> ()
+        | _ -> invalid_arg "run required expected")
+  in
+  let unregistered =
+    branch
+      "unregistered_run"
+      (F.required "run_id" identity)
+      ~decode:(fun run_id -> Ok (Unregistered_run { run_id }))
+      ~encode:(function
+        | Unregistered_run { run_id } -> run_id
+        | _ -> invalid_arg "unregistered run expected")
+  in
+  let mismatch =
+    branch
+      "run_actor_mismatch"
+      (F.required "run_id" identity
+       ++ F.required "expected_actor" identity
+       ++ F.required "actual_actor" identity)
+      ~decode:(fun ((run_id, expected_actor), actual_actor) ->
+        if String.equal expected_actor actual_actor
+        then
+          Error
+            (Problem.create Invalid_argument "actor mismatch requires distinct actors")
+        else Ok (Run_actor_mismatch { run_id; expected_actor; actual_actor }))
+      ~encode:(function
+        | Run_actor_mismatch { run_id; expected_actor; actual_actor } ->
+          (run_id, expected_actor), actual_actor
+        | _ -> invalid_arg "actor mismatch expected")
+  in
+  let terminal =
+    branch
+      "terminal_run"
+      (F.required "run_id" identity)
+      ~decode:(fun run_id -> Ok (Terminal_run { run_id }))
+      ~encode:(function
+        | Terminal_run { run_id } -> run_id
+        | _ -> invalid_arg "terminal run expected")
+  in
+  let missing =
+    branch
+      "missing_capability"
+      (F.required "run_id" identity ++ F.required "capability" name)
+      ~decode:(fun (run_id, capability) ->
+        if String.is_empty (String.strip capability)
+        then Error (Problem.create Invalid_argument "empty capability")
+        else Ok (Missing_capability { run_id; capability }))
+      ~encode:(function
+        | Missing_capability { run_id; capability } -> run_id, capability
+        | _ -> invalid_arg "missing capability expected")
+  in
+  let pool =
+    branch
+      "pool_full"
+      (F.required "pool" name
+       ++ F.required "unit" (Api_codec.literal "allocated_tickets")
+       ++ counts)
+      ~decode:(fun ((pool, ()), ((used, limit), attempted)) ->
+        if String.is_empty (String.strip pool) || not (counts_valid used limit attempted)
+        then Error (Problem.create Invalid_argument "invalid pool exhaustion counts")
+        else Ok (Pool_full { pool; used; limit; attempted }))
+      ~encode:(function
+        | Pool_full { pool; used; limit; attempted } ->
+          (pool, ()), ((used, limit), attempted)
+        | _ -> invalid_arg "pool full expected")
+  in
+  let budget =
+    branch
+      "budget_exhausted"
+      (F.required
+         "unit"
+         (Api_codec.enum
+            [ "total_attempts", Total_attempts; "active_attempts", Active_attempts ]
+            ~equal:equal_budget)
+       ++ counts)
+      ~decode:(fun (budget, ((used, limit), attempted)) ->
+        if not (counts_valid used limit attempted)
+        then
+          Error
+            (Problem.create Invalid_argument "invalid attempt budget exhaustion counts")
+        else Ok (Budget_exhausted { budget; used; limit; attempted }))
+      ~encode:(function
+        | Budget_exhausted { budget; used; limit; attempted } ->
+          budget, ((used, limit), attempted)
+        | _ -> invalid_arg "budget exhaustion expected")
+  in
+  Api_codec.tagged
+    ~discriminator:"kind"
+    ~cases:
+      [ "run_required", run_required
+      ; "unregistered_run", unregistered
+      ; "run_actor_mismatch", mismatch
+      ; "terminal_run", terminal
+      ; "missing_capability", missing
+      ; "pool_full", pool
+      ; "budget_exhausted", budget
+      ]
+    ~select:(function
+      | Run_required -> "run_required"
+      | Unregistered_run _ -> "unregistered_run"
+      | Run_actor_mismatch _ -> "run_actor_mismatch"
+      | Terminal_run _ -> "terminal_run"
+      | Missing_capability _ -> "missing_capability"
+      | Pool_full _ -> "pool_full"
+      | Budget_exhausted _ -> "budget_exhausted")
+;;
+
 let details =
   let module F = Api_codec.Fields in
   let ( ++ ) = F.both in
@@ -72,6 +214,24 @@ let details =
         | Problem.Details.Socket_owner { socket_path } -> socket_path
         | _ -> invalid_arg "socket owner diagnostic expected")
   in
+  let allocation =
+    Api_codec.map
+      (Api_codec.object_
+         (F.required "type" (Api_codec.literal "allocation")
+          ++ F.required "ticket_id" identity
+          ++ F.required "reasons" (Api_codec.list allocation_reason ~max_items:16)
+          ++ F.required "omitted_reasons" counter))
+      ~decode:(fun ((((), ticket_id), reasons), omitted_reasons) ->
+        if List.is_empty reasons || omitted_reasons > Int.max_value - List.length reasons
+        then
+          Error (Problem.create Invalid_argument "invalid allocation diagnostic counts")
+        else Ok (Problem.Details.Allocation { ticket_id; reasons; omitted_reasons }))
+      ~encode:(function
+        | Problem.Details.Allocation { ticket_id; reasons; omitted_reasons } ->
+          (((), ticket_id), reasons), omitted_reasons
+        | _ -> invalid_arg "allocation diagnostic expected")
+      ~description:"Bounded exact admission reasons; total count is listed plus omitted."
+  in
   let version =
     branch
       "version"
@@ -109,6 +269,7 @@ let details =
       ; "revision", revision
       ; "ownership", ownership
       ; "socket_owner", socket_owner
+      ; "allocation", allocation
       ; "readiness", readiness
       ; "version", version
       ; "capacity", capacity
@@ -118,6 +279,7 @@ let details =
       | Revision _ -> "revision"
       | Ownership _ -> "ownership"
       | Socket_owner _ -> "socket_owner"
+      | Allocation _ -> "allocation"
       | Readiness _ -> "readiness"
       | Version _ -> "version"
       | Capacity _ -> "capacity")

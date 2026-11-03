@@ -40,6 +40,13 @@ module Details : sig
     (** With [Conflict], an active Workgraph guard owns this canonical socket
         pathname. This identifies competition, not readiness or peer health.
         Human-readable message text is not a discriminator. *)
+    | Allocation of
+        { ticket_id : string
+        ; reasons : Allocation_admission_reason.t list
+        ; omitted_reasons : int
+        }
+    (** At most 16 exact admission reasons; the total is the listed count plus
+        [omitted_reasons]. No other owner's fencing tokens are disclosed. *)
     | Readiness of
         { ticket_id : string
         ; blockers : string list

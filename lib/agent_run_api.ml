@@ -67,7 +67,10 @@ let pool_limit =
       then Ok value
       else Error (Problem.create Invalid_argument "pool limit must be 1..10000"))
     ~encode:Fn.id
-    ~description:"Pool concurrency limit from 1 through 10000."
+    ~description:
+      "Pool limit in distinct allocated tickets (claim or live attempt), from 1 through \
+       10000. Reducing capacity preserves existing grants; own eligible attempts do not \
+       consume another slot."
 ;;
 
 let decimal64 = Api_codec.decimal64 ~max:Int64.max_value

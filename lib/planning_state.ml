@@ -514,6 +514,134 @@ let handoff_view_json value =
     (handoff_view value)
 ;;
 
+module Acquisition = struct
+  module Intent = struct
+    type t =
+      | Claim
+      | Attempt
+      | Reassign
+    [@@deriving sexp, equal]
+  end
+
+  let allocated_tickets t =
+    let claimed =
+      Map.fold t.tickets ~init:Id.Ticket.Set.empty ~f:(fun ~key ~data ids ->
+        if Option.is_some data.Ticket.claim then Set.add ids key else ids)
+    in
+    List.fold (Agent_run.attempts t.agent_runs) ~init:claimed ~f:(fun ids attempt ->
+      if Attempt.State.terminal attempt.Attempt.state
+      then ids
+      else Set.add ids attempt.ticket)
+  ;;
+
+  let increment count = if count = Int.max_value then count else count + 1
+
+  let assess t ~ticket ~actor ~run ~intent =
+    let open Allocation_admission_reason in
+    let allocated_tickets = allocated_tickets t in
+    let candidate =
+      Agent_run.allocation_candidate
+        t.agent_runs
+        ~allocated_tickets
+        ~ticket:ticket.Ticket.id
+        ~priority:ticket.priority
+        ~creation_sequence:ticket.created_order
+        ~ready:true
+        ~available:true
+    in
+    let constrained =
+      not (List.is_empty candidate.required_capabilities && List.is_empty candidate.pools)
+    in
+    let needs_run = constrained || Intent.equal intent Attempt in
+    let registered = Option.bind run ~f:(Agent_run.get_run t.agent_runs) in
+    let run_reasons =
+      match run, registered with
+      | None, _ -> if needs_run then [ Run_required ] else []
+      | Some id, None ->
+        if needs_run then [ Unregistered_run { run_id = Id.Run.to_string id } ] else []
+      | Some id, Some registered ->
+        let run_id = Id.Run.to_string id in
+        (if Id.Actor.equal registered.actor actor
+         then []
+         else
+           [ Run_actor_mismatch
+               { run_id
+               ; expected_actor = Id.Actor.to_string registered.actor
+               ; actual_actor = Id.Actor.to_string actor
+               }
+           ])
+        @ (if Agent_run.Status.terminal registered.status
+           then [ Terminal_run { run_id } ]
+           else [])
+        @ List.filter_map candidate.required_capabilities ~f:(fun capability ->
+          if List.mem registered.capabilities capability ~equal:String.equal
+          then None
+          else Some (Missing_capability { run_id; capability }))
+    in
+    let pool_reasons =
+      if Set.mem allocated_tickets ticket.id
+      then []
+      else
+        List.filter_map candidate.pools ~f:(fun pool ->
+          if pool.Allocation.Pool.active < pool.limit
+          then None
+          else
+            Some
+              (Pool_full
+                 { pool = pool.name
+                 ; used = pool.active
+                 ; limit = pool.limit
+                 ; attempted = increment pool.active
+                 }))
+    in
+    let budget_reasons =
+      if not (Intent.equal intent Attempt)
+      then []
+      else
+        Option.value_map run ~default:[] ~f:(fun run ->
+          Agent_run_policy.allocation_limits t.policies run ~runs:t.agent_runs
+          |> List.map ~f:(fun exhausted ->
+            Budget_exhausted
+              { budget =
+                  (match exhausted.Allocation.Budget_limit.kind with
+                   | Attempts -> Total_attempts
+                   | Active_attempts -> Active_attempts)
+              ; used = exhausted.used
+              ; limit = exhausted.limit
+              ; attempted = increment exhausted.used
+              }))
+    in
+    run_reasons @ pool_reasons @ budget_reasons
+  ;;
+
+  let ensure t ~ticket ~actor ~run ~intent =
+    match assess t ~ticket ~actor ~run ~intent with
+    | [] -> Ok ()
+    | reasons ->
+      let listed = List.take reasons 16 in
+      let kind =
+        if
+          List.exists reasons ~f:(function
+            | Allocation_admission_reason.Run_actor_mismatch _ | Terminal_run _ -> true
+            | Run_required
+            | Unregistered_run _
+            | Missing_capability _
+            | Pool_full _
+            | Budget_exhausted _ -> false)
+        then Problem.Conflict
+        else Blocked
+      in
+      Error
+        (Problem.with_details
+           (Problem.create kind "Allocation admission rejected")
+           (Allocation
+              { ticket_id = Id.Ticket.to_string ticket.id
+              ; reasons = listed
+              ; omitted_reasons = List.length reasons - List.length listed
+              }))
+  ;;
+end
+
 module Eligibility_reason = struct
   type t =
     | Archived_scope

@@ -411,21 +411,8 @@ let rec apply_exn ?started_at t (change : Change.t) =
                 ~f:(fun c -> List.mem record.capabilities c ~equal:String.equal))
              Blocked
              "Run lacks a required capability";
-           List.iter policy.pools ~f:(fun name ->
-             let pool = find t.pools name in
-             let active =
-               Map.count t.attempts ~f:(fun a ->
-                 (not (Attempt.State.terminal a.Attempt.state))
-                 && Option.value_map
-                      (Map.find t.ticket_policies a.ticket)
-                      ~default:false
-                      ~f:(fun p ->
-                        List.mem p.Allocation.Ticket_policy.pools name ~equal:String.equal))
-             in
-             require
-               (active < pool.Allocation.Definition.limit)
-               Blocked
-               "Concurrency pool is full"));
+           (* Planning owns pool admission across claims and attempts. *)
+           ());
          require
            (not
               (Map.exists t.attempts ~f:(fun a ->
@@ -1484,7 +1471,15 @@ let query t ~method_ ~params =
 
 let get_ticket_policy t ticket = Map.find t.ticket_policies ticket
 
-let allocation_candidate t ~ticket ~priority ~creation_sequence ~ready ~available =
+let allocation_candidate
+      t
+      ~allocated_tickets
+      ~ticket
+      ~priority
+      ~creation_sequence
+      ~ready
+      ~available
+  =
   let policy = get_ticket_policy t ticket in
   let required_capabilities =
     Option.value_map policy ~default:[] ~f:(fun p ->
@@ -1497,12 +1492,9 @@ let allocation_candidate t ~ticket ~priority ~creation_sequence ~ready ~availabl
     List.map names ~f:(fun name ->
       let definition = find t.pools name in
       let active =
-        Map.count t.attempts ~f:(fun attempt ->
-          (not (Attempt.State.terminal attempt.Attempt.state))
-          && Option.value_map
-               (get_ticket_policy t attempt.ticket)
-               ~default:false
-               ~f:(fun p -> List.mem p.pools name ~equal:String.equal))
+        Set.count allocated_tickets ~f:(fun ticket ->
+          Option.value_map (get_ticket_policy t ticket) ~default:false ~f:(fun p ->
+            List.mem p.pools name ~equal:String.equal))
       in
       { Allocation.Pool.name; limit = definition.limit; active })
   in

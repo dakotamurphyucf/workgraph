@@ -90,6 +90,7 @@ let with_error_context t ~context =
               | ( Revision _
                 | Ownership _
                 | Socket_owner _
+                | Allocation _
                 | Readiness _
                 | Version _
                 | Capacity _ ) as details -> details)
