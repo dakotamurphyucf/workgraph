@@ -20,6 +20,11 @@ type t
 (** Validate the exact request using its executable codec. Supports top-level
     offset collections with their declared capture guard, opaque-cursor reads,
     inbox.read's notification through bound and immutable history-head traversal.
+    [usage.aggregate] and [actor.overview] traverse their flat top-level rows
+    using current-workspace revision cursors; actor observation time remains
+    captured and usage [at_revision] is retained. Their whole-row byte fitting
+    preserves the exact unconsumed cursor. [attention.read] remains unsupported:
+    its independently paged readiness section needs explicit manual traversal.
     Unsupported nested collections, waits and writes reject before I/O. Existing
     guards/selectors/filters are retained; only actual family positions advance.
     A captured current-revision guard detects changes; it is not time travel. *)

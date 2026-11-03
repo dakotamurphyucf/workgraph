@@ -248,6 +248,109 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual([e["event_ref"]["sequence"] for p in result["data"]["pages"] for e in p["data"]["items"]],["2","1"])
 
 
+    def seed_current_usage(self, metric_batches=1):
+        self.write("run.register",target_run_id="usage-run",objective="Caller-reported usage")
+        for ticket in ["a","b","d"]:
+            attempt="usage-"+ticket
+            self.write("ticket.start",ticket_id=ticket,run_id="usage-run",attempt_id=attempt)
+            for batch in range(metric_batches):
+                self.write("usage.report",usage_id=attempt+"-"+str(batch),scope={"kind":"attempt","attempt_id":attempt},reported_actor_id="a",tokens="3",elapsed_ms="5",metrics=[{"name":"metric-%02d"%(batch*16+i),"unit":"count","value":"1"} for i in range(16)],provenance="Caller report",timestamp="2026-11-03T00:00:00Z")
+
+    def test_usage_current_capture_filters_saved_resume_and_whole_row_budget(self):
+        self.seed_current_usage(metric_batches=2)
+        revision=self.read("workspace.get")["meta"]["workspace_revision"]
+        selectors={"project_id":"p","run_id":"usage-run","actor_id":"a","group_by":"ticket","at_revision":revision}
+        whole=self.read("usage.aggregate",**selectors,limit="100")["data"]
+        first=self.collect("usage.aggregate",dict(selectors,limit="1",max_bytes="4096"),options=["--page-limit","1"],expected=1)
+        metadata=first["data"]["pagination"]
+        self.assertEqual(metadata["consistency"],"current_revision_cursor")
+        self.assertEqual(metadata["capture"],{"workspace_revision":revision})
+        self.assertFalse(metadata["complete"])
+        continuation=metadata["next_request"]
+        for key,value in selectors.items():self.assertEqual(continuation["params"][key],value)
+        saved=self.root/"usage-next.json"
+        saved.write_text(json.dumps(continuation))
+        frozen=saved.read_bytes()
+        saved_page=json.loads(self.cli("retry",self.socket,saved).stdout)["result"]
+        rest=self.collect("usage.aggregate",{k:v for k,v in continuation["params"].items() if k!="workspace_id"})
+        self.assertEqual(rest["data"]["pages"][0],saved_page)
+        self.assertEqual(saved.read_bytes(),frozen)
+        rows=[row for page in first["data"]["pages"]+rest["data"]["pages"] for row in page["data"]["items"]]
+        self.assertEqual(rows,whole["items"])
+        self.assertEqual({row["group"]["ticket_id"] for row in rows},{"a","b"})
+        self.assertTrue(all(page["data"]["totals"]==whole["totals"] for page in rest["data"]["pages"]))
+        bounded=self.collect("usage.aggregate",dict(selectors,limit="100",max_bytes="4096"))
+        pages=bounded["data"]["pages"]
+        self.assertEqual([row for page in pages for row in page["data"]["items"]],whole["items"])
+        self.assertTrue(bounded["data"]["pagination"]["complete"])
+        self.assertTrue(any(int(page["meta"]["budget"]["omitted_items"])>0 for page in pages))
+        self.assertTrue(all(len(json.dumps(page,separators=(",",":"),ensure_ascii=False).encode())<=4096 for page in pages))
+        partial=self.collect("usage.aggregate",dict(selectors,limit="100",max_bytes="4096"),options=["--total-bytes","12000"],expected=1)
+        self.assertEqual(partial["data"]["pagination"]["stop"],"byte_limit")
+        self.assertLessEqual(len(json.dumps(partial,separators=(",",":"),ensure_ascii=False).encode()),12000)
+        next_request=partial["data"]["pagination"]["next_request"]
+        continued=self.collect("usage.aggregate",{k:v for k,v in next_request["params"].items() if k!="workspace_id"})
+        self.assertEqual([row for page in partial["data"]["pages"]+continued["data"]["pages"] for row in page["data"]["items"]],whole["items"])
+
+    def test_actor_current_capture_selectors_clock_resume_and_no_ack(self):
+        self.write("run.register",target_run_id="owned-run",objective="Ownership")
+        self.write("run.register",target_run_id="other-run",objective="Other")
+        for ticket in ["a","b","d"]:
+            self.write("ticket.start",ticket_id=ticket,run_id="owned-run",attempt_id="owned-"+ticket)
+        self.write("ticket.start",ticket_id="c",run_id="other-run",attempt_id="other")
+        self.write("reservation.acquire",run_id="owned-run",target_run_id="owned-run",requests=[{"reservation_id":"named-%02d"%i,"mode":"exclusive"} for i in range(25)])
+        self.write("message.send",message_id="unread",ticket_id="a",body="Unread remains unread",recipients=[{"kind":"actor","id":"a"}])
+        selectors={"actor_id":"a","run_id":"owned-run","project_id":"p","consumer_id":"observer","kinds":["claim","attempt","named_reservation","notification"]}
+        whole=self.read("actor.overview",**selectors,limit="100")["data"]
+        first=self.collect("actor.overview",dict(selectors,limit="100",max_bytes="4096"),options=["--page-limit","1"],expected=1)
+        metadata=first["data"]["pagination"]
+        self.assertEqual(metadata["consistency"],"current_revision_cursor")
+        continuation=metadata["next_request"]
+        for key,value in selectors.items():self.assertEqual(continuation["params"][key],value)
+        rest=self.collect("actor.overview",{k:v for k,v in continuation["params"].items() if k!="workspace_id"})
+        pages=first["data"]["pages"]+rest["data"]["pages"]
+        self.assertEqual([row for page in pages for row in page["data"]["items"]],whole["items"])
+        self.assertTrue(rest["data"]["pagination"]["complete"])
+        self.assertEqual(len({page["data"]["observed_unix_ms"] for page in pages}),1)
+        self.assertEqual(metadata["capture"]["observed_unix_ms"],pages[0]["data"]["observed_unix_ms"])
+        self.assertEqual({row["ticket_id"] for row in whole["items"] if row["kind"]=="claim"},{"a","b"})
+        self.assertTrue(any(int(page["meta"]["budget"]["omitted_items"])>0 for page in pages))
+        self.assertTrue(self.read("inbox.read",recipient={"kind":"actor","id":"a"},consumer_id="observer")["data"]["items"])
+
+    def test_current_cursor_conflicts_preserve_exact_errors_without_rescan(self):
+        self.seed_current_usage()
+        for method,params in [("usage.aggregate",{"group_by":"ticket","project_id":"p","actor_id":"a","run_id":"usage-run","limit":"1"}),("actor.overview",{"actor_id":"a","run_id":"usage-run","project_id":"p","kinds":["claim","attempt"],"limit":"1"})]:
+            with self.subTest(method=method):
+                proxy=Proxy(self.root/("proxy-"+method),self.socket,method,lambda:self.write("ticket.create",ticket_id="later-"+method.replace(".","-"),title="Capture changed"))
+                self.addCleanup(proxy.close)
+                result=self.collect(method,params,expected=1,address=proxy.path)
+                metadata=result["data"]["pagination"]
+                self.assertEqual(metadata["stop"],"error")
+                self.assertEqual(metadata["problem"]["kind"],"Conflict")
+                self.assertEqual(metadata["problem"],proxy.responses[1]["error"]["data"])
+                self.assertEqual(len(proxy.requests),2)
+                self.assertEqual(len(result["data"]["pages"]),1)
+                for key,value in params.items():self.assertEqual(proxy.requests[1]["params"][key],value)
+                self.assertIn("cursor",metadata["retry_request"]["params"])
+                if method=="usage.aggregate":self.assertEqual(proxy.requests[1]["params"]["at_revision"],result["data"]["pages"][0]["meta"]["workspace_revision"])
+
+    def test_actor_oversized_row_retains_current_retry_and_attention_stays_manual(self):
+        recipients=[{"kind":"actor","id":"a"}]+[{"kind":"actor","id":"recipient-%02d-"%i+"x"*70} for i in range(40)]
+        self.write("request.ask",request_id="large-request",title="Many actual recipients",body="Recorded question",resolver_id="a",recipients=recipients)
+        params={"actor_id":"a","kinds":["request"],"max_bytes":"4096"}
+        result=self.collect("actor.overview",params,expected=1)
+        metadata=result["data"]["pagination"]
+        self.assertEqual(metadata["stop"],"needs_larger_budget")
+        retry=metadata["retry_request"]
+        self.assertEqual(retry["params"]["cursor"],result["data"]["pages"][0]["data"]["cursor"])
+        resumed=self.collect("actor.overview",{**{k:v for k,v in retry["params"].items() if k!="workspace_id"},"max_bytes":"65536"})
+        self.assertTrue(resumed["data"]["pagination"]["complete"])
+        self.assertEqual(resumed["data"]["pagination"]["capture"],metadata["capture"])
+        self.assertEqual(len(resumed["data"]["pages"][0]["data"]["items"]),1)
+        rejected=self.cli("request",self.root/"absent-socket","attention.read","--workspace-id","w","--paginate",expected=1)
+        self.assertIn(b"declared read collections",rejected.stderr)
+        self.assertNotIn(b"cannot connect",rejected.stderr)
+
     def test_server_omissions_total_bound_and_offline_rejection(self):
         self.write("ticket.create",ticket_id="large",project_id="p",title="Large",description="x"*60000)
         result=self.collect("ticket.list",{"text":"Large","max_bytes":"4096"},expected=1)

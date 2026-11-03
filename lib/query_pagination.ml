@@ -30,6 +30,11 @@ module Family = struct
         ; metadata : string
         }
     | Cursor of { result_field : string }
+    | Current_cursor of
+        { result_field : string
+        ; guard : string option
+        ; observed_clock : bool
+        }
     | Inbox
     | History of
         { position : string
@@ -50,6 +55,16 @@ module Family = struct
       | "changes.read" | "activity.digest" | "ticket.resume" ->
         Some (Cursor { result_field = "cursor" })
       | "coordinator.overview" -> Some (Cursor { result_field = "next_cursor" })
+      | "usage.aggregate" ->
+        Some
+          (Current_cursor
+             { result_field = "cursor"
+             ; guard = Some "at_revision"
+             ; observed_clock = false
+             })
+      | "actor.overview" ->
+        Some
+          (Current_cursor { result_field = "cursor"; guard = None; observed_clock = true })
       | "session.list" ->
         Some (History { position = "offset"; result_field = "next_offset" })
       | "history.payload" ->
@@ -75,6 +90,7 @@ module Family = struct
     | Offset { metadata = "snapshot"; _ } -> "snapshot_guard"
     | Offset _ -> "current_revision_guard"
     | Cursor _ -> "opaque_captured_cursor"
+    | Current_cursor _ -> "current_revision_cursor"
     | Inbox -> "notification_through"
     | History _ -> "immutable_history_head"
   ;;
@@ -232,6 +248,16 @@ let capture family response =
   | Inbox -> Json.obj [ "through", Json.field data "through" ]
   | History _ ->
     Json.obj [ "head", Json.field (Json.field meta "history_capture") "head" ]
+  | Current_cursor { observed_clock; _ } ->
+    let revision = Json.field meta "workspace_revision" in
+    if observed_clock && not (equal_json revision (Json.field data "workspace_revision"))
+    then Json.fail Conflict "actor overview page and metadata captures differ";
+    Json.obj
+      ([ "workspace_revision", revision ]
+       @
+       if observed_clock
+       then [ "observed_unix_ms", Json.field data "observed_unix_ms" ]
+       else [])
   | Cursor _ ->
     if Option.is_some (Json.optional data "captured_now_unix_ms")
     then Json.obj [ "captured_now_unix_ms", Json.field data "captured_now_unix_ms" ]
@@ -257,7 +283,9 @@ let pin_request family request response =
     (match Json.field (Json.field meta "history_capture") "head" with
      | `Null -> request
      | head -> pin request "head" head)
-  | Cursor _ -> request
+  | Cursor _ | Current_cursor { guard = None; _ } -> request
+  | Current_cursor { guard = Some guard; _ } ->
+    pin request guard (Json.field meta "workspace_revision")
 ;;
 
 let next_request family request data =
@@ -296,7 +324,7 @@ let next_request family request data =
       then `Stopped Stop.No_progress
       else `Next (set request position next))
     else numeric position result_field
-  | Cursor { result_field } ->
+  | Cursor { result_field } | Current_cursor { result_field; _ } ->
     let has_more =
       if String.equal result_field "next_cursor"
       then not (equal_json (Json.field data result_field) `Null)
@@ -404,7 +432,7 @@ let collect t ~fetch =
     if not (fits initial)
     then Json.fail Invalid_argument "pagination request metadata exceeds total byte bound";
     (match t.family with
-     | Cursor _
+     | (Cursor _ | Current_cursor _)
        when Option.is_none (Json.optional (Protocol.Request.params t.request) "cursor") ->
        let response_bound =
          Option.value_map
@@ -421,7 +449,7 @@ let collect t ~fetch =
               "initial opaque-cursor pagination requires total bytes >=%d to retain its \
                first captured page; increase --total-bytes or reduce --max-bytes"
               minimum)
-     | Offset _ | Inbox | History _ | Cursor _ -> ());
+     | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ -> ());
     let rec loop request pages capture_id seen =
       match fetch request with
       | Error problem ->
@@ -455,10 +483,19 @@ let collect t ~fetch =
         let missing_fields =
           Option.exists budget ~f:(fun b -> optional_integer b "omitted_fields" > 0)
         in
+        let positioned_items =
+          Option.is_some (Json.optional (Api_response.data response) "offset")
+          ||
+          match t.family with
+          | Current_cursor _ ->
+            flag (Api_response.data response) "has_more"
+            && not (equal_json (Json.field (Api_response.data response) "cursor") `Null)
+          | Offset _ | Inbox | History _ | Cursor _ -> false
+        in
         let unsafe_item_omissions =
           Option.exists budget ~f:(fun b ->
             optional_integer b "omitted_items" > 0
-            && (Option.is_none (Json.optional (Api_response.data response) "offset")
+            && ((not positioned_items)
                 || (not (flag b "details_complete"))
                 || List.exists
                      (Json.list (Json.field b "details"))
@@ -491,7 +528,7 @@ let collect t ~fetch =
           | `Stopped stop ->
             let retry =
               match t.family with
-              | Cursor { result_field }
+              | (Cursor { result_field } | Current_cursor { result_field; _ })
                 when flag (Api_response.data response) "needs_larger_budget" ->
                 (* A terminal input cursor may have opened a new captured range.
                    The response cursor is bound before its unconsumed oversized row. *)
@@ -499,13 +536,13 @@ let collect t ~fetch =
                   (with_cursor
                      request
                      (Json.field (Api_response.data response) result_field))
-              | Cursor _
+              | (Cursor _ | Current_cursor _)
                 when Option.is_none
                        (Json.optional (Protocol.Request.params request) "cursor") ->
                 (* An initial request cannot recreate the captured position before
                    already-returned rows. Do not advertise a fresh read as exact retry. *)
                 None
-              | Offset _ | Inbox | History _ | Cursor _ -> Some request
+              | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ -> Some request
             in
             finish
               (retained_page :: pages)
@@ -526,7 +563,7 @@ let collect t ~fetch =
         if not (fits candidate)
         then (
           match t.family with
-          | Cursor _
+          | (Cursor _ | Current_cursor _)
             when List.is_empty pages
                  && Option.is_none
                       (Json.optional (Protocol.Request.params request) "cursor") ->
@@ -534,7 +571,7 @@ let collect t ~fetch =
               Blocked
               "first opaque captured page cannot fit total byte bound; no uncaptured \
                continuation was produced"
-          | Offset _ | Inbox | History _ | Cursor _ ->
+          | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ ->
             finish_bounded
               pages
               ~stop:Stop.Byte_limit

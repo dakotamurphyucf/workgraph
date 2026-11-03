@@ -176,3 +176,152 @@ let%expect_test "unsafe item budget omissions never silently advance" =
   assert (!calls = 1);
   [%expect {| {"complete":false,"pages":"1","stop":"server_item_omissions"} |}]
 ;;
+
+let current_request method_ =
+  Protocol.Request.create
+    ~id:"current"
+    ~method_
+    ~params:
+      (Json.obj
+         ([ "workspace_id", Json.string "w"; "max_bytes", Json.int 4096 ]
+          @
+          if String.equal method_ "actor.overview"
+          then [ "actor_id", Json.string "a" ]
+          else []))
+  |> unwrap
+;;
+
+let actor_page
+      ?(clock = 123L)
+      ?(omitted = false)
+      ?(omission_path = "/data/items")
+      ~next
+      ()
+  =
+  let data =
+    Json.obj
+      [ "workspace_revision", Json.int 7
+      ; "observed_unix_ms", Json.int64 clock
+      ; "items", `Array []
+      ; "cursor", Option.value_map next ~default:`Null ~f:Json.string
+      ; ("has_more", if Option.is_some next then `True else `False)
+      ; "needs_larger_budget", `False
+      ; "required_bytes", `Null
+      ]
+  in
+  let budget =
+    if omitted
+    then
+      [ ( "budget"
+        , Json.obj
+            [ "max_bytes", Json.int 4096
+            ; "returned_bytes", Json.int 200
+            ; "truncated", `True
+            ; "omitted_fields", Json.int 0
+            ; "omitted_items", Json.int 1
+            ; ( "details"
+              , `Array
+                  [ Json.obj
+                      [ "path", Json.string omission_path
+                      ; "kind", Json.string "items"
+                      ; "omitted", Json.int 1
+                      ]
+                  ] )
+            ; "details_complete", `True
+            ] )
+      ]
+    else []
+  in
+  Json.obj
+    [ "data", data; "meta", Json.obj ([ "workspace_revision", Json.int 7 ] @ budget) ]
+;;
+
+let current_collect ?(limits = Query_pagination.Limits.default) method_ fetch =
+  Query_pagination.create (current_request method_) ~limits
+  |> unwrap
+  |> fun plan -> Query_pagination.collect plan ~fetch
+;;
+
+let%expect_test "current-view capture rejects clock drift and repeated cursor positions" =
+  let calls = ref 0 in
+  summary
+    (current_collect "actor.overview" (fun _ ->
+       incr calls;
+       Ok (actor_page ~next:(Some "same-position") ())));
+  assert (!calls = 2);
+  let calls = ref 0 in
+  summary
+    (current_collect "actor.overview" (fun _ ->
+       incr calls;
+       Ok (actor_page ~clock:(if !calls = 1 then 123L else 124L) ~next:(Some "next") ())));
+  [%expect
+    {|
+    {"complete":false,"pages":"2","stop":"no_progress"}
+    Conflict
+    pagination capture changed; traversal was not restarted
+  |}]
+;;
+
+let%expect_test "current whole-row omission needs an exact unconsumed cursor" =
+  let calls = ref 0 in
+  summary
+    (current_collect "actor.overview" (fun _ ->
+       incr calls;
+       Ok
+         (actor_page
+            ~omitted:(!calls = 1)
+            ~next:(if !calls = 1 then Some "position" else None)
+            ())));
+  summary
+    (current_collect "actor.overview" (fun _ ->
+       Ok (actor_page ~omitted:true ~next:None ())));
+  summary
+    (current_collect "actor.overview" (fun _ ->
+       Ok
+         (actor_page
+            ~omitted:true
+            ~omission_path:"/data/readiness/items"
+            ~next:(Some "position")
+            ())));
+  [%expect
+    {|
+    {"complete":true,"pages":"2","stop":"complete"}
+    {"complete":false,"pages":"1","stop":"server_item_omissions"}
+    {"complete":false,"pages":"1","stop":"server_item_omissions"}
+  |}]
+;;
+
+let%expect_test "new current cursors retain cancellation and prefetch bounds" =
+  List.iter [ "usage.aggregate"; "actor.overview" ] ~f:(fun method_ ->
+    assert (List.mem (Query_pagination.supported_methods ()) method_ ~equal:String.equal);
+    (try
+       ignore
+         (current_collect method_ (fun _ ->
+            raise (Eio.Cancel.Cancelled (Failure "cancel")))
+          : (_, _) Result.t)
+     with
+     | Eio.Cancel.Cancelled _ -> print_endline (method_ ^ " cancellation propagated"));
+    let called = ref false in
+    let limits = Query_pagination.Limits.create ~max_pages:10 ~max_bytes:4096 |> unwrap in
+    (match
+       current_collect ~limits method_ (fun _ ->
+         called := true;
+         assert false)
+     with
+     | Error problem -> print_s [%sexp (problem.kind : Problem.kind)]
+     | Ok _ -> print_endline "incorrectly fetched");
+    assert (not !called));
+  assert (
+    not
+      (List.mem
+         (Query_pagination.supported_methods ())
+         "attention.read"
+         ~equal:String.equal));
+  [%expect
+    {|
+    usage.aggregate cancellation propagated
+    Invalid_argument
+    actor.overview cancellation propagated
+    Invalid_argument
+  |}]
+;;
