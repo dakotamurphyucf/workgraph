@@ -91,6 +91,10 @@ module Usage = struct
     ; tokens : int64
     ; elapsed_ms : int64
     ; overflow : bool
+    ; metrics : Usage_record.Metric_total.t list
+    ; metric_series : int
+    ; omitted_metric_series : int
+    ; metric_overflow : bool
     }
 
   let codec =
@@ -99,38 +103,99 @@ module Usage = struct
          (F.required "observations" count
           ++ F.required "tokens" quantity
           ++ F.required "elapsed_ms" quantity
-          ++ F.required "overflow" Api_codec.boolean)
-         ~decode:(fun (((observations, tokens), elapsed_ms), overflow) ->
-           { observations; tokens; elapsed_ms; overflow })
-         ~encode:(fun t -> ((t.observations, t.tokens), t.elapsed_ms), t.overflow))
+          ++ F.required "overflow" Api_codec.boolean
+          ++ F.required
+               "metrics"
+               (Api_codec.list Usage_record.Metric_total.codec ~max_items:16)
+          ++ F.required "metric_series" count
+          ++ F.required "omitted_metric_series" count
+          ++ F.required "metric_overflow" Api_codec.boolean)
+         ~decode:
+           (fun
+             ( ( ( ((((observations, tokens), elapsed_ms), overflow), metrics)
+                 , metric_series )
+               , omitted_metric_series )
+             , metric_overflow ) ->
+           { observations
+           ; tokens
+           ; elapsed_ms
+           ; overflow
+           ; metrics
+           ; metric_series
+           ; omitted_metric_series
+           ; metric_overflow
+           })
+         ~encode:(fun t ->
+           ( ( ( ((((t.observations, t.tokens), t.elapsed_ms), t.overflow), t.metrics)
+               , t.metric_series )
+             , t.omitted_metric_series )
+           , t.metric_overflow )))
     |> fun c ->
     checked c (fun t ->
       require
         (t.observations > 0
-         || (Int64.equal t.tokens 0L && Int64.equal t.elapsed_ms 0L && not t.overflow))
+         || (Int64.equal t.tokens 0L
+             && Int64.equal t.elapsed_ms 0L
+             && (not t.overflow)
+             && t.metric_series = 0))
         "Nonzero usage without observations";
       require
         ((not t.overflow)
          || Int64.equal t.tokens Int64.max_value
          || Int64.equal t.elapsed_ms Int64.max_value)
-        "Overflow must saturate a reported quantity")
+        "Overflow must saturate a reported quantity";
+      require
+        (t.metric_series = List.length t.metrics + t.omitted_metric_series)
+        "Metric series count mismatch";
+      require
+        (List.is_sorted_strictly t.metrics ~compare:(fun a b ->
+           match String.compare a.Usage_record.Metric_total.name b.name with
+           | 0 -> String.compare a.unit_ b.unit_
+           | n -> n))
+        "Metric preview must contain distinct ordered series";
+      require
+        (List.for_all t.metrics ~f:(fun m ->
+           m.Usage_record.Metric_total.samples <= t.observations))
+        "Metric samples exceed distinct sources";
+      require
+        ((not t.metric_overflow) || t.observations > 0)
+        "Metric overflow without sources";
+      require
+        (t.metric_overflow
+         || not (List.exists t.metrics ~f:(fun m -> m.Usage_record.Metric_total.overflow))
+        )
+        "Undisclosed metric overflow";
+      require
+        (t.omitted_metric_series > 0
+         || Bool.equal
+              t.metric_overflow
+              (List.exists t.metrics ~f:(fun m -> m.Usage_record.Metric_total.overflow)))
+        "Metric overflow mismatch")
   ;;
 
   let of_records records =
-    List.fold
-      records
-      ~init:{ observations = 0; tokens = 0L; elapsed_ms = 0L; overflow = false }
-      ~f:(fun acc r ->
-        (match Usage_record.validate r with
-         | Ok () -> ()
-         | Error error -> raise (Json.Decode_error error));
-        let tokens, tokens_overflow = add acc.tokens r.Usage_record.tokens in
-        let elapsed_ms, elapsed_overflow = add acc.elapsed_ms r.elapsed_ms in
-        { observations = acc.observations + 1
-        ; tokens
-        ; elapsed_ms
-        ; overflow = acc.overflow || tokens_overflow || elapsed_overflow
-        })
+    let unwrap = function
+      | Ok x -> x
+      | Error e -> raise (Json.Decode_error e)
+    in
+    let records = Usage_record.deduplicate records |> unwrap in
+    let metrics = Usage_record.metric_totals records |> unwrap in
+    let tokens, elapsed_ms, overflow =
+      List.fold records ~init:(0L, 0L, false) ~f:(fun (tokens, elapsed_ms, overflow) r ->
+        let tokens, a = add tokens r.Usage_record.tokens in
+        let elapsed_ms, b = add elapsed_ms r.elapsed_ms in
+        tokens, elapsed_ms, overflow || a || b)
+    in
+    { observations = List.length records
+    ; tokens
+    ; elapsed_ms
+    ; overflow
+    ; metrics = List.take metrics 16
+    ; metric_series = List.length metrics
+    ; omitted_metric_series = Int.max 0 (List.length metrics - 16)
+    ; metric_overflow =
+        List.exists metrics ~f:(fun m -> m.Usage_record.Metric_total.overflow)
+    }
   ;;
 end
 
@@ -383,16 +448,28 @@ let method_ =
 let response t ~max_bytes =
   Json.decode (fun () ->
     require (max_bytes >= 4096 && max_bytes <= 1_048_576) "Invalid metrics byte budget";
-    let data =
-      match Api_codec.encode codec t with
-      | Ok x -> x
-      | Error e -> raise (Json.Decode_error e)
+    let rec fit count =
+      let usage = t.planning.reported_usage in
+      let preview =
+        { usage with
+          Usage.metrics = List.take usage.metrics count
+        ; omitted_metric_series = usage.metric_series - count
+        }
+      in
+      let value = { t with planning = { t.planning with reported_usage = preview } } in
+      let data =
+        match Api_codec.encode codec value with
+        | Ok x -> x
+        | Error e -> raise (Json.Decode_error e)
+      in
+      let result =
+        Json.obj [ "workspace_revision", Json.int t.planning.revision; "data", data ]
+      in
+      if Api_response.encoded_size Planning_read result <= max_bytes
+      then result
+      else if count > 0
+      then fit (count - 1)
+      else Json.fail Invalid_argument "Metrics cannot fit; increase max_bytes"
     in
-    let result =
-      Json.obj [ "workspace_revision", Json.int t.planning.revision; "data", data ]
-    in
-    require
-      (Api_response.encoded_size Planning_read result <= max_bytes)
-      "Metrics cannot fit; increase max_bytes";
-    result)
+    fit (List.length t.planning.reported_usage.metrics))
 ;;

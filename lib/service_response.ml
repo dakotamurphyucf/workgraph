@@ -51,6 +51,7 @@ let layout method_ =
     | "attention.wait"
     | "actor.overview"
     | "workspace.get"
+    | "usage.aggregate"
     | "workspace.metrics"
     | "ticket.resume"
     | "activity.digest"

@@ -150,7 +150,7 @@ let%expect_test "usage identity is immutable and durable schema is distinct and 
     Idempotency_conflict
     Invalid_argument
     true
-    {"items":[{"actor_id":"worker","elapsed_ms":"7","provenance":"$literal external report","scope":{"kind":"run","run_id":"run"},"timestamp":"now","tokens":"4","usage_id":"usage"}],"next_offset":null,"omitted":"0"}
+    {"items":[{"actor_id":"worker","elapsed_ms":"7","metrics":[],"provenance":"$literal external report","scope":{"kind":"run","run_id":"run"},"timestamp":"now","tokens":"4","usage_id":"usage"}],"next_offset":null,"omitted":"0"}
     |}]
 ;;
 

@@ -67,11 +67,67 @@ class MetricsTest(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         call('workspace.metrics', at_revision='0')
                     self.assertEqual(metrics()[1], planning)
+                    call('run.register', actor_id='agent', mutation_id='run', target_run_id='run', objective='Work')
+                    call('project.create', actor_id='agent', mutation_id='project', project_id='project', title='Project')
+                    call('ticket.move', actor_id='agent', mutation_id='assign', ticket_id='task', expected_revision='1', project_id='project', milestone_id=None, parent_ticket_id=None)
+                    claim = call('ticket.claim', actor_id='agent', run_id='run', mutation_id='claim', ticket_id='task')
+                    call('attempt.start', actor_id='agent', run_id='run', mutation_id='attempt', attempt_id='attempt', ticket_id='task', target_run_id='run', token=claim['data']['token'])
+                    samples = [{'name': 'spend', 'unit': 'microUSD', 'value': '9'}, {'name': 'calls', 'unit': 'count', 'value': '2'}]
+                    usage = dict(actor_id='agent', usage_id='run-sample', scope={'kind': 'run', 'run_id': 'run'}, reported_actor_id='agent', tokens='3', elapsed_ms='5', metrics=samples, provenance='caller', timestamp='2026-11-03T00:00:00Z')
+                    reported = call('usage.report', mutation_id='report', **usage)
+                    self.assertTrue(call('usage.report', mutation_id='report-again', **{**usage, 'metrics': list(reversed(samples))})['data']['duplicate'])
+                    with self.assertRaises(RuntimeError):
+                        call('usage.report', mutation_id='changed-report', **{**usage, 'metrics': [dict(samples[0], value='10')]})
+                    attempt_usage = {**usage, 'usage_id': 'attempt-sample', 'scope': {'kind': 'attempt', 'attempt_id': 'attempt'}, 'tokens': '7', 'metrics': [{'name': 'spend', 'unit': 'centEUR', 'value': '4'}]}
+                    call('usage.report', mutation_id='attempt-report', **attempt_usage)
+                    aggregate = call('usage.aggregate', group_by='project')['data']
+                    self.assertEqual(aggregate['totals']['tokens'], '10')
+                    self.assertEqual(aggregate['totals']['observations'], '2')
+                    self.assertEqual(aggregate['totals']['metric_series'], '3')
+                    self.assertTrue(aggregate['unassigned_in_totals'])
+                    self.assertEqual(aggregate['unassigned_run_usage']['tokens'], '3')
+                    self.assertEqual({r['group']['kind'] for r in aggregate['items']}, {'project', 'unassigned'})
+                    project = call('usage.aggregate', project_id='project')['data']
+                    self.assertEqual(project['totals']['tokens'], '7')
+                    self.assertFalse(project['unassigned_in_totals'])
+                    self.assertEqual(project['unassigned_scope'], 'run_and_actor_filters')
+                    self.assertEqual(project['unassigned_run_usage']['tokens'], '3')
+                    self.assertEqual(call('usage.aggregate', attempt_id='attempt')['data']['totals']['tokens'], '7')
+                    self.assertEqual(call('usage.aggregate', run_id='run', actor_id='agent')['data']['totals']['tokens'], '10')
+                    self.assertEqual(call('usage.aggregate', actor_id='other')['data']['totals']['observations'], '0')
+                    self.assertEqual(call('usage.aggregate', run_id='other', attempt_id='attempt')['data']['totals']['observations'], '0')
+                    for group_by in ['workspace', 'project', 'milestone', 'ticket', 'run', 'attempt']:
+                        whole = call('usage.aggregate', group_by=group_by)['data']
+                        rows, cursor = [], None
+                        while True:
+                            page = call('usage.aggregate', group_by=group_by, limit='1', max_bytes='4096', **({'cursor': cursor} if cursor else {}))
+                            self.assertLessEqual(len(adapter.canonical(page).encode()), 4096)
+                            rows.extend(page['data']['items'])
+                            cursor = page['data']['cursor']
+                            if cursor is None:
+                                break
+                        self.assertEqual(rows, whole['items'])
+                    stale = call('usage.aggregate', group_by='ticket', limit='1')['data']['cursor']
+                    with self.assertRaises(RuntimeError):
+                        call('usage.aggregate', group_by='run', cursor=stale)
+                    call('ticket.move', actor_id='agent', mutation_id='unassign', ticket_id='task', expected_revision='3', project_id=None, milestone_id=None, parent_ticket_id=None)
+                    with self.assertRaises(RuntimeError):
+                        call('usage.aggregate', group_by='ticket', cursor=stale)
+                    self.assertEqual(call('usage.aggregate', project_id='project')['data']['totals']['observations'], '0')
+                    # Workspace preview is bounded even across many independently named sources.
+                    for batch in range(2):
+                        call('usage.report', mutation_id='many-'+str(batch), **{**usage, 'usage_id': 'many-'+str(batch), 'tokens': '0', 'metrics': [{'name': 'm%02d' % (batch*10+i), 'unit': 'count', 'value': '1'} for i in range(10)]})
+                    preview = call('workspace.metrics')['data']['reported_usage']
+                    self.assertEqual(len(preview['metrics']), 16)
+                    self.assertEqual(preview['metric_series'], '23')
+                    self.assertEqual(preview['omitted_metric_series'], '7')
+                    small_preview = metrics()[0]['reported_usage']
+                    self.assertEqual(int(small_preview['metric_series']), len(small_preview['metrics']) + int(small_preview['omitted_metric_series']))
                     history_args = dict(actor_id='agent', mutation_id='session', session_id='session', title='Session')
                     call('session.create', **history_args)
                     call('session.create', **history_args)
                     with_history, history = metrics()
-                    self.assertEqual(with_history['planning_commits'], '1')
+                    self.assertEqual(with_history['planning_commits'], metrics()[0]['planning_commits'])
                     self.assertEqual(with_history['history_commits'], '1')
                     self.assertEqual(len(with_history['history_head']), 64)
                     self.assertGreater(history['history_batch_bytes'], 0)
@@ -79,13 +135,16 @@ class MetricsTest(unittest.TestCase):
                     _, staged = metrics()
                     self.assertEqual(staged['active_uploads'], 1)
                     self.assertEqual(staged['reserved_upload_bytes'], 16)
-                    self.assertEqual(staged['planning_commits'], 1)
+                    self.assertEqual(staged['planning_commits'], history['planning_commits'])
                     client.call('daemon.shutdown', {})
                     self.assertEqual(daemon.wait(timeout=10), 0)
                     start()
                     restarted, durable = metrics()
                     self.assertEqual(restarted['history_head'], with_history['history_head'])
                     self.assertEqual(durable, history)  # only private upload staging resets
+                    self.assertEqual(call('usage.report', mutation_id='report', **usage), reported)
+                    self.assertTrue(call('usage.report', mutation_id='retry-after-restart', **usage)['data']['duplicate'])
+                    self.assertEqual(call('usage.aggregate')['data']['totals']['observations'], '4')
                     client.call('daemon.shutdown', {})
                     self.assertEqual(daemon.wait(timeout=10), 0)
                 finally:

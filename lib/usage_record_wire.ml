@@ -84,14 +84,25 @@ let record =
         <*> req "actor_id" (id Id.Actor.of_string Id.Actor.to_string)
         <*> req "tokens" (Api_codec.decimal64 ~max:Int64.max_value)
         <*> req "elapsed_ms" (Api_codec.decimal64 ~max:Int64.max_value)
+        <*> req "metrics" (Api_codec.list Usage_record.Metric.codec ~max_items:16)
         <*> req "provenance" (nonblank 4096)
         <*> req "timestamp" (nonblank 128))
        ~decode:
          (fun
-           ((((((id, scope), actor), tokens), elapsed_ms), provenance), timestamp) ->
-         { Usage_record.id; scope; actor; tokens; elapsed_ms; provenance; timestamp })
+           ( ((((((id, scope), actor), tokens), elapsed_ms), metrics), provenance)
+           , timestamp ) ->
+         { Usage_record.id
+         ; scope
+         ; actor
+         ; tokens
+         ; elapsed_ms
+         ; metrics
+         ; provenance
+         ; timestamp
+         })
        ~encode:(fun r ->
-         ( ( ((((r.Usage_record.id, r.scope), r.actor), r.tokens), r.elapsed_ms)
+         ( ( ( ((((r.Usage_record.id, r.scope), r.actor), r.tokens), r.elapsed_ms)
+             , r.metrics )
            , r.provenance )
          , r.timestamp )))
     ~decode:(fun r -> Result.map (Usage_record.validate r) ~f:(fun () -> r))

@@ -801,7 +801,34 @@ let query_with_texts ?now_unix_ms t ~resource_texts ~method_ ~params =
 ;;
 
 let query ?now_unix_ms t ~method_ ~params =
-  if String.equal method_ "attention.read" || String.equal method_ "actor.overview"
+  if String.equal method_ "usage.aggregate"
+  then
+    Json.decode (fun () ->
+      let request =
+        Api_codec.decode Usage_rollup_api.Request.codec params |> unwrap_domain
+      in
+      Option.iter (Usage_rollup_api.Request.project request) ~f:(fun id ->
+        validate_target t (Entity_ref.Project id));
+      Option.iter (Usage_rollup_api.Request.milestone request) ~f:(fun id ->
+        validate_target t (Entity_ref.Milestone id));
+      Option.iter (Usage_rollup_api.Request.ticket request) ~f:(fun id ->
+        validate_target t (Entity_ref.Ticket id));
+      Usage_rollup.read
+        ~workspace:t.workspace
+        ~revision:t.revision
+        ~activity:t.activity
+        ~reports:(Agent_run_policy.usage_records t.policies)
+        ~runs:t.agent_runs
+        ~tickets:
+          (Map.data t.tickets
+           |> List.map ~f:(fun ticket ->
+             { Usage_rollup.Ticket.id = ticket.id
+             ; project = ticket.project
+             ; milestone = ticket.milestone
+             }))
+        ~params
+      |> unwrap_domain)
+  else if String.equal method_ "attention.read" || String.equal method_ "actor.overview"
   then (
     match now_unix_ms with
     | None ->

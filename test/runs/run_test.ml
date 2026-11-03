@@ -574,6 +574,7 @@ let%expect_test
     ; actor
     ; tokens = 10L
     ; elapsed_ms = 100L
+    ; metrics = []
     ; provenance = "runner estimate"
     ; timestamp = "2026-10-07"
     }

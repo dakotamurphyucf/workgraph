@@ -22,12 +22,17 @@ module Usage : sig
     ; tokens : int64
     ; elapsed_ms : int64
     ; overflow : bool
+    ; metrics : Usage_record.Metric_total.t list
+    ; metric_series : int
+    ; omitted_metric_series : int
+    ; metric_overflow : bool
     }
 
   val codec : t Api_codec.t
 
-  (** Add validated disjoint reports. Overflow saturates and is disclosed.
-      Invalid records raise [Json.Decode_error]; callers retain report identities. *)
+  (** Immutable source IDs deduplicate. Conflicting IDs or invalid reports raise
+      [Json.Decode_error]. Named series use exact (name,unit) keys; the preview is
+      bounded to 16 series, with the full count and separate saturation flag. *)
   val of_records : Usage_record.t list -> t
 end
 

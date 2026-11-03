@@ -486,6 +486,7 @@ let%expect_test
          ; actor
          ; tokens = 1L
          ; elapsed_ms = 1L
+         ; metrics = []
          ; provenance = "runner estimate"
          ; timestamp = "now"
          })
@@ -834,6 +835,7 @@ let%expect_test "policy attention uses the actual saturating reported accumulato
     ; actor
     ; tokens
     ; elapsed_ms = 0L
+    ; metrics = []
     ; provenance = "external"
     ; timestamp = "now"
     }

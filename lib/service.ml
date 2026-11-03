@@ -1246,7 +1246,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
           |> Disk.unwrap
         | method_
           when List.mem
-                 ([ "attention.read"; "actor.overview" ]
+                 ([ "attention.read"; "actor.overview"; "usage.aggregate" ]
                   @ Communication.query_methods
                   @ Agent_run.query_methods
                   @ Evidence.query_methods

@@ -214,17 +214,22 @@ let entries =
        <*> req "reported_actor_id" (Api_codec.reference actor)
        <*> req "tokens" decimal64
        <*> req "elapsed_ms" decimal64
+       <*> opt "metrics" (Api_codec.list Usage_record.Metric.codec ~max_items:16)
        <*> req "provenance" (nonblank 4096)
        <*> req "timestamp" (nonblank 128))
       ~decode:
         (fun
-          ((((((id, scope), actor), tokens), elapsed_ms), provenance), timestamp) ->
+          ( ((((((id, scope), actor), tokens), elapsed_ms), metrics), provenance)
+          , timestamp ) ->
         let r =
           { Usage_record.id
           ; scope = parse Usage_record_wire.scope scope
           ; actor = literal actor
           ; tokens
           ; elapsed_ms
+          ; metrics =
+              List.sort (Option.value metrics ~default:[]) ~compare:(fun a b ->
+                String.compare a.Usage_record.Metric.name b.name)
           ; provenance
           ; timestamp
           }
@@ -233,9 +238,11 @@ let entries =
         Command.Usage_report r)
       ~encode:(function
         | Usage_report r ->
-          ( ( ( ( ((r.id, json Usage_record_wire.scope r.scope), Api_codec.Literal r.actor)
-                , r.tokens )
-              , r.elapsed_ms )
+          ( ( ( ( ( ( (r.id, json Usage_record_wire.scope r.scope)
+                    , Api_codec.Literal r.actor )
+                  , r.tokens )
+                , r.elapsed_ms )
+              , Some r.metrics )
             , r.provenance )
           , r.timestamp )
         | _ -> Json.fail Invalid_argument "usage report expected")

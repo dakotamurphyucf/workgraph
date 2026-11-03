@@ -95,7 +95,7 @@ class PolicySocketTest(unittest.TestCase):
                     reject("usage.report", "Conflict", actor_id="other", mutation_id="wrong-reporter", **usage)
                     reject("usage.report", "Idempotency_conflict", actor_id="worker", mutation_id="changed-usage", **{**usage, "tokens": "6"})
                     records = ok("usage.list")["data"]["items"]
-                    self.assertEqual(records[0], {"actor_id": "worker", **{k: v for k, v in usage.items() if k != "reported_actor_id"}})
+                    self.assertEqual(records[0], {"actor_id": "worker", "metrics": [], **{k: v for k, v in usage.items() if k != "reported_actor_id"}})
                     attention = ok("run.budget_attention")["data"]["items"]
                     self.assertEqual(attention[0]["run_id"], "run")
                     self.assertEqual(attention[0]["reported"], "5")
