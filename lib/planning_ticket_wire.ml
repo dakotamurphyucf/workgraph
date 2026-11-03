@@ -678,6 +678,10 @@ module Readiness = struct
           { details : Ownership.t
           ; revision : int
           }
+      | Inherited_prerequisite of
+          { ancestor : Id.Ticket.t
+          ; prerequisite : Id.Ticket.t
+          }
       | Prerequisite of Id.Ticket.t
       | Coordination of Agent_run.Start_blocker.t
       | Observation_time_required of Path_scope.t
@@ -731,6 +735,18 @@ module Readiness = struct
         ~decode:(fun (details, revision) -> Claimed { details; revision })
         ~encode:(function
           | Claimed { details; revision } -> details, revision
+          | _ -> wrong ())
+    ;;
+
+    let inherited_prerequisite =
+      branch
+        "inherited_prerequisite"
+        (Fields.required "ancestor_ticket_id" Coordination_wire.ticket
+         ++ Fields.required "prerequisite_ticket_id" Coordination_wire.ticket)
+        ~decode:(fun (ancestor, prerequisite) ->
+          Inherited_prerequisite { ancestor; prerequisite })
+        ~encode:(function
+          | Inherited_prerequisite { ancestor; prerequisite } -> ancestor, prerequisite
           | _ -> wrong ())
     ;;
 
@@ -846,6 +862,7 @@ module Readiness = struct
           ; "status", status
           ; "hold", hold
           ; "claimed", claimed
+          ; "inherited_prerequisite", inherited_prerequisite
           ; "prerequisite", prerequisite
           ; "run_required", run_required
           ; "path_conflict", path_conflict
@@ -860,6 +877,7 @@ module Readiness = struct
           | Status _ -> "status"
           | Hold _ -> "hold"
           | Claimed _ -> "claimed"
+          | Inherited_prerequisite _ -> "inherited_prerequisite"
           | Prerequisite _ -> "prerequisite"
           | Observation_time_required _ -> "observation_time_required"
           | Allocation _ -> "allocation"

@@ -294,6 +294,15 @@ let resource_request codec =
 
 let entries =
   [ Entry
+      { name = "ticket.hierarchy.put"
+      ; request = Hierarchy_api.Put.codec
+      ; command = (fun command -> Hierarchy_put command)
+      ; project =
+          (function
+            | Hierarchy_put command -> Some command
+            | _ -> None)
+      }
+  ; Entry
       { name = "project.finish"
       ; request = Project_completion.Command.codec
       ; command = (fun command -> Project_finish command)

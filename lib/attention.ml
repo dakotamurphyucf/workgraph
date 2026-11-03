@@ -46,65 +46,136 @@ module Routing = struct
       { id : Id.Ticket.t
       ; project : Id.Project.t option
       ; milestone : Id.Milestone.t option
+      ; parent : Id.Ticket.t option
       ; prerequisites : Id.Ticket.t list
+      ; waived : Id.Ticket.t list
       }
   end
 
   type t =
     { tickets : Ticket.t Id.Ticket.Map.t
+    ; hierarchy : Hierarchy_policy.t Id.Ticket.Map.t
     ; pools : string list Id.Ticket.Map.t
     ; paths : Ticket_paths.Declaration.t list Id.Ticket.Map.t
     }
 
-  let capture events =
-    List.fold
-      events
-      ~init:
-        { tickets = Id.Ticket.Map.empty
-        ; pools = Id.Ticket.Map.empty
-        ; paths = Id.Ticket.Map.empty
+  let empty =
+    { tickets = Id.Ticket.Map.empty
+    ; hierarchy = Id.Ticket.Map.empty
+    ; pools = Id.Ticket.Map.empty
+    ; paths = Id.Ticket.Map.empty
+    }
+  ;;
+
+  let apply routing = function
+    | Event.Ticket_put ticket ->
+      let head =
+        { Ticket.id = ticket.id
+        ; project = ticket.project
+        ; milestone = ticket.milestone
+        ; parent = ticket.parent
+        ; prerequisites = ticket.prerequisites
+        ; waived =
+            List.map ticket.waivers ~f:(fun waiver ->
+              waiver.Planning_state.Waiver.prerequisite)
         }
-      ~f:(fun routing (_, changes) ->
-        List.fold changes ~init:routing ~f:(fun routing -> function
-          | Event.Ticket_put ticket ->
-            let head =
-              { Ticket.id = ticket.id
-              ; project = ticket.project
-              ; milestone = ticket.milestone
-              ; prerequisites = ticket.prerequisites
-              }
-            in
-            { routing with tickets = Map.set routing.tickets ~key:ticket.id ~data:head }
-          | Agent_run_changed { update = Ticket_policy_put policy; _ } ->
-            { routing with
-              pools = Map.set routing.pools ~key:policy.ticket ~data:policy.pools
-            }
-          | Agent_run_changed { update = Ticket_paths_put paths; _ } ->
-            { routing with
-              paths =
-                Map.set
-                  routing.paths
-                  ~key:paths.ticket_id
-                  ~data:(if paths.require_reservations then paths.declarations else [])
-            }
-          | Facts_changed _
-          | Communication_changed _
-          | Agent_run_changed _
-          | Amendment_unchanged _
-          | Amendment_changed _
-          | Evidence_changed _
-          | Policy_changed _
-          | Policy_unchanged _
-          | Allocation_empty _
-          | Settings_changed _
-          | Workspace_updated _
-          | Project_put _
-          | Milestone_put _
-          | Ticket_recovered _
-          | Signal_receipt _
-          | Comment_changed _
-          | Handoff_put _
-          | Resource_changed _ -> routing))
+      in
+      { routing with tickets = Map.set routing.tickets ~key:ticket.id ~data:head }
+    | Hierarchy_policy_put definition ->
+      { routing with
+        hierarchy =
+          Map.set
+            routing.hierarchy
+            ~key:(Hierarchy_policy.Definition.ticket definition)
+            ~data:(Hierarchy_policy.Definition.policy definition)
+      }
+    | Agent_run_changed { update = Ticket_policy_put policy; _ } ->
+      { routing with pools = Map.set routing.pools ~key:policy.ticket ~data:policy.pools }
+    | Agent_run_changed { update = Ticket_paths_put paths; _ } ->
+      { routing with
+        paths =
+          Map.set
+            routing.paths
+            ~key:paths.ticket_id
+            ~data:(if paths.require_reservations then paths.declarations else [])
+      }
+    | Facts_changed _
+    | Communication_changed _
+    | Agent_run_changed _
+    | Amendment_unchanged _
+    | Amendment_changed _
+    | Evidence_changed _
+    | Policy_changed _
+    | Policy_unchanged _
+    | Allocation_empty _
+    | Settings_changed _
+    | Workspace_updated _
+    | Project_put _
+    | Milestone_put _
+    | Ticket_recovered _
+    | Signal_receipt _
+    | Comment_changed _
+    | Handoff_put _
+    | Resource_changed _ -> routing
+  ;;
+
+  let capture events =
+    List.fold events ~init:empty ~f:(fun routing (_, changes) ->
+      List.fold changes ~init:routing ~f:apply)
+  ;;
+
+  let policy t ticket =
+    Option.value (Map.find t.hierarchy ticket) ~default:Hierarchy_policy.default
+  ;;
+
+  let inherited t ticket =
+    let rec loop visited conditions = function
+      | None ->
+        List.sort conditions ~compare:(fun (a, p, _) (b, q, _) ->
+          match Id.Ticket.compare a b with
+          | 0 -> Id.Ticket.compare p q
+          | order -> order)
+      | Some parent when Set.mem visited parent -> conditions
+      | Some parent ->
+        (match Map.find t.tickets parent with
+         | None -> conditions
+         | Some owner ->
+           let conditions =
+             if
+               Hierarchy_policy.Descendant_prerequisites.equal
+                 (policy t parent).descendant_prerequisites
+                 Inherit
+             then
+               List.fold
+                 owner.prerequisites
+                 ~init:conditions
+                 ~f:(fun conditions prerequisite ->
+                   ( parent
+                   , prerequisite
+                   , List.mem owner.waived prerequisite ~equal:Id.Ticket.equal )
+                   :: conditions)
+             else conditions
+           in
+           loop (Set.add visited parent) conditions owner.parent)
+    in
+    match Map.find t.tickets ticket with
+    | None -> []
+    | Some node -> loop (Id.Ticket.Set.singleton ticket) [] node.parent
+  ;;
+
+  let prerequisites t ticket =
+    Option.value_map (Map.find t.tickets ticket) ~default:[] ~f:(fun node ->
+      node.Ticket.prerequisites)
+    @ List.map (inherited t ticket) ~f:(fun (_, prerequisite, _) -> prerequisite)
+    |> List.dedup_and_sort ~compare:Id.Ticket.compare
+  ;;
+
+  let conditions_equal left right =
+    List.equal
+      (fun (a, p, w) (b, q, x) ->
+         Id.Ticket.equal a b && Id.Ticket.equal p q && Bool.equal w x)
+      left
+      right
   ;;
 end
 
@@ -208,6 +279,7 @@ let read t ~now_unix_ms ~params =
        membership/dependency IDs, pool names and required path declarations;
        current eligibility still comes from the separately labelled live capture. *)
     let routing = Routing.capture events in
+    let routing_at_event = ref Routing.empty in
     let tickets = ref Id.Ticket.Map.empty in
     let milestones = ref Id.Milestone.Map.empty in
     let threads = ref Communication_id.Thread.Map.empty in
@@ -230,7 +302,10 @@ let read t ~now_unix_ms ~params =
         List.exists links ~f:(function
           | Entity_ref.Project id -> Id.Project.equal id project
           | Ticket id -> Option.exists (ticket_project id) ~f:(Id.Project.equal project)
-          | Workspace | Milestone _ | Resource _ -> false))
+          | Milestone id ->
+            Option.exists (Map.find !milestones id) ~f:(fun milestone ->
+              Id.Project.equal milestone.Milestone.project project)
+          | Workspace | Resource _ -> false))
     in
     let linked_tickets links =
       List.filter_map links ~f:(function
@@ -263,28 +338,43 @@ let read t ~now_unix_ms ~params =
           || List.exists (linked_tickets links) ~f:(ticket_matches filter))
     in
     let relevant_ticket id project =
-      let rec depends pending seen =
-        match pending with
-        | [] -> false
-        | ticket :: rest ->
-          if Id.Ticket.equal ticket id
-          then true
-          else if Set.mem seen ticket
-          then depends rest seen
-          else (
-            let prerequisites =
-              Option.value_map
-                (Map.find routing.tickets ticket)
-                ~default:[]
-                ~f:(fun ticket -> ticket.Routing.Ticket.prerequisites)
-            in
-            depends (List.rev_append prerequisites rest) (Set.add seen ticket))
+      let relevant routing =
+        let rec depends pending seen =
+          match pending with
+          | [] -> false
+          | ticket :: rest ->
+            if Id.Ticket.equal ticket id
+            then true
+            else if Set.mem seen ticket
+            then depends rest seen
+            else
+              depends
+                (List.rev_append (Routing.prerequisites routing ticket) rest)
+                (Set.add seen ticket)
+        in
+        Map.exists routing.Routing.tickets ~f:(fun ticket ->
+          project_matches filter ticket.project
+          && ticket_matches filter ticket.id
+          && depends (Routing.prerequisites routing ticket.id) Id.Ticket.Set.empty)
       in
       (project_matches filter project && ticket_matches filter id)
-      || Map.exists routing.tickets ~f:(fun ticket ->
-        project_matches filter ticket.project
-        && ticket_matches filter ticket.id
-        && depends ticket.prerequisites Id.Ticket.Set.empty)
+      || relevant routing
+      || relevant !routing_at_event
+    in
+    let selected_ticket routing id =
+      Option.exists (Map.find routing.Routing.tickets id) ~f:(fun ticket ->
+        project_matches filter ticket.project && ticket_matches filter id)
+    in
+    let inherited_conditions_changed before after =
+      let ids =
+        Set.union (Map.key_set before.Routing.tickets) (Map.key_set after.Routing.tickets)
+      in
+      Set.exists ids ~f:(fun id ->
+        (selected_ticket before id || selected_ticket after id)
+        && not
+             (Routing.conditions_equal
+                (Routing.inherited before id)
+                (Routing.inherited after id)))
     in
     let scoped_tickets =
       Map.data routing.tickets
@@ -378,7 +468,42 @@ let read t ~now_unix_ms ~params =
         | (Thread _ | Message _), _ -> source_key n.source
       in
       List.iter indexed ~f:(fun (index, change) ->
+        let routing_before = !routing_at_event in
+        let routing_after = Routing.apply routing_before change in
+        routing_at_event := routing_after;
         match change with
+        | Hierarchy_policy_put definition ->
+          let id = Hierarchy_policy.Definition.ticket definition in
+          if emit
+          then (
+            if
+              selected filter Ticket
+              && source_run_matches
+              && selected_ticket routing_after id
+            then
+              add
+                revision
+                index
+                "hierarchy_policy_changed"
+                [ "ticket_id", Id.Ticket.jsonaf_of_t id
+                ; ( "policy_revision"
+                  , Json.int (Hierarchy_policy.Definition.revision definition) )
+                ];
+            let prior = Routing.policy routing_before id in
+            let current = Routing.policy routing_after id in
+            if
+              ((not
+                  (Hierarchy_policy.Descendant_prerequisites.equal
+                     prior.descendant_prerequisites
+                     current.descendant_prerequisites))
+               && inherited_conditions_changed routing_before routing_after)
+              || ((not
+                     (Hierarchy_policy.Child_completion.equal
+                        prior.child_completion
+                        current.child_completion))
+                  && (selected_ticket routing_before id
+                      || selected_ticket routing_after id))
+            then invalidation revision index "hierarchy_readiness")
         | Ticket_put ticket ->
           let previous = Map.find !tickets ticket.id in
           tickets := Map.set !tickets ~key:ticket.id ~data:ticket;
@@ -435,12 +560,43 @@ let read t ~now_unix_ms ~params =
                         (Json.canonical
                            (`Array (List.map ticket.waivers ~f:Waiver.jsonaf_of_t)))))
             in
+            (* Only structural source conditions can alter inherited readiness.
+               Ordinary title/progress/ownership/status changes need no ancestor scan. *)
+            let inherited_edges_changed =
+              Option.value_map previous ~default:true ~f:(fun old ->
+                (not (Option.equal Id.Ticket.equal old.parent ticket.parent))
+                || (not
+                      (List.equal Id.Ticket.equal old.prerequisites ticket.prerequisites))
+                || not
+                     (Set.equal
+                        (Id.Ticket.Set.of_list
+                           (List.map old.waivers ~f:(fun waiver ->
+                              waiver.Waiver.prerequisite)))
+                        (Id.Ticket.Set.of_list
+                           (List.map ticket.waivers ~f:(fun waiver ->
+                              waiver.Waiver.prerequisite)))))
+            in
+            let child_gate_changed =
+              Option.value_map previous ~default:true ~f:(fun old ->
+                (not (Domain_command.Status.equal old.status ticket.status))
+                || not (Option.equal Id.Ticket.equal old.parent ticket.parent))
+              && List.exists
+                   (Option.to_list ticket.parent
+                    @ Option.value_map previous ~default:[] ~f:(fun old ->
+                      Option.to_list old.parent))
+                   ~f:(fun parent ->
+                     selected_ticket routing_before parent
+                     || selected_ticket routing_after parent)
+            in
             if
-              changed
-              && (relevant_ticket ticket.id ticket.project
-                  || Option.exists previous ~f:(fun old ->
-                    relevant_ticket old.id old.project)
-                  || ticket_pool_relevant ticket.id)
+              (changed
+               && (relevant_ticket ticket.id ticket.project
+                   || Option.exists previous ~f:(fun old ->
+                     relevant_ticket old.id old.project)
+                   || ticket_pool_relevant ticket.id))
+              || (inherited_edges_changed
+                  && inherited_conditions_changed routing_before routing_after)
+              || child_gate_changed
             then invalidation revision index "ticket_readiness")
         | Facts_changed fact ->
           if

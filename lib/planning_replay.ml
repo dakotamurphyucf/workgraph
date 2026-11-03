@@ -14,6 +14,19 @@ let apply_event t = function
       Corrupt_store
       "fact sequence differs from transaction";
     { t with facts = unwrap_domain (Facts.apply t.facts change) }
+  | Event.Hierarchy_policy_put definition ->
+    let ticket = Hierarchy_policy.Definition.ticket definition in
+    ignore (find_ticket t ticket : Ticket.t);
+    let prior_revision =
+      Option.value_map
+        (Map.find t.hierarchy_policies ticket)
+        ~default:0
+        ~f:Hierarchy_policy.Definition.revision
+    in
+    expected (Hierarchy_policy.Definition.revision definition) (prior_revision + 1);
+    { t with
+      hierarchy_policies = Map.set t.hierarchy_policies ~key:ticket ~data:definition
+    }
   | Event.Amendment_changed change ->
     (match change.Ticket_amendment.Change.update with
      | Revisions records ->
@@ -104,6 +117,7 @@ let apply_event t = function
        then check_amendments_complete t (find_ticket t attempt.ticket);
        if Option.is_none (Agent_run.get_attempt t.agent_runs attempt.id)
        then (
+         check_prerequisites t (find_ticket t attempt.ticket);
          check_claim
            (find_ticket t attempt.ticket)
            ~actor:change.actor
@@ -495,6 +509,7 @@ let apply_event t = function
               Corrupt_store
               "claim lease renewal payload differs"))
         else (
+          check_prerequisites t ticket;
           validate_new_claim_run t claim;
           unwrap_domain
             (Acquisition.ensure
@@ -624,6 +639,8 @@ let audit_payload previous current payload changes =
   let direct =
     List.concat_map captures ~f:(fun (before, change) ->
       match change with
+      | Event.Hierarchy_policy_put definition ->
+        [ Entity_ref.Ticket (Hierarchy_policy.Definition.ticket definition) ]
       | Event.Amendment_unchanged ack -> [ Entity_ref.Ticket ack.ticket ]
       | Event.Amendment_changed change ->
         Ticket_amendment.Change.targets change
@@ -1138,6 +1155,7 @@ let replay t payload =
       | Facts_changed _
       | Communication_changed _
       | Agent_run_changed _
+      | Hierarchy_policy_put _
       | Amendment_changed _
       | Amendment_unchanged _
       | Evidence_changed _

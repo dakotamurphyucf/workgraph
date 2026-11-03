@@ -81,6 +81,11 @@ let require_ready t ticket ~run ~now_unix_ms =
         | Status _ -> "status"
         | Held _ -> "hold"
         | Claimed _ -> "claimed"
+        | Inherited_prerequisite { ancestor; prerequisite } ->
+          "inherited_prerequisite:"
+          ^ Id.Ticket.to_string ancestor
+          ^ ":"
+          ^ Id.Ticket.to_string prerequisite
         | Prerequisite id -> "prerequisite:" ^ Id.Ticket.to_string id
         | Coordination _ -> "coordination; inspect ticket.readiness"
         | Coordination_clock_required _ -> "observation_time_required")
@@ -949,6 +954,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
            Conflict
            "Recovery ID already exists"
        | Agent_run.Command.Attempt_start { run = target_run; ticket; token; _ } ->
+         check_prerequisites t (find_ticket t ticket);
          unwrap_domain
            (Acquisition.ensure
               t
@@ -1848,6 +1854,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           })
       in
       Option.iter claim ~f:(fun claim ->
+        check_prerequisites t ticket;
         unwrap_domain
           (Acquisition.ensure
              t
@@ -1894,6 +1901,26 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           ; comment id Decision reason
           ]
       , Json.obj [ ("token", if Option.is_some claim then Json.int token else `Null) ]
+      , [] )
+    | Hierarchy_put command ->
+      ignore (find_ticket t command.ticket : Ticket.t);
+      let revision =
+        Option.value_map
+          (Map.find t.hierarchy_policies command.ticket)
+          ~default:0
+          ~f:Hierarchy_policy.Definition.revision
+      in
+      expected revision command.expected_revision;
+      let definition =
+        Hierarchy_policy.Definition.create
+          ~ticket:command.ticket
+          ~revision:(revision + 1)
+          ~policy:command.policy
+          ~reason:command.reason
+        |> unwrap_domain
+      in
+      ( [ Event.Hierarchy_policy_put definition ]
+      , Api_codec.encode Hierarchy_policy.Definition.codec definition |> unwrap_domain
       , [] )
     | Dependency_add { ticket; prerequisite } ->
       let value = find_ticket t ticket in
@@ -2326,6 +2353,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         let final = List.fold evidence_changes ~init:updated ~f:apply_event in
         final, List.rev_append evidence_changes (change :: resolved)
       | Amendment_unchanged _
+      | Hierarchy_policy_put _
       | Facts_changed _
       | Communication_changed _
       | Agent_run_changed _
@@ -2377,6 +2405,7 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
             | Message_send _
             | Communication _
             | Agent_run _
+            | Hierarchy_put _
             | Amendment _
             | Evidence _
             | Policy _
@@ -2523,6 +2552,7 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
         | Resource_metadata _
         | Resource_link _
         | Related_link _
+        | Hierarchy_put _
         | Amendment _
         | Resource_put _ -> ());
       let events =
@@ -2578,6 +2608,7 @@ let required_blobs prepared =
       Some (version.digest, version.size_bytes)
     | Resource_changed (Metadata_changed _)
     | Amendment_unchanged _
+    | Hierarchy_policy_put _
     | Amendment_changed _
     | Facts_changed _
     | Communication_changed _

@@ -64,7 +64,10 @@ val query_methods : string list
 val request_codec : method_:string -> Jsonaf.t Api_codec.t option
 
 (** Actual fitted data codec; composed canonical family record codecs and typed
-    source refs, not a second schema. Public metadata uses Planning_read and
+    source refs, not a second schema. Hierarchy policies retain their exact audit
+    reason and amendments retain their complete validated nested change. Both
+    require a larger byte budget when the complete row cannot fit, rather than
+    fabricating clipped definitions. Public metadata uses Planning_read and
     workspace_revision, with a separate capture.through on digest data. *)
 val response_codec : method_:string -> Jsonaf.t Api_codec.t option
 

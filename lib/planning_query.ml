@@ -341,6 +341,7 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
           | Facts_changed value -> Facts_changed value
           | Communication_changed value -> Communication_changed value
           | Agent_run_changed value -> Agent_run_changed value
+          | Hierarchy_policy_put value -> Hierarchy_policy_put value
           | Amendment_unchanged value -> Amendment_unchanged value
           | Amendment_changed value -> Amendment_changed value
           | Evidence_changed value -> Evidence_changed value
@@ -767,6 +768,7 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
               | Handoff_put value when Id.Ticket.equal value.ticket id ->
                 Some (handoff_view value)
               | Handoff_put _
+              | Hierarchy_policy_put _
               | Amendment_unchanged _
               | Amendment_changed _
               | Facts_changed _
@@ -837,7 +839,28 @@ let query_with_texts ?now_unix_ms t ~resource_texts ~method_ ~params =
 ;;
 
 let query ?now_unix_ms t ~method_ ~params =
-  if String.equal method_ "project.readiness"
+  if String.equal method_ "ticket.hierarchy.get"
+  then
+    Json.decode (fun () ->
+      let unscoped =
+        match params with
+        | `Object fields ->
+          Json.obj (List.Assoc.remove fields "workspace_id" ~equal:String.equal)
+        | _ -> Json.fail Invalid_argument "query params require object"
+      in
+      let request = Api_codec.decode Hierarchy_api.Get.codec unscoped |> unwrap_domain in
+      ignore (find_ticket t request.ticket : Ticket.t);
+      let snapshot =
+        Hierarchy_api.Snapshot.create
+          ~ticket:request.ticket
+          ~policy:(Map.find t.hierarchy_policies request.ticket)
+        |> unwrap_domain
+      in
+      Json.obj
+        [ "data", Api_codec.encode Hierarchy_api.Snapshot.codec snapshot |> unwrap_domain
+        ; "workspace_revision", Json.int t.revision
+        ])
+  else if String.equal method_ "project.readiness"
   then
     Json.decode (fun () ->
       let project =

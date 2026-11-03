@@ -513,3 +513,27 @@ let%expect_test "blocker provenance agrees with prerequisite-first reference sel
     600 blocker projections agree
   |}]
 ;;
+
+let%expect_test "hierarchy command sexp decoding repeats public boundary validation" =
+  let valid =
+    Api_codec.decode
+      Hierarchy_api.Put.codec
+      (json
+         {|{"ticket_id":"parent","expected_revision":"0","descendant_prerequisites":"inherit","child_completion":"all_done","reason":"Reviewed"}|})
+    |> ok
+  in
+  List.iter
+    [ valid; { valid with expected_revision = -1 }; { valid with reason = " " } ]
+    ~f:(fun value ->
+      printf
+        "%b\n"
+        (Result.is_ok
+           (Or_error.try_with (fun () ->
+              Hierarchy_api.Put.t_of_sexp (Hierarchy_api.Put.sexp_of_t value)))));
+  [%expect
+    {|
+    true
+    false
+    false
+  |}]
+;;

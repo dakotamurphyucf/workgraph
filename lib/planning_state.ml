@@ -1,4 +1,10 @@
 open Core
+
+let unwrap_domain = function
+  | Ok value -> value
+  | Error error -> raise (Json.Decode_error error)
+;;
+
 open Ppx_jsonaf_conv_lib.Jsonaf_conv.Primitives
 
 module Revision = struct
@@ -216,6 +222,7 @@ module Event = struct
     | Facts_changed of Facts.Change.t
     | Communication_changed of Communication.Change.t
     | Agent_run_changed of Agent_run.Change.t
+    | Hierarchy_policy_put of Hierarchy_policy.Definition.t
     | Amendment_changed of Ticket_amendment.Change.t
     | Amendment_unchanged of Ticket_amendment.Acknowledgement.t
     | Evidence_changed of Evidence.Change.t
@@ -253,6 +260,7 @@ type t =
   ; facts : Facts.t
   ; communication : Communication.t
   ; agent_runs : Agent_run.t
+  ; hierarchy_policies : Hierarchy_policy.Definition.t Id.Ticket.Map.t
   ; amendments : Ticket_amendment.t
   ; evidence : Evidence.t
   ; policies : Agent_run_policy.t
@@ -335,6 +343,7 @@ let empty ~workspace ~name =
       ; facts = Facts.empty
       ; communication = Communication.empty
       ; agent_runs = Agent_run.empty
+      ; hierarchy_policies = Id.Ticket.Map.empty
       ; amendments = Ticket_amendment.empty
       ; evidence = Evidence.empty
       ; policies = Agent_run_policy.empty
@@ -431,10 +440,56 @@ let waived (ticket : Ticket.t) id =
     Id.Ticket.equal waiver.Waiver.prerequisite id)
 ;;
 
-let blockers t (ticket : Ticket.t) =
-  List.filter ticket.prerequisites ~f:(fun id ->
-    (not (waived ticket id))
-    && not (Domain_command.Status.equal (find_ticket t id).status Done))
+let hierarchy_policy t ticket =
+  Option.value_map
+    (Map.find t.hierarchy_policies ticket)
+    ~default:Hierarchy_policy.default
+    ~f:Hierarchy_policy.Definition.policy
+;;
+
+let hierarchy_graph t =
+  Hierarchy_graph.create ~find:(fun id ->
+    Option.map (Map.find t.tickets id) ~f:(fun ticket ->
+      { Hierarchy_graph.Node.ticket = ticket.Ticket.id
+      ; parent = ticket.parent
+      ; prerequisites = ticket.prerequisites
+      ; waived = List.map ticket.waivers ~f:(fun waiver -> waiver.Waiver.prerequisite)
+      ; done_ = Domain_command.Status.equal ticket.status Done
+      ; descendant_prerequisites = (hierarchy_policy t id).descendant_prerequisites
+      }))
+;;
+
+let prerequisite_blockers t (ticket : Ticket.t) =
+  Hierarchy_graph.blockers (hierarchy_graph t) ~ticket:ticket.id |> unwrap_domain
+;;
+
+let blockers t ticket =
+  List.map (prerequisite_blockers t ticket) ~f:(fun blocker ->
+    blocker.Hierarchy_graph.Blocker.prerequisite)
+;;
+
+let prerequisite_blocker_names t ticket =
+  List.map (prerequisite_blockers t ticket) ~f:(fun blocker ->
+    match blocker.Hierarchy_graph.Blocker.ancestor with
+    | None -> "prerequisite:" ^ Id.Ticket.to_string blocker.prerequisite
+    | Some ancestor ->
+      "inherited_prerequisite:"
+      ^ Id.Ticket.to_string ancestor
+      ^ ":"
+      ^ Id.Ticket.to_string blocker.prerequisite)
+;;
+
+let check_prerequisites t ticket =
+  match prerequisite_blocker_names t ticket with
+  | [] -> ()
+  | blockers ->
+    raise
+      (Json.Decode_error
+         (Problem.with_details
+            (Problem.create Blocked "Unfinished direct or inherited prerequisites")
+            (Problem.readiness_details
+               ~ticket_id:(Id.Ticket.to_string ticket.Ticket.id)
+               ~blockers)))
 ;;
 
 let ownership_view (value : Claim.t) : Planning_ticket_wire.Ownership.t =
@@ -683,6 +738,10 @@ module Eligibility_reason = struct
     | Status of Domain_command.Status.t
     | Held of Hold.t
     | Claimed of Claim.t
+    | Inherited_prerequisite of
+        { ancestor : Id.Ticket.t
+        ; prerequisite : Id.Ticket.t
+        }
     | Prerequisite of Id.Ticket.t
     | Coordination of Agent_run.Start_blocker.t
     | Coordination_clock_required of Path_scope.t
@@ -699,6 +758,12 @@ module Eligibility_reason = struct
       reason
         "claimed"
         [ "details", Claim.jsonaf_of_t claim; "revision", Json.int revision ]
+    | Inherited_prerequisite { ancestor; prerequisite } ->
+      reason
+        "inherited_prerequisite"
+        [ "ancestor_ticket_id", Id.Ticket.jsonaf_of_t ancestor
+        ; "prerequisite_ticket_id", Id.Ticket.jsonaf_of_t prerequisite
+        ]
     | Prerequisite id -> reason "prerequisite" [ "ticket_id", Id.Ticket.jsonaf_of_t id ]
     | Coordination blocker -> Agent_run.Start_blocker.to_json blocker
     | Coordination_clock_required target ->
@@ -714,7 +779,11 @@ let eligibility_reasons ?run ?now_unix_ms t (ticket : Ticket.t) =
   @ (Option.to_list ticket.hold |> List.map ~f:(fun hold -> Eligibility_reason.Held hold))
   @ (Option.to_list ticket.claim
      |> List.map ~f:(fun claim -> Eligibility_reason.Claimed claim))
-  @ List.map (blockers t ticket) ~f:(fun id -> Eligibility_reason.Prerequisite id)
+  @ List.map (prerequisite_blockers t ticket) ~f:(fun blocker ->
+    match blocker.Hierarchy_graph.Blocker.ancestor with
+    | None -> Eligibility_reason.Prerequisite blocker.prerequisite
+    | Some ancestor ->
+      Inherited_prerequisite { ancestor; prerequisite = blocker.prerequisite })
   @
   let run =
     match run with
@@ -765,7 +834,10 @@ let unfinished_children t (ticket : Ticket.t) =
   Map.data t.tickets
   |> List.filter ~f:(fun child ->
     Option.value_map child.Ticket.parent ~default:false ~f:(Id.Ticket.equal ticket.id)
-    && not (Domain_command.Status.equal child.status Done))
+    && not
+         (Hierarchy_policy.Child_completion.satisfied
+            (hierarchy_policy t ticket.id).child_completion
+            ~status:child.status))
 ;;
 
 let completion_problem t (ticket : Ticket.t) =
@@ -935,8 +1007,11 @@ module Allocation_capture = struct
             | Status Canceled -> Canceled
             | Claimed _ -> Claimed
             | Status (Backlog | Todo | In_progress)
-            | Held _ | Prerequisite _ | Coordination _ | Coordination_clock_required _ ->
-              Blocked)
+            | Held _
+            | Prerequisite _
+            | Inherited_prerequisite _
+            | Coordination _
+            | Coordination_clock_required _ -> Blocked)
         in
         let allocation =
           List.filter_map entry.allocation_reasons ~f:(function
@@ -983,9 +1058,7 @@ let check_complete t ticket =
             else (
               match check.kind with
               | Hold -> [ "hold" ]
-              | Prerequisites ->
-                List.map completion.blocked_prerequisite_ids ~f:(fun id ->
-                  "prerequisite:" ^ Id.Ticket.to_string id)
+              | Prerequisites -> prerequisite_blocker_names t ticket
               | Children ->
                 List.map completion.unfinished_child_ids ~f:(fun id ->
                   "child:" ^ Id.Ticket.to_string id)
@@ -1012,6 +1085,8 @@ let readiness_view ?run ?now_unix_ms t (ticket : Ticket.t)
     | Held value -> Hold (hold_view value)
     | Claimed value ->
       Claimed { details = ownership_view value; revision = ticket.revision }
+    | Inherited_prerequisite { ancestor; prerequisite } ->
+      Inherited_prerequisite { ancestor; prerequisite }
     | Prerequisite value -> Prerequisite value
     | Coordination value -> Coordination value
     | Coordination_clock_required value -> Observation_time_required value
@@ -1048,11 +1123,6 @@ let readiness ?run ?now_unix_ms t (ticket : Ticket.t) =
     ; "reassessments", `Array (List.map ticket.reassessments ~f:Reassessment.jsonaf_of_t)
     ; "completion", completion_readiness t ticket
     ]
-;;
-
-let unwrap_domain = function
-  | Ok value -> value
-  | Error error -> raise (Json.Decode_error error)
 ;;
 
 let project_completion t (project : Project.t) =
@@ -1267,6 +1337,14 @@ let validate ?previous t =
            (Admission.refusal limit ~used ~attempted ~kind:Invalid_argument))
   in
   let previous_used f = Option.value_map previous ~default:(f t) ~f in
+  Map.iteri t.hierarchy_policies ~f:(fun ~key ~data:definition ->
+    ignore (find_ticket t key : Ticket.t);
+    require
+      (Id.Ticket.equal key (Hierarchy_policy.Definition.ticket definition))
+      Corrupt_store
+      "Hierarchy policy key differs");
+  Hierarchy_graph.validate (hierarchy_graph t) ~tickets:(Map.keys t.tickets)
+  |> unwrap_domain;
   Map.iter t.ticket_recoveries ~f:(fun recovery ->
     require
       (Map.mem t.tickets recovery.Ticket_recovery.request.ticket_id)
@@ -1659,6 +1737,11 @@ let to_json t =
     ; "facts", Facts.to_json t.facts
     ; "communication", Communication.to_json t.communication
     ; "agent_runs", Agent_run.to_json t.agent_runs
+    ; ( "hierarchy_policies"
+      , `Array
+          (List.map
+             (Map.data t.hierarchy_policies)
+             ~f:Hierarchy_policy.Definition.jsonaf_of_t) )
     ; "amendments", Ticket_amendment.to_json t.amendments
     ; "evidence", Evidence.to_json t.evidence
     ; "policies", Agent_run_policy.to_json t.policies
@@ -1723,7 +1806,12 @@ let coordination_tickets ?run ?now_unix_ms t =
     ; ready =
         List.for_all (eligibility_reasons ?run ?now_unix_ms t ticket) ~f:(function
           | Eligibility_reason.Coordination _ | Coordination_clock_required _ -> true
-          | Archived_scope | Status _ | Held _ | Claimed _ | Prerequisite _ -> false)
+          | Archived_scope
+          | Status _
+          | Held _
+          | Claimed _
+          | Prerequisite _
+          | Inherited_prerequisite _ -> false)
     ; blockers = readiness_view ?run ?now_unix_ms t ticket
     ; claim =
         Option.map ticket.claim ~f:(fun c ->

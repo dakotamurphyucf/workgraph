@@ -264,6 +264,7 @@ end
 
 let codec ~method_ =
   match method_ with
+  | "ticket.hierarchy.put" -> Some (Api_codec.as_json Hierarchy_policy.Definition.codec)
   | "template.instantiate" -> Some Template.codec
   | "actor.put" -> Some actor
   | "label.put" -> Some label

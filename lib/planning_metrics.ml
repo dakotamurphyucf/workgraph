@@ -115,6 +115,7 @@ let capture (state : Planning_state.t) ~observed_unix_ms =
         | Communication_changed _
         | Settings_changed _
         | Amendment_unchanged _
+        | Hierarchy_policy_put _
         | Amendment_changed _
         | Facts_changed _ -> ()));
   Map.iter !latest ~f:(fun (ticket, started) ->

@@ -167,6 +167,7 @@ module Event : sig
     | Facts_changed of Facts.Change.t
     | Communication_changed of Communication.Change.t
     | Agent_run_changed of Agent_run.Change.t
+    | Hierarchy_policy_put of Hierarchy_policy.Definition.t
     | Amendment_changed of Ticket_amendment.Change.t
     | Amendment_unchanged of Ticket_amendment.Acknowledgement.t
     | Evidence_changed of Evidence.Change.t
@@ -204,6 +205,7 @@ type t =
   ; facts : Facts.t
   ; communication : Communication.t
   ; agent_runs : Agent_run.t
+  ; hierarchy_policies : Hierarchy_policy.Definition.t Id.Ticket.Map.t
   ; amendments : Ticket_amendment.t
   ; evidence : Evidence.t
   ; policies : Agent_run_policy.t
@@ -237,6 +239,19 @@ val active_scope : t -> Ticket.t -> bool
 val expected : int -> int -> unit
 val reachable : t -> from:Id.Ticket.t -> target:Id.Ticket.t -> parents:bool -> bool
 val waived : Ticket.t -> Id.Ticket.t -> bool
+
+(** Local policy defaults to Independent/All_done. The immutable graph adds only
+    opted ancestors' direct prerequisite edges, preserving source-owned waivers
+    and deterministic provenance. Parent ownership/status/child gates stay local. *)
+val hierarchy_policy : t -> Id.Ticket.t -> Hierarchy_policy.t
+
+val hierarchy_graph : t -> Hierarchy_graph.t
+val prerequisite_blockers : t -> Ticket.t -> Hierarchy_graph.Blocker.t list
+
+(** Raise [Json.Decode_error] with current direct/inherited prerequisite blockers.
+    Used independently at preparation and resolved acquisition replay boundaries. *)
+val check_prerequisites : t -> Ticket.t -> unit
+
 val blockers : t -> Ticket.t -> Id.Ticket.t list
 
 module Acquisition : sig
@@ -279,6 +294,10 @@ module Eligibility_reason : sig
     | Status of Domain_command.Status.t
     | Held of Hold.t
     | Claimed of Claim.t
+    | Inherited_prerequisite of
+        { ancestor : Id.Ticket.t
+        ; prerequisite : Id.Ticket.t
+        }
     | Prerequisite of Id.Ticket.t
     | Coordination of Agent_run.Start_blocker.t
     | Coordination_clock_required of Path_scope.t

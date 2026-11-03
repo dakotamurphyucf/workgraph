@@ -58,6 +58,7 @@ module Change = struct
     | Facts_changed of Facts.Change.t
     | Communication_changed of Communication.Change.t
     | Agent_run_changed of Agent_run_event.t
+    | Hierarchy_policy_put of Hierarchy_policy.Definition.t
     | Amendment_changed of Ticket_amendment.Change.t
     | Amendment_unchanged of Ticket_amendment.Acknowledgement.t
     | Evidence_changed of Evidence.Change.t
@@ -85,6 +86,7 @@ module Change = struct
         | Facts_changed _ -> "facts_changed"
         | Communication_changed _ -> "communication_changed"
         | Agent_run_changed _ -> "agent_run_changed"
+        | Hierarchy_policy_put _ -> "hierarchy_policy_put"
         | Amendment_unchanged _ -> "amendment_unchanged"
         | Amendment_changed _ -> "amendment_changed"
         | Evidence_changed _ -> "evidence_changed"
@@ -128,6 +130,15 @@ module Change = struct
                  ~decode:(fun ((), value) -> Agent_run_changed value)
                  ~encode:(function
                    | Agent_run_changed value -> (), value
+                   | _ -> wrong ())) )
+        ; ( "hierarchy_policy_put"
+          , Api_codec.object_
+              (F.map
+                 (F.required "kind" (Api_codec.literal "hierarchy_policy_put")
+                  ++ F.required "policy" Hierarchy_policy.Definition.codec)
+                 ~decode:(fun ((), value) -> Hierarchy_policy_put value)
+                 ~encode:(function
+                   | Hierarchy_policy_put value -> (), value
                    | _ -> wrong ())) )
         ; ( "amendment_unchanged"
           , Api_codec.object_
@@ -358,6 +369,7 @@ module Activity = struct
                   change.sequence
               | Agent_run_changed change ->
                 attribution change.actor change.actor_run change.timestamp change.sequence
+              | Hierarchy_policy_put _ -> ()
               | Amendment_unchanged ack ->
                 attribution
                   ack.ownership.actor

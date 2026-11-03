@@ -531,6 +531,10 @@ let of_json json =
              ~event_actor:recovery.actor_id
              ~event_run:recovery.run_id
              ~event_timestamp:recovery.timestamp
+         | `Array [ `String "Hierarchy_policy_put"; payload ] ->
+           ignore
+             (Hierarchy_policy.Definition.t_of_jsonaf payload
+              : Hierarchy_policy.Definition.t)
          | `Array [ `String "Amendment_unchanged"; payload ] ->
            let ack = Ticket_amendment.Acknowledgement.t_of_jsonaf payload in
            attribution

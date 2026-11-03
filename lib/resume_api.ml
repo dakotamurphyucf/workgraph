@@ -244,6 +244,8 @@ let prose_fields = function
   | "ticket_recovery"
   | "reservation_recovery"
   | "effective_policy"
+  | "hierarchy_policy"
+  | "amendment"
   | "readiness"
   | "completion" -> []
   | _ -> Json.fail Invalid_argument "unknown resume record kind"
@@ -309,6 +311,8 @@ let records =
   ; "condition_signal", Api_codec.as_json External_condition.Signal.codec
   ; "ticket_recovery", Api_codec.as_json Ticket_recovery.codec
   ; "reservation_recovery", Api_codec.as_json Ownership_recovery.codec
+  ; "amendment", Api_codec.as_json Ticket_amendment.Change.codec
+  ; "hierarchy_policy", Api_codec.as_json Hierarchy_policy.Definition.codec
   ; "effective_policy", Api_codec.as_json Acceptance_policy.Effective.codec
   ; "readiness", readiness
   ; "completion", Api_codec.as_json Planning_ticket_wire.Completion.codec

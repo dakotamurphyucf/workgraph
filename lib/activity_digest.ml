@@ -308,6 +308,14 @@ let scan t ~scope ~after ~cursor =
                    "%s comment %s"
                    (Kind.name category)
                    (Id.Comment.to_string id))
+            | Hierarchy_policy_put definition ->
+              emit
+                Decision
+                "hierarchy_policy"
+                [ Entity_ref.Ticket (Hierarchy_policy.Definition.ticket definition) ]
+                []
+                (W.encode_exn Hierarchy_policy.Definition.codec definition)
+                "Hierarchy policy changed"
             | Amendment_changed change ->
               let targets =
                 Ticket_amendment.Change.targets change

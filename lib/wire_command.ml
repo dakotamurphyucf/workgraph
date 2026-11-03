@@ -32,6 +32,7 @@ let rec wire command =
        Json.fail
          Invalid_argument
          "Resource_publish is internal; finish a verified upload instead"
+     | Hierarchy_put _
      | Template_instantiate _
      | Settings_put _
      | Ticket_claim _

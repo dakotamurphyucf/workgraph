@@ -155,6 +155,10 @@ module Readiness : sig
           { details : Ownership.t
           ; revision : int
           }
+      | Inherited_prerequisite of
+          { ancestor : Id.Ticket.t
+          ; prerequisite : Id.Ticket.t
+          }
       | Prerequisite of Id.Ticket.t
       | Coordination of Agent_run.Start_blocker.t
       | Observation_time_required of Path_scope.t

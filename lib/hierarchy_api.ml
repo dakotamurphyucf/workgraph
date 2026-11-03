@@ -10,6 +10,7 @@ module Put = struct
     ; policy : Hierarchy_policy.t
     ; reason : string
     }
+  [@@deriving sexp]
 
   let codec =
     Api_codec.object_
@@ -34,6 +35,15 @@ module Put = struct
            ( ( ((t.ticket, t.expected_revision), t.policy.descendant_prerequisites)
              , t.policy.child_completion )
            , t.reason )))
+  ;;
+
+  let t_of_sexp_unchecked = t_of_sexp
+
+  let t_of_sexp sexp =
+    let value = t_of_sexp_unchecked sexp in
+    match Result.bind (Api_codec.encode codec value) ~f:(Api_codec.decode codec) with
+    | Ok value -> value
+    | Error problem -> Sexplib.Conv.of_sexp_error problem.message sexp
   ;;
 end
 

@@ -30,7 +30,9 @@ module Filter : sig
       communication when its explicit consumer/recipient pair is supplied. Run
       selects source attribution for facts/tickets, attribution or the explicitly
       addressed run for communication, and allocation eligibility for readiness.
-      Cross-project prerequisite/pool/path effects can invalidate selected work. *)
+      Cross-project prerequisite/pool/path effects can invalidate selected work.
+      Hierarchy uses captured policy and parent heads, including both sides of a
+      move; audit-only reason changes do not invalidate readiness. *)
   val codec : t Api_codec.t
 end
 
@@ -61,7 +63,8 @@ end
 (** Exact source references and whole rows. Communication fragments expose every
     underlying raw notification ID for explicit inbox.ack; grouping never alters
     the raw audit. Current eligibility is a separate labelled capture with its
-    own continuation, and is never bound by the durable attention cursor. *)
+    own continuation, and is never bound by the durable attention cursor.
+    Hierarchy policy audit rows carry the affected ticket and policy revision. *)
 val row_codec : Jsonaf.t Api_codec.t
 
 val response_codec : Jsonaf.t Api_codec.t

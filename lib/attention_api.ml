@@ -276,6 +276,10 @@ let unchecked_row_codec =
                      ; "canceled", Canceled
                      ]
                      ~equal:Workflow.Category.equal)) )
+      ; ( "hierarchy_policy_changed"
+        , branch
+            "hierarchy_policy_changed"
+            (req "ticket_id" ticket ++ req "policy_revision" W.positive) )
       ; ( "readiness_invalidated"
         , branch "readiness_invalidated" (req "reason" (Api_codec.text ~max_bytes:128)) )
       ]

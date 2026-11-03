@@ -1311,7 +1311,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                   @ Communication.query_methods
                   @ Agent_run.query_methods
                   @ Ticket_amendment_api.query_methods
-                  @ [ "project.readiness" ]
+                  @ [ "project.readiness"; "ticket.hierarchy.get" ]
                   @ Evidence.query_methods
                   @ Ticket_recovery.query_methods
                   @ Resume_api.query_methods
