@@ -245,6 +245,7 @@ let methods =
   @ List.map Agent_run_policy_api.methods ~f:scoped
   @ Upload_api.methods
   @ List.map Resource_api.methods ~f:scoped
+  @ List.map Ticket_amendment_api.methods ~f:scoped
   @ List.map Evidence.api_methods ~f:scoped
   @ List.map Communication_api.methods ~f:scoped
   @ List.map Discussion_api.methods ~f:scoped

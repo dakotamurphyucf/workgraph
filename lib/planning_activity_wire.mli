@@ -8,6 +8,8 @@ module Change : sig
     | Facts_changed of Facts.Change.t
     | Communication_changed of Communication.Change.t
     | Agent_run_changed of Agent_run_event.t
+    | Amendment_changed of Ticket_amendment.Change.t
+    | Amendment_unchanged of Ticket_amendment.Acknowledgement.t
     | Evidence_changed of Evidence.Change.t
     | Policy_changed of Agent_run_policy.Change.t
     | Policy_unchanged of Agent_run_policy.Change.t

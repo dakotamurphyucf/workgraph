@@ -313,6 +313,36 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
   in
   let changes, result, blobs =
     match command with
+    | Domain_command.Amendment command ->
+      (match command with
+       | Ticket_amendment.Command.Acknowledge { ticket; token; _ } ->
+         check_claim_at (find_ticket t ticket) ~actor ~run ~token ~now_unix_ms
+       | Publish _ | Withdraw _ -> ());
+      let prepared =
+        Ticket_amendment.prepare
+          t.amendments
+          command
+          ~actor
+          ~run
+          ~timestamp
+          ~now_unix_ms
+          ~ownership:(amendment_ownership t)
+        |> unwrap_domain
+      in
+      let changes =
+        match Ticket_amendment.changes prepared, command with
+        | [], Acknowledge { amendment; ticket; token } ->
+          [ Event.Amendment_unchanged
+              { amendment
+              ; ticket
+              ; ownership = { actor; run; token }
+              ; timestamp
+              ; observed_unix_ms = now_unix_ms
+              }
+          ]
+        | changes, _ -> List.map changes ~f:(fun change -> Event.Amendment_changed change)
+      in
+      changes, Ticket_amendment.result prepared, []
     | Domain_command.Lifecycle lifecycle ->
       let apply state command = stage state command ~actor ~run ~timestamp ~now_unix_ms in
       let claim ticket_id expected_revision lease_duration_ms : Domain_command.t =
@@ -2196,6 +2226,9 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
      ignore (Planning_api.validate_result ~method_ result : unit option)
    | None -> ());
   (match command with
+   | Amendment command ->
+     let method_, _ = Ticket_amendment_api.encode command |> unwrap_domain in
+     Ticket_amendment_api.validate_result ~method_ result
    | Agent_run command ->
      let method_, _ = Agent_run.encode command in
      ignore (Agent_run_api.validate_result ~method_ result : unit option)
@@ -2212,6 +2245,10 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
     List.fold changes ~init:(t, []) ~f:(fun (state, resolved) change ->
       let updated = apply_event state change in
       match change with
+      | Event.Amendment_changed change ->
+        let effects = Planning_amendment.effects state change ~actor ~run ~timestamp in
+        let final = List.fold effects ~init:updated ~f:apply_event in
+        final, List.rev_append effects (Event.Amendment_changed change :: resolved)
       | Event.Resource_changed (Resource.Change.Published { id; version; _ }) ->
         (match Map.find state.resources id with
          | None -> updated, change :: resolved
@@ -2258,6 +2295,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         in
         let final = List.fold evidence_changes ~init:updated ~f:apply_event in
         final, List.rev_append evidence_changes (change :: resolved)
+      | Amendment_unchanged _
       | Facts_changed _
       | Communication_changed _
       | Agent_run_changed _
@@ -2309,6 +2347,7 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
             | Message_send _
             | Communication _
             | Agent_run _
+            | Amendment _
             | Evidence _
             | Policy _
             | Claim_next _
@@ -2448,6 +2487,7 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
         | Resource_metadata _
         | Resource_link _
         | Related_link _
+        | Amendment _
         | Resource_put _ -> ());
       let events =
         Json.obj
@@ -2501,6 +2541,8 @@ let required_blobs prepared =
     | Resource_changed (Resource.Change.Published { version; _ }) ->
       Some (version.digest, version.size_bytes)
     | Resource_changed (Metadata_changed _)
+    | Amendment_unchanged _
+    | Amendment_changed _
     | Facts_changed _
     | Communication_changed _
     | Agent_run_changed _

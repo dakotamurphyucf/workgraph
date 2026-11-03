@@ -278,6 +278,33 @@ let get_result =
     then Json.fail Invalid_argument "amendment read reference or budget metadata differs")
 ;;
 
+let response_codec ~method_ =
+  if List.mem mutation_methods method_ ~equal:String.equal
+  then
+    Some
+      (if String.equal method_ "ticket.amendment.acknowledge"
+       then ack_result
+       else publication_result)
+  else if List.mem query_methods method_ ~equal:String.equal
+  then
+    Some
+      (if String.equal method_ "ticket.amendment.get"
+       then get_result
+       else if String.equal method_ "ticket.amendment.acknowledgements"
+       then page_result A.Acknowledgement.codec
+       else page_result A.Revision.codec)
+  else None
+;;
+
+let validate_result ~method_ result =
+  match response_codec ~method_ with
+  | None -> invalid_arg "unknown amendment result method"
+  | Some codec ->
+    (match Api_codec.encode codec result with
+     | Ok _ -> ()
+     | Error error -> raise (Api_method.Invalid_response (method_, error)))
+;;
+
 let methods =
   List.map mutation_methods ~f:(fun name ->
     Api_method.Packed.Pack

@@ -27,6 +27,7 @@ let version =
     ~description:"Current family event version one."
 ;;
 
+let amendment = Ticket_amendment.Change.codec
 let facts = Facts.Change.codec
 
 let discussion_kind =

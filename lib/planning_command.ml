@@ -8,6 +8,7 @@ type t =
   | Message_send of Communication.Message_send.t
   | Agent_run of Agent_run.Command.t
   | Facts of Facts.Command.t
+  | Amendment of Ticket_amendment.Command.t
   | Evidence of Evidence.Command.t
   | Policy of Agent_run_policy.Command.t
   | Template_instantiate of

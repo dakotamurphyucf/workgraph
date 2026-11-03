@@ -114,6 +114,8 @@ let capture (state : Planning_state.t) ~observed_unix_ms =
         | Evidence_changed _
         | Communication_changed _
         | Settings_changed _
+        | Amendment_unchanged _
+        | Amendment_changed _
         | Facts_changed _ -> ()));
   Map.iter !latest ~f:(fun (ticket, started) ->
     interval ticket.Ticket.status started (Some observed_unix_ms) ~open_:true);

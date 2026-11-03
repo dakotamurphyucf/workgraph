@@ -90,6 +90,8 @@ module Routing = struct
           | Facts_changed _
           | Communication_changed _
           | Agent_run_changed _
+          | Amendment_unchanged _
+          | Amendment_changed _
           | Evidence_changed _
           | Policy_changed _
           | Policy_unchanged _
@@ -539,6 +541,12 @@ let read t ~now_unix_ms ~params =
           ()
         | Settings_changed _ | Workspace_updated _ ->
           if emit then invalidation revision index "workspace_policy"
+        | Amendment_changed change ->
+          if
+            emit
+            && List.exists (Ticket_amendment.Change.targets change) ~f:(fun id ->
+              relevant_ticket id (ticket_project id))
+          then invalidation revision index "amendment"
         | Evidence_changed _ -> ()
         | Project_put project ->
           if emit && project_matches filter (Some project.id)
@@ -557,6 +565,7 @@ let read t ~now_unix_ms ~params =
                  recovery.request.ticket_id
                  (ticket_project recovery.request.ticket_id)
           then invalidation revision index "ticket_recovery"
+        | Amendment_unchanged _
         | Policy_unchanged _
         | Allocation_empty _
         | Signal_receipt _

@@ -14,6 +14,63 @@ let apply_event t = function
       Corrupt_store
       "fact sequence differs from transaction";
     { t with facts = unwrap_domain (Facts.apply t.facts change) }
+  | Event.Amendment_changed change ->
+    (match change.Ticket_amendment.Change.update with
+     | Revisions records ->
+       List.iter records ~f:(fun record ->
+         let ticket = find_ticket t record.Ticket_amendment.Revision.ticket in
+         Option.iter record.attribution.run ~f:(fun run ->
+           unwrap_domain (validate_run_actor t ~run ~actor:record.attribution.actor));
+         match record.content with
+         | Published { require_ack = true; _ } ->
+           require
+             (not (Domain_command.Status.equal ticket.status Done))
+             Blocked
+             "reopen completed ticket before publishing required amendment"
+         | Published _ | Withdrawn _ | Superseded _ -> ())
+     | Acknowledged ack ->
+       let ticket = find_ticket t ack.ticket in
+       check_claim
+         ticket
+         ~actor:ack.ownership.actor
+         ~run:ack.ownership.run
+         ~token:ack.ownership.token;
+       let claim = Option.value_exn ticket.claim in
+       unwrap_domain
+         (Ticket_amendment.Acknowledgement.validate_lease ack ~lease:claim.lease));
+    { t with
+      amendments =
+        unwrap_domain
+          (Ticket_amendment.apply t.amendments change ~ownership:(amendment_ownership t))
+    }
+  | Event.Amendment_unchanged ack ->
+    let ticket = find_ticket t ack.ticket in
+    check_claim
+      ticket
+      ~actor:ack.ownership.actor
+      ~run:ack.ownership.run
+      ~token:ack.ownership.token;
+    unwrap_domain
+      (Ticket_amendment.Acknowledgement.validate_lease
+         ack
+         ~lease:(Option.value_exn ticket.claim).lease);
+    let prepared =
+      Ticket_amendment.prepare
+        t.amendments
+        (Acknowledge
+           { amendment = ack.amendment; ticket = ack.ticket; token = ack.ownership.token })
+        ~actor:ack.ownership.actor
+        ~run:ack.ownership.run
+        ~timestamp:ack.timestamp
+        ~now_unix_ms:ack.observed_unix_ms
+        ~ownership:(amendment_ownership t)
+      |> unwrap_domain
+    in
+    require
+      (List.is_empty (Ticket_amendment.changes prepared))
+      Corrupt_store
+      "amendment unchanged marker lacks prior exact acknowledgement";
+    t
   | Event.Policy_changed change ->
     (match Agent_run_policy.apply t.policies change with
      | Ok policies -> { t with policies }
@@ -43,6 +100,8 @@ let apply_event t = function
      | _ -> ());
     (match change.Agent_run.Change.update with
      | Attempt_put attempt | Attempt_started { attempt; _ } ->
+       if Attempt.State.equal attempt.state Completed
+       then check_amendments_complete t (find_ticket t attempt.ticket);
        if Option.is_none (Agent_run.get_attempt t.agent_runs attempt.id)
        then (
          check_claim
@@ -262,6 +321,11 @@ let apply_event t = function
         Map.set t.ticket_recoveries ~key:request.recovery_id ~data:recovery
     }
   | Ticket_put ticket ->
+    if Domain_command.Status.equal ticket.status Done
+    then
+      Option.iter (Map.find t.tickets ticket.id) ~f:(fun previous ->
+        if not (Domain_command.Status.equal previous.Ticket.status Done)
+        then check_amendments_complete t previous);
     let display_key =
       Option.value_map
         (Map.find t.tickets ticket.id)
@@ -536,6 +600,10 @@ let audit_payload previous current payload changes =
   let direct =
     List.concat_map captures ~f:(fun (before, change) ->
       match change with
+      | Event.Amendment_unchanged ack -> [ Entity_ref.Ticket ack.ticket ]
+      | Event.Amendment_changed change ->
+        Ticket_amendment.Change.targets change
+        |> List.map ~f:(fun id -> Entity_ref.Ticket id)
       | Event.Facts_changed change -> [ Facts.Change.target change ]
       | Event.Policy_changed change | Policy_unchanged change ->
         (match change.Agent_run_policy.Change.command with
@@ -932,6 +1000,51 @@ let replay t payload =
                       (List.map actors ~f:(fun a -> Communication.Recipient.Actor a)))
                 Corrupt_store
                 "Condition notification routing differs")
+         | _ -> ());
+        (match event with
+         | Event.Amendment_unchanged ack ->
+           require
+             (Id.Actor.equal
+                ack.ownership.actor
+                (Id.Actor.t_of_jsonaf (Json.field payload "actor"))
+              && Option.equal
+                   Id.Run.equal
+                   ack.ownership.run
+                   (Option.map (Json.optional payload "run_id") ~f:Id.Run.t_of_jsonaf)
+              && String.equal ack.timestamp (Json.field payload "timestamp" |> Json.text)
+             )
+             Corrupt_store
+             "amendment unchanged attribution differs from transaction"
+         | Event.Amendment_changed change ->
+           let actor = Id.Actor.t_of_jsonaf (Json.field payload "actor") in
+           let run = Option.map (Json.optional payload "run_id") ~f:Id.Run.t_of_jsonaf in
+           let timestamp = Json.field payload "timestamp" |> Json.text in
+           (match change.update with
+            | Revisions records ->
+              List.iter records ~f:(fun record ->
+                require
+                  (Id.Actor.equal record.Ticket_amendment.Revision.attribution.actor actor
+                   && Option.equal Id.Run.equal record.attribution.run run
+                   && String.equal record.attribution.timestamp timestamp)
+                  Corrupt_store
+                  "amendment attribution differs from transaction")
+            | Acknowledged ack ->
+              require
+                (Id.Actor.equal ack.ownership.actor actor
+                 && Option.equal Id.Run.equal ack.ownership.run run
+                 && String.equal ack.timestamp timestamp)
+                Corrupt_store
+                "amendment ack attribution differs from transaction");
+           let effects = Planning_amendment.effects state change ~actor ~run ~timestamp in
+           require
+             (List.equal
+                String.equal
+                (List.map effects ~f:(fun event ->
+                   Json.canonical (Event.jsonaf_of_t event)))
+                (List.take remaining (List.length effects)
+                 |> List.map ~f:(fun event -> Json.canonical (Event.jsonaf_of_t event))))
+             Corrupt_store
+             "amendment lacks its exact atomic invalidations and announcement"
          | _ -> ());
         let publication =
           match event with

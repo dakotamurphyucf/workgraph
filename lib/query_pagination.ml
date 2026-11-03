@@ -298,9 +298,12 @@ let next_request family request data =
   in
   match family with
   | Family.Offset _ ->
-    (match Json.field data "next_offset" with
-     | `Null -> `Done
-     | _ -> numeric "offset" "next_offset")
+    if flag data "needs_larger_budget"
+    then `Stopped Stop.Needs_larger_budget
+    else (
+      match Json.field data "next_offset" with
+      | `Null -> `Done
+      | _ -> numeric "offset" "next_offset")
   | Inbox ->
     if optional_integer data "remaining" = 0 then `Done else numeric "after" "next_after"
   | History { position; result_field } ->

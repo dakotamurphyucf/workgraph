@@ -544,6 +544,7 @@ module Completion = struct
       | Hold
       | Prerequisites
       | Children
+      | Amendment_acknowledgements
       | Configured_policy
     [@@deriving equal]
 
@@ -557,6 +558,7 @@ module Completion = struct
         [ "hold", Hold
         ; "prerequisites", Prerequisites
         ; "children", Children
+        ; "amendment_acknowledgements", Amendment_acknowledgements
         ; "configured_policy", Configured_policy
         ]
         ~equal:equal_kind
@@ -593,7 +595,7 @@ module Completion = struct
     Api_codec.object_
       (Fields.map
          (Fields.required "can_complete" Api_codec.boolean
-          ++ Fields.required "checks" (Api_codec.list Check.codec ~max_items:4)
+          ++ Fields.required "checks" (Api_codec.list Check.codec ~max_items:5)
           ++ Fields.required "policy" Acceptance_policy.Effective.codec
           ++ Fields.required "blocked_prerequisite_count" counter
           ++ Fields.required "unfinished_child_count" counter
@@ -640,7 +642,12 @@ module Completion = struct
       ~decode:(fun t ->
         let checks =
           List.for_all
-            [ Check.Hold; Prerequisites; Children; Configured_policy ]
+            [ Check.Hold
+            ; Prerequisites
+            ; Children
+            ; Amendment_acknowledgements
+            ; Configured_policy
+            ]
             ~f:(fun kind ->
               List.count t.checks ~f:(fun check -> Check.equal_kind check.Check.kind kind)
               = 1)
@@ -657,7 +664,7 @@ module Completion = struct
           t)
       ~encode:Fn.id
       ~description:
-        "Four exact completion checks with retained IDs and matching counts/problem."
+        "Five exact completion checks with retained IDs and matching counts/problem."
   ;;
 end
 

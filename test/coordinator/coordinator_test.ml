@@ -61,6 +61,7 @@ let ticket ?claim ?(ready = true) ?(deps = []) id title =
                  [ Planning_ticket_wire.Completion.Check.Hold
                  ; Prerequisites
                  ; Children
+                 ; Amendment_acknowledgements
                  ; Configured_policy
                  ]
                  ~f:(fun kind ->

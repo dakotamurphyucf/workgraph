@@ -215,6 +215,8 @@ module Event = struct
     | Facts_changed of Facts.Change.t
     | Communication_changed of Communication.Change.t
     | Agent_run_changed of Agent_run.Change.t
+    | Amendment_changed of Ticket_amendment.Change.t
+    | Amendment_unchanged of Ticket_amendment.Acknowledgement.t
     | Evidence_changed of Evidence.Change.t
     | Policy_changed of Policy_change.t
     | Policy_unchanged of Policy_change.t
@@ -250,6 +252,7 @@ type t =
   ; facts : Facts.t
   ; communication : Communication.t
   ; agent_runs : Agent_run.t
+  ; amendments : Ticket_amendment.t
   ; evidence : Evidence.t
   ; policies : Agent_run_policy.t
   ; handoffs : Handoff.t Id.Ticket.Map.t
@@ -261,6 +264,26 @@ type t =
   }
 
 let revision t = t.revision
+
+let amendment_ownership t id =
+  Option.bind (Map.find t.tickets id) ~f:(fun ticket ->
+    Option.map ticket.Ticket.claim ~f:(fun claim ->
+      { Ticket_amendment.Ownership.actor = claim.Claim.actor
+      ; run = claim.run_id
+      ; token = claim.token
+      }))
+;;
+
+let check_amendments_complete t ticket =
+  match
+    Ticket_amendment.ensure_can_complete
+      t.amendments
+      ~ticket:ticket.Ticket.id
+      ~ownership:(amendment_ownership t ticket.id)
+  with
+  | Ok () -> ()
+  | Error error -> raise (Json.Decode_error error)
+;;
 
 let evidence_ticket_context t id =
   Option.map (Map.find t.tickets id) ~f:(fun ticket ->
@@ -311,6 +334,7 @@ let empty ~workspace ~name =
       ; facts = Facts.empty
       ; communication = Communication.empty
       ; agent_runs = Agent_run.empty
+      ; amendments = Ticket_amendment.empty
       ; evidence = Evidence.empty
       ; policies = Agent_run_policy.empty
       ; handoffs = Id.Ticket.Map.empty
@@ -745,6 +769,8 @@ let unfinished_children t (ticket : Ticket.t) =
 
 let completion_problem t (ticket : Ticket.t) =
   Json.decode (fun () ->
+    if not (Domain_command.Status.equal ticket.status Done)
+    then check_amendments_complete t ticket;
     (match
        Evidence.ensure_can_complete
          t.evidence
@@ -789,6 +815,10 @@ let completion_view t (ticket : Ticket.t) : Planning_ticket_wire.Completion.t =
       [ check Hold (Option.is_none ticket.hold)
       ; check Prerequisites (List.is_empty blocked_prerequisite_ids)
       ; check Children (List.is_empty unfinished_child_ids)
+      ; check
+          Amendment_acknowledgements
+          (Domain_command.Status.equal ticket.status Done
+           || Result.is_ok (Json.decode (fun () -> check_amendments_complete t ticket)))
       ; check Configured_policy (Result.is_ok policy_result)
       ]
   ; policy
@@ -958,6 +988,10 @@ let check_complete t ticket =
               | Children ->
                 List.map completion.unfinished_child_ids ~f:(fun id ->
                   "child:" ^ Id.Ticket.to_string id)
+              | Amendment_acknowledgements ->
+                [ "amendment_acknowledgements; inspect ticket.context and \
+                   ticket.amendment.list"
+                ]
               | Configured_policy -> [ "configured_policy; inspect ticket.readiness" ]))
         in
         Problem.with_details
@@ -1134,6 +1168,8 @@ let evidence_pin_exists t pin =
               List.exists (Discussion.history t.discussion id) ~f:(fun json ->
                 Int.equal (Json.integer (Json.field json "revision")) revision)))
            ~default:false
+       | Amendment { id; revision } ->
+         Option.is_some (Ticket_amendment.get t.amendments { id; revision })
        | Event _ | Commit _ | Checksum _ | Contract _ | Decision _ -> true)
        pin
 ;;
@@ -1215,6 +1251,20 @@ let validate ?previous t =
        t.agent_runs
        ~ticket_exists:(Map.mem t.tickets)
        ~pin_exists:(evidence_pin_exists t)
+   with
+   | Ok () -> ()
+   | Error error -> raise (Json.Decode_error error));
+  (match
+     Ticket_amendment.validate_references
+       t.amendments
+       ~ticket_exists:(Map.mem t.tickets)
+       ~resource_digest:(fun id ~revision ->
+         Result.ok
+           (Json.decode (fun () ->
+              match Map.find t.resources id with
+              | None -> Json.fail Not_found "amendment resource missing"
+              | Some resource ->
+                (Resource.get_version resource ~revision:(Some revision)).digest)))
    with
    | Ok () -> ()
    | Error error -> raise (Json.Decode_error error));
@@ -1524,6 +1574,7 @@ let to_json t =
     ; "facts", Facts.to_json t.facts
     ; "communication", Communication.to_json t.communication
     ; "agent_runs", Agent_run.to_json t.agent_runs
+    ; "amendments", Ticket_amendment.to_json t.amendments
     ; "evidence", Evidence.to_json t.evidence
     ; "policies", Agent_run_policy.to_json t.policies
     ; "comments", Discussion.to_json t.discussion
@@ -1570,6 +1621,7 @@ let validate_run_actor t ~run ~actor =
 ;;
 
 let agent_runs t = t.agent_runs
+let amendments t = t.amendments
 let evidence t = t.evidence
 let communication t = t.communication
 let policies t = t.policies

@@ -8,6 +8,7 @@ type t = Planning_command.t =
   | Message_send of Communication.Message_send.t
   | Agent_run of Agent_run.Command.t
   | Facts of Facts.Command.t
+  | Amendment of Ticket_amendment.Command.t
   | Evidence of Evidence.Command.t
   | Policy of Agent_run_policy.Command.t
   | Template_instantiate of
@@ -257,6 +258,11 @@ let decode_one ~method_ ~params =
       | method_ when List.mem Agent_run.mutation_methods method_ ~equal:String.equal ->
         (match Agent_run.decode ~method_ ~params with
          | Ok command -> Agent_run command
+         | Error error -> raise (Json.Decode_error error))
+      | method_
+        when List.mem Ticket_amendment_api.mutation_methods method_ ~equal:String.equal ->
+        (match Ticket_amendment_api.decode ~method_ ~params with
+         | Ok command -> Amendment command
          | Error error -> raise (Json.Decode_error error))
       | method_ when List.mem Evidence.mutation_methods method_ ~equal:String.equal ->
         (match Evidence.decode ~method_ ~params with

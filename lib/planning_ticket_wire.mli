@@ -122,6 +122,7 @@ module Completion : sig
       | Hold
       | Prerequisites
       | Children
+      | Amendment_acknowledgements
       | Configured_policy
 
     type t =

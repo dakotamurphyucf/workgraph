@@ -341,6 +341,8 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
           | Facts_changed value -> Facts_changed value
           | Communication_changed value -> Communication_changed value
           | Agent_run_changed value -> Agent_run_changed value
+          | Amendment_unchanged value -> Amendment_unchanged value
+          | Amendment_changed value -> Amendment_changed value
           | Evidence_changed value -> Evidence_changed value
           | Policy_changed value -> Policy_changed value
           | Policy_unchanged value -> Policy_unchanged value
@@ -627,6 +629,16 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
               List.map ticket.related ~f:(fun id -> summary (find_ticket t id)) |> page
           ; resources = resources (Entity_ref.Ticket id)
           ; communication = communication (Entity_ref.Ticket id)
+          ; amendments =
+              Ticket_amendment.heads t.amendments ~ticket:(Some id)
+              |> List.map ~f:(fun r -> r.Ticket_amendment.Revision.reference)
+              |> page
+          ; pending_amendment_acknowledgements =
+              Ticket_amendment.pending
+                t.amendments
+                ~ticket:id
+                ~ownership:(amendment_ownership t id)
+              |> page
           ; attempts = Agent_run.attempts_for_ticket t.agent_runs id |> page
           ; evidence
           ; completion_readiness = completion_view t ticket
@@ -752,6 +764,8 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
               | Handoff_put value when Id.Ticket.equal value.ticket id ->
                 Some (handoff_view value)
               | Handoff_put _
+              | Amendment_unchanged _
+              | Amendment_changed _
               | Facts_changed _
               | Communication_changed _
               | Agent_run_changed _
@@ -852,6 +866,14 @@ let query ?now_unix_ms t ~method_ ~params =
           ; ready = List.is_empty reasons
           ; readiness_reason_count = List.length reasons
           ; handoff = Option.map (Map.find t.handoffs id) ~f:handoff_view
+          ; amendments =
+              Ticket_amendment.heads t.amendments ~ticket:(Some id)
+              |> List.map ~f:(fun r -> r.Ticket_amendment.Revision.reference)
+          ; pending_amendment_acknowledgements =
+              Ticket_amendment.pending
+                t.amendments
+                ~ticket:id
+                ~ownership:(amendment_ownership t id)
           ; decisions
           ; resources
           }
@@ -986,6 +1008,24 @@ let query ?now_unix_ms t ~method_ ~params =
       ~params
   else if List.mem Agent_run.query_methods method_ ~equal:String.equal
   then Agent_run.query t.agent_runs ~method_ ~params
+  else if List.mem Ticket_amendment_api.query_methods method_ ~equal:String.equal
+  then
+    Json.decode (fun () ->
+      Option.iter (Json.optional params "ticket_id") ~f:(fun id ->
+        validate_target t (Entity_ref.Ticket (Id.Ticket.t_of_jsonaf id)));
+      let params =
+        match params with
+        | `Object fields ->
+          Json.obj (List.Assoc.remove fields "workspace_id" ~equal:String.equal)
+        | _ -> Json.fail Invalid_argument "query params require object"
+      in
+      Ticket_amendment_api.query
+        t.amendments
+        ~workspace_revision:t.revision
+        ~ownership:(amendment_ownership t)
+        ~method_
+        ~params
+      |> unwrap_domain)
   else if List.mem Evidence.query_methods method_ ~equal:String.equal
   then
     Evidence.query t.evidence ~ticket_context:(evidence_ticket_context t) ~method_ ~params

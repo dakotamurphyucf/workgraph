@@ -6,6 +6,7 @@
   attention
   actor_overview
   planning_replay
+  planning_amendment
   planning_reopening
   planning_prepare
   planning_search

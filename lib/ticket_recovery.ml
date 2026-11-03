@@ -211,6 +211,12 @@ let event_references records =
   List.concat_map records ~f:(fun r ->
     List.filter_map r.request.evidence ~f:(function
       | Evidence_event.Pin.Event ref_ -> Some ref_
-      | Resource _ | Commit _ | Checksum _ | Comment _ | Contract _ | Decision _ -> None))
+      | Resource _
+      | Commit _
+      | Checksum _
+      | Comment _
+      | Amendment _
+      | Contract _
+      | Decision _ -> None))
   |> List.dedup_and_sort ~compare:Session.Event_ref.compare
 ;;

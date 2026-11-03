@@ -530,6 +530,29 @@ let of_json json =
              ~event_actor:recovery.actor_id
              ~event_run:recovery.run_id
              ~event_timestamp:recovery.timestamp
+         | `Array [ `String "Amendment_unchanged"; payload ] ->
+           let ack = Ticket_amendment.Acknowledgement.t_of_jsonaf payload in
+           attribution
+             ~sequence:revision
+             ~event_actor:ack.ownership.actor
+             ~event_run:ack.ownership.run
+             ~event_timestamp:ack.timestamp
+         | `Array [ `String "Amendment_changed"; payload ] ->
+           let event = Ticket_amendment.Change.t_of_jsonaf payload in
+           (match event.update with
+            | Revisions records ->
+              List.iter records ~f:(fun record ->
+                attribution
+                  ~sequence:revision
+                  ~event_actor:record.Ticket_amendment.Revision.attribution.actor
+                  ~event_run:record.attribution.run
+                  ~event_timestamp:record.attribution.timestamp)
+            | Acknowledged ack ->
+              attribution
+                ~sequence:revision
+                ~event_actor:ack.ownership.actor
+                ~event_run:ack.ownership.run
+                ~event_timestamp:ack.timestamp)
          | `Array [ `String "Evidence_changed"; payload ] ->
            let event = Evidence_event.t_of_jsonaf payload in
            attribution

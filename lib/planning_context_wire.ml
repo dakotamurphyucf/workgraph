@@ -272,6 +272,9 @@ module Ticket_context = struct
     ; resources : Jsonaf.t Planning_wire.Page.t
     ; communication : Communication.t
     ; attempts : Attempt.t Planning_wire.Page.t
+    ; amendments : Ticket_amendment.Reference.t Planning_wire.Page.t
+    ; pending_amendment_acknowledgements :
+        Ticket_amendment.Reference.t Planning_wire.Page.t
     ; evidence : Jsonaf.t
     ; completion_readiness : Planning_ticket_wire.Completion.t
     ; readiness : Planning_ticket_wire.Readiness.t
@@ -322,30 +325,39 @@ module Ticket_context = struct
           ++ Fields.required "updates" (Planning_wire.Page.codec Discussion_wire.comment)
           ++ Fields.required
                "activity_since_handoff"
-               (Planning_wire.Page.codec Planning_activity_wire.Summary.codec))
+               (Planning_wire.Page.codec Planning_activity_wire.Summary.codec)
+          ++ (Fields.required
+                "amendments"
+                (Planning_wire.Page.codec Ticket_amendment.Reference.codec)
+              ++ Fields.required
+                   "pending_amendment_acknowledgements"
+                   (Planning_wire.Page.codec Ticket_amendment.Reference.codec)))
          ~decode:
            (fun
-             ( ( ( ( ( ( ( ( ( ( ( ( ( ( (((ticket, fact_keys), related), resources)
-                                       , communication )
-                                     , attempts )
-                                   , evidence )
-                                 , completion_readiness )
-                               , readiness )
-                             , recoveries )
-                           , paths )
-                         , external_conditions )
-                       , parent )
-                     , children )
-                   , blocker_ticket_ids )
-                 , handoff )
-               , updates )
-             , activity_since_handoff ) ->
+             ( ( ( ( ( ( ( ( ( ( ( ( ( ( ( (((ticket, fact_keys), related), resources)
+                                         , communication )
+                                       , attempts )
+                                     , evidence )
+                                   , completion_readiness )
+                                 , readiness )
+                               , recoveries )
+                             , paths )
+                           , external_conditions )
+                         , parent )
+                       , children )
+                     , blocker_ticket_ids )
+                   , handoff )
+                 , updates )
+               , activity_since_handoff )
+             , (amendments, pending_amendment_acknowledgements) ) ->
            { ticket
            ; fact_keys
            ; related
            ; resources
            ; communication
            ; attempts
+           ; amendments
+           ; pending_amendment_acknowledgements
            ; evidence
            ; completion_readiness
            ; readiness
@@ -367,6 +379,8 @@ module Ticket_context = struct
               ; resources
               ; communication
               ; attempts
+              ; amendments
+              ; pending_amendment_acknowledgements
               ; evidence
               ; completion_readiness
               ; readiness
@@ -381,21 +395,22 @@ module Ticket_context = struct
               ; activity_since_handoff
               } :
                t) ->
-           ( ( ( ( ( ( ( ( ( ( ( ( ( ( (((ticket, fact_keys), related), resources)
-                                     , communication )
-                                   , attempts )
-                                 , evidence )
-                               , completion_readiness )
-                             , readiness )
-                           , recoveries )
-                         , paths )
-                       , external_conditions )
-                     , parent )
-                   , children )
-                 , blocker_ticket_ids )
-               , handoff )
-             , updates )
-           , activity_since_handoff )))
+           ( ( ( ( ( ( ( ( ( ( ( ( ( ( ( (((ticket, fact_keys), related), resources)
+                                       , communication )
+                                     , attempts )
+                                   , evidence )
+                                 , completion_readiness )
+                               , readiness )
+                             , recoveries )
+                           , paths )
+                         , external_conditions )
+                       , parent )
+                     , children )
+                   , blocker_ticket_ids )
+                 , handoff )
+               , updates )
+             , activity_since_handoff )
+           , (amendments, pending_amendment_acknowledgements) )))
   ;;
 
   let codec = base
@@ -1026,6 +1041,12 @@ module Response = struct
               ; related = page ~path:"/data/related" exact value.related
               ; resources = page ~path:"/data/resources" exact value.resources
               ; communication = communication value.communication
+              ; amendments = page ~path:"/data/amendments" exact value.amendments
+              ; pending_amendment_acknowledgements =
+                  page
+                    ~path:"/data/pending_amendment_acknowledgements"
+                    exact
+                    value.pending_amendment_acknowledgements
               ; attempts = page ~path:"/data/attempts" exact value.attempts
               ; recoveries = page ~path:"/data/recoveries" exact value.recoveries
               ; parent = Option.map value.parent ~f:(ticket "/data/parent")

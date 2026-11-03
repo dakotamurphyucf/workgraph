@@ -13,6 +13,8 @@ val decode
   -> (Ticket_amendment.Command.t, Problem.t) Result.t
 
 val encode : Ticket_amendment.Command.t -> (string * Jsonaf.t, Problem.t) Result.t
+val response_codec : method_:string -> Jsonaf.t Api_codec.t option
+val validate_result : method_:string -> Jsonaf.t -> unit
 
 val query
   :  Ticket_amendment.t

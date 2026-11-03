@@ -262,6 +262,9 @@ module Acknowledgement = struct
            (((t.amendment, t.ticket), t.ownership), t.timestamp), t.observed_unix_ms))
   ;;
 
+  let jsonaf_of_t t = encode codec t
+  let t_of_jsonaf json = Api_codec.decode codec json |> unwrap
+
   let validate_lease t ~lease =
     Json.decode (fun () ->
       ignore (encode codec t : Jsonaf.t);
@@ -343,8 +346,18 @@ module Change = struct
          ~encode:(fun t -> t.revision, t.update))
   ;;
 
+  let targets t =
+    match t.update with
+    | Update.Revisions records ->
+      List.map records ~f:(fun r -> r.Revision.ticket)
+      |> List.dedup_and_sort ~compare:Id.Ticket.compare
+    | Acknowledged ack -> [ ack.ticket ]
+  ;;
+
   let to_json t = encode codec t
   let of_json = Api_codec.decode codec
+  let jsonaf_of_t = to_json
+  let t_of_jsonaf json = of_json json |> unwrap
 end
 
 module Command = struct
@@ -595,6 +608,7 @@ let prepare t command ~actor ~run ~timestamp ~now_unix_ms ~ownership =
     in
     match update with
     | Acknowledged a when List.exists t.acks ~f:(binding_equal a) ->
+      ignore (encode Acknowledgement.codec a : Jsonaf.t);
       ignore (active t a.amendment : Revision.t * Revision.Publication.t);
       require
         (Option.equal Ownership.equal (ownership a.ticket) (Some a.ownership))
@@ -677,16 +691,6 @@ let validate_references t ~ticket_exists ~resource_digest =
       | Some { content = Published _; ticket; _ } ->
         require (Id.Ticket.equal ticket a.ticket) Corrupt_store "ack ticket differs"
       | Some _ | None -> Json.fail Corrupt_store "ack publication missing"))
-;;
-
-let change_targets t change =
-  match change.Change.update with
-  | Revisions records ->
-    List.map records ~f:(fun r -> r.Revision.ticket)
-    |> List.dedup_and_sort ~compare:Id.Ticket.compare
-  | Acknowledged a ->
-    ignore (get t a.amendment : Revision.t option);
-    [ a.ticket ]
 ;;
 
 let to_json t =

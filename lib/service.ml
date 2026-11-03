@@ -1310,6 +1310,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                   @ Brief_api.query_methods
                   @ Communication.query_methods
                   @ Agent_run.query_methods
+                  @ Ticket_amendment_api.query_methods
                   @ Evidence.query_methods
                   @ Ticket_recovery.query_methods
                   @ Resume_api.query_methods

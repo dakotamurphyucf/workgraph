@@ -58,6 +58,8 @@ module Change = struct
     | Facts_changed of Facts.Change.t
     | Communication_changed of Communication.Change.t
     | Agent_run_changed of Agent_run_event.t
+    | Amendment_changed of Ticket_amendment.Change.t
+    | Amendment_unchanged of Ticket_amendment.Acknowledgement.t
     | Evidence_changed of Evidence.Change.t
     | Policy_changed of Agent_run_policy.Change.t
     | Policy_unchanged of Agent_run_policy.Change.t
@@ -83,6 +85,8 @@ module Change = struct
         | Facts_changed _ -> "facts_changed"
         | Communication_changed _ -> "communication_changed"
         | Agent_run_changed _ -> "agent_run_changed"
+        | Amendment_unchanged _ -> "amendment_unchanged"
+        | Amendment_changed _ -> "amendment_changed"
         | Evidence_changed _ -> "evidence_changed"
         | Policy_changed _ -> "policy_changed"
         | Policy_unchanged _ -> "policy_unchanged"
@@ -124,6 +128,24 @@ module Change = struct
                  ~decode:(fun ((), value) -> Agent_run_changed value)
                  ~encode:(function
                    | Agent_run_changed value -> (), value
+                   | _ -> wrong ())) )
+        ; ( "amendment_unchanged"
+          , Api_codec.object_
+              (F.map
+                 (F.required "kind" (Api_codec.literal "amendment_unchanged")
+                  ++ F.required "acknowledgement" Ticket_amendment.Acknowledgement.codec)
+                 ~decode:(fun ((), ack) -> Amendment_unchanged ack)
+                 ~encode:(function
+                   | Amendment_unchanged ack -> (), ack
+                   | _ -> wrong ())) )
+        ; ( "amendment_changed"
+          , Api_codec.object_
+              (F.map
+                 (F.required "kind" (Api_codec.literal "amendment_changed")
+                  ++ F.required "change" Planning_activity_snapshot.amendment)
+                 ~decode:(fun ((), value) -> Amendment_changed value)
+                 ~encode:(function
+                   | Amendment_changed value -> (), value
                    | _ -> wrong ())) )
         ; ( "evidence_changed"
           , Api_codec.object_
@@ -336,6 +358,27 @@ module Activity = struct
                   change.sequence
               | Agent_run_changed change ->
                 attribution change.actor change.actor_run change.timestamp change.sequence
+              | Amendment_unchanged ack ->
+                attribution
+                  ack.ownership.actor
+                  ack.ownership.run
+                  ack.timestamp
+                  value.revision
+              | Amendment_changed change ->
+                (match change.Ticket_amendment.Change.update with
+                 | Revisions records ->
+                   List.iter records ~f:(fun record ->
+                     attribution
+                       record.Ticket_amendment.Revision.attribution.actor
+                       record.attribution.run
+                       record.attribution.timestamp
+                       value.revision)
+                 | Acknowledged ack ->
+                   attribution
+                     ack.ownership.actor
+                     ack.ownership.run
+                     ack.timestamp
+                     value.revision)
               | Evidence_changed change ->
                 attribution
                   change.attribution.actor

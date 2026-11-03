@@ -166,6 +166,8 @@ module Event : sig
     | Facts_changed of Facts.Change.t
     | Communication_changed of Communication.Change.t
     | Agent_run_changed of Agent_run.Change.t
+    | Amendment_changed of Ticket_amendment.Change.t
+    | Amendment_unchanged of Ticket_amendment.Acknowledgement.t
     | Evidence_changed of Evidence.Change.t
     | Policy_changed of Policy_change.t
     | Policy_unchanged of Policy_change.t
@@ -201,6 +203,7 @@ type t =
   ; facts : Facts.t
   ; communication : Communication.t
   ; agent_runs : Agent_run.t
+  ; amendments : Ticket_amendment.t
   ; evidence : Evidence.t
   ; policies : Agent_run_policy.t
   ; handoffs : Handoff.t Id.Ticket.Map.t
@@ -216,8 +219,10 @@ val revision : t -> int
 (** Effective acceptance context from this immutable planning capture. Current
     token survives claim release/completion; latest attempt is selected by its
     creation order within that token, never by a caller-controlled identifier. *)
-val evidence_ticket_context : t -> Id.Ticket.t -> Evidence.Ticket_context.t option
+val amendment_ownership : t -> Id.Ticket.t -> Ticket_amendment.Ownership.t option
 
+val check_amendments_complete : t -> Ticket.t -> unit
+val evidence_ticket_context : t -> Id.Ticket.t -> Evidence.Ticket_context.t option
 val workspace : t -> Id.Workspace.t
 val name : t -> string
 val archived : t -> bool
@@ -394,6 +399,7 @@ val validate_run_actor
   -> (unit, Problem.t) Result.t
 
 val agent_runs : t -> Agent_run.t
+val amendments : t -> Ticket_amendment.t
 val evidence : t -> Evidence.t
 val communication : t -> Communication.t
 val policies : t -> Agent_run_policy.t

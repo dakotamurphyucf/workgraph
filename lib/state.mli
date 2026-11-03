@@ -30,6 +30,7 @@ val archived : t -> bool
 (** Immutable projections for pure coordinator views. *)
 val agent_runs : t -> Agent_run.t
 
+val amendments : t -> Ticket_amendment.t
 val evidence : t -> Evidence.t
 val communication : t -> Communication.t
 val policies : t -> Agent_run_policy.t

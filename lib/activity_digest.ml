@@ -308,6 +308,18 @@ let scan t ~scope ~after ~cursor =
                    "%s comment %s"
                    (Kind.name category)
                    (Id.Comment.to_string id))
+            | Amendment_changed change ->
+              let targets =
+                Ticket_amendment.Change.targets change
+                |> List.map ~f:(fun id -> Entity_ref.Ticket id)
+              in
+              emit
+                Decision
+                "amendment"
+                targets
+                []
+                (Ticket_amendment.Change.to_json change)
+                "Ticket amendment changed"
             | Facts_changed fact ->
               let source =
                 Resume_source.Fact
@@ -510,6 +522,7 @@ let scan t ~scope ~after ~cursor =
             | Milestone_put milestone ->
               milestones := Map.set !milestones ~key:milestone.id ~data:milestone;
               skip ()
+            | Amendment_unchanged _
             | Signal_receipt _
             | Evidence_changed _
             | Policy_changed _

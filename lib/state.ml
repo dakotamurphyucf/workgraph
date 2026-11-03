@@ -10,6 +10,7 @@ let workspace = Planning_state.workspace
 let name = Planning_state.name
 let archived = Planning_state.archived
 let agent_runs = Planning_state.agent_runs
+let amendments = Planning_state.amendments
 let evidence = Planning_state.evidence
 let communication = Planning_state.communication
 let policies = Planning_state.policies

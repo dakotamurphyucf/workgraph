@@ -72,6 +72,10 @@ module Pin = struct
         { id : Id.Comment.t
         ; revision : Counter.t
         }
+    | Amendment of
+        { id : Amendment_id.t
+        ; revision : Counter.t
+        }
     | Contract of Contract_ref.t
     | Decision of
         { id : Evidence_id.Decision.t
@@ -108,7 +112,7 @@ module Pin = struct
       | Checksum { source; digest } ->
         nonblank source 1024;
         hex digest [ 64 ]
-      | Comment { revision; _ } | Decision { revision; _ } ->
+      | Comment { revision; _ } | Amendment { revision; _ } | Decision { revision; _ } ->
         require (revision > 0) "pin revision must be positive"
       | Contract p -> require (p.revision > 0) "pin revision must be positive")
   ;;

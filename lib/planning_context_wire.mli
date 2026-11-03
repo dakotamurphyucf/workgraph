@@ -66,6 +66,9 @@ module Ticket_context : sig
     ; resources : Jsonaf.t Planning_wire.Page.t
     ; communication : Communication.t
     ; attempts : Attempt.t Planning_wire.Page.t
+    ; amendments : Ticket_amendment.Reference.t Planning_wire.Page.t
+    ; pending_amendment_acknowledgements :
+        Ticket_amendment.Reference.t Planning_wire.Page.t
     ; evidence : Jsonaf.t
     ; completion_readiness : Planning_ticket_wire.Completion.t
     ; readiness : Planning_ticket_wire.Readiness.t

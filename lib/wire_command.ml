@@ -16,6 +16,7 @@ let rec wire command =
        "message.send", unwrap (Api_codec.encode Communication.Message_send.codec command)
      | Agent_run command -> Agent_run.encode command
      | Facts command -> unwrap (Facts.Command.encode command)
+     | Amendment command -> unwrap (Ticket_amendment_api.encode command)
      | Evidence command -> unwrap (Evidence.encode command)
      | Policy command -> Agent_run_policy.encode command
      | Batch commands ->

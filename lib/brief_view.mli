@@ -28,6 +28,8 @@ module Ticket : sig
     ; ready : bool
     ; readiness_reason_count : int
     ; handoff : Planning_ticket_wire.Handoff.t option
+    ; amendments : Ticket_amendment.Reference.t list
+    ; pending_amendment_acknowledgements : Ticket_amendment.Reference.t list
     ; decisions : Jsonaf.t list
     ; resources : Resource.t list
     }

@@ -385,6 +385,16 @@ let%expect_test "ack server observation is retained but is outside stable claim 
     prepare ~by:worker ~run:(Some run) ~now_unix_ms:(Some 200L) state command |> ok
   in
   print_s [%sexp (List.length (A.changes duplicate) : int)];
+  report (prepare ~by:worker ~run:(Some run) ~now_unix_ms:(Some (-1L)) state command);
+  report
+    (A.prepare
+       state
+       command
+       ~actor:worker
+       ~run:(Some run)
+       ~timestamp:""
+       ~now_unix_ms:(Some 200L)
+       ~ownership:(lookup 1));
   report
     (prepare
        ~by:worker
@@ -399,11 +409,13 @@ let%expect_test "ack server observation is retained but is outside stable claim 
        (set json "update" (set update "acknowledgement" (remove ack "observed_unix_ms"))));
   [%expect
     {|
-   (100)
-   0
-   Invalid_argument
-   Invalid_argument
-   |}]
+    (100)
+    0
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
 ;;
 
 let%expect_test
@@ -445,4 +457,86 @@ let%expect_test
  ok
  Stale_claim
  |}]
+;;
+
+let%expect_test
+    "exact amendment evidence pins retain source identity and ascending invalidations"
+  =
+  let pin id revision = Evidence.Pin.Amendment { id = identifier id; revision } in
+  let previous = pin "instruction" 1
+  and current = pin "instruction" 2 in
+  let encoded = Api_codec.encode Evidence_wire.pin current |> ok in
+  let decoded = Api_codec.decode Evidence_wire.pin encoded |> ok in
+  print_s [%sexp (Evidence.Pin.equal decoded current : bool)];
+  let durable = Evidence.Pin.jsonaf_of_t current |> Evidence.Pin.t_of_jsonaf in
+  print_s [%sexp (Evidence.Pin.equal durable current : bool)];
+  report (Api_codec.decode Evidence_wire.pin (set encoded "revision" (Json.int 0)));
+  let prepare previous current =
+    Evidence.prepare
+      Evidence.empty
+      (Input_changed { previous; current })
+      ~ticket_context:(fun _ -> None)
+      ~actor
+      ~run:None
+      ~timestamp:"recorded"
+      ~sequence:1
+  in
+  let prepared = prepare previous current |> ok in
+  print_s [%sexp (List.length (Evidence.changes prepared) : int)];
+  List.iter (Evidence.changes prepared) ~f:(fun change ->
+    report (Evidence.apply Evidence.empty change ~ticket_context:(fun _ -> None)));
+  report (prepare current previous);
+  report (prepare previous (pin "other" 2));
+  [%expect
+    {|
+    true
+    true
+    Invalid_argument
+    1
+    ok
+    Conflict
+    Conflict
+    |}]
+;;
+
+let%expect_test
+    "resource amendment authority retains exact immutable content pin after withdrawal"
+  =
+  let resource = Id.Resource.of_string "source" |> ok in
+  let digest = String.make 64 'a' in
+  let command =
+    A.Command.Publish
+      { id = identifier "resource-instruction"
+      ; ticket
+      ; expected_revision = 0
+      ; title = "Pinned instruction"
+      ; source = Resource { id = resource; revision = 3; digest }
+      ; require_ack = true
+      ; supersedes = []
+      }
+  in
+  let state = commit A.empty command in
+  let validate state digest_lookup =
+    A.validate_references
+      state
+      ~ticket_exists:(Id.Ticket.equal ticket)
+      ~resource_digest:(fun id ~revision ->
+        if Id.Resource.equal id resource && revision = 3 then digest_lookup else None)
+  in
+  report (validate state (Some digest));
+  report (validate state (Some (String.make 64 'b')));
+  let state =
+    commit
+      state
+      (Withdraw { amendment = reference "resource-instruction" 1; reason = "obsolete" })
+  in
+  report (validate state (Some digest));
+  report (validate state None);
+  [%expect
+    {|
+    ok
+    Not_found
+    ok
+    Not_found
+    |}]
 ;;

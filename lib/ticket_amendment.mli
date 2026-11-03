@@ -90,6 +90,8 @@ module Acknowledgement : sig
   [@@deriving sexp, equal]
 
   val codec : t Api_codec.t
+  val jsonaf_of_t : t -> Jsonaf.t
+  val t_of_jsonaf : Jsonaf.t -> t
 
   (** Validate the recorded server observation against the pre-ack claim lease.
       Timed ownership requires a clock; indefinite ownership may record [None].
@@ -113,8 +115,15 @@ module Change : sig
     }
   [@@deriving sexp, equal]
 
+  val codec : t Api_codec.t
+
+  (** Routing uses immutable event records alone, independent of later heads. *)
+  val targets : t -> Id.Ticket.t list
+
   val to_json : t -> Jsonaf.t
   val of_json : Jsonaf.t -> (t, Problem.t) Result.t
+  val jsonaf_of_t : t -> Jsonaf.t
+  val t_of_jsonaf : Jsonaf.t -> t
 end
 
 module Command : sig
@@ -195,7 +204,5 @@ val ensure_can_complete
   -> ticket:Id.Ticket.t
   -> ownership:Ownership.t option
   -> (unit, Problem.t) Result.t
-
-val change_targets : t -> Change.t -> Id.Ticket.t list
 
 module Id = Amendment_id

@@ -305,7 +305,7 @@ let pin_valid = function
   | Checksum { source; digest } ->
     nonempty source 1024;
     hex digest [ 64 ]
-  | Comment { revision; _ } | Decision { revision; _ } ->
+  | Comment { revision; _ } | Amendment { revision; _ } | Decision { revision; _ } ->
     require (revision > 0) Invalid_argument "pin revision must be positive"
   | Contract ref_ ->
     require (ref_.revision > 0) Invalid_argument "contract pin revision must be positive"
@@ -320,9 +320,17 @@ let pin_same_source (a : Pin.t) (b : Pin.t) =
   | Commit a, Commit b -> String.equal a.repository b.repository
   | Checksum a, Checksum b -> String.equal a.source b.source
   | Comment a, Comment b -> Id.Comment.equal a.id b.id
+  | Amendment a, Amendment b -> Amendment_id.equal a.id b.id
   | Contract a, Contract b -> Evidence_id.Contract.equal a.id b.id
   | Decision a, Decision b -> Evidence_id.Decision.equal a.id b.id
-  | ( (Resource _ | Event _ | Commit _ | Checksum _ | Comment _ | Contract _ | Decision _)
+  | ( ( Resource _
+      | Event _
+      | Commit _
+      | Checksum _
+      | Comment _
+      | Amendment _
+      | Contract _
+      | Decision _ )
     , _ ) -> false
 ;;
 
@@ -338,10 +346,11 @@ let input_changed_valid previous current =
   | Pin.Resource a, Resource b -> ascending a.revision b.revision
   | Event a, Event b -> ascending a.sequence b.sequence
   | Comment a, Comment b -> ascending a.revision b.revision
+  | Amendment a, Amendment b -> ascending a.revision b.revision
   | Contract a, Contract b -> ascending a.revision b.revision
   | Decision a, Decision b -> ascending a.revision b.revision
   | (Commit _ | Checksum _), _ -> ()
-  | (Resource _ | Event _ | Comment _ | Contract _ | Decision _), _ ->
+  | (Resource _ | Event _ | Comment _ | Amendment _ | Contract _ | Decision _), _ ->
     Json.fail Conflict "input pin source differs"
 ;;
 
@@ -752,8 +761,13 @@ let assertion_inputs_replaced t (a : Assertion.t) =
           || List.exists pins ~f:(function
             | Pin.Decision { id; _ } ->
               List.mem decision.supersedes id ~equal:Evidence_id.Decision.equal
-            | Resource _ | Event _ | Commit _ | Checksum _ | Comment _ | Contract _ ->
-              false)
+            | Resource _
+            | Event _
+            | Commit _
+            | Checksum _
+            | Comment _
+            | Amendment _
+            | Contract _ -> false)
         | Manifest_put _
         | Policy_put _
         | Assertion_added _
@@ -1516,7 +1530,7 @@ let pin_internal_exists t = function
   | Decision { id; revision } ->
     Option.is_some
       (historical t.decisions id revision ~revision_of:(fun d -> d.Decision.revision))
-  | Resource _ | Event _ | Commit _ | Checksum _ | Comment _ -> true
+  | Resource _ | Event _ | Commit _ | Checksum _ | Comment _ | Amendment _ -> true
 ;;
 
 let validate_references t ~attempt ~pin_exists ~entity_exists ~review_request_exists =
@@ -1611,7 +1625,7 @@ let change_targets t (change : Change.t) =
         (historical t.decisions id revision ~revision_of:(fun d -> d.Decision.revision))
         ~default:[]
         ~f:(fun d -> d.scope :: d.affected)
-    | Event _ | Commit _ | Checksum _ | Comment _ -> []
+    | Event _ | Commit _ | Checksum _ | Comment _ | Amendment _ -> []
   in
   let targets =
     match change.update with
@@ -2820,7 +2834,13 @@ let event_references t =
   let events pins =
     List.filter_map pins ~f:(function
       | Pin.Event ref_ -> Some ref_
-      | Resource _ | Commit _ | Checksum _ | Comment _ | Contract _ | Decision _ -> None)
+      | Resource _
+      | Commit _
+      | Checksum _
+      | Comment _
+      | Amendment _
+      | Contract _
+      | Decision _ -> None)
   in
   let manifests =
     Map.data t.manifests

@@ -99,6 +99,16 @@ let pin =
         | Comment { id; revision } -> id, revision
         | _ -> mismatch ())
   in
+  let amendment =
+    branch
+      "amendment"
+      (req "amendment_id" (id Amendment_id.of_string Amendment_id.to_string)
+       <*> req "revision" positive)
+      ~decode:(fun (id, revision) -> Pin.Amendment { id; revision })
+      ~encode:(function
+        | Amendment { id; revision } -> id, revision
+        | _ -> mismatch ())
+  in
   let contract =
     branch
       "contract"
@@ -132,6 +142,7 @@ let pin =
          ; "commit", commit
          ; "checksum", checksum
          ; "comment", comment
+         ; "amendment", amendment
          ; "contract", contract
          ; "decision", decision
          ]
@@ -141,6 +152,7 @@ let pin =
          | Commit _ -> "commit"
          | Checksum _ -> "checksum"
          | Comment _ -> "comment"
+         | Amendment _ -> "amendment"
          | Contract _ -> "contract"
          | Decision _ -> "decision"))
     ~decode:(fun t -> Result.map (validate_pin t) ~f:(fun () -> t))

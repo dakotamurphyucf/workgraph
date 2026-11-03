@@ -63,6 +63,10 @@ module Pin : sig
         { id : Id.Comment.t
         ; revision : Counter.t
         }
+    | Amendment of
+        { id : Amendment_id.t
+        ; revision : Counter.t
+        }
     | Contract of Contract_ref.t
     | Decision of
         { id : Evidence_id.Decision.t

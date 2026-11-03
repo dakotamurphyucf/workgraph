@@ -29,6 +29,7 @@ let methods =
     match Agent_run_api.descriptor ~method_ with
     | Some descriptor -> descriptor
     | None -> invalid_arg ("missing run method contract: " ^ method_))
+  @ Ticket_amendment_api.methods
   @ Evidence.api_methods
   @ Agent_run_policy_api.methods
   @ facts

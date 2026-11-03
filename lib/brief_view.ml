@@ -261,6 +261,10 @@ let ticket_codec =
      ++ req "readiness_reason_count" W.counter
      ++ req "handoff" (nullable handoff)
      ++ req "decision_comments" (collection decision ~max_items:5)
+     ++ req "amendments" (collection Ticket_amendment.Reference.codec ~max_items:8)
+     ++ req
+          "pending_amendment_acknowledgements"
+          (collection Ticket_amendment.Reference.codec ~max_items:8)
      ++ req "resources" (collection resource_ref ~max_items:8)
      ++ req "expand" (ticket_expand "ticket.context")
      ++ req "readiness_expand" (ticket_expand "ticket.readiness"))
@@ -333,6 +337,8 @@ module Ticket = struct
     ; ready : bool
     ; readiness_reason_count : int
     ; handoff : Planning_ticket_wire.Handoff.t option
+    ; amendments : Ticket_amendment.Reference.t list
+    ; pending_amendment_acknowledgements : Ticket_amendment.Reference.t list
     ; decisions : Jsonaf.t list
     ; resources : Resource.t list
     }
@@ -500,6 +506,18 @@ let ticket input ~workspace ~workspace_revision ~max_bytes =
           ; "readiness_reason_count", Json.int input.readiness_reason_count
           ; "handoff", handoff
           ; "decision_comments", collection_json selected_notes ~total:(List.length notes)
+          ; ( "amendments"
+            , collection_json
+                (List.take input.amendments resource_limit
+                 |> List.map ~f:(fun r ->
+                   Api_codec.encode Ticket_amendment.Reference.codec r |> unwrap))
+                ~total:(List.length input.amendments) )
+          ; ( "pending_amendment_acknowledgements"
+            , collection_json
+                (List.take input.pending_amendment_acknowledgements resource_limit
+                 |> List.map ~f:(fun r ->
+                   Api_codec.encode Ticket_amendment.Reference.codec r |> unwrap))
+                ~total:(List.length input.pending_amendment_acknowledgements) )
           ; ( "resources"
             , collection_json selected_resources ~total:(List.length input.resources) )
           ; ( "expand"
@@ -522,7 +540,11 @@ let ticket input ~workspace ~workspace_revision ~max_bytes =
           (List.length notes
            - List.length selected_notes
            + List.length input.resources
-           - List.length selected_resources)))
+           - List.length selected_resources
+           + Int.max 0 (List.length input.amendments - resource_limit)
+           + Int.max
+               0
+               (List.length input.pending_amendment_acknowledgements - resource_limit))))
 ;;
 
 let resource r ~workspace ~workspace_revision ~max_bytes =

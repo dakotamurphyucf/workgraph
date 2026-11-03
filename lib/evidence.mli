@@ -248,7 +248,7 @@ val assertions : t -> Assertion.t list
 val request_codec : method_:string -> Jsonaf.t Api_codec.t option
 
 (** Exact historical contract/decision existence in this evidence capture.
-    Resource, comment, event, commit and checksum pins return true here; callers
+    Resource, comment, amendment, event, commit and checksum pins return true here; callers
     must additionally validate them against their owning immutable capture. *)
 val pin_internal_exists : t -> Pin.t -> bool
 
