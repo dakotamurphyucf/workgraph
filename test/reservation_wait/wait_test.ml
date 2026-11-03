@@ -418,3 +418,95 @@ let%expect_test "save failure after contention retains original journal and stop
       (Json.canonical (Problem.to_json problem)));
   [%expect {| {"attempts":"1","completed":false,"stop":"failed"} |}]
 ;;
+
+let%expect_test
+    "read transport failure at total deadline retains its problem and identity"
+  =
+  let limits =
+    Reservation_wait.Limits.create ~timeout_ms:1000 ~max_attempts:100 ~wait_slice_ms:100
+    |> unwrap
+  in
+  List.iter [ "workspace.get"; "changes.read"; "changes.wait" ] ~f:(fun phase ->
+    let clock = ref 0.
+    and saved = ref [] in
+    let problem = Problem.create Storage_unavailable "request timed out" in
+    let outcome =
+      Reservation_wait.collect
+        (plan ~limits ())
+        ~now:(fun () -> !clock)
+        ~max_exchange_seconds:30.
+        ~fresh_mutation:(fun () -> failwith "deadline must not create fresh identity")
+        ~save:(fun request ->
+          saved := request :: !saved;
+          Ok "/tmp/first.json")
+        ~exchange:(fun ~timeout_seconds request ->
+          assert (Float.(timeout_seconds > 0. && timeout_seconds <= 1.));
+          let method_ = Protocol.Request.method_ request in
+          if String.equal method_ phase
+          then (
+            clock := 1.;
+            Error problem)
+          else (
+            match method_ with
+            | "workspace.get" -> Ok (envelope (Json.obj []))
+            | "changes.read" -> Ok (feed ())
+            | "reservation.acquire" -> Error (contention ())
+            | _ -> assert false))
+      |> unwrap
+    in
+    print_endline phase;
+    summary outcome;
+    assert (
+      String.equal
+        (Json.canonical (Json.field (metadata outcome) "problem"))
+        (Json.canonical (Problem.to_json problem)));
+    if String.equal phase "changes.wait"
+    then (
+      assert (List.length !saved = 1);
+      assert (
+        String.equal
+          (Json.canonical (Json.field (metadata outcome) "retry_request"))
+          (Json.canonical (Protocol.Request.to_json (request ()))))));
+  [%expect
+    {|
+    workspace.get
+    {"attempts":"0","completed":false,"stop":"deadline"}
+    changes.read
+    {"attempts":"0","completed":false,"stop":"deadline"}
+    changes.wait
+    {"attempts":"1","completed":false,"stop":"deadline"}
+    |}]
+;;
+
+let%expect_test
+    "deadline does not relabel early transport, semantic failures or uncertain writes"
+  =
+  List.iter
+    [ 0.5, Problem.Storage_unavailable; 31., Invalid_argument; 31., Outcome_unknown ]
+    ~f:(fun (elapsed, kind) ->
+      let problem = Problem.create kind "actual failure" in
+      let outcome, _, _, fresh =
+        run
+          (fun clock _ ->
+             if Problem.equal_kind kind Outcome_unknown
+             then (
+               clock := elapsed;
+               Error problem)
+             else Error (contention ()))
+          (fun clock _ ->
+             clock := elapsed;
+             Error problem)
+      in
+      summary outcome;
+      assert (fresh = 0);
+      assert (
+        String.equal
+          (Json.canonical (Json.field (metadata outcome) "problem"))
+          (Json.canonical (Problem.to_json problem))));
+  [%expect
+    {|
+    {"attempts":"1","completed":false,"stop":"failed"}
+    {"attempts":"1","completed":false,"stop":"failed"}
+    {"attempts":"1","completed":false,"stop":"uncertain"}
+    |}]
+;;

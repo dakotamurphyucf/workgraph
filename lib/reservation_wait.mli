@@ -69,7 +69,10 @@ end
     bounded timer permits one fresh identity. Other conflicts/errors, malformed
     or nondurable grants and uncertainty stop. Cancellation and unexpected
     exceptions propagate, leaving synchronized journals for exact manual retry.
-    Expected callback failures are returned as incomplete Outcome diagnostics. *)
+    Read transport unavailability observed at the exhausted total deadline stops
+    as [Deadline], retaining the original problem. The same failure before that
+    deadline remains [Failed]; write uncertainty remains [Uncertain]. Expected
+    callback failures are returned as incomplete Outcome diagnostics. *)
 val collect
   :  t
   -> now:(unit -> float)

@@ -324,6 +324,16 @@ let collect t ~now ~max_exchange_seconds ~fresh_mutation ~save ~exchange =
       ; problem
       }
     in
+    let finish_read_error (problem : Problem.t) =
+      let stop =
+        if
+          Problem.equal_kind problem.kind Storage_unavailable
+          && Float.(remaining () <= 0.)
+        then Stop.Deadline
+        else Stop.Failed
+      in
+      finish ~problem stop
+    in
     let budget () = Float.min max_exchange_seconds (remaining ()) in
     let rpc method_ params =
       Protocol.Request.create ~id:"reservation-wait-read" ~method_ ~params |> unwrap
@@ -463,7 +473,7 @@ let collect t ~now ~max_exchange_seconds ~fresh_mutation ~save ~exchange =
                  (feed_params ("cursor", Json.string cursor) (Some wait_ms)))
           with
           | `Deadline -> finish Stop.Deadline
-          | `Error problem -> finish ~problem Stop.Failed
+          | `Error problem -> finish_read_error problem
           | `Stopped stop -> finish stop
           | `Ok response ->
             if response.has_more && String.equal response.cursor cursor
@@ -493,12 +503,12 @@ let collect t ~now ~max_exchange_seconds ~fresh_mutation ~save ~exchange =
     in
     match read workspace with
     | `Deadline -> finish Stop.Deadline
-    | `Error problem -> finish ~problem Stop.Failed
+    | `Error problem -> finish_read_error problem
     | `Ok (_, response) ->
       let after = Json.field (Api_response.meta response) "workspace_revision" in
       (match feed (rpc "changes.read" (feed_params ("after", after) None)) with
        | `Deadline -> finish Stop.Deadline
-       | `Error problem -> finish ~problem Stop.Failed
+       | `Error problem -> finish_read_error problem
        | `Stopped stop -> finish stop
        | `Ok response -> acquire t.request response.cursor))
 ;;

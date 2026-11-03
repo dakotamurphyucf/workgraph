@@ -30,9 +30,9 @@ def frame(flow):
 
 
 class Proxy:
-    def __init__(self, root, upstream, journal, after_first=None, drop=False):
+    def __init__(self, root, upstream, journal, after_first=None, drop=False, stall_read=None):
         self.path, self.upstream, self.journal = root / "proxy", upstream, journal
-        self.after_first, self.drop = after_first, drop
+        self.after_first, self.drop, self.stall_read = after_first, drop, stall_read
         self.requests, self.responses, self.error = [], [], None
         self.stop = threading.Event()
         self.listener = socket.socket(socket.AF_UNIX)
@@ -52,6 +52,11 @@ class Proxy:
                 with incoming, socket.socket(socket.AF_UNIX) as outgoing:
                     outgoing.settimeout(5)
                     encoded, request = frame(incoming)
+                    if request["method"] == self.stall_read:
+                        # Let the client exhaust its capped remaining read budget.
+                        # Cleanup releases this wait without writing to its closed socket.
+                        self.stop.wait(5)
+                        continue
                     if request["method"] in ("reservation.acquire", "reservation.paths.acquire"):
                         path = self.journal / (request["params"]["mutation_id"]+".json")
                         assert json.loads(path.read_bytes()) == request, "journal must precede transmission"
@@ -217,8 +222,22 @@ class ReservationWait(unittest.TestCase):
             self.assertEqual(retry["error"]["data"]["details"]["type"], "reservation_conflict")
             self.assertEqual(saved.read_bytes(), frozen)
         else:
-            self.assertEqual(wait["stop"], "deadline")
+            self.assertEqual(wait["stop"], "deadline", wait)
         self.assertLessEqual(int(data["wait"]["attempt_count"]), 100)
+        self.assertEqual(self.read("reservation.get", reservation_id="build")["data"]["holders"][0], original["data"]["holds"][0]["holder"])
+
+    def test_feed_transport_timeout_at_total_deadline_is_deadline(self):
+        original = self.write("reservation.acquire", target_run_id="holder", requests=[{"reservation_id":"build", "mode":"exclusive"}])
+        proxy = self.proxy(stall_read="changes.wait")
+        _, data = self.wait([{"reservation_id":"build", "mode":"exclusive"}], address=proxy.path,
+                            options=["--max-attempts", "100"], timeout_ms=1000, expected=1)
+        wait = data["wait"]
+        self.assertEqual((wait["stop"], wait["attempt_count"]), ("deadline", "1"), wait)
+        self.assertEqual(wait["problem"], {"kind":"Storage_unavailable", "message":"request timed out"})
+        self.assertEqual(wait["last_conflict"]["kind"], "Already_claimed")
+        self.assertEqual(len(proxy.requests), 1)
+        self.assertEqual(json.loads(Path(wait["saved_request"]).read_bytes()), wait["retry_request"])
+        self.assertIsNone(data["daemon_response"])
         self.assertEqual(self.read("reservation.get", reservation_id="build")["data"]["holders"][0], original["data"]["holds"][0]["holder"])
 
     def test_existing_journal_never_overwrites_or_sends(self):
