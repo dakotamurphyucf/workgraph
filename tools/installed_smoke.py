@@ -68,9 +68,9 @@ def start(registry):
             raise RuntimeError("daemon exited: " + (root / "daemon.log").read_text())
         try:
             initialization = call("initialize", {})
-            assert initialization["version"] == "0.4.0"
-            assert initialization["workgraph_api"] == "0.4"
-            assert initialization["registry_format_version"] == "3"
+            assert initialization["version"] == "0.5.0"
+            assert initialization["workgraph_api"] == "0.5"
+            assert initialization["registry_format_version"] == "4"
             return
         except subprocess.CalledProcessError:
             time.sleep(0.02)
@@ -130,7 +130,7 @@ def check_memory():
 
 
 try:
-    assert run([str(exe), "--version"]).stdout.strip() == "0.4.0"
+    assert run([str(exe), "--version"]).stdout.strip() == "0.5.0"
     start("registry-1")
     admin("workspace.create", workspace_id="smoke", name="Installed workflow", root=str(root / "workspace"))
     mutate("project.create", project_id="project", title="Standalone qualification")

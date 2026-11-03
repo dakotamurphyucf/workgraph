@@ -24,13 +24,14 @@ class PackageQualification(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.directory = Path(self.temporary.name)
-        self.source_files = {name: (b"source:" + name.encode(), 0o644)
+        self.source_files = {name: (b"source:" + name.encode(),
+                                    0o755 if name.endswith(".sh") else 0o644)
                              for name in verify.NATIVE_SOURCE_FILES}
         self.source_files["docs/example.md"] = (b"offline documentation", 0o644)
         self.source_files["examples/example.sh"] = (b"#!/bin/sh\n", 0o755)
         self.identity = verify.sha(verify.encode({name: verify.sha(data)
                                                 for name, (data, _) in self.source_files.items()}))
-        self.source_metadata = {"version": "0.4.0", "kind": "source", "source_identity": self.identity}
+        self.source_metadata = {"version": "0.5.0", "kind": "source", "source_identity": self.identity}
         self.native_metadata = {**self.source_metadata, "kind": "native", "platform": "macos-arm64"}
         self.native_files = dict(self.source_files)
         self.native_files["bin/workgraph"] = (b"independent fixture executable", 0o755)
@@ -56,8 +57,8 @@ class PackageQualification(unittest.TestCase):
     def write_archives(self):
         self.source_path.unlink(missing_ok=True)
         self.native_path.unlink(missing_ok=True)
-        package.archive(self.source_path, "workgraph-0.4.0", self.source_files, self.source_metadata)
-        package.archive(self.native_path, "workgraph-0.4.0-macos-arm64", self.native_files, self.native_metadata)
+        package.archive(self.source_path, "workgraph-0.5.0", self.source_files, self.source_metadata)
+        package.archive(self.native_path, "workgraph-0.5.0-macos-arm64", self.native_files, self.native_metadata)
 
     def pair(self):
         return verify.read_archive(self.source_path), verify.read_archive(self.native_path)
@@ -115,6 +116,12 @@ class PackageQualification(unittest.TestCase):
         native = verify.read_archive(next(output.glob("*-macos-arm64.tar.gz")))
         verify.verify_pair(source, native)
         self.assertEqual(native.files["AGENTS.md"], (ROOT / "AGENTS.md").read_bytes())
+        self.assertEqual(native.files["tools/wgx.sh"], (ROOT / "tools/wgx.sh").read_bytes())
+        self.assertEqual(source.modes["tools/wgx.sh"], 0o755)
+        self.assertEqual(native.modes["tools/wgx.sh"], 0o755)
+        for name in ["examples/ci-worker.sh", "examples/transcript-converter.py"]:
+            self.assertEqual(native.files[name], (ROOT / name).read_bytes())
+        self.assertEqual(native.modes["examples/ci-worker.sh"], 0o755)
         checked = 0
         for name, data in native.files.items():
             if not name.endswith(".md"):
@@ -133,6 +140,25 @@ class PackageQualification(unittest.TestCase):
                                     "native package omits offline link target: " + resolved)
                 checked += 1
         self.assertGreater(checked, 100)
+
+    def test_helper_is_required_and_cannot_lose_executable_mode(self):
+        source, native = self.pair()
+        installation = self.directory / "helper-installation"
+        installation.mkdir()
+        verify.extract(native, installation)
+        installed = installation / native.root
+        (installed / "tools/wgx.sh").chmod(0o644)
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            verify.verify_installation(native, installed)
+        del self.native_files["tools/wgx.sh"]
+        self.write_archives()
+        with self.assertRaisesRegex(ValueError, "inventory"):
+            verify.verify_pair(source, verify.read_archive(self.native_path))
+
+        self.native_files["tools/wgx.sh"] = (source.files["tools/wgx.sh"], 0o644)
+        self.write_archives()
+        with self.assertRaisesRegex(ValueError, "mode"):
+            verify.read_archive(self.native_path)
 
     def test_rpm_exact_mapping_includes_inspection_and_licenses(self):
         _, native = self.pair()
@@ -157,7 +183,7 @@ class PackageQualification(unittest.TestCase):
             def mutation(out, member, data):
                 if member.name.endswith("bin/workgraph"):
                     if case == "traversal":
-                        member.name = "workgraph-0.4.0-macos-arm64/../escape"
+                        member.name = "workgraph-0.5.0-macos-arm64/../escape"
                     elif case == "symlink":
                         member.type, member.linkname = tarfile.SYMTYPE, "/tmp/escape"
                     elif case == "setuid":

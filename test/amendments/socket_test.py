@@ -61,7 +61,7 @@ class AmendmentTest(unittest.TestCase):
     def test_lost_publication_ack_restart_and_delivery_is_not_acceptance(self):
         body='Z'*65536
         params=self.publication('instruction', body)
-        request={'jsonrpc':'2.0','workgraph_api':'0.4','id':'lost','method':'ticket.amendment.publish',
+        request={'jsonrpc':'2.0','workgraph_api':'0.5','id':'lost','method':'ticket.amendment.publish',
                  'params':{'workspace_id':'amendments','actor_id':'lead','mutation_id':'lost-publication',**params}}
         payload=adapter.canonical(request).encode()
         with socket.socket(socket.AF_UNIX) as connection:

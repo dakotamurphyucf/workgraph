@@ -65,7 +65,7 @@ class CurrentFormats(unittest.TestCase):
                         return receive(flow)
 
                 def call(method, params):
-                    return raw({"jsonrpc":"2.0", "workgraph_api":"0.4", "id":"test", "method":method, "params":params})
+                    return raw({"jsonrpc":"2.0", "workgraph_api":"0.5", "id":"test", "method":method, "params":params})
 
                 def write(method, mutation, **params):
                     return call(method, {"actor_id":"test", "mutation_id":mutation, **params})
@@ -79,18 +79,18 @@ class CurrentFormats(unittest.TestCase):
                     before_registry = snapshot(root / "registry")
                     for request in [
                         {"jsonrpc":"2.0","id":"old","method":"initialize"},
-                        {"jsonrpc":"2.0","workgraph_api":"0.2","id":"old","method":"workspace.create","params":{}},
+                        {"jsonrpc":"2.0","workgraph_api":"0.4","id":"old","method":"workspace.create","params":{}},
                         {"workgraph_api":"future","id":"old","unrelated":True}]:
                         unsupported(raw(request), "application API")
                     self.assertEqual(before_registry, snapshot(root / "registry"))
                     current = call("initialize", {})["result"]["data"]
-                    self.assertEqual("0.4", current["workgraph_api"])
-                    self.assertEqual("3", current["registry_format_version"])
+                    self.assertEqual("0.5", current["workgraph_api"])
+                    self.assertEqual("4", current["registry_format_version"])
                     malformed = call("initialize", {"unknown":True})
                     self.assertEqual("Invalid_argument", malformed["error"]["data"]["kind"])
                     old = root / "old-workspace"
                     old.mkdir()
-                    (old / "workspace.json").write_text('{"version":"1","obsolete":true}')
+                    (old / "workspace.json").write_text('{"version":"3","obsolete":true}')
                     before = snapshot(old)
                     registry_before = snapshot(root / "registry")
                     unsupported(write("workspace.register", "register-old", root=str(old)), "workspace descriptor")
@@ -99,7 +99,7 @@ class CurrentFormats(unittest.TestCase):
                     # Version detection precedes missing workspace-set inventory/fields.
                     export = root / "old-export"
                     export.mkdir()
-                    (export / "manifest.json").write_text('{"version":"1","obsolete":true}')
+                    (export / "manifest.json").write_text('{"version":"3","obsolete":true}')
                     before = snapshot(export)
                     unsupported(call("export.verify", {"directory":str(export)}), "workspace export")
                     unsupported(write("workspace.restore", "restore-old", directory=str(export), root=str(root / "restored")), "workspace export")
@@ -109,7 +109,7 @@ class CurrentFormats(unittest.TestCase):
                     self.assertEqual(registry_before, snapshot(root / "registry"))
                     created = write("workspace.create", "create", workspace_id="w", name="Current", root=str(root / "workspace"))
                     self.assertIn("result", created, created)
-                    self.assertEqual("3", json.loads((root / "workspace/workspace.json").read_text())["version"])
+                    self.assertEqual("4", json.loads((root / "workspace/workspace.json").read_text())["version"])
                     saved_current = root / "current-request.json"
                     command = [str(EXE), "ticket", "create", str(address),
                                "--workspace-id", "w", "--actor-id", "test",
@@ -118,7 +118,7 @@ class CurrentFormats(unittest.TestCase):
                     result = subprocess.run(command, capture_output=True, text=True, timeout=10)
                     self.assertEqual(0, result.returncode, result.stderr + result.stdout)
                     original_result = json.loads(result.stdout)
-                    self.assertEqual("0.4", json.loads(saved_current.read_text())["workgraph_api"])
+                    self.assertEqual("0.5", json.loads(saved_current.read_text())["workgraph_api"])
                     self.assertIn("result", write("ticket.create", "later", workspace_id="w", ticket_id="later", title="Later"))
                     self.assertIn("result", call("daemon.shutdown", {}))
                     daemon.wait(timeout=10)
@@ -130,14 +130,14 @@ class CurrentFormats(unittest.TestCase):
                     self.assertIn("result", write("workspace.close", "close", workspace_id="w"))
                     descriptor = root / "workspace/workspace.json"
                     contents = json.loads(descriptor.read_text())
-                    contents["version"] = "1"
+                    contents["version"] = "3"
                     descriptor.write_text(json.dumps(contents))
                     before = snapshot(root / "workspace")
                     unsupported(write("workspace.open", "open-old", workspace_id="w"), "workspace descriptor")
                     self.assertEqual(before, snapshot(root / "workspace"))
                     # A saved legacy request rejects locally, unchanged, before connection.
                     saved = root / "old-request.json"
-                    saved.write_text('{"jsonrpc":"2.0","id":"old","method":"ticket.create","params":{}}')
+                    saved.write_text('{"jsonrpc":"2.0","workgraph_api":"0.4","id":"old","method":"ticket.create","params":{}}')
                     before_bytes = saved.read_bytes()
                     result = subprocess.run([str(EXE), "retry", str(root / "absent-socket"), str(saved)], capture_output=True, text=True, timeout=10)
                     self.assertNotEqual(0, result.returncode)
@@ -153,7 +153,7 @@ class CurrentFormats(unittest.TestCase):
             root = Path(directory)
             registry = root / "registry"
             registry.mkdir()
-            (registry / "registry.json").write_text('{"version":"1","obsolete":true}')
+            (registry / "registry.json").write_text('{"version":"3","obsolete":true}')
             before = snapshot(registry)
             result = subprocess.run([str(EXE), "serve", str(registry), str(root / "s")], capture_output=True, text=True, timeout=10)
             self.assertNotEqual(0, result.returncode)
@@ -171,13 +171,13 @@ class CurrentFormats(unittest.TestCase):
                     with flow:
                         request = receive(flow)
                         observed.append(request)
-                        send(flow, {"jsonrpc":"2.0","id":request["id"],"result":{"data":{"protocol_version":"1"},"meta":{}}})
+                        send(flow, {"jsonrpc":"2.0","id":request["id"],"result":{"data":{"workgraph_api":"0.4","version":"0.4.0"},"meta":{}}})
                 worker = threading.Thread(target=legacy, daemon=True)
                 worker.start()
                 result = subprocess.run([str(EXE), "call", str(root / "peer"), "initialize", "{}"], capture_output=True, text=True, timeout=10)
                 worker.join(timeout=5)
                 self.assertFalse(worker.is_alive())
-                self.assertEqual("0.4", observed[0]["workgraph_api"])
+                self.assertEqual("0.5", observed[0]["workgraph_api"])
                 self.assertNotEqual(0, result.returncode)
                 self.assertEqual("Unsupported_version", json.loads(result.stderr)["kind"])
 

@@ -22,11 +22,62 @@ let%expect_test "unsupported roots are identified before unrelated payload field
   report (Storage.Descriptor.of_json (json {|{"name":"missing marker"}|}));
   [%expect
     {|
-    {"details":{"observed":"1","representation":"workspace descriptor","supported":"3","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 3; observed 1"}
-    {"details":{"observed":"1","representation":"planning transaction","supported":"3","type":"version"},"kind":"Unsupported_version","message":"planning transaction requires format 3; observed 1"}
-    {"details":{"observed":"1","representation":"planning events","supported":"3","type":"version"},"kind":"Unsupported_version","message":"planning events requires format 3; observed 1"}
-    {"details":{"observed":"1","representation":"registry","supported":"3","type":"version"},"kind":"Unsupported_version","message":"registry requires format 3; observed 1"}
-    {"details":{"observed":null,"representation":"workspace descriptor","supported":"3","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 3; observed missing"}
+    {"details":{"observed":"1","representation":"workspace descriptor","supported":"4","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 4; observed 1"}
+    {"details":{"observed":"1","representation":"planning transaction","supported":"4","type":"version"},"kind":"Unsupported_version","message":"planning transaction requires format 4; observed 1"}
+    {"details":{"observed":"1","representation":"planning events","supported":"4","type":"version"},"kind":"Unsupported_version","message":"planning events requires format 4; observed 1"}
+    {"details":{"observed":"1","representation":"registry","supported":"4","type":"version"},"kind":"Unsupported_version","message":"registry requires format 4; observed 1"}
+    {"details":{"observed":null,"representation":"workspace descriptor","supported":"4","type":"version"},"kind":"Unsupported_version","message":"workspace descriptor requires format 4; observed missing"}
+    |}]
+;;
+
+let%expect_test "previous API and every changed durable root reject before payload decode"
+  =
+  List.iter
+    [ Current_format.Application_api
+    ; Registry
+    ; Workspace
+    ; Planning_transaction
+    ; Planning_events
+    ; Workspace_export
+    ; Registry_export
+    ]
+    ~f:(fun format ->
+      let previous = if Current_format.equal format Application_api then "0.4" else "3" in
+      let root = Json.obj [ Current_format.field format, Json.string previous ] in
+      match Current_format.validate format root with
+      | Ok () -> print_endline "unexpected success"
+      | Error problem ->
+        (match problem.details with
+         | Some (Version { observed; supported; _ }) ->
+           printf
+             "%s -> %s: %s\n"
+             (Option.value_exn observed)
+             supported
+             (Sexp.to_string [%sexp (problem.kind : Problem.kind)])
+         | _ -> failwith "missing exact version details"));
+  let old = json {|{"version":"3","unrelated":"incomplete old payload"}|} in
+  List.iter
+    [ Storage.Descriptor.of_json old |> Result.map ~f:(fun _ -> ())
+    ; Storage.Transaction.of_json old |> Result.map ~f:(fun _ -> ())
+    ; Storage_event.of_json old |> Result.map ~f:(fun _ -> ())
+    ; Registry.decode (Json.canonical old) |> Result.map ~f:(fun _ -> ())
+    ]
+    ~f:(function
+      | Ok () -> print_endline "unexpected decoded old root"
+      | Error problem -> print_s [%sexp (problem.kind : Problem.kind)]);
+  [%expect
+    {|
+    0.4 -> 0.5: Unsupported_version
+    3 -> 4: Unsupported_version
+    3 -> 4: Unsupported_version
+    3 -> 4: Unsupported_version
+    3 -> 4: Unsupported_version
+    3 -> 4: Unsupported_version
+    3 -> 4: Unsupported_version
+    Unsupported_version
+    Unsupported_version
+    Unsupported_version
+    Unsupported_version
     |}]
 ;;
 
@@ -34,7 +85,7 @@ let%expect_test "profile is mandatory even at initialize and in saved requests" 
   List.iter
     [ {|{"jsonrpc":"2.0","id":"read","method":"initialize"}|}
     ; {|{"workgraph_api":"future","unknown":true}|}
-    ; {|{"workgraph_api":"0.4","jsonrpc":"2.0","id":"read","method":"initialize","params":{}}|}
+    ; {|{"workgraph_api":"0.5","jsonrpc":"2.0","id":"read","method":"initialize","params":{}}|}
     ]
     ~f:(fun text -> report (Protocol.validate_server_request (json text)));
   report (Protocol.Request.of_json (json {|{"workgraph_api":"old"}|}));
@@ -50,20 +101,20 @@ let%expect_test "profile is mandatory even at initialize and in saved requests" 
     (Json.text (Json.field (Protocol.Request.to_json request) "workgraph_api"));
   [%expect
     {|
-    {"details":{"observed":null,"representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed missing"}
-    {"details":{"observed":"future","representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed future"}
+    {"details":{"observed":null,"representation":"application API","supported":"0.5","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.5; observed missing"}
+    {"details":{"observed":"future","representation":"application API","supported":"0.5","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.5; observed future"}
     ok
-    {"details":{"observed":"old","representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed old"}
-    {"details":{"observed":null,"representation":"application API","supported":"0.4","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.4; observed missing"}
-    0.4
+    {"details":{"observed":"old","representation":"application API","supported":"0.5","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.5; observed old"}
+    {"details":{"observed":null,"representation":"application API","supported":"0.5","type":"version"},"kind":"Unsupported_version","message":"application API requires format 0.5; observed missing"}
+    0.5
     |}]
 ;;
 
 let%expect_test "malformed current fields stay malformed and unchanged formats keep IDs" =
   List.iter
     [ {|{"workgraph_api":3}|}
-    ; {|{"workgraph_api":"0.4","workgraph_api":"0.4"}|}
-    ; {|{"workgraph_api":"0.4","jsonrpc":"2.0","id":"x","method":"initialize","params":[]}|}
+    ; {|{"workgraph_api":"0.5","workgraph_api":"0.5"}|}
+    ; {|{"workgraph_api":"0.5","jsonrpc":"2.0","id":"x","method":"initialize","params":[]}|}
     ]
     ~f:(fun text ->
       match Protocol.validate_server_request (Jsonaf.of_string text) with
