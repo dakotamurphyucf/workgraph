@@ -89,15 +89,9 @@ let require_ready t ticket ~run ~now_unix_ms =
       (Json.Decode_error
          (Problem.with_details
             (Problem.create Blocked "ticket is not ready; inspect ticket.readiness")
-            (Readiness
-               { ticket_id = Id.Ticket.to_string ticket.id
-               ; blockers =
-                   (if List.length blockers <= 100
-                    then blockers
-                    else
-                      List.take blockers 99
-                      @ [ "additional blockers omitted; inspect ticket.readiness" ])
-               }))))
+            (Problem.readiness_details
+               ~ticket_id:(Id.Ticket.to_string ticket.id)
+               ~blockers))))
 ;;
 
 let check_claim_at ticket ~actor ~run ~token ~now_unix_ms =
@@ -1180,7 +1174,15 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         | Some thread -> thread
         | None -> Json.fail Not_found "thread not found"
       in
-      expected thread.revision expected_revision;
+      if not (Int.equal thread.revision expected_revision)
+      then
+        raise
+          (Json.Decode_error
+             (Problem.entity_revision
+                Thread
+                ~id:(Communication_id.Thread.to_string id)
+                ~expected:expected_revision
+                ~actual:thread.revision));
       Option.iter reply_to ~f:(fun parent ->
         require
           (List.mem thread.messages parent ~equal:Id.Comment.equal)
@@ -1241,6 +1243,13 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
            ; supersedes
            } as command) ->
       ignore (Communication.encode command |> unwrap_domain : string * Jsonaf.t);
+      if Option.is_some (Communication.get_request t.communication id)
+      then
+        raise
+          (Json.Decode_error
+             (Problem.identity_collision
+                Request
+                ~id:(Communication_id.Request.to_string id)));
       let prefix = "ask-" ^ Json.hash (Communication_id.Request.to_string id) in
       let board = Communication_id.Board.of_string (prefix ^ "-board") |> unwrap_domain in
       let thread =

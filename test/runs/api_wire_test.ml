@@ -356,10 +356,10 @@ let%expect_test "stateless run requests enforce domain bounds and terminal evide
             {|{"target_run_id":"worker","requests":[{"reservation_id":"path","mode":"exclusive"},{"reservation_id":"path","mode":"shared"}]}|}));
   [%expect
     {|
-    /objective: expected text of at most 16384 UTF-8 bytes
+    /objective: text is 16385 UTF-8 bytes; maximum is 16384
     /process_ref: text must not be blank
-    /process_ref: expected text of at most 1024 UTF-8 bytes
-    /worktree_ref: expected text of at most 4096 UTF-8 bytes
+    /process_ref: text is 1025 UTF-8 bytes; maximum is 1024
+    /worktree_ref: text is 4097 UTF-8 bytes; maximum is 4096
     terminal runs require evidence
     /state: expected one of: completed, failed, cancelled
     /evidence: text must not be blank

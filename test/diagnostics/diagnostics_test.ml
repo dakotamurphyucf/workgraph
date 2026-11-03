@@ -6,6 +6,107 @@ let print_problem = function
   | Error problem -> print_endline (Json.canonical (Problem.to_json problem))
 ;;
 
+let%expect_test "byte limits retain exact counts and nested JSON pointer paths" =
+  let open Api_codec in
+  let text =
+    text ~max_bytes:3
+    |> with_error_context ~context:"use resource.upload for larger bodies"
+  in
+  let codec =
+    object_
+      (Fields.required
+         "ops/a"
+         (list (object_ (Fields.required "text" text)) ~max_items:2))
+  in
+  print_problem
+    (decode codec (`Object [ "ops/a", `Array [ `Object [ "text", `String "éé" ] ] ]));
+  let codec = object_ (Fields.required "value" (json ~max_bytes:4 ~max_depth:4)) in
+  print_problem (decode codec (`Object [ "value", `String "abc" ]));
+  [%expect
+    {|
+    {"details":{"actual":"4","maximum":"3","path":["ops/a","0","text"],"type":"size","unit":"utf8_bytes"},"kind":"Invalid_argument","message":"/ops~1a/0/text: text is 4 UTF-8 bytes; maximum is 3; use resource.upload for larger bodies"}
+    {"details":{"actual":"5","maximum":"4","path":["value"],"type":"size","unit":"canonical_json_bytes"},"kind":"Invalid_argument","message":"/value: JSON is 5 canonical bytes; maximum is 4"}
+    |}]
+;;
+
+let%expect_test "blocker totals survive both producer and escaped transport bounds" =
+  let blockers = List.init 125 ~f:(fun i -> sprintf "prerequisite:%03d" i) in
+  let detail = Problem.readiness_details ~ticket_id:"blocked" ~blockers in
+  (match detail with
+   | Readiness { blockers; omitted_blockers; _ } ->
+     printf "producer listed=%d omitted=%d\n" (List.length blockers) omitted_blockers
+   | _ -> assert false);
+  let problem = Problem.with_details (Problem.create Blocked "not ready") detail in
+  let encoded =
+    Protocol.error_response_json ~id:(`String "r") ~code:Application_failure problem
+  in
+  let restored =
+    Json.field (Json.field encoded "error") "data" |> Problem_wire.of_json |> Disk.unwrap
+  in
+  (match restored.details with
+   | Some (Readiness { blockers; omitted_blockers; _ }) ->
+     printf
+       "wire listed=%d omitted=%d first=%s total=%d\n"
+       (List.length blockers)
+       omitted_blockers
+       (List.hd_exn blockers)
+       (List.length blockers + omitted_blockers)
+   | _ -> assert false);
+  assert (String.length (Json.canonical encoded) <= 65536);
+  [%expect
+    {|
+    producer listed=100 omitted=25
+    wire listed=16 omitted=109 first=prerequisite:000 total=125
+  |}]
+;;
+
+let%expect_test "claim and conflict details are strict and disclose no fencing token" =
+  let open Problem.Details in
+  List.iter
+    [ Claim { ticket_id = "t"; ownership = Unclaimed }
+    ; Claim
+        { ticket_id = "t"
+        ; ownership = Mismatch { field = Run; actor_id = "owner"; run_id = Some "run" }
+        }
+    ; Entity_revision { entity = Request; entity_id = "q"; expected = 2; actual = 3 }
+    ; Identity_collision { entity = Message; entity_id = "m" }
+    ]
+    ~f:(fun detail ->
+      let encoded = to_json detail in
+      let decoded = Api_codec.decode Problem_wire.details encoded |> Disk.unwrap in
+      assert (equal detail decoded);
+      print_endline (Json.canonical encoded));
+  List.iter
+    [ {|{"type":"claim","ticket_id":"t","status":"unclaimed","actor_id":"a"}|}
+    ; {|{"type":"claim","ticket_id":"t","status":"mismatch","field":"run","actor_id":"a","run_id":"r","token":"3"}|}
+    ; {|{"type":"claim","ticket_id":"t","status":"mismatch","field":"epoch","actor_id":"a","run_id":null}|}
+    ; {|{"type":"identity_collision","entity":"future","entity_id":"m"}|}
+    ; {|{"type":"entity_revision","entity":"request","entity_id":"q","expected":"2","actual":"2"}|}
+    ; {|{"type":"size","path":[],"actual":"4","maximum":"4","unit":"utf8_bytes"}|}
+    ; {|{"type":"readiness","ticket_id":"t","blockers":["one"],"omitted_blockers":"4611686018427387903"}|}
+    ; {|{"type":"readiness","ticket_id":"t","blockers":[],"omitted_blockers":"0"}|}
+    ]
+    ~f:(fun bytes ->
+      match Api_codec.decode Problem_wire.details (Json.parse bytes |> Disk.unwrap) with
+      | Ok _ -> failwith "malformed diagnostic admitted"
+      | Error p -> print_s [%sexp (p.kind : Problem.kind)]);
+  [%expect
+    {|
+    {"status":"unclaimed","ticket_id":"t","type":"claim"}
+    {"actor_id":"owner","field":"run","run_id":"run","status":"mismatch","ticket_id":"t","type":"claim"}
+    {"actual":"3","entity":"request","entity_id":"q","expected":"2","type":"entity_revision"}
+    {"entity":"message","entity_id":"m","type":"identity_collision"}
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
 let%expect_test "nested paths, bounds, enum choices and conservative suggestions" =
   let open Api_codec in
   let item = object_ (Fields.required "revision" (decimal ~max:9)) in

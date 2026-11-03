@@ -256,7 +256,26 @@ let title text =
 ;;
 
 let expected current expected_revision =
-  require (Int.equal current expected_revision) Conflict "communication revision conflict"
+  if not (Int.equal current expected_revision)
+  then
+    raise
+      (Json.Decode_error
+         (Problem.with_details
+            (Problem.create
+               Conflict
+               (sprintf
+                  "communication revision conflict: expected %d, actual %d"
+                  expected_revision
+                  current))
+            (Revision { expected = expected_revision; actual = current })))
+;;
+
+let expected_entity entity id current expected_revision =
+  if not (Int.equal current expected_revision)
+  then
+    raise
+      (Json.Decode_error
+         (Problem.entity_revision entity ~id ~expected:expected_revision ~actual:current))
 ;;
 
 let canonical values ~compare ~equal =
@@ -680,10 +699,13 @@ let message_recipients t direct teams =
 ;;
 
 let message_valid t attribution (message : Message.t) =
-  require
-    (not (Map.mem t.messages message.message_id))
-    Conflict
-    "message ID already exists";
+  if Map.mem t.messages message.message_id
+  then
+    raise
+      (Json.Decode_error
+         (Problem.identity_collision
+            Message
+            ~id:(Communication_id.Message.to_string message.message_id)));
   require
     (message.revision = 1 && message.comment_revision = 1)
     Corrupt_store
@@ -1034,7 +1056,9 @@ let apply t ?discussion change = Json.decode (fun () -> apply_exn t ?discussion 
 let command_update t ?discussion command attribution =
   match command with
   | Command.Board_put { id; expected_revision; scope; title } ->
-    expected
+    expected_entity
+      Board
+      (Communication_id.Board.to_string id)
       (Option.value_map (Map.find t.boards id) ~default:0 ~f:(fun x -> x.Board.revision))
       expected_revision;
     Update.Board_put { id; revision = expected_revision + 1; scope; title }
@@ -1051,7 +1075,9 @@ let command_update t ?discussion command attribution =
       ; pinned
       } ->
     let old = Map.find t.threads id in
-    expected
+    expected_entity
+      Thread
+      (Communication_id.Thread.to_string id)
       (Option.value_map old ~default:0 ~f:(fun x -> x.Thread.revision))
       expected_revision;
     Update.Thread_put
@@ -1076,7 +1102,11 @@ let command_update t ?discussion command attribution =
       }
   | Thread_attach { id; expected_revision; message } ->
     let thread = find t.threads id in
-    expected thread.revision expected_revision;
+    expected_entity
+      Thread
+      (Communication_id.Thread.to_string id)
+      thread.revision
+      expected_revision;
     Update.Thread_put
       { thread with
         revision = thread.revision + 1
@@ -1084,7 +1114,11 @@ let command_update t ?discussion command attribution =
       }
   | Thread_pin_message { id; expected_revision; message; pinned } ->
     let thread = find t.threads id in
-    expected thread.revision expected_revision;
+    expected_entity
+      Thread
+      (Communication_id.Thread.to_string id)
+      thread.revision
+      expected_revision;
     require
       (List.mem thread.messages message ~equal:Id.Comment.equal)
       Conflict
@@ -1098,7 +1132,9 @@ let command_update t ?discussion command attribution =
     in
     Update.Thread_put { thread with revision = thread.revision + 1; pinned_messages }
   | Team_put { id; expected_revision; title; members } ->
-    expected
+    expected_entity
+      Team
+      (Communication_id.Team.to_string id)
       (Option.value_map (Map.find t.teams id) ~default:0 ~f:(fun x -> x.Team.revision))
       expected_revision;
     Update.Team_put
@@ -1122,7 +1158,13 @@ let command_update t ?discussion command attribution =
       ; related
       ; supersedes
       } ->
-    require (not (Map.mem t.requests id)) Conflict "request already exists";
+    if Map.mem t.requests id
+    then
+      raise
+        (Json.Decode_error
+           (Problem.identity_collision
+              Request
+              ~id:(Communication_id.Request.to_string id)));
     let recipients =
       unique
         (recipients @ List.concat_map teams ~f:(fun id -> (find t.teams id).Team.members))
@@ -1158,7 +1200,11 @@ let command_update t ?discussion command attribution =
   | Request_metadata
       { id; expected_revision; priority; deadline_unix_ms; related; supersedes } ->
     let old = find t.requests id in
-    expected old.revision expected_revision;
+    expected_entity
+      Request
+      (Communication_id.Request.to_string id)
+      old.revision
+      expected_revision;
     Update.Request_put
       { request =
           metadata old attribution ~priority ~deadline_unix_ms ~related ~supersedes
@@ -1166,31 +1212,53 @@ let command_update t ?discussion command attribution =
       }
   | Request_acknowledge { id; expected_revision; recipient } ->
     let old = find t.requests id in
-    expected old.revision expected_revision;
+    expected_entity
+      Request
+      (Communication_id.Request.to_string id)
+      old.revision
+      expected_revision;
     Update.Request_put
       { request = acknowledge old attribution recipient; kind = Request_acknowledged }
   | Request_accept { id; expected_revision; recipient } ->
     let old = find t.requests id in
-    expected old.revision expected_revision;
+    expected_entity
+      Request
+      (Communication_id.Request.to_string id)
+      old.revision
+      expected_revision;
     Update.Request_put
       { request = accept old attribution recipient; kind = Request_accepted }
   | Request_reassign { id; expected_revision; recipient } ->
     let old = find t.requests id in
-    expected old.revision expected_revision;
+    expected_entity
+      Request
+      (Communication_id.Request.to_string id)
+      old.revision
+      expected_revision;
     Update.Request_put
       { request = reassign old attribution recipient; kind = Request_reassigned }
   | Request_ask _ | Request_resolve { body = Some _; _ } ->
     Json.fail Invalid_argument "discussion composition requires planning preparation"
   | Request_resolve { id; expected_revision; body = None } ->
     let old = find t.requests id in
-    expected old.revision expected_revision;
+    expected_entity
+      Request
+      (Communication_id.Request.to_string id)
+      old.revision
+      expected_revision;
     Update.Request_put { request = resolve old attribution None; kind = Request_resolved }
   | Request_cancel { id; expected_revision } ->
     let old = find t.requests id in
-    expected old.revision expected_revision;
+    expected_entity
+      Request
+      (Communication_id.Request.to_string id)
+      old.revision
+      expected_revision;
     Update.Request_put { request = cancel old attribution; kind = Request_cancelled }
   | Subscription_put { id; expected_revision; recipient; filter; active } ->
-    expected
+    expected_entity
+      Subscription
+      (Communication_id.Subscription.to_string id)
       (Option.value_map (Map.find t.subscriptions id) ~default:0 ~f:(fun x ->
          x.Subscription.revision))
       expected_revision;
@@ -1338,7 +1406,11 @@ let prepare_resolution
   =
   Json.decode (fun () ->
     let old = find t.requests id in
-    expected old.revision expected_revision;
+    expected_entity
+      Request
+      (Communication_id.Request.to_string id)
+      old.revision
+      expected_revision;
     let attribution = { Attribution.actor; run; timestamp } in
     attribution_valid attribution;
     let prepared =
@@ -1396,6 +1468,13 @@ let prepare_message
     in
     let attribution = { Attribution.actor; run; timestamp } in
     attribution_valid attribution;
+    if Map.mem t.messages command.message_id
+    then
+      raise
+        (Json.Decode_error
+           (Problem.identity_collision
+              Message
+              ~id:(Communication_id.Message.to_string command.message_id)));
     let comment_id = message_comment_id command.message_id in
     let target =
       Option.value_map command.ticket_id ~default:Entity_ref.Workspace ~f:(fun id ->

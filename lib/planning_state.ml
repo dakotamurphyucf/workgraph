@@ -949,16 +949,9 @@ let check_complete t ticket =
                   "child:" ^ Id.Ticket.to_string id)
               | Configured_policy -> [ "configured_policy; inspect ticket.readiness" ]))
         in
-        let blockers =
-          if List.length blockers <= 100
-          then blockers
-          else
-            List.take blockers 99
-            @ [ "additional blockers omitted; inspect ticket.readiness" ]
-        in
         Problem.with_details
           p
-          (Readiness { ticket_id = Id.Ticket.to_string ticket.id; blockers }))
+          (Problem.readiness_details ~ticket_id:(Id.Ticket.to_string ticket.id) ~blockers))
       else p
     in
     raise (Json.Decode_error p)
@@ -1017,7 +1010,34 @@ let check_claim (ticket : Ticket.t) ~actor ~run ~token =
     when Id.Actor.equal claim.actor actor
          && Option.equal Id.Run.equal claim.run_id run
          && Int.equal claim.token token -> ()
-  | Some _ | None -> Json.fail Stale_claim "claim actor, run or token is stale"
+  | claim ->
+    let ownership, message =
+      match claim with
+      | None -> Problem.Details.Claim.Unclaimed, "ticket has no current claim"
+      | Some claim ->
+        let field, message =
+          if not (Id.Actor.equal claim.actor actor)
+          then Problem.Details.Claim.Field.Actor, "claim belongs to another actor"
+          else if not (Option.equal Id.Run.equal claim.run_id run)
+          then
+            ( Run
+            , match claim.run_id with
+              | Some id -> "claim requires run_id=" ^ Id.Run.to_string id
+              | None -> "claim has no run attribution; omit run_id" )
+          else Token, "claim token is stale; recover your own saved claim receipt"
+        in
+        ( Problem.Details.Claim.Mismatch
+            { field
+            ; actor_id = Id.Actor.to_string claim.actor
+            ; run_id = Option.map claim.run_id ~f:Id.Run.to_string
+            }
+        , message )
+    in
+    raise
+      (Json.Decode_error
+         (Problem.with_details
+            (Problem.create Stale_claim message)
+            (Claim { ticket_id = Id.Ticket.to_string ticket.id; ownership })))
 ;;
 
 let validate_active_attempt_owner t (attempt : Attempt.t) ~actor ~run =

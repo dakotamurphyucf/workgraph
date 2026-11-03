@@ -38,6 +38,14 @@ let error_response_json ~id ~code (problem : Problem.t) =
           }
       | Revision _ as details -> details
       | Ownership _ as details -> details
+      | Claim _ as details -> details
+      | Entity_revision _ as details -> details
+      | Identity_collision _ as details -> details
+      | Size size ->
+        Size
+          { size with
+            path = List.map (List.take size.path 32) ~f:(fun p -> text p ~max_bytes:128)
+          }
       | Socket_owner { socket_path } ->
         Socket_owner { socket_path = text socket_path ~max_bytes:4096 }
       | Allocation { ticket_id; reasons; omitted_reasons } ->
@@ -73,8 +81,19 @@ let error_response_json ~id ~code (problem : Problem.t) =
           else Problem.Details.Reservation_conflict bounded
         in
         fit (List.take conflict.owners 16)
-      | Readiness { ticket_id; blockers } ->
-        Readiness { ticket_id; blockers = List.map (List.take blockers 16) ~f:short }
+      | Readiness { ticket_id; blockers; omitted_blockers } ->
+        let listed = List.take blockers 16 in
+        let extra = List.length blockers - List.length listed in
+        Readiness
+          { ticket_id
+          ; blockers = List.map listed ~f:short
+          ; omitted_blockers =
+              Int.min
+                (Int.max_value - List.length listed)
+                (if omitted_blockers > Int.max_value - extra
+                 then Int.max_value
+                 else omitted_blockers + extra)
+          }
       | Version { representation; observed; supported } ->
         Version
           { representation = short representation
@@ -233,7 +252,12 @@ let decode_response request json =
         match Json.field error "code" with
         | `Number "-32000" -> false
         | `Number "-32600" -> true
-        | _ -> Json.fail Unsupported_version "unsupported application error code"
+        | _ ->
+          Json.fail
+            Unsupported_version
+            "unsupported application error code; the daemon may use a different API. \
+             Check initialize and the client/daemon versions; preserve any saved write \
+             request because this reply does not prove it was rejected before dispatch"
       in
       if null_id && not invalid_envelope
       then Json.fail Invalid_argument "response request ID differs";

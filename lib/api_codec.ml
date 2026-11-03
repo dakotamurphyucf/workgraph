@@ -89,6 +89,10 @@ let with_error_context t ~context =
                 Problem.Details.Field { field with expected = append field.expected }
               | ( Revision _
                 | Ownership _
+                | Claim _
+                | Entity_revision _
+                | Identity_collision _
+                | Size _
                 | Socket_owner _
                 | Allocation _
                 | Reservation_conflict _
@@ -239,8 +243,24 @@ let json ~max_bytes ~max_depth =
   { decode_exn =
       (fun value ->
         check_depth 0 value;
-        if String.length (Json.canonical value) > max_bytes
-        then Json.fail Invalid_argument "JSON exceeds canonical byte limit";
+        let actual = String.length (Json.canonical value) in
+        if actual > max_bytes
+        then
+          raise
+            (Json.Decode_error
+               (Problem.with_details
+                  (Problem.create
+                     Invalid_argument
+                     (sprintf
+                        "JSON is %d canonical bytes; maximum is %d"
+                        actual
+                        max_bytes))
+                  (Size
+                     { path = []
+                     ; actual
+                     ; maximum = max_bytes
+                     ; unit = Canonical_json_bytes
+                     })));
         value)
   ; encode_exn = Fn.id
   ; schema =
@@ -253,11 +273,16 @@ let text ~max_bytes =
   { decode_exn =
       (fun value ->
         let value = Json.text value in
-        if String.length value > max_bytes
+        let actual = String.length value in
+        if actual > max_bytes
         then
-          Json.fail
-            Invalid_argument
-            ("expected text of at most " ^ Int.to_string max_bytes ^ " UTF-8 bytes");
+          raise
+            (Json.Decode_error
+               (Problem.with_details
+                  (Problem.create
+                     Invalid_argument
+                     (sprintf "text is %d UTF-8 bytes; maximum is %d" actual max_bytes))
+                  (Size { path = []; actual; maximum = max_bytes; unit = Utf8_bytes })));
         let valid =
           Uutf.String.fold_utf_8
             (fun valid _ -> function

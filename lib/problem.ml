@@ -18,6 +18,58 @@ type kind =
 [@@deriving sexp, equal]
 
 module Details = struct
+  module Claim = struct
+    module Field = struct
+      type t =
+        | Actor
+        | Run
+        | Token
+      [@@deriving sexp, equal]
+    end
+
+    type ownership =
+      | Unclaimed
+      | Mismatch of
+          { field : Field.t
+          ; actor_id : string
+          ; run_id : string option
+          }
+    [@@deriving sexp, equal]
+
+    type t =
+      { ticket_id : string
+      ; ownership : ownership
+      }
+    [@@deriving sexp, equal]
+  end
+
+  module Communication_entity = struct
+    type t =
+      | Board
+      | Thread
+      | Team
+      | Request
+      | Message
+      | Subscription
+    [@@deriving sexp, equal]
+
+    let to_string = function
+      | Board -> "board"
+      | Thread -> "thread"
+      | Team -> "team"
+      | Request -> "request"
+      | Message -> "message"
+      | Subscription -> "subscription"
+    ;;
+  end
+
+  module Size_unit = struct
+    type t =
+      | Utf8_bytes
+      | Canonical_json_bytes
+    [@@deriving sexp, equal]
+  end
+
   type t =
     | Field of
         { path : string list
@@ -32,6 +84,23 @@ module Details = struct
         { actor_id : string
         ; run_id : string option
         }
+    | Claim of Claim.t
+    | Entity_revision of
+        { entity : Communication_entity.t
+        ; entity_id : string
+        ; expected : int
+        ; actual : int
+        }
+    | Identity_collision of
+        { entity : Communication_entity.t
+        ; entity_id : string
+        }
+    | Size of
+        { path : string list
+        ; actual : int
+        ; maximum : int
+        ; unit : Size_unit.t
+        }
     | Socket_owner of { socket_path : string }
     | Allocation of
         { ticket_id : string
@@ -42,6 +111,7 @@ module Details = struct
     | Readiness of
         { ticket_id : string
         ; blockers : string list
+        ; omitted_blockers : int
         }
     | Version of
         { representation : string
@@ -79,6 +149,50 @@ module Details = struct
         ]
     | Ownership { actor_id; run_id } ->
       tagged "ownership" [ "actor_id", text actor_id; "run_id", optional run_id ]
+    | Claim { ticket_id; ownership } ->
+      tagged
+        "claim"
+        (("ticket_id", text ticket_id)
+         ::
+         (match ownership with
+          | Unclaimed -> [ "status", text "unclaimed" ]
+          | Mismatch { field; actor_id; run_id } ->
+            [ "status", text "mismatch"
+            ; ( "field"
+              , text
+                  (match field with
+                   | Actor -> "actor"
+                   | Run -> "run"
+                   | Token -> "token") )
+            ; "actor_id", text actor_id
+            ; "run_id", optional run_id
+            ]))
+    | Entity_revision { entity; entity_id; expected; actual } ->
+      tagged
+        "entity_revision"
+        [ "entity", text (Communication_entity.to_string entity)
+        ; "entity_id", text entity_id
+        ; "expected", text (Int.to_string expected)
+        ; "actual", text (Int.to_string actual)
+        ]
+    | Identity_collision { entity; entity_id } ->
+      tagged
+        "identity_collision"
+        [ "entity", text (Communication_entity.to_string entity)
+        ; "entity_id", text entity_id
+        ]
+    | Size { path; actual; maximum; unit } ->
+      tagged
+        "size"
+        [ "path", strings path
+        ; "actual", text (Int.to_string actual)
+        ; "maximum", text (Int.to_string maximum)
+        ; ( "unit"
+          , text
+              (match unit with
+               | Utf8_bytes -> "utf8_bytes"
+               | Canonical_json_bytes -> "canonical_json_bytes") )
+        ]
     | Socket_owner { socket_path } ->
       tagged "socket_owner" [ "socket_path", text socket_path ]
     | Allocation { ticket_id; reasons; omitted_reasons } ->
@@ -89,8 +203,13 @@ module Details = struct
         ; "omitted_reasons", text (Int.to_string omitted_reasons)
         ]
     | Reservation_conflict conflict -> Reservation_conflict.to_json conflict
-    | Readiness { ticket_id; blockers } ->
-      tagged "readiness" [ "ticket_id", text ticket_id; "blockers", strings blockers ]
+    | Readiness { ticket_id; blockers; omitted_blockers } ->
+      tagged
+        "readiness"
+        [ "ticket_id", text ticket_id
+        ; "blockers", strings blockers
+        ; "omitted_blockers", text (Int.to_string omitted_blockers)
+        ]
     | Version { representation; observed; supported } ->
       tagged
         "version"
@@ -121,26 +240,70 @@ type t =
 let create kind message = { kind; message; details = None }
 let with_details t details = { t with details = Some details }
 
+let pointer path =
+  "/"
+  ^ String.concat
+      ~sep:"/"
+      (List.map path ~f:(fun s ->
+         s
+         |> String.substr_replace_all ~pattern:"~" ~with_:"~0"
+         |> String.substr_replace_all ~pattern:"/" ~with_:"~1"))
+;;
+
 let at_field t segment =
-  let path, expected, suggestion =
-    match t.details with
-    | Some (Details.Field { path; expected; suggestion }) ->
-      segment :: path, expected, suggestion
-    | _ -> [ segment ], t.message, None
-  in
-  let pointer =
-    "/"
-    ^ String.concat
-        ~sep:"/"
-        (List.map path ~f:(fun s ->
-           s
-           |> String.substr_replace_all ~pattern:"~" ~with_:"~0"
-           |> String.substr_replace_all ~pattern:"/" ~with_:"~1"))
-  in
-  { kind = t.kind
-  ; message = pointer ^ ": " ^ expected
-  ; details = Some (Details.Field { path; expected; suggestion })
-  }
+  match t.details with
+  | Some (Details.Size size) ->
+    let path = segment :: size.path in
+    let message =
+      if List.is_empty size.path
+      then t.message
+      else String.chop_prefix_if_exists t.message ~prefix:(pointer size.path ^ ": ")
+    in
+    { t with
+      message = pointer path ^ ": " ^ message
+    ; details = Some (Details.Size { size with path })
+    }
+  | _ ->
+    let path, expected, suggestion =
+      match t.details with
+      | Some (Details.Field { path; expected; suggestion }) ->
+        segment :: path, expected, suggestion
+      | _ -> [ segment ], t.message, None
+    in
+    { kind = t.kind
+    ; message = pointer path ^ ": " ^ expected
+    ; details = Some (Details.Field { path; expected; suggestion })
+    }
+;;
+
+let identity_collision entity ~id =
+  with_details
+    (create
+       Conflict
+       (Details.Communication_entity.to_string entity ^ " ID already exists: " ^ id))
+    (Identity_collision { entity; entity_id = id })
+;;
+
+let entity_revision entity ~id ~expected ~actual =
+  with_details
+    (create
+       Conflict
+       (sprintf
+          "%s %s revision conflict: expected %d, actual %d"
+          (Details.Communication_entity.to_string entity)
+          id
+          expected
+          actual))
+    (Entity_revision { entity; entity_id = id; expected; actual })
+;;
+
+let readiness_details ~ticket_id ~blockers =
+  let listed = List.take blockers 100 in
+  Details.Readiness
+    { ticket_id
+    ; blockers = listed
+    ; omitted_blockers = List.length blockers - List.length listed
+    }
 ;;
 
 (* Current public wire names are intentionally independent of derived OCaml sexps. *)

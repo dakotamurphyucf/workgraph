@@ -293,16 +293,133 @@ let details =
         | Problem.Details.Ownership { actor_id; run_id } -> actor_id, run_id
         | _ -> invalid_arg "ownership diagnostic expected")
   in
-  let readiness =
+  let claim =
+    let open Problem.Details.Claim in
+    let unclaimed =
+      branch
+        "claim"
+        (F.required "ticket_id" identity
+         ++ F.required "status" (Api_codec.literal "unclaimed"))
+        ~decode:(fun (ticket_id, ()) ->
+          Problem.Details.Claim { ticket_id; ownership = Unclaimed })
+        ~encode:(function
+          | Problem.Details.Claim { ticket_id; ownership = Unclaimed } -> ticket_id, ()
+          | _ -> invalid_arg "unclaimed diagnostic expected")
+    in
+    let mismatch =
+      branch
+        "claim"
+        (F.required "ticket_id" identity
+         ++ F.required "status" (Api_codec.literal "mismatch")
+         ++ F.required
+              "field"
+              (Api_codec.enum
+                 [ "actor", Field.Actor; "run", Run; "token", Token ]
+                 ~equal:Field.equal)
+         ++ F.required "actor_id" identity
+         ++ F.required "run_id" (Api_codec.nullable identity))
+        ~decode:(fun ((((ticket_id, ()), field), actor_id), run_id) ->
+          Problem.Details.Claim
+            { ticket_id; ownership = Mismatch { field; actor_id; run_id } })
+        ~encode:(function
+          | Problem.Details.Claim
+              { ticket_id; ownership = Mismatch { field; actor_id; run_id } } ->
+            (((ticket_id, ()), field), actor_id), run_id
+          | _ -> invalid_arg "claim mismatch diagnostic expected")
+    in
+    Api_codec.tagged
+      ~discriminator:"status"
+      ~cases:[ "unclaimed", unclaimed; "mismatch", mismatch ]
+      ~select:(function
+        | Problem.Details.Claim { ownership = Unclaimed; _ } -> "unclaimed"
+        | Problem.Details.Claim { ownership = Mismatch _; _ } -> "mismatch"
+        | _ -> invalid_arg "claim diagnostic expected")
+  in
+  let entity =
+    let open Problem.Details.Communication_entity in
+    Api_codec.enum
+      (List.map [ Board; Thread; Team; Request; Message; Subscription ] ~f:(fun e ->
+         to_string e, e))
+      ~equal
+  in
+  let entity_revision =
     branch
-      "readiness"
-      (F.required "ticket_id" identity
-       ++ F.required "blockers" (Api_codec.list text ~max_items:100))
-      ~decode:(fun (ticket_id, blockers) ->
-        Problem.Details.Readiness { ticket_id; blockers })
+      "entity_revision"
+      (F.required "entity" entity
+       ++ F.required "entity_id" identity
+       ++ F.required "expected" counter
+       ++ F.required "actual" counter)
+      ~decode:(fun (((entity, entity_id), expected), actual) ->
+        if Int.equal expected actual
+        then
+          Json.fail
+            Invalid_argument
+            "entity revision conflict requires different revisions";
+        Problem.Details.Entity_revision { entity; entity_id; expected; actual })
       ~encode:(function
-        | Problem.Details.Readiness { ticket_id; blockers } -> ticket_id, blockers
+        | Problem.Details.Entity_revision { entity; entity_id; expected; actual } ->
+          ((entity, entity_id), expected), actual
+        | _ -> invalid_arg "entity revision diagnostic expected")
+  in
+  let identity_collision =
+    branch
+      "identity_collision"
+      (F.required "entity" entity ++ F.required "entity_id" identity)
+      ~decode:(fun (entity, entity_id) ->
+        Problem.Details.Identity_collision { entity; entity_id })
+      ~encode:(function
+        | Problem.Details.Identity_collision { entity; entity_id } -> entity, entity_id
+        | _ -> invalid_arg "identity collision diagnostic expected")
+  in
+  let size =
+    let open Problem.Details.Size_unit in
+    Api_codec.map
+      (Api_codec.object_
+         (F.required "type" (Api_codec.literal "size")
+          ++ F.required
+               "path"
+               (Api_codec.list (Api_codec.text ~max_bytes:4194304) ~max_items:64)
+          ++ F.required "actual" counter
+          ++ F.required "maximum" counter
+          ++ F.required
+               "unit"
+               (Api_codec.enum
+                  [ "utf8_bytes", Utf8_bytes
+                  ; "canonical_json_bytes", Canonical_json_bytes
+                  ]
+                  ~equal)))
+      ~decode:(fun (((((), path), actual), maximum), unit) ->
+        if actual <= maximum
+        then
+          Error
+            (Problem.create
+               Invalid_argument
+               "size diagnostic requires actual above maximum")
+        else Ok (Problem.Details.Size { path; actual; maximum; unit }))
+      ~encode:(function
+        | Problem.Details.Size { path; actual; maximum; unit } ->
+          ((((), path), actual), maximum), unit
+        | _ -> invalid_arg "size diagnostic expected")
+      ~description:"Exact rejected byte size and maximum, preserving nested field paths."
+  in
+  let readiness =
+    Api_codec.map
+      (Api_codec.object_
+         (F.required "type" (Api_codec.literal "readiness")
+          ++ F.required "ticket_id" identity
+          ++ F.required "blockers" (Api_codec.list text ~max_items:100)
+          ++ F.required "omitted_blockers" counter))
+      ~decode:(fun ((((), ticket_id), blockers), omitted_blockers) ->
+        if
+          List.is_empty blockers
+          || omitted_blockers > Int.max_value - List.length blockers
+        then Error (Problem.create Invalid_argument "invalid readiness diagnostic counts")
+        else Ok (Problem.Details.Readiness { ticket_id; blockers; omitted_blockers }))
+      ~encode:(function
+        | Problem.Details.Readiness { ticket_id; blockers; omitted_blockers } ->
+          (((), ticket_id), blockers), omitted_blockers
         | _ -> invalid_arg "readiness diagnostic expected")
+      ~description:"Exact blocker total is listed count plus omitted_blockers."
   in
   let socket_owner =
     branch
@@ -367,6 +484,10 @@ let details =
       [ "field", field
       ; "revision", revision
       ; "ownership", ownership
+      ; "claim", claim
+      ; "entity_revision", entity_revision
+      ; "identity_collision", identity_collision
+      ; "size", size
       ; "socket_owner", socket_owner
       ; "allocation", allocation
       ; "reservation_conflict", reservation_conflict
@@ -378,6 +499,10 @@ let details =
       | Problem.Details.Field _ -> "field"
       | Revision _ -> "revision"
       | Ownership _ -> "ownership"
+      | Claim _ -> "claim"
+      | Entity_revision _ -> "entity_revision"
+      | Identity_collision _ -> "identity_collision"
+      | Size _ -> "size"
       | Socket_owner _ -> "socket_owner"
       | Allocation _ -> "allocation"
       | Reservation_conflict _ -> "reservation_conflict"

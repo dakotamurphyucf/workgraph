@@ -240,8 +240,10 @@ class LocalIoTests(unittest.TestCase):
         self.assertNotIn(" ready ", result.stderr)
         self.assertFalse((self.root / "reg-occupied").exists())
         failed = self.cli("serve", self.root / "reg-failed", self.root / "missing" / "s")
-        self.assertNotEqual(failed.returncode, 0)
-        self.assertIn("bind", failed.stderr)
+        self.error(failed, "Storage_unavailable")
+        # Canonical ownership is checked before registry creation or socket bind.
+        self.assertIn("realpath", failed.stderr)
+        self.assertFalse((self.root / "reg-failed").exists())
         self.assertNotIn('unlink', failed.stderr)
         self.assertNotIn(" ready ", failed.stderr)
 
