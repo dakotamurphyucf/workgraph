@@ -229,6 +229,7 @@ let discovery (Api_method.Packed.Pack method_) =
 let methods =
   Daemon_methods.methods
   @ Administration_api.methods
+  @ List.map (Attention_api.overview_method :: Attention_api.methods) ~f:scoped
   @ Change_feed_api.methods
   @ List.map Coordinator_api.methods ~f:scoped
   @ [ scoped (Api_method.Packed.Pack Transaction_api.method_) ]

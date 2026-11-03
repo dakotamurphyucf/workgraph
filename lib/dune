@@ -3,6 +3,8 @@
  (public_name workgraph)
  (private_modules
   planning_state
+  attention
+  actor_overview
   planning_replay
   planning_reopening
   planning_prepare

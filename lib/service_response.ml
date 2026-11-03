@@ -47,6 +47,9 @@ let layout method_ =
     | "export.retry" -> Registry_write
     | "export.list" -> Snapshot_read
     | "changes.read" | "changes.wait" -> Feed
+    | "attention.read"
+    | "attention.wait"
+    | "actor.overview"
     | "workspace.get"
     | "workspace.metrics"
     | "ticket.resume"

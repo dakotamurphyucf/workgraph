@@ -801,7 +801,16 @@ let query_with_texts ?now_unix_ms t ~resource_texts ~method_ ~params =
 ;;
 
 let query ?now_unix_ms t ~method_ ~params =
-  if List.mem Resume_api.query_methods method_ ~equal:String.equal
+  if String.equal method_ "attention.read" || String.equal method_ "actor.overview"
+  then (
+    match now_unix_ms with
+    | None ->
+      Error (Problem.create Invalid_argument "attention views require an observed clock")
+    | Some now_unix_ms ->
+      if String.equal method_ "attention.read"
+      then Attention.read t ~now_unix_ms ~params
+      else Actor_overview.read t ~now_unix_ms ~params)
+  else if List.mem Resume_api.query_methods method_ ~equal:String.equal
   then
     Json.decode (fun () ->
       let unscoped =

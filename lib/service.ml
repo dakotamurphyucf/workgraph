@@ -1246,7 +1246,8 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
           |> Disk.unwrap
         | method_
           when List.mem
-                 (Communication.query_methods
+                 ([ "attention.read"; "actor.overview" ]
+                  @ Communication.query_methods
                   @ Agent_run.query_methods
                   @ Evidence.query_methods
                   @ Ticket_recovery.query_methods
@@ -1563,7 +1564,9 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
            Eio.Promise.resolve resolver result
          | Request (request, resolver) ->
            Eio.Cancel.protect (fun () ->
+             let before = Map.map !loaded ~f:(fun value -> State.revision value.state) in
              let result = dispatch request in
+             let after = Map.map !loaded ~f:(fun value -> State.revision value.state) in
              let mode =
                Protocol.Request.create
                  ~id:"dispatch"
@@ -1573,7 +1576,9 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                |> Result.map ~f:Protocol.Request.mode
              in
              (match result, mode with
-              | Ok _, Ok Write -> Eio.Condition.broadcast changes_changed
+              | Ok _, Ok Write ->
+                if not (Map.equal Int.equal before after)
+                then Eio.Condition.broadcast changes_changed
               | Error _, _ | _, Error _ | Ok _, Ok Read -> ());
              Eio.Promise.resolve resolver result)
          | Export_finished (id, result) ->
@@ -1737,6 +1742,72 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
              | None ->
                Json.fail Storage_unavailable "inbox read did not complete before timeout"))
       in
+      let wait_attention request =
+        Json.decode (fun () ->
+          let params = Json.field request "params" in
+          Option.iter
+            (Api_catalog.validate_request ~method_:"attention.wait" ~params)
+            ~f:(fun result -> ignore (Disk.unwrap result : unit));
+          let workspace = Json.field params "workspace_id" in
+          let unscoped =
+            match params with
+            | `Object fields ->
+              Json.obj
+                (List.filter fields ~f:(fun (key, _) ->
+                   not (String.equal key "workspace_id")))
+            | _ -> assert false
+          in
+          let selected =
+            Api_codec.decode
+              (Option.value_exn (Attention_api.Request.codec ~method_:"attention.wait"))
+              unscoped
+            |> Disk.unwrap
+          in
+          let current = ref selected in
+          let latest = ref None in
+          let poll () =
+            let read_params = Attention_api.Request.read_params !current in
+            let fields =
+              match read_params with
+              | `Object fields -> fields
+              | _ -> assert false
+            in
+            let query =
+              Json.obj
+                [ "jsonrpc", Json.string "2.0"
+                ; "workgraph_api", Current_format.value Application_api
+                ; "id", Json.field request "id"
+                ; "method", Json.string "attention.read"
+                ; "params", Json.obj (("workspace_id", workspace) :: fields)
+                ]
+            in
+            let result = submit query |> Disk.unwrap in
+            latest := Some result;
+            if Attention.has_attention result
+            then Some result
+            else (
+              current
+              := Attention_api.Request.with_cursor
+                   !current
+                   (Json.field (Json.field result "data") "cursor" |> Json.text);
+              None)
+          in
+          (* loop_no_mutex registers before poll's yielding serialized submit;
+             a commit during read/park therefore cannot be lost. *)
+          try
+            Eio.Time.with_timeout_exn
+              (Eio.Stdenv.clock env)
+              (Float.of_int (Attention_api.Request.timeout_ms selected) /. 1000.)
+              (fun () -> Eio.Condition.loop_no_mutex changes_changed poll)
+          with
+          | Eio.Time.Timeout ->
+            (match !latest with
+             | Some result -> result
+             | None ->
+               Json.fail
+                 Storage_unavailable
+                 "attention read did not complete before timeout"))
+      in
       let write_response response =
         try
           Eio.Time.with_timeout_exn (Eio.Stdenv.clock env) 30. (fun () ->
@@ -1775,11 +1846,13 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
               Error (Problem.create Invalid_argument ("unknown method: " ^ method_))
             | Some _ ->
               (match method_ with
-               | "changes.wait" | "inbox.wait" ->
+               | "changes.wait" | "inbox.wait" | "attention.wait" ->
                  Eio.Fiber.first
                    (fun () ->
                       if String.equal method_ "changes.wait"
                       then wait_feed request
+                      else if String.equal method_ "attention.wait"
+                      then wait_attention request
                       else wait_inbox request)
                    (fun () ->
                       ignore (Eio.Flow.single_read flow (Cstruct.create 1) : int);
