@@ -177,12 +177,19 @@ class LocalIoTests(unittest.TestCase):
         read_end, write_end = os.pipe()
         os.close(read_end)
         try:
-            process = subprocess.Popen([str(EXE), "schema"], stdout=write_end,
+            # Exercise the real schema output path without constructing the entire
+            # catalog: this checks broken-pipe handling, not catalog throughput.
+            process = subprocess.Popen([str(EXE), "schema", "daemon.health"], stdout=write_end,
                                        stderr=subprocess.PIPE,
                                        env={**os.environ, "OCAMLRUNPARAM": "b"})
         finally:
             os.close(write_end)
-        _, stderr = process.communicate(timeout=10)
+        try:
+            _, stderr = process.communicate(timeout=10)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
         self.assertEqual(process.returncode, 0, stderr.decode())
         self.assertEqual(stderr, b"")
 
