@@ -22,8 +22,8 @@ managed tree. A closed workspace remains closed across daemon restart until expl
 <method name="initialize" envelope="N"><![CDATA[
 Required: none.
 Optional: none.
-Result: {workgraph_api:"0.4",max_frame_bytes:"4194304",name:"workgraph",version:"0.4.0",administrative_receipts:true,workspace_receipts:true,registry_format_version:"3",background_exports:true}.
-The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.4". This application profile differs from the package version and independently versioned persisted roots; see docs/compatibility.md in the installed bundle.
+Result: {workgraph_api:"0.5",max_frame_bytes:"4194304",name:"workgraph",version:"0.5.0",administrative_receipts:true,workspace_receipts:true,registry_format_version:"4",background_exports:true}.
+The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.5". This application profile differs from the package version and independently versioned persisted roots; see docs/compatibility.md in the installed bundle.
 ]]></method>
 <method name="daemon.health" envelope="N"><![CDATA[
 Required: none.
@@ -177,5 +177,18 @@ One writer at a time, including across machines. To transfer:
 No Git commands, remote authentication, or distributed history merging run automatically.
 ]]></git_handoff>
 </administration_and_portability>
+<workflow name="startup-readiness-and-recovery"><![CDATA[
+Use init/bootstrap with explicit private sibling roots and a matching executable.
+Successful readiness means a valid initialize handshake from the intended profile, not
+merely an existing socket. The socket-path guard applies across registries and aliases.
+Recovery unlinks only its recorded exact socket identity after exclusive ownership and
+peer checks; unrecognized, symlinked, replaced, bound and live paths refuse. Never infer
+safety from connection refusal or pgrep. If a crash preceded identity recording, choose a
+fresh endpoint. Bootstrap reports timeout, child exit and bounded startup log separately.
+Timeout is not proof a detached daemon stopped: the temporary supervisor is reaped while
+an intended daemon may continue. A tool harness can also kill a spawned child when its
+shell ends; distinguish that external lifecycle from product readiness. Preserve logs and
+use a foreground terminal or a harness-managed persistent process when diagnosing.
+]]></workflow>
 </workgraph_reference>
 ```

@@ -4,7 +4,7 @@ Read this shared CLI and wire contract before constructing requests.
 Return to [the capability guide](../../AGENT_GUIDE.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for v0.4.0/API 0.4, not compatibility guarantees for previously published
+contracts for unreleased v0.5.0/API 0.5, not compatibility guarantees for previously published
 previews. Earlier planning/root data and saved requests require their matching build;
 start this preview with fresh registry/workspace folders and request journals.
 
@@ -22,11 +22,12 @@ parents must exist. Workspace, registry and export roots must not overlap. On WS
 managed data under the Linux home filesystem, not /mnt/c. Run as the owning normal user.
 Ctrl-C, SIGTERM, or daemon.shutdown drains admitted work. Reuse the same registry/socket
 on restart. Do not delete a live daemon's socket, lock files or managed storage files.
-Startup refuses any occupied socket path, including a bound socket that is not listening.
-Connection refusal does not prove the path is abandoned. Stop all possible owners and
-custom launchers and verify the private socket path is abandoned before removing only
-that socket explicitly. If ownership is uncertain, choose a fresh private socket path;
-do not remove registry locks or storage to force startup.
+Startup uses an exclusive socket-path owner guard, shared across registries and parent
+path aliases. Crash recovery may remove only the exact socket filesystem identity
+previously recorded by that guard. Unknown, symlinked, replaced, bound or live peer paths
+are refused. Connection refusal, a PID guess or a registry lock alone grants no cleanup
+authority. A crash before socket identity publication conservatively requires a fresh
+private endpoint. Do not remove guard/registry locks or storage to force startup.
 
 Shell examples assume WG, SOCKET, WORKSPACE, ACTOR and REQUESTS are set by the harness.
 REQUESTS must exist. Use a new filename for every new write. Never replace a retry file.
@@ -64,7 +65,8 @@ start a daemon when unavailable. `workgraph init --help`, `help init` and bootst
 equivalents print helper usage offline, without loading context or creating files.
 Repeated setup reuses the registered workspace; a supplied root must identify its registered root. Existing contexts must match.
 Setup reports context, workspace, actor, socket, root and request directory. Startup
-races reuse the daemon that acquired its registry lock. Failure reports diagnostics;
+races reuse a responding compatible daemon through the typed socket-owner result.
+Readiness verifies the initialize handshake and reports bounded child exit/log diagnostics;
 bootstrap creation requests are saved beside the context for exact recovery.
 
 Ordinary calls never create/select a workspace from cwd. Supply --context ABS_FILE
@@ -92,9 +94,9 @@ Saved-request retry rejects --self so it cannot change the frozen operation.
 Options for named requests:
 --output json|text           JSON output (default), or human-readable output.
 --timeout SECONDS            Positive finite timeout, default 30, maximum 3600.
---params-file FILE           Merge a JSON parameter object (duplicate fields reject).
+--params-file FILE|-         Merge a JSON parameter object (duplicate fields reject).
 --json-field FIELD JSON      Supply a JSON object, array, boolean, number or null.
---field-file FIELD FILE      Read a UTF-8 string from a file.
+--field-file FIELD FILE|-    Read exact UTF-8 bytes, including trailing newlines.
 --save-request ABS_FILE      Sync a fresh exact retry file before transmission.
 --request-directory ABS_DIR  Sync a fresh random-named file for each durable write.
 --self                      Explicit context actor recipient or current run selector.
@@ -127,7 +129,7 @@ The CLI handles transport. Direct clients use a Unix stream socket with JSON-RPC
 4 MiB, maximum JSON nesting depth 64. Params is an object. Send a nonempty string
 request id of at most 256 UTF-8 bytes; notifications without an id are not supported.
 Example request:
-{"jsonrpc":"2.0","workgraph_api":"0.4","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
+{"jsonrpc":"2.0","workgraph_api":"0.5","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
 The application marker is required on every request, including initialize and saved exact
 retries. The CLI supplies it; no discovery round trip is needed. Missing/unsupported
 profiles return Unsupported_version before method-dependent interpretation. Valid parsed
@@ -184,7 +186,10 @@ closed workspace. Use a new identity only for a deliberate new operation.
 Every successful JSON-RPC response has exactly result.data and result.meta. Read the
 operation output from .result.data, whether the method reads or writes. Metadata is an
 object containing only applicable fields; absent metadata is {}, not null.
-Planning mutations: {"data":{...},"meta":{"workspace_revision":"12","durable":true}}.
+Committed planning mutations: {"data":{...},"meta":{"workspace_revision":"12","durable":true}}.
+Standalone empty claim_next is an observation with durable:false, unchanged revision and
+no stored receipt; its exact identity may reevaluate until a selection commits. Explicit
+transaction batches remain durable. Never interpret an uncertain acknowledgement as empty.
 Batch data is {"results":[{"method":"...","data":...},...]}; read
 .result.data.results in operation order. Each item uses that method's result data contract. Planning queries use
 meta.workspace_revision and meta.budget. Administrative writes use meta.durable=true.
@@ -280,13 +285,20 @@ Readiness is an observation, not permission to bypass the mutation's current-sta
 <errors_and_recovery><![CDATA[
 Problem={kind:string,message:string,details?:object}; branch on error.data.kind, not message wording.
 Optional details use a type discriminator: field (path segments, expected, suggestion),
-revision (expected, actual), ownership (actor_id, run_id), readiness (ticket_id, blockers),
+revision (expected, actual), entity_revision (entity identity, expected, actual),
+identity_collision, ownership, claim (unclaimed or actor/run/token mismatch without token
+disclosure), allocation (typed admission reasons and omitted_reasons), reservation_conflict
+(requested target, bounded owners and omitted_owners), readiness (ticket_id, blockers,
+omitted_blockers), size (actual, maximum, unit), socket_owner,
 version (representation, observed, supported), or capacity (meter, used, limit, attempted,
 unit, operator_action). Capacity attempted is proposed total usage, not an increment;
 operator_action points to installed recovery guidance. No ownership token is included in these
 diagnostics. Field messages use escaped JSON pointers such as /operations/0/params/title.
-Readiness details are bounded summaries; blocked ticket.finish includes the same typed
-blockers as ticket.start. Inspect ticket.readiness for the full current view.
+Readiness details preserve up to100 exact blockers with omitted_blockers; transport
+keeps at most16 with an exact listed-plus-omitted total. Allocation reasons and
+reservation owners retain their own exact omission counts. Blocked ticket.finish uses
+the same typed readiness model as ticket.start. Inspect ticket.readiness for the full
+current view; diagnostic omission never means the omitted blockers are satisfied.
 Invalid_argument: unknown/duplicate fields, wrong type/enum/JSON shape, missing required key,
  bad ID/counter, or a limit. Correct construction before a deliberate new operation.
 Not_found: missing referenced entity/receipt subject; recover identity and current state.
@@ -305,8 +317,8 @@ Outcome_unknown: commit/publication might have happened. Keep exact request/inpu
  receipt and retry the same saved request. A registry fence requires daemon restart first.
 Local_io: expected client-local file/output I/O failed. Fix the named path or permissions;
  this does not diagnose daemon storage. Missing/nonregular inputs and existing exclusive
- destinations report Invalid_argument. --field-file requires a regular file up to 4MiB;
- stdin, pipes and devices are not supported.
+ destinations report Invalid_argument. --field-file accepts a bounded regular file or
+ explicit - for stdin (up to4MiB). Named pipes/devices are not regular-file inputs.
 Storage_unavailable: storage operation could not establish success. Preserve request/evidence,
  fix disk/permissions/filesystem availability, recover ownership, then retry the same identity.
 Workspace_closed: open the registered workspace with a fresh admin request when authorized;
@@ -336,5 +348,26 @@ history pruning, or distributed writer reconciliation. Limits reject new work ra
 silently deleting acknowledged history. Advisory heartbeat data is private .local state and
 is excluded from portable history. The current schema is the only supported schema.
 ]]></bounds_and_storage>
+<workflow name="materialized-input-and-bounded-pages"><![CDATA[
+Only one stdin consumer is allowed across --params-file - and --field-file FIELD -. Input
+is materialized and validated before saving the exact request. An invalid materialized
+parameter object can produce a local Problem on stderr with no daemon call or saved
+journal; raw RPC validation remains a server error envelope. Retry rejects new
+input/identity overrides before consuming stdin. Observer contexts may omit actor/run;
+write attribution must still be supplied. Offline help never opens context or contacts a
+daemon.
+
+Opt-in --paginate traverses declared supported top-level collection families. Defaults are
+--page-limit 100 and --total-bytes 16777216; ranges are1..1000 pages and4096..67108864
+bytes. Selectors and each family's planning/domain revision, immutable history head,
+export snapshot, opaque cursor or inbox through boundary remain fixed. Each exact page is
+retained in data.pages. Inspect
+data.pagination.complete/stop/capture/next_request/retry_request/problem and process exit.
+An incomplete traversal stops nonzero; it never refreshes guards, retries implicitly,
+acknowledges delivery or splits a transaction. Body/index omissions remain visible even on
+complete traversal. Resume the exact next_request; retry_request repeats an unconsumed
+position. Nested multi-section views and waits reject this helper, including attention's
+separate readiness pages. Run help pagination for the exact supported method list.
+]]></workflow>
 </workgraph_reference>
 ```

@@ -106,6 +106,39 @@ For preconditions and a small example, run `workgraph help usage.list`. Use `--f
                     "type": "string",
                     "x-maximumDecimal": "9223372036854775807"
                   },
+                  "metrics": {
+                    "items": {
+                      "allOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 64
+                            },
+                            "unit": {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 32
+                            },
+                            "value": {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "9223372036854775807"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "unit",
+                            "value"
+                          ],
+                          "type": "object"
+                        }
+                      ],
+                      "description": "Additive caller-reported integer sample; unique bounded ASCII name and explicit unit, no conversion."
+                    },
+                    "maxItems": 16,
+                    "type": "array"
+                  },
                   "provenance": {
                     "allOf": [
                       {
@@ -200,6 +233,7 @@ For preconditions and a small example, run `workgraph help usage.list`. Use `--f
                   "actor_id",
                   "tokens",
                   "elapsed_ms",
+                  "metrics",
                   "provenance",
                   "timestamp"
                 ],

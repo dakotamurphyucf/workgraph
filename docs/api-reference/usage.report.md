@@ -10,6 +10,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `elapsed_ms` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="9223372036854775807" |
+| `metrics` | optional | array; max items=16 |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `provenance` | required | string; max UTF-8 bytes=4096; Nonblank bounded attributed text. |
 | `reported_actor_id` | required | string; max UTF-8 bytes=96; Validated entity ID.; string; pattern="^[A-Za-z0-9_-]{1,96}(?![\\s\\S])" &#124; string; pattern="^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])" |
@@ -80,6 +81,39 @@ For preconditions and a small example, run `workgraph help usage.report`. Use `-
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
           "type": "string",
           "x-maximumDecimal": "9223372036854775807"
+        },
+        "metrics": {
+          "items": {
+            "allOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 64
+                  },
+                  "unit": {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 32
+                  },
+                  "value": {
+                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                    "type": "string",
+                    "x-maximumDecimal": "9223372036854775807"
+                  }
+                },
+                "required": [
+                  "name",
+                  "unit",
+                  "value"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "Additive caller-reported integer sample; unique bounded ASCII name and explicit unit, no conversion."
+          },
+          "maxItems": 16,
+          "type": "array"
         },
         "provenance": {
           "allOf": [

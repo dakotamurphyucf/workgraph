@@ -14,11 +14,14 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | `deadline_unix_ms` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="9223372036854775807"; Canonical nonnegative Unix milliseconds within signed int64. |
 | `kind` | required | string; enum=["clarification","review","help","blocker_resolution","handoff"] |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `priority` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4"; Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low. |
 | `recipients` | optional | array; max items=1000 |
+| `related_request_ids` | optional | array; max items=32 |
 | `reply_to_request_id` | optional | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted.; string; pattern="^[A-Za-z0-9_-]{1,96}(?![\\s\\S])" &#124; string; pattern="^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])" |
 | `request_id` | required | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted. |
 | `resolver_id` | required | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted. |
 | `run_id` | optional | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `supersedes_request_ids` | optional | array; max items=32 |
 | `teams` | optional | array; max items=1000 |
 | `thread_id` | required | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted.; string; pattern="^[A-Za-z0-9_-]{1,96}(?![\\s\\S])" &#124; string; pattern="^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])" |
 | `workspace_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
@@ -30,6 +33,39 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
 <summary><![CDATA[Create an accountable request with explicit recipient and resolver.]]></summary>
 <request_schema dialect="https://json-schema.org/draft/2020-12/schema">
 <![CDATA[{
+  "$defs": {
+    "related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9": {
+      "items": {
+        "anyOf": [
+          {
+            "allOf": [
+              {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Resolved local identity; aliases are not accepted."
+              },
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "maxLength": 97,
+            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+            "type": "string"
+          }
+        ],
+        "description": "Literal entity ID or $alias resolved within transaction.apply."
+      },
+      "maxItems": 32,
+      "type": "array"
+    }
+  },
   "allOf": [
     {
       "properties": {
@@ -139,6 +175,16 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
                   ],
                   "type": "string"
                 },
+                "priority": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4"
+                    }
+                  ],
+                  "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+                },
                 "recipients": {
                   "items": {
                     "oneOf": [
@@ -239,6 +285,9 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
                   "maxItems": 1000,
                   "type": "array"
                 },
+                "related_request_ids": {
+                  "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
+                },
                 "reply_to_request_id": {
                   "anyOf": [
                     {
@@ -283,6 +332,9 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
                     }
                   ],
                   "description": "Resolved local identity; aliases are not accepted."
+                },
+                "supersedes_request_ids": {
+                  "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
                 },
                 "teams": {
                   "items": {
@@ -356,7 +408,7 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
           "description": "Raw command object preserving explicit references."
         }
       ],
-      "description": "Validated request.create arguments; domain preparation validates live references and transitions."
+      "description": "Create an accountable request with captured question and scheduling metadata."
     }
   ],
   "unevaluatedProperties": false
@@ -1005,6 +1057,16 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
               ],
               "description": "Resolved local identity; aliases are not accepted."
             },
+            "comment_revision": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                }
+              ],
+              "description": "Positive entity revision or activity serial."
+            },
             "correlation_id": {
               "anyOf": [
                 {
@@ -1082,6 +1144,16 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
                 "handoff"
               ],
               "type": "string"
+            },
+            "priority": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4"
+                }
+              ],
+              "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
             },
             "related": {
               "allOf": [
@@ -1242,6 +1314,19 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
               ],
               "description": "Exact public communication record; bounded views disclose omissions separately."
             },
+            "related_request_ids": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Resolved local identity; aliases are not accepted."
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
             "reply_to_request_id": {
               "anyOf": [
                 {
@@ -1349,6 +1434,42 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
                     {
                       "additionalProperties": false,
                       "properties": {
+                        "answer": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "comment_id": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Resolved local identity; aliases are not accepted."
+                                },
+                                "revision": {
+                                  "allOf": [
+                                    {
+                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                      "type": "string",
+                                      "x-maximumDecimal": "4611686018427387903"
+                                    }
+                                  ],
+                                  "description": "Positive entity revision or activity serial."
+                                }
+                              },
+                              "required": [
+                                "comment_id",
+                                "revision"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "attribution": {
                           "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
                         },
@@ -1359,7 +1480,8 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
                       },
                       "required": [
                         "kind",
-                        "attribution"
+                        "attribution",
+                        "answer"
                       ],
                       "type": "object"
                     }
@@ -1390,6 +1512,19 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
                 }
               ]
             },
+            "supersedes_request_ids": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Resolved local identity; aliases are not accepted."
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
             "thread_id": {
               "allOf": [
                 {
@@ -1406,9 +1541,13 @@ For preconditions and a small example, run `workgraph help request.create`. Use 
             "thread_id",
             "kind",
             "comment_id",
+            "comment_revision",
             "correlation_id",
             "reply_to_request_id",
             "deadline_unix_ms",
+            "priority",
+            "related_request_ids",
+            "supersedes_request_ids",
             "resolver_id",
             "created",
             "deliveries",

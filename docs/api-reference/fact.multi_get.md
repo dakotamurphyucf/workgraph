@@ -252,6 +252,75 @@ For preconditions and a small example, run `workgraph help fact.multi_get`. Use 
                         ],
                         "description": "Validated JSON projection"
                       },
+                      "references": {
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "items": {
+                                  "allOf": [
+                                    {
+                                      "oneOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 128
+                                                }
+                                              ],
+                                              "description": "Validated typed identity"
+                                            },
+                                            "kind": {
+                                              "const": "ticket",
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "id"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 128
+                                                }
+                                              ],
+                                              "description": "Validated typed identity"
+                                            },
+                                            "kind": {
+                                              "const": "resource",
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "id"
+                                          ],
+                                          "type": "object"
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "description": "A ticket or resource navigation reference."
+                                },
+                                "maxItems": 32,
+                                "type": "array"
+                              }
+                            ],
+                            "description": "At most 32 distinct ticket/resource navigation references."
+                          }
+                        ],
+                        "description": "Validated JSON projection"
+                      },
                       "revision": {
                         "allOf": [
                           {

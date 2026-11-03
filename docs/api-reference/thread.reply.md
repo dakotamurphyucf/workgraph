@@ -519,6 +519,13 @@ For preconditions and a small example, run `workgraph help thread.reply`. Use `-
                       ],
                       "description": "Resolved local identity; aliases are not accepted."
                     },
+                    "closure_policy": {
+                      "enum": [
+                        "manual",
+                        "when_all_requests_terminal"
+                      ],
+                      "type": "string"
+                    },
                     "comment_ids": {
                       "items": {
                         "allOf": [
@@ -861,6 +868,7 @@ For preconditions and a small example, run `workgraph help thread.reply`. Use `-
                     "mentions",
                     "links",
                     "state",
+                    "closure_policy",
                     "pinned",
                     "comment_ids",
                     "pinned_comment_ids"

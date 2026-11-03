@@ -1,5 +1,12 @@
 # Boards, requests and inboxes
 
+Current requests retain exact question/answer comment-version refs. Causal inbox
+bodies remain pinned across later message edits; optional related-message expansions
+show current versions separately. Guarded request.metadata patches priority/deadline.
+Related/superseding links record lineage without implicit cancellation. See the
+[focused communication guide](agent/communication-evidence.md) for amendment
+publication, ownership-fenced acknowledgement and completion gates.
+
 Communication is shared workspace metadata. Discussion bodies retain the existing
 versioned comment storage; public comment views use author_id, actor_id and
 reply_to_comment_id. Session recording does not publish a comment or
@@ -62,7 +69,8 @@ returns responsibility to unaccepted. Reassignment history remains available.
 `request.resolve` is restricted to the designated resolver. `request.cancel` is
 restricted to the creator or resolver. Both are terminal: further acknowledgement,
 acceptance, reassignment or terminal transitions fail with a typed conflict.
-Resolution does not resolve the thread or complete a ticket. Retries use the
+Question-created threads close when all their requests become terminal; ordinary
+threads default to manual closure. Resolution never completes a ticket. Retries use the
 existing transaction idempotency keys; stable request IDs, revision guards and
 one acknowledgement per recipient prevent duplicate publication even if a caller
 omits the original retry key. They do not imply repeated commands return success

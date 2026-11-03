@@ -86,129 +86,224 @@ For preconditions and a small example, run `workgraph help reservation.get`. Use
                 },
                 "holders": {
                   "items": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "actor_id": {
-                        "allOf": [
-                          {
+                    "allOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actor_id": {
                             "allOf": [
                               {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Nonblank name of at most 96 UTF-8 bytes."
-                          }
-                        ],
-                        "description": "Resolved opaque identity."
-                      },
-                      "lease": {
-                        "allOf": [
-                          {
-                            "additionalProperties": false,
-                            "properties": {
-                              "deadline_unix_ms": {
-                                "anyOf": [
-                                  {
-                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                    "type": "string",
-                                    "x-maximumDecimal": "9223372036854775807"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "duration_ms": {
-                                "anyOf": [
-                                  {
-                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                    "type": "string",
-                                    "x-maximumDecimal": "9223372036854775807"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "epoch": {
                                 "allOf": [
                                   {
-                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                     "type": "string",
-                                    "x-maximumDecimal": "4611686018427387903"
+                                    "x-maxUtf8Bytes": 96
                                   }
                                 ],
-                                "description": "Positive counter."
-                              },
-                              "last_unix_ms": {
+                                "description": "Nonblank name of at most 96 UTF-8 bytes."
+                              }
+                            ],
+                            "description": "Resolved opaque identity."
+                          },
+                          "lease": {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "deadline_unix_ms": {
+                                    "anyOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "9223372036854775807"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "duration_ms": {
+                                    "anyOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "9223372036854775807"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "epoch": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4611686018427387903"
+                                      }
+                                    ],
+                                    "description": "Positive counter."
+                                  },
+                                  "last_unix_ms": {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "9223372036854775807"
+                                  },
+                                  "revision": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4611686018427387903"
+                                      }
+                                    ],
+                                    "description": "Positive counter."
+                                  }
+                                },
+                                "required": [
+                                  "epoch",
+                                  "revision",
+                                  "duration_ms",
+                                  "last_unix_ms",
+                                  "deadline_unix_ms"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Validated fenced lease with consistent policy and deadline."
+                          },
+                          "mode": {
+                            "enum": [
+                              "exclusive",
+                              "shared"
+                            ],
+                            "type": "string"
+                          },
+                          "origin": {
+                            "allOf": [
+                              {
+                                "oneOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "manual",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "borrowers": {
+                                        "items": {
+                                          "allOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "actor_id": {
+                                                  "allOf": [
+                                                    {
+                                                      "type": "string",
+                                                      "x-maxUtf8Bytes": 96
+                                                    }
+                                                  ],
+                                                  "description": "Exact claim identity."
+                                                },
+                                                "run_id": {
+                                                  "allOf": [
+                                                    {
+                                                      "type": "string",
+                                                      "x-maxUtf8Bytes": 96
+                                                    }
+                                                  ],
+                                                  "description": "Exact claim identity."
+                                                },
+                                                "ticket_id": {
+                                                  "allOf": [
+                                                    {
+                                                      "type": "string",
+                                                      "x-maxUtf8Bytes": 96
+                                                    }
+                                                  ],
+                                                  "description": "Exact claim identity."
+                                                },
+                                                "token": {
+                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                  "type": "string",
+                                                  "x-maximumDecimal": "4611686018427387903"
+                                                }
+                                              },
+                                              "required": [
+                                                "ticket_id",
+                                                "token",
+                                                "run_id",
+                                                "actor_id"
+                                              ],
+                                              "type": "object"
+                                            }
+                                          ],
+                                          "description": "Positive exact claim borrower fence."
+                                        },
+                                        "maxItems": 100,
+                                        "type": "array"
+                                      },
+                                      "kind": {
+                                        "const": "automatic",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "borrowers"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ]
+                              }
+                            ],
+                            "description": "Manual ownership or sorted nonempty exact claim borrowers (maximum 100)."
+                          },
+                          "run_id": {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Nonblank name of at most 96 UTF-8 bytes."
+                              }
+                            ],
+                            "description": "Resolved opaque identity."
+                          },
+                          "token": {
+                            "allOf": [
+                              {
                                 "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                 "type": "string",
-                                "x-maximumDecimal": "9223372036854775807"
-                              },
-                              "revision": {
-                                "allOf": [
-                                  {
-                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                    "type": "string",
-                                    "x-maximumDecimal": "4611686018427387903"
-                                  }
-                                ],
-                                "description": "Positive counter."
-                              }
-                            },
-                            "required": [
-                              "epoch",
-                              "revision",
-                              "duration_ms",
-                              "last_unix_ms",
-                              "deadline_unix_ms"
-                            ],
-                            "type": "object"
-                          }
-                        ],
-                        "description": "Validated fenced lease with consistent policy and deadline."
-                      },
-                      "mode": {
-                        "enum": [
-                          "exclusive",
-                          "shared"
-                        ],
-                        "type": "string"
-                      },
-                      "run_id": {
-                        "allOf": [
-                          {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
+                                "x-maximumDecimal": "4611686018427387903"
                               }
                             ],
-                            "description": "Nonblank name of at most 96 UTF-8 bytes."
+                            "description": "Positive counter."
                           }
+                        },
+                        "required": [
+                          "run_id",
+                          "actor_id",
+                          "token",
+                          "mode",
+                          "lease",
+                          "origin"
                         ],
-                        "description": "Resolved opaque identity."
-                      },
-                      "token": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          }
-                        ],
-                        "description": "Positive counter."
+                        "type": "object"
                       }
-                    },
-                    "required": [
-                      "run_id",
-                      "actor_id",
-                      "token",
-                      "mode",
-                      "lease"
                     ],
-                    "type": "object"
+                    "description": "Validated holder fence, lease and origin."
                   },
                   "maxItems": 100,
                   "type": "array"

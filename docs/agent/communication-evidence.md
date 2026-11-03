@@ -51,7 +51,8 @@ creates a second answer or duplicate notifications. Omitting body keeps plain re
 Use a board for workspace/project scope, a thread for persistent conversation,
 and a request for explicit accountable work. Requests do not allocate ticket work.
 Delivery acknowledgement, accepted responsibility and terminal request resolution
-are independent. Resolving a request neither resolves its thread nor completes a ticket.
+are independent. Question-created threads default to closing when all their requests
+become terminal; ordinary threads default to manual closure. Resolution never completes a ticket.
 Teams expand at send/request creation. Deduplicated actual recipients and matching
 subscription routing are frozen when the event commits; later team/subscription
 edits never rewrite past routing. Deadlines are caller-declared timestamps, with
@@ -60,9 +61,11 @@ no automatic expiry or transition. The harness owns processing and external send
 <workflow name="capture-and-provenance"><![CDATA[
 message.send creates an authored discussion comment and pins delivery to its initial
 revision. Later discussion edits do not rewrite that delivered body. Request/thread
-expansions explicitly expose CURRENT comment versions; request creation retained the
-source comment ID but did not retain its original revision/body. Never present these
-current bodies as original immutable evidence. Tombstones remain visible in attachment
+expansions explicitly expose CURRENT comment versions separately from immutable
+request.question and returned answer refs. Request questions and causal notification
+bodies pin their original comment revisions; later edits do not rewrite them.
+Notifications identify causal_body/body_source. Do not substitute current expanded
+related.source_message or related.messages.items for a pinned causal body. Tombstones remain visible in attachment
 order with their exact revisions. Preserve author/actor/run attribution and source
 references when carrying packets into harness context.
 Thread changes route to participants/mentions and active matching subscribers.
@@ -298,10 +301,7 @@ dependencies and children. Consult the acceptance-policy reference for detailed 
     <contract href="../api-reference/team.list.md"/>
     <behavior>List current teams by ID.</behavior>
   </method>
-  <method name="request.get" kind="query">
-    <contract href="../api-reference/request.get.md"/>
-    <behavior>Fetch current request metadata, current thread_revision and optional related messages. revision is the request entity revision; thread_revision belongs to its discussion thread, separately from query/workspace captures. source_message is explicitly CURRENT; its original source reference has revision:null. Use dual capture paging, never infer an immutable original body.</behavior>
-  </method>
+  <method name="request.get" kind="query"><![CDATA[Reads current request metadata, pinned question/answer references, current thread_revision and optional related CURRENT messages. Request revision, thread revision, discussion serial and family query revision are distinct. include_messages expansion preserves dual-capture paging; it does not replace original question/answer provenance.]]></method>
   <method name="request.list" kind="query">
     <contract href="../api-reference/request.list.md"/>
     <behavior>List current requests by ID; filters intersect before pagination and byte fitting. Optional ticket_id matches linked ticket threads and resolver_id selects the designated resolver. Reading/filtering acknowledges no delivery or inbox entry. recipient matches frozen delivery, responsible matches accepted ownership, unanswered means Open with unacknowledged delivery, overdue means an Open deadline strictly before the supplied instant.</behavior>
@@ -468,5 +468,27 @@ When requirements apply, start with the effective policy rather than inventing p
   "$WG" request "$SOCKET" acceptance.policy.effective --workspace-id demo --ticket-id task
   "$WG" request "$SOCKET" review.gate --workspace-id demo --ticket-id task
 ]]></examples>
+<workflow name="metadata-and-amendments"><![CDATA[
+request.metadata changes priority/deadline under the observed request revision. Related
+and supersedes links retain explicit lineage without inferring answers or canceling older
+requests. Instruction amendments publish immutable attributed text or exact
+resource-version pins; resource metadata revisions and content revisions differ.
+require_ack creates a current completion/attempt gate, not a new process instruction
+channel. The current owner acknowledges the exact amendment version with actor/run/claim
+token and valid lease. Inbox delivery acknowledgement is separate from instruction
+acknowledgement. Progress and renewal preserve acceptance; a replacement claim needs its
+own acknowledgement. Withdraw/supersede explicitly retains history and frozen provenance.
+Required amendments cannot be added to already Done work without explicit reopen. Reads
+expose current heads and retained versions; preparation and replay enforce completion
+gates. No amendment launches, interrupts or proves a process stopped.
+]]></workflow>
+<method name="request.metadata" mode="M"><contract href="../api-reference/request.metadata.md"/><behavior><![CDATA[Guarded request priority/deadline patch; omission preserves, documented null clears optional metadata.]]></behavior></method>
+<method name="ticket.amendment.publish" mode="M"><contract href="../api-reference/ticket.amendment.publish.md"/><behavior><![CDATA[Publish a guarded immutable instruction version, optional required acknowledgement and explicit superseded refs.]]></behavior></method>
+<method name="ticket.amendment.withdraw" mode="M"><contract href="../api-reference/ticket.amendment.withdraw.md"/><behavior><![CDATA[Guarded explicit withdrawal; immutable publication and acknowledgement history remains available.]]></behavior></method>
+<method name="ticket.amendment.acknowledge" mode="M"><contract href="../api-reference/ticket.amendment.acknowledge.md"/><behavior><![CDATA[Acknowledge exact current amendment under the live ticket ownership fence; delivery ack is separate.]]></behavior></method>
+<method name="ticket.amendment.get" mode="Q"><contract href="../api-reference/ticket.amendment.get.md"/><behavior><![CDATA[Read exact amendment identity/version and current head information.]]></behavior></method>
+<method name="ticket.amendment.list" mode="Q"><contract href="../api-reference/ticket.amendment.list.md"/><behavior><![CDATA[Bounded current amendment heads for selected work.]]></behavior></method>
+<method name="ticket.amendment.history" mode="Q"><contract href="../api-reference/ticket.amendment.history.md"/><behavior><![CDATA[Bounded immutable publication/withdrawal history.]]></behavior></method>
+<method name="ticket.amendment.acknowledgements" mode="Q"><contract href="../api-reference/ticket.amendment.acknowledgements.md"/><behavior><![CDATA[Bounded retained acknowledgements with exact instruction and ownership provenance.]]></behavior></method>
 </workgraph_reference>
 ```

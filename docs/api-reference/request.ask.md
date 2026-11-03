@@ -10,12 +10,16 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `body` | required | string; max UTF-8 bytes=65536; Nonblank UTF8 text. |
+| `deadline_unix_ms` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="9223372036854775807"; Canonical nonnegative Unix milliseconds within signed int64. |
 | `kind` | optional | string; enum=["clarification","review","help","blocker_resolution","handoff"] |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `priority` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4"; Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low. |
 | `recipients` | required | array; max items=1000 |
+| `related_request_ids` | optional | array; max items=32 |
 | `request_id` | required | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted. |
 | `resolver_id` | required | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted. |
 | `run_id` | optional | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `supersedes_request_ids` | optional | array; max items=32 |
 | `ticket_id` | optional | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted.; string; pattern="^[A-Za-z0-9_-]{1,96}(?![\\s\\S])" &#124; string; pattern="^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])" |
 | `title` | required | string; max UTF-8 bytes=512; Nonblank UTF-8 title, at most 512 bytes. |
 | `workspace_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
@@ -27,6 +31,39 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
 <summary><![CDATA[Ask an accountable question and create its discussion and request atomically.]]></summary>
 <request_schema dialect="https://json-schema.org/draft/2020-12/schema">
 <![CDATA[{
+  "$defs": {
+    "related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9": {
+      "items": {
+        "anyOf": [
+          {
+            "allOf": [
+              {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Resolved local identity; aliases are not accepted."
+              },
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "maxLength": 97,
+            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+            "type": "string"
+          }
+        ],
+        "description": "Literal entity ID or $alias resolved within transaction.apply."
+      },
+      "maxItems": 32,
+      "type": "array"
+    }
+  },
   "allOf": [
     {
       "properties": {
@@ -89,6 +126,16 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
                   ],
                   "description": "Nonblank UTF8 text."
                 },
+                "deadline_unix_ms": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "9223372036854775807"
+                    }
+                  ],
+                  "description": "Canonical nonnegative Unix milliseconds within signed int64."
+                },
                 "kind": {
                   "enum": [
                     "clarification",
@@ -98,6 +145,16 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
                     "handoff"
                   ],
                   "type": "string"
+                },
+                "priority": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4"
+                    }
+                  ],
+                  "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
                 },
                 "recipients": {
                   "items": {
@@ -199,6 +256,9 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
                   "maxItems": 1000,
                   "type": "array"
                 },
+                "related_request_ids": {
+                  "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
+                },
                 "request_id": {
                   "allOf": [
                     {
@@ -216,6 +276,9 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
                     }
                   ],
                   "description": "Resolved local identity; aliases are not accepted."
+                },
+                "supersedes_request_ids": {
+                  "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
                 },
                 "ticket_id": {
                   "anyOf": [
@@ -267,7 +330,7 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
           "description": "Raw command object preserving explicit references."
         }
       ],
-      "description": "Atomically create a scoped thread, authored question and accountable request."
+      "description": "Atomically create a question, request and explicit scheduling metadata."
     }
   ],
   "unevaluatedProperties": false

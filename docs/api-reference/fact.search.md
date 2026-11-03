@@ -12,6 +12,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | `limit` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="100" |
 | `max_bytes` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="1048576" |
 | `offset` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
+| `predicates` | optional | array; max items=8 |
 | `scope` | required | tagged alternatives; see complete schema; An explicit fact scope; values never inherit between scopes. |
 | `text` | required | string; max UTF-8 bytes=256 |
 | `workspace_id` | required | string; max UTF-8 bytes=96; Workspace identity. |
@@ -64,6 +65,33 @@ For preconditions and a small example, run `workgraph help fact.search`. Use `--
               "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
               "x-maximumDecimal": "4611686018427387903"
+            },
+            "predicates": {
+              "items": {
+                "allOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "equals": {
+                        "x-maxCanonicalBytes": 4096,
+                        "x-maxDepth": 1
+                      },
+                      "pointer": {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 512
+                      }
+                    },
+                    "required": [
+                      "pointer",
+                      "equals"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "description": "Scalar equality at a JSON pointer (at most 16 segments). Missing differs from null; numbers compare exact canonical JSON spellings, not floating point."
+              },
+              "maxItems": 8,
+              "type": "array"
             },
             "scope": {
               "allOf": [

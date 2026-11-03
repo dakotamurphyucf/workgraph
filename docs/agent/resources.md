@@ -17,8 +17,9 @@ Metadata edits, links and archive changes increment metadata revision without cr
 content versions. Publication increments content-version revision independently and
 captures exact bytes/digest/size/filename/MIME/actor/timestamp. For evidence, pin
 version.revision and digest, not resource.revision. Keep returned generated resource IDs.
-resource.put_text requires title on creation AND update; repeat the current title when
-changing only content. Omitted filename/MIME preserve current metadata on update.
+resource.put_text requires title on creation. On update, omitted title preserves the
+current title after checking the exact metadata revision; an explicit blank title rejects.
+Omitted filename/MIME preserve current metadata on update.
 Logical filenames are basenames, not filesystem paths. MIME types are type/subtype
 without parameters. Consult the generated contract for validation limits.
 Archive hides resources from ordinary lists, retains all bytes/versions/links and permits
@@ -82,7 +83,7 @@ follow byte cursors and verify digests, then carry only chosen records into harn
 <methods>
   <method name="resource.put_text" kind="mutation">
     <contract href="../api-reference/resource.put_text.md"/>
-    <behavior>Publish exact small UTF-8 bytes as a new immutable version; title is required on creation and update. Preserve description, targets and archive state. Optional creation resource_id is generated durably; retain it. Omitted filename/MIME default on creation and preserve current metadata on update. Archived publication conflicts.</behavior>
+    <behavior>Publish exact small UTF-8 bytes as a new immutable version; title is required on creation; omission on a guarded update preserves the current title. Preserve description, targets and archive state. Optional creation resource_id is generated durably; retain it. Omitted filename/MIME default on creation and preserve current metadata on update. Archived publication conflicts.</behavior>
   </method>
   <method name="resource.update" kind="mutation">
     <contract href="../api-reference/resource.update.md"/>
@@ -194,5 +195,15 @@ For a file, save the helper plan, recover by exact retry and download a pinned v
   "$WG" retry "$SOCKET" "$REQUESTS/upload-attachment.json"
   "$WG" resource download "$SOCKET" --workspace-id demo --resource-id attachment --version 1 --destination /absolute/hello-copy.bin
 ]]></examples>
+<method name="resource.brief" mode="Q"><contract href="../api-reference/resource.brief.md"/><behavior><![CDATA[Compact current metadata, latest immutable content identity, exact counts and pointers. It does not load resource bytes or replace bounded history/link traversal.]]></behavior></method>
+<workflow name="byte-input-and-streaming"><![CDATA[
+For small text use --field-file text ABS_FILE or --field-file text - to preserve exact
+newlines; --params-file FILE|- materializes one JSON parameter object. At most one stdin
+source is allowed. Inputs validate and freeze before journaling; retry reads only the
+saved request and rejects new input flags. For download, direct streaming stdout can emit
+a prefix before a later integrity error. Use the explicit spool mode when the entire
+content must verify before emission. Inspect resource download --help for
+destination/stdout options; always check exit before consuming the result.
+]]></workflow>
 </workgraph_reference>
 ```

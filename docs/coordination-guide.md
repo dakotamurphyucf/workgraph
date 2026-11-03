@@ -1,5 +1,14 @@
 # Local coordination guide
 
+A standalone empty ticket.claim_next is strictly nondurable: no receipt, head,
+attempt, feed event or persisted bytes. Its exact identity may reevaluate until a
+selection commits, when successful retry freezes the original receipt. An explicit
+transaction batch remains durable. Capture filtered [attention](agent/attention.md)
+before checking/parking, and retain consumed cursors. Automatic required path holds
+track exact borrowers and clean up only when the last borrower exits; Manual holds
+survive. See [ownership](agent/path-conditions-recovery.md) for bounded reservation
+wait and exact release/recovery rules.
+
 Workgraph is a standalone local coordination service with a JSON CLI. The
 harness owns model/provider calls, prompt and context assembly, context resets,
 process launch and termination, external tool access, tokenizer-specific
@@ -60,7 +69,11 @@ stable instance ID plus string parameters. Instantiation
 validates dependency aliases and cycles, then stages the planned tickets and
 instance record together. `allocation.pool_put` and
 `allocation.ticket_policy_put` can constrain active attempts, capabilities and
-eligible pools; `ticket.claim_next` applies those allocation rules to ready work.
+eligible pools and optional cooperative allowed actors. All direct acquisition,
+reassignment and replay paths enforce authoritative admission. Pool occupancy counts
+a ticket once when claimed or attempted; existing max_active_attempts bounds attempts.
+Use ticket.ready/readiness with target_run_id or run-selected coordinator.overview
+for current eligibility; an observation is not an ownership grant.
 
 ## Comments, review and evidence
 

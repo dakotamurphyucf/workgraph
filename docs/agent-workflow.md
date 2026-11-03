@@ -1,5 +1,13 @@
 # Use Workgraph as durable task context
 
+Before selection, inspect current hierarchy/amendments and run-aware readiness
+(target_run_id on ticket.ready/readiness). Parent links organize by default; explicit
+hierarchy policy can inherit ancestor prerequisite conditions with source-owned
+waivers. A canceled child is permitted only by local child-completion policy.
+After a known empty acquisition, preserve its nondurable distinction and use
+capture-before-check/park [attention](agent/attention.md), rather than writing in a
+loop. Completion rechecks current amendment and hierarchy gates.
+
 The CLI is the supported integration surface. No project-maintained MCP server,
 model runtime or task executor is required. `examples/agent-workflow.sh` is a
 repeatable CLI-only starting fixture; its writes retain stable mutation IDs across

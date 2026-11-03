@@ -1,6 +1,37 @@
 # AlmaLinux 10 on x86_64, including WSL
 
-This guide targets **v0.4.0** and its matching bundled guide/API.
+## Current source candidate (0.5)
+
+The download instructions below describe the published **v0.4.0** release and its
+bundled API 0.4 documentation. This checkout describes the **unreleased 0.5.0**
+candidate (API 0.5, affected stored roots 4). There is no 0.5 release-download URL in
+this guide. To use the new capabilities, build this matching checkout or use an
+explicitly supplied qualified local candidate bundle, then follow its bundled
+guide. Never open 0.4 data or reuse its saved journals with the candidate.
+
+From a source checkout with the matching toolchain already provisioned, select
+that switch through WORKGRAPH_OPAM_SWITCH if needed; do not change a global default:
+
+```sh
+./dev build @fmt @runtest @install
+WG="$PWD/_build/default/bin/main.exe"
+"$WG" --version
+"$WG" help ticket.hierarchy.put
+"$WG" help attention.read
+```
+
+The candidate version prints `0.5.0`. The full check command is a qualification
+step to execute on the target platform, not a claim that every platform passed.
+Use the [operator source setup](operator-guide.md#install-locally) when the
+matching toolchain is not yet installed. A platform label alone does not qualify
+a locally packaged binary; preserve its actual checksums and qualification record.
+For a fresh private runtime, use the [candidate bootstrap example](operator-guide.md#candidate-bootstrap).
+
+
+
+## Published v0.4 installation
+
+This installation walkthrough targets **v0.4.0** and its matching bundled guide/API.
 Download its packages and qualification evidence from the
 [v0.4.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
@@ -59,7 +90,7 @@ context setup, saved exact retries and the v0.4 API. Its
 [communication reference](agent/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 
-Startup never removes an occupied socket automatically. Connection refusal alone
+For the published v0.4 binary, startup never removes an occupied socket automatically. Connection refusal alone
 proves no ownership; stop all possible owners and launchers before manually
 removing a verified abandoned socket. Choose a fresh private socket path when
 ownership is uncertain, and preserve managed data and registry locks.

@@ -1,5 +1,11 @@
 # Pinned artifacts, reviews and decisions
 
+Instruction amendments are separate immutable records, not editable replacement
+evidence or informal approval. Required amendment acknowledgement binds the exact
+version to current actor/run/claim ownership and participates in completion gates.
+Inbox acknowledgement is separate. See [amendments](agent/communication-evidence.md).
+Activity digests preserve whole amendment audit records and exact provenance.
+
 `Evidence` is an immutable pure planning-domain state machine. Its current tagged
 `Evidence_event` schema rejects unknown fields, malformed counters and unsupported
 format tags. There is one pre-release schema, with no compatibility or migration

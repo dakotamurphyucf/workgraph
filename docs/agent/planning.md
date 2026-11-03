@@ -226,7 +226,8 @@ Atomically claims eligible unclaimed work, writes the optional nonblank initial 
 Required: ticket_id:id, token:dec (positive), evidence:text (nonblank).
 Optional: handoff:{summary:text,next_steps:text,objective:text?,completed:text?,decisions:text?,blockers:text?,resource_ids:[id]?,covers_through:dec?}.
 Returns: {completed:true,ticket_revision:dec,attempt?:{attempt_id:id,revision:dec,state:"completed"}}.
-Publishes the optional handoff, active attempt completion, evidence comment and ticket completion together. Requires current unexpired ownership and rechecks holds, prerequisites, unfinished children and configured acceptance policy. Blocked readiness returns the same typed blockers as ticket.start. ticket_revision is the affected ticket revision, independent of attempt/handoff and workspace revisions. Exact retries recover the original durable receipt.
+Publishes the optional handoff, active attempt completion, evidence comment and ticket completion together. Requires current unexpired ownership and rechecks holds, effective prerequisites, the local child-completion policy, current
+amendment acknowledgements and configured acceptance policy. Blocked readiness returns the same typed blockers as ticket.start. ticket_revision is the affected ticket revision, independent of attempt/handoff and workspace revisions. Exact retries recover the original durable receipt.
 Within finish, omitted rich handoff fields and covers_through preserve the prior values; explicit empty strings/lists clear them. A first handoff defaults omitted rich fields to empty and coverage to zero. Completion evidence becomes this new handoff's evidence. Summary and next_steps are required whenever handoff is supplied. This patch behavior differs from standalone handoff.set replacement defaults. Historical handoffs remain immutable.
 ]]></method>
 <method name="ticket.reopen" envelope="M"><![CDATA[
@@ -251,19 +252,19 @@ Actor and optional run must match claim. Use only your own current token; visibl
 Required: ticket_id:id, token:dec, evidence:text.
 Optional: none.
 Returns: {completed:true,ticket_revision:dec}.
-Requires a current unexpired claim, nonempty evidence, no hold, done/waived prerequisites, done children, and applicable evidence/review gates. Completes active attempts, clears claim, sets done and adds an evidence comment.
+Requires a current unexpired claim, nonempty evidence, no hold, satisfied effective prerequisites, children satisfying the current local child-completion policy, and applicable amendment/evidence/review gates. Completes active attempts, clears claim, sets done and adds an evidence comment.
 ]]></method>
 <method name="ticket.list" envelope="Q"><![CDATA[
 Required: none beyond envelope.
 Optional: P, text:text, project_id:id, milestone_id:id, status, assignee_id:id, label_id:id, priority:dec.
 Data: Page<Ticket>.
-text filters title/description case-insensitively. ticket.ready adds graph-readiness and priority ordering; it does not apply a registered run's allocation rules. Use ticket.claim_next for atomic run-aware selection.
+text filters title/description case-insensitively. ticket.ready adds priority ordering and accepts optional target_run_id for authoritative actor/run/capability/pool/budget/path admission; without it, graph-readiness defaults remain. Readiness is an observation, not acquisition. Use ticket.claim_next for atomic selection.
 ]]></method>
 <method name="ticket.ready" envelope="Q"><![CDATA[
 Required: none beyond envelope.
-Optional: P, text:text, project_id:id, milestone_id:id, status, assignee_id:id, label_id:id, priority:dec.
+Optional: P, target_run_id:id, leaf_only:boolean, text:text, project_id:id, milestone_id:id, status, assignee_id:id, label_id:id, priority:dec.
 Data: Page<Ticket>.
-text filters title/description case-insensitively. ticket.ready adds graph-readiness and priority ordering; it does not apply a registered run's allocation rules. Use ticket.claim_next for atomic run-aware selection.
+text filters title/description case-insensitively. ticket.ready adds priority ordering and accepts optional target_run_id for authoritative actor/run/capability/pool/budget/path admission; without it, graph-readiness defaults remain. Readiness is an observation, not acquisition. Use ticket.claim_next for atomic selection.
 ]]></method>
 <method name="ticket.resolve" envelope="Q"><![CDATA[
 Required: display_key:text.
@@ -273,8 +274,8 @@ Use the returned ID in other methods, not the display key.
 ]]></method>
 <method name="ticket.readiness" envelope="Q"><![CDATA[
 Required: ticket_id:id.
-Optional: at_revision:dec, max_bytes:dec (4096..1048576).
-Data: Readiness.
+Optional: target_run_id:id, at_revision:dec, max_bytes:dec (4096..1048576).
+Data: Readiness, including typed inherited-prerequisite and Allocation blockers. The run selector uses the same admission assessment as acquisition.
 ]]></method>
 <method name="ticket.blockers" envelope="Q"><![CDATA[
 Required: ticket_id:id.
@@ -390,7 +391,7 @@ There is no inheritance: the same key in different scopes is independent. Keys a
 case-sensitive UTF-8 (1..128 bytes, nonblank, no controls). Values are arbitrary valid JSON,
 at most4096 canonical bytes and16 container levels; null is a value, never deletion.
 Records include scope,key,revision,deleted,actor_id,optional run_id,timestamp,
-changed_at_revision and (when present) value,value_type. Deletion retains the key's history
+changed_at_revision, explicit references and (when present) value,value_type. Deletion retains the key's history
 and revision. Updates are cooperative shared writes guarded by the key revision, not claims.
 Queries accept max_bytes (4096..1048576, default65536) and optional at_revision. List pages
 accept limit(1..100, default50), offset(default0); offset>0 requires at_revision from the
@@ -401,7 +402,8 @@ Retained facts are bounded to10000 keys and16MiB of version metadata per workspa
 Readable exports group keys/history into one JSON file per scope, never one file per key.
 ]]></facts>
 <method name="fact.put" envelope="M"><![CDATA[
-Required: scope,key,expected_revision:dec,value:JSON. Returns: fact record.
+Required: scope,key,expected_revision:dec,value:JSON. Optional: references (up to32).
+Returns: fact record.
 Use expected_revision="0" for a never-used key. Recreating a deleted key uses its current
 revision. Scope IDs may use batch aliases; JSON value content always remains literal.
 ]]></method>
@@ -419,7 +421,7 @@ Returns: {items,offset,remaining,next_offset}. Preserves requested order, includ
 {scope,key,missing:true} for absent keys. Deleted records remain visible.
 ]]></method>
 <method name="fact.list" envelope="Q"><![CDATA[
-Required: scope. Optional: prefix:text,include_deleted:bool(defaultfalse),limit,offset,
+Required: scope. Optional: prefix:text,predicates,include_deleted:bool(defaultfalse),limit,offset,
 at_revision,max_bytes. Returns: page of current fact records, sorted by exact key.
 Prefix matching is case-sensitive; empty prefix matches all keys in this scope.
 ]]></method>
@@ -438,5 +440,62 @@ Returns: page of matches in active keys/current JSON values, with byte offsets a
 snippets. ASCII case-insensitive substring matching. search.query also supports kind "fact".
 ]]></method>
 </planning_api>
+<workflow name="hierarchy-and-waivers"><![CDATA[
+Default hierarchy policy is descendant_prerequisites="independent",
+child_completion="all_done". Parent links alone inherit no scheduling gates.
+ticket.hierarchy.put uses its own expected_revision (0 creates), both enum fields and a
+nonblank audit reason. "inherit" exports that ancestor's own declared prerequisites to
+descendants, even across an independent intermediate parent. It does not inherit
+ownership, ancestor status, or the ancestor's unfinished-child gate. A waiver belongs only
+to the ticket declaring the prerequisite; a descendant cannot waive an inherited edge. Own
+edges precede inherited edges, with deterministic nearest-source deduplication and
+explicit blocker provenance. Structural cycles are rejected across direct plus inherited
+prerequisite edges regardless of done status or waivers, including a parent depending on
+its inheriting descendant. Reparenting receives the same validation. "done_or_canceled"
+permits locally canceled children for parent completion; canceled prerequisite tickets
+remain unsatisfied everywhere. Policy changes are audited and rechecked by current
+completion; they do not revoke claims or stop processes.
+]]></workflow>
+<workflow name="project-completion-and-preflight"><![CDATA[
+project.readiness reports current member completion, ownership, nonterminal attempts and
+configured completion gates; open requests are counted observationally and do not
+independently block finish. Canceled members may be terminal; archived unfinished members
+still block. project.finish uses the exact project revision, nonblank evidence and
+structured handoff; it completes no member ticket, resolves no request and stops no
+process. The final atomic transaction and replay revalidate the same gates.
+transaction.preflight runs the same bounded preparation against a capture, including
+aliases, without head changes, receipts, holds or acquisition authority. Its proposed
+effects can become stale before a real transaction. ticket.brief is a compact record with
+exact counts and source pointers; use ticket.context/resume and explicit pages for deeper
+context.
+]]></workflow>
+<workflow name="fact-predicates-and-references"><![CDATA[
+fact.list and fact.keys accept predicates: up to eight ANDed {pointer,equals} scalar
+equality tests. RFC6901 pointers are at most512 UTF8 bytes/16 segments; the empty pointer
+selects the root. Missing never equals null. Canonical numeric identities distinguish
+1,1.0 and 1e0. Prefix and predicates filter before pagination. fact.put may carry at
+most32 distinct existing {kind:"ticket"|"resource",id} references; omission preserves them
+and [] clears them. Only declared tagged references resolve aliases in a transaction: the
+JSON value remains literal. fact.references performs bounded reverse navigation. Mutable
+fact links are not evidence pins; use exact immutable resource versions for evidence.
+]]></workflow>
+<method name="fact.references" mode="Q"><contract href="../api-reference/fact.references.md"/><behavior><![CDATA[Reverse lookup of explicit ticket/resource navigation references, with scoped bounded pagination; values are not searched for inferred IDs.]]></behavior></method>
+<method name="project.readiness" mode="Q"><contract href="../api-reference/project.readiness.md"/><behavior><![CDATA[Current project completion blockers and structured reasons; no mutation or member completion.]]></behavior></method>
+<method name="project.finish" mode="M"><contract href="../api-reference/project.finish.md"/><behavior><![CDATA[Guarded current project completion with evidence and structured handoff, revalidated at final transaction state and replay.]]></behavior></method>
+<method name="ticket.brief" mode="Q"><contract href="../api-reference/ticket.brief.md"/><behavior><![CDATA[Compact bounded recorded ticket fields, exact counts and expansion pointers.]]></behavior></method>
+<method name="ticket.hierarchy.get" mode="Q"><contract href="../api-reference/ticket.hierarchy.get.md"/><behavior><![CDATA[Current local hierarchy policy, defaults and its independent revision.]]></behavior></method>
+<method name="ticket.hierarchy.put" mode="M"><contract href="../api-reference/ticket.hierarchy.put.md"/><behavior><![CDATA[Audited local child-completion and descendant prerequisite policy, with structural cycle checks.]]></behavior></method>
+<method name="transaction.preflight" mode="Q"><contract href="../api-reference/transaction.preflight.md"/><behavior><![CDATA[Pure bounded preparation preview; no durable publication, receipt, ownership grant or promise of later admission.]]></behavior></method>
+<workflow name="explicit-hierarchy-example"><![CDATA[
+For a fresh existing ticket parent, enable both fields under the independent policy
+revision0 (read ticket.hierarchy.get first when it may already have a policy):
+
+"$WG" --context "$CONTEXT" ticket hierarchy put --ticket-id parent \
+  --expected-revision 0 --descendant-prerequisites inherit \
+  --child-completion done_or_canceled --reason "Apply declared prerequisites to children"
+
+The parent's own prerequisites become descendant conditions. This creates no dependency
+and grants no ownership. Its child_completion field applies only to that parent.
+]]></workflow>
 </workgraph_reference>
 ```

@@ -11,7 +11,7 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | `after` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
 | `consumer_id` | required | string; max UTF-8 bytes=96; Opaque validated identity. |
 | `exclude_self` | optional | boolean |
-| `kinds` | optional | array; max items=8 |
+| `kinds` | optional | array; max items=9 |
 | `limit` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="100"; limit must be 1..100 |
 | `max_bytes` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="1048576"; Public result byte budget, 4KiB..1MiB. |
 | `recipient` | required | object (requires kind, id); Actor recipient. &#124; object (requires kind, id); Run recipient. |
@@ -75,11 +75,12 @@ For preconditions and a small example, run `workgraph help inbox.read`. Use `--f
                   "request_accepted",
                   "request_reassigned",
                   "request_resolved",
-                  "request_cancelled"
+                  "request_cancelled",
+                  "request_updated"
                 ],
                 "type": "string"
               },
-              "maxItems": 8,
+              "maxItems": 9,
               "type": "array"
             },
             "limit": {
@@ -321,10 +322,7 @@ For preconditions and a small example, run `workgraph help inbox.read`. Use `--f
                                 "type": "boolean"
                               },
                               "version_kind": {
-                                "enum": [
-                                  "initial",
-                                  "current"
-                                ],
+                                "const": "captured",
                                 "type": "string"
                               }
                             },
@@ -345,6 +343,42 @@ For preconditions and a small example, run `workgraph help inbox.read`. Use `--f
                           }
                         ]
                       },
+                      "causal_body": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "comment_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Opaque validated identity."
+                              },
+                              "revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive workspace-local notification/discussion serial."
+                              }
+                            },
+                            "required": [
+                              "comment_id",
+                              "revision"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "kind": {
                         "enum": [
                           "thread_changed",
@@ -354,7 +388,8 @@ For preconditions and a small example, run `workgraph help inbox.read`. Use `--f
                           "request_accepted",
                           "request_reassigned",
                           "request_resolved",
-                          "request_cancelled"
+                          "request_cancelled",
+                          "request_updated"
                         ],
                         "type": "string"
                       },
@@ -367,6 +402,21 @@ For preconditions and a small example, run `workgraph help inbox.read`. Use `--f
                           }
                         ],
                         "description": "Positive workspace-local notification/discussion serial."
+                      },
+                      "request_status": {
+                        "anyOf": [
+                          {
+                            "enum": [
+                              "open",
+                              "resolved",
+                              "cancelled"
+                            ],
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "scope": {
                         "oneOf": [
@@ -545,7 +595,9 @@ For preconditions and a small example, run `workgraph help inbox.read`. Use `--f
                       "source_current_revision",
                       "ticket_ids",
                       "attribution",
-                      "body_source"
+                      "body_source",
+                      "causal_body",
+                      "request_status"
                     ],
                     "type": "object"
                   }

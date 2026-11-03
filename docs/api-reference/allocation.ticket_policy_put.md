@@ -9,6 +9,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | Input | Presence | Type and constraints |
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `allowed_actor_ids` | optional | array; max items=100 &#124; null; Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID. |
 | `expected_revision` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `pools` | required | array; max items=100; At most 100 distinct nonblank names. |
@@ -73,6 +74,31 @@ For preconditions and a small example, run `workgraph help allocation.ticket_pol
     },
     {
       "properties": {
+        "allowed_actor_ids": {
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Validated coordination identity."
+                  },
+                  "maxItems": 100,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          ],
+          "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+        },
         "expected_revision": {
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
           "type": "string",
@@ -145,24 +171,88 @@ For preconditions and a small example, run `workgraph help allocation.ticket_pol
         {
           "additionalProperties": false,
           "properties": {
+            "allowed_actor_ids": {
+              "allOf": [
+                {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Validated coordination identity."
+                      },
+                      "maxItems": 100,
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+            },
+            "pools": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Nonblank name of at most 96 UTF-8 bytes."
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "required_capabilities": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Nonblank name of at most 96 UTF-8 bytes."
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
             "revision": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                }
+              ],
+              "description": "Positive counter."
+            },
+            "ticket_id": {
               "allOf": [
                 {
                   "allOf": [
                     {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                       "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
+                      "x-maxUtf8Bytes": 96
                     }
                   ],
-                  "description": "Positive decimal counter."
+                  "description": "Nonblank name of at most 96 UTF-8 bytes."
                 }
               ],
-              "description": "Affected entity revision; use as its next expected_revision."
+              "description": "Resolved opaque identity."
             }
           },
           "required": [
-            "revision"
+            "ticket_id",
+            "revision",
+            "required_capabilities",
+            "pools",
+            "allowed_actor_ids"
           ],
           "type": "object"
         }

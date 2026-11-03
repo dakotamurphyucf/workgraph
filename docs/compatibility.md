@@ -1,7 +1,7 @@
 # Workgraph format and durability
 
 Workgraph is an early preview with one current schema per representation. The
-0.4 preview deliberately breaks the 0.3 application API and affected stored roots.
+0.5 candidate deliberately breaks the 0.4 application API and affected stored roots.
 It has no legacy readers, automatic migrations, or backward compatibility promises.
 A package version, application API identifier and stored-format identifier serve
 different purposes; they need not have the same value.
@@ -25,13 +25,13 @@ head.
 
 | Representation | Current identifier | Required contents |
 | --- | --- | --- |
-| Application request and saved retry envelope | `workgraph_api:"0.4"` | JSON-RPC 2.0 envelope and current method parameters |
-| `initialize` result | `workgraph_api:"0.4"` | Current capabilities; `registry_format_version:"3"` |
-| Workspace descriptor | `version:"3"` | Workspace identity and complete current fields |
-| Planning transaction and planning event envelope | `version:"3"` | Complete current transaction/events and durable receipt |
-| Local registry | `version:"3"` | Workspaces, receipts, creates, exports, and restores maps |
-| Workspace export manifest | `version:"3"` | Full state, head, history head, options, and files |
-| Workspace-set export manifest | `version:"3"` | Exact workspace vector, omissions, and member manifest hashes |
+| Application request and saved retry envelope | `workgraph_api:"0.5"` | JSON-RPC 2.0 envelope and current method parameters |
+| `initialize` result | `workgraph_api:"0.5"` | Current capabilities; `registry_format_version:"4"` |
+| Workspace descriptor | `version:"4"` | Workspace identity and complete current fields |
+| Planning transaction and planning event envelope | `version:"4"` | Complete current transaction/events and durable receipt |
+| Local registry | `version:"4"` | Workspaces, receipts, creates, exports, and restores maps |
+| Workspace export manifest | `version:"4"` | Full state, head, history head, options, and files |
+| Workspace-set export manifest | `version:"4"` | Exact workspace vector, omissions, and member manifest hashes |
 | Planning HEAD, history HEAD and history batch | `version:"1"` | Their unchanged independent representations |
 | Advisory heartbeat cache | `version:"1"` | Its unchanged independent representation |
 | Saved CLI upload parameters | `transfer_version:"1"` | Content size/hash and durable request identity, inside a current API envelope |
@@ -40,11 +40,11 @@ Unchanged nested event representations retain their own identifiers. Changing th
 outer planning envelope does not renumber every nested format.
 
 Use the matching released binary and its bundled guide to inspect older data.
-For this preview, create a fresh registry and fresh workspace roots for 0.4, with
+For this preview, create a fresh registry and fresh workspace roots for 0.5, with
 a separate socket if an older daemon is still running. Preserve older data for use
 with its matching binary. Do not change a marker by hand or point the new daemon
 at old roots expecting a migration. Old saved requests and old exports are not a
-supported route into 0.4.
+supported route into 0.5.
 
 Unsupported registry startup rejects before creating its daemon lock; unsupported
 workspace descriptors reject before creating workspace lock/repair directories.
@@ -91,7 +91,7 @@ request IDs remain JSON numbers, rather than decimal-string domain counters.
 ## Wire profile and retries
 
 Each Unix-socket connection carries one request and response: four-byte big-endian
-length, then 1..4194304 bytes of JSON. The request envelope has `workgraph_api:"0.4"`, `jsonrpc:"2.0"`, an ID,
+length, then 1..4194304 bytes of JSON. The request envelope has `workgraph_api:"0.5"`, `jsonrpc:"2.0"`, an ID,
 method, and optional object params. The CLI supplies the application marker, including
 in saved requests. Raw clients must supply it even for `initialize`. Responses retain
 the ordinary JSON-RPC envelope; the initialize result reports the application marker. The OCaml client uses nonempty string IDs of at

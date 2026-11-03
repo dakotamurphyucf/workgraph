@@ -29,8 +29,10 @@ boundaries, so src overlaps src/main.ml but not src-other/main.ml. Distinct work
 never overlap. Durable replay rejects noncanonical targets rather than normalizing them.
 
 Path reservation: {"target":TARGET,"epoch":"N","holders":[HOLDER,...]}.
-Holder: {"run_id":"run","actor_id":"actor","token":"N","mode":"exclusive"|"shared","lease":LEASE}.
-LEASE is the public lease object described in coordination.md. Holders of different
+Holder: {"run_id":"run","actor_id":"actor","token":"N","mode":"exclusive"|"shared","lease":LEASE,"origin":ORIGIN}.
+ORIGIN is {"kind":"manual"} or {"kind":"automatic","borrowers":[CLAIM,...]};
+CLAIM has ticket_id, token, run_id and actor_id. Automatic borrowers are sorted,
+unique, nonempty and bounded to100. LEASE is described in coordination.md. Holders of different
 runs may overlap only when both modes are shared. Expiry never releases a holder:
 incompatible holders, including expired holders, keep blocking until release/recovery.
 Acquisition advances the target's epoch. Release retains that epoch and other holders.
@@ -96,7 +98,8 @@ Required: target_run_id, requests (1..32 distinct targets). Each request is
 {target:TARGET,mode:"exclusive"|"shared",lease_duration_ms?:"1".."86400000"}.
 Omit duration for indefinite ownership. Run must be active and actor-owned. All grants
 stage atomically in target order, checking existing and earlier staged overlaps. Returns
-{revision}; get each reservation for its exact token/lease.
+the actual grants and coordination revision; retain each returned holder token/lease
+and origin, not an assumed token or the collection revision.
 ]]></method>
 <method name="reservation.path.renew" mode="M"><![CDATA[
 Required: target_run_id,target,token,expected_lease_revision. Renews an unexpired timed
@@ -166,5 +169,33 @@ nonzero offsets require that exact workspace_revision as expected_revision. All 
 Save each exact mutation request before sending when uncertain outcomes need recovery.
 A path declared on a ticket need not have a reservation until that ticket is claimed/started.
 ]]></example>
+<workflow name="automatic-borrowers-and-explicit-release"><![CDATA[
+Explicit named/path acquisitions are Manual. Claim/start/claim-next create missing
+required indefinite Automatic holds and attach exact claim borrowers to reusable automatic
+covering holds. Compatible covering Manual holds remain Manual. Sibling claims can borrow
+one automatic hold; finish/release/reassignment-away/guarded recovery remove only the
+matching borrower and release an automatic hold only when its final borrower exits. Manual
+ownership and sibling borrowers survive. Expiry or terminal run status alone never deletes
+holds. Direct release/recovery of borrowed holds rejects until permitted claim cleanup.
+Ordered batches can start then finish, or release then change paths then reclaim. Ticket
+path policy is frozen under a claim or nonterminal attempt; declare at most100 targets.
+Cleanup events name exact changed covering targets (at most200), validated again on
+replay; a child declaration is not proof that only the narrower child hold changed. Typed
+reservation conflicts identify requested target and bounded owner metadata with exact
+omitted counts, excluding fence tokens.
+]]></workflow>
+<workflow name="bounded-reservation-wait"><![CDATA[
+The local reservation wait / reservation paths wait helper requires --request-directory
+ABS_EXISTING_PRIVATE_DIR and the original acquisition fields. --wait-ms defaults30000
+(1000..300000), --max-attempts defaults32 (1..100), --wait-slice-ms defaults1000
+(1..25000). It captures the planning feed before acquisition and syncs an exclusive exact
+journal before each attempt. Only definite typed reservation contention on an original
+requested target permits another identity after wake/timer; original guards and atomic
+batch stay fixed. Other errors, uncertainty, invalid/nondurable replies and save failures
+stop. It never recovers expiry, renews ownership, promises fairness or changes processes.
+Check exit status and result.data.wait.completed, then use result.data.daemon_response for
+the actual receipt. After uncertainty retry the exact saved_request; retry does not rerun
+the helper.
+]]></workflow>
 </workgraph_reference>
 ```

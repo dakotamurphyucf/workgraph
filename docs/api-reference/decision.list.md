@@ -296,6 +296,74 @@ For preconditions and a small example, run `workgraph help decision.list`. Use `
         }
       ]
     },
+    "evidence_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/evidence_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
+        },
+        {
+          "$ref": "#/$defs/evidence_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "commit",
+              "type": "string"
+            },
+            "object_id": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "repository": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "repository",
+            "object_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "kind": {
+              "const": "checksum",
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "digest"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/evidence_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
+        },
+        {
+          "$ref": "#/$defs/evidence_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d"
+        },
+        {
+          "$ref": "#/$defs/evidence_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
+        },
+        {
+          "$ref": "#/$defs/evidence_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+        }
+      ]
+    },
     "evidence_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3": {
       "additionalProperties": false,
       "properties": {
@@ -398,70 +466,47 @@ For preconditions and a small example, run `workgraph help decision.list`. Use `
       ],
       "type": "object"
     },
-    "evidence_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/evidence_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
-        },
-        {
-          "$ref": "#/$defs/evidence_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "commit",
-              "type": "string"
-            },
-            "object_id": {
+    "evidence_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "allOf": [
+            {
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "repository": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maxUtf8Bytes": 96
             }
-          },
-          "required": [
-            "kind",
-            "repository",
-            "object_id"
           ],
-          "type": "object"
+          "description": "Validated ASCII identifier."
         },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "digest": {
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "kind": {
-              "const": "checksum",
-              "type": "string"
-            },
-            "source": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maximumDecimal": "4611686018427387903"
             }
-          },
-          "required": [
-            "kind",
-            "source",
-            "digest"
           ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/$defs/evidence_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
-        },
-        {
-          "$ref": "#/$defs/evidence_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
-        },
-        {
-          "$ref": "#/$defs/evidence_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+          "description": "Positive exact version."
         }
-      ]
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "evidence_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/evidence_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9"
+        }
+      ],
+      "description": "Immutable exact historical provenance pin."
     },
     "evidence_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115": {
       "additionalProperties": false,
@@ -535,14 +580,6 @@ For preconditions and a small example, run `workgraph help decision.list`. Use `
         "digest"
       ],
       "type": "object"
-    },
-    "evidence_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/evidence_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d"
-        }
-      ],
-      "description": "Immutable exact historical provenance pin."
     },
     "metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773": {
       "allOf": [
@@ -850,13 +887,13 @@ For preconditions and a small example, run `workgraph help decision.list`. Use `
               },
               "evidence": {
                 "items": {
-                  "$ref": "#/$defs/evidence_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                  "$ref": "#/$defs/evidence_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                 },
                 "maxItems": 100,
                 "type": "array"
               },
               "rationale": {
-                "$ref": "#/$defs/evidence_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                "$ref": "#/$defs/evidence_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
               },
               "revision": {
                 "allOf": [

@@ -13,6 +13,7 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | `limit` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="100" |
 | `max_bytes` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="1048576" |
 | `offset` | optional | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
+| `predicates` | optional | array; max items=8 |
 | `prefix` | optional | string; max UTF-8 bytes=128 |
 | `scope` | required | tagged alternatives; see complete schema; An explicit fact scope; values never inherit between scopes. |
 | `workspace_id` | required | string; max UTF-8 bytes=96; Workspace identity. |
@@ -68,6 +69,33 @@ For preconditions and a small example, run `workgraph help fact.keys`. Use `--fu
               "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
               "x-maximumDecimal": "4611686018427387903"
+            },
+            "predicates": {
+              "items": {
+                "allOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "equals": {
+                        "x-maxCanonicalBytes": 4096,
+                        "x-maxDepth": 1
+                      },
+                      "pointer": {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 512
+                      }
+                    },
+                    "required": [
+                      "pointer",
+                      "equals"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "description": "Scalar equality at a JSON pointer (at most 16 segments). Missing differs from null; numbers compare exact canonical JSON spellings, not floating point."
+              },
+              "maxItems": 8,
+              "type": "array"
             },
             "prefix": {
               "type": "string",
@@ -238,6 +266,75 @@ For preconditions and a small example, run `workgraph help fact.keys`. Use `--fu
                         ],
                         "description": "Validated JSON projection"
                       },
+                      "references": {
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "items": {
+                                  "allOf": [
+                                    {
+                                      "oneOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 128
+                                                }
+                                              ],
+                                              "description": "Validated typed identity"
+                                            },
+                                            "kind": {
+                                              "const": "ticket",
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "id"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 128
+                                                }
+                                              ],
+                                              "description": "Validated typed identity"
+                                            },
+                                            "kind": {
+                                              "const": "resource",
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "id"
+                                          ],
+                                          "type": "object"
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "description": "A ticket or resource navigation reference."
+                                },
+                                "maxItems": 32,
+                                "type": "array"
+                              }
+                            ],
+                            "description": "At most 32 distinct ticket/resource navigation references."
+                          }
+                        ],
+                        "description": "Validated JSON projection"
+                      },
                       "revision": {
                         "allOf": [
                           {
@@ -391,7 +488,8 @@ For preconditions and a small example, run `workgraph help fact.keys`. Use `--fu
                       "deleted",
                       "actor_id",
                       "timestamp",
-                      "changed_at_revision"
+                      "changed_at_revision",
+                      "references"
                     ],
                     "type": "object"
                   }

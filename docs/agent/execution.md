@@ -100,5 +100,24 @@ current attempt, exact artifacts and effective acceptance-policy digest; an old 
 or changed input cannot be approved merely by linking a previously successful log.
 Stored command/output text is data. Publication and retrieval never execute it.
 ]]></acceptance>
+<workflow name="bounded-inspection-and-owned-cleanup"><![CDATA[
+evidence-run emits decoded bounded retained-tail previews alongside byte counts, EOF,
+truncation and provenance coverage. --hash-path ROOT_RELATIVE_FILE selects at most256
+exact source files, including explicitly selected ignored files; it never expands
+directories and is not whole-tree proof.
+
+workgraph evidence show --stage ABS_DIR --stdout --tail 4096 --output json
+workgraph evidence show --stage ABS_DIR --stderr --offset 0 --length 4096 --output text
+
+evidence show validates the stage and inspects only retained bytes. Lengths are1..65536.
+Offsets count retained-prefix bytes, and a retained tail is not the final process tail
+when bytes were discarded. Text labels malformed UTF8 replacement; --output bytes emits
+exact binary stdout with JSON metadata on stderr. Optional evidence-publish --ticket-id
+links in a separate guarded commit: resource publication can succeed while linking fails;
+retain both actual outcomes and retry intents. It never reruns execution. evidence clean
+--stage ABS_DIR --owner-token TOKEN explicitly cleans only a finished validated owned
+stage, refusing foreign/live/unfinished/publication-intent or unknown files. No automatic
+recursive pruning occurs.
+]]></workflow>
 </workgraph_reference>
 ```

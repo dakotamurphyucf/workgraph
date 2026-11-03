@@ -15,9 +15,10 @@ distributed scheduler, authentication claims or compatibility readers are added.
 All admitted changes must preserve serialized planning, durable publication before
 acknowledging a committed write, immutable evidence, exact successful retry identities,
 uncertain-write fencing, validation of public inputs and independent durable replay.
-Only the current candidate schema is supported. Package/API/format identifiers are
-updated together at integration; the development tracker is never opened by candidate
-code. Native targets remain macOS ARM64 and AlmaLinux 10 x86_64 (including WSL use).
+Only the current candidate schema is supported. The integrated identifiers are
+package 0.5.0, API 0.5 and affected stored roots 4; unchanged independent formats
+remain 1. The development tracker is never opened by candidate code. Native targets
+remain macOS ARM64 and AlmaLinux 10 x86_64 (including WSL use).
 
 ## Confirmed existing capabilities
 

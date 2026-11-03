@@ -39,6 +39,44 @@ collects these automatically. Check the tool's `--help` for supported labels and
 does not qualify a binary. Native bundles contain `bin/workgraph`; verify their
 checksums and use a binary matching the target OS, architecture and runtime.
 
+## Candidate bootstrap
+
+This checkout identifies unreleased package 0.5.0/API 0.5 and affected stored roots 4.
+Real v0.4 downloads remain linked by the platform install guides and need their own
+bundled documentation. Build/install the candidate as above or select an explicitly
+qualified local bundle. These commands use fresh private sibling roots and journals;
+WG must name that matching executable, never a guessed fallback from an older install.
+
+```sh
+WG="$PWD/_build/default/bin/main.exe"
+WG05_STATE="$HOME/.local/state/wg05"
+umask 077
+mkdir -p "$WG05_STATE/agent/requests"
+"$WG" --version
+"$WG" init --context "$WG05_STATE/agent/context.json" \
+  --socket "$WG05_STATE/wg.sock" --workspace-id demo05 --actor-id operator \
+  --root "$WG05_STATE/workspace" --name 'Candidate workspace' \
+  --request-directory "$WG05_STATE/agent/requests" \
+  --start-daemon true --registry "$WG05_STATE/registry" \
+  --daemon-log "$WG05_STATE/daemon.log"
+"$WG" --context "$WG05_STATE/agent/context.json" workspace overview
+```
+
+Use a fresh WG05_STATE when any of these identities already belongs to another
+setup. On WSL keep it on Linux storage. Shorten the private socket parent if needed
+for the OS path limit. For a persistent foreground session, instead run serve in a
+terminal/harness-owned process and omit init's daemon-start fields. Some harnesses
+terminate children when a shell ends; check the initialize response and log rather
+than assuming that is a product startup failure. Bootstrap timeout also does not
+prove a detached daemon stopped.
+
+Startup serializes socket-path ownership across different registries and parent
+aliases. Only the exact recorded socket inode can be recovered under its exclusive
+guard and peer checks. Unknown, symlinked, replaced, bound and live paths refuse.
+Connection refusal, a PID guess and a registry lock are insufficient. Preserve
+logs and choose a fresh endpoint when ownership is uncertain; never delete locks
+or data to force startup. See [administration](agent/administration.md).
+
 ## Runtime layout
 
 `examples/serve-local.sh` is an editable foreground configuration example. Set

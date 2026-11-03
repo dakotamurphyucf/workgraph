@@ -10,7 +10,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `expected_revision` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
-| `limit` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="10000"; Pool concurrency limit from 1 through 10000. |
+| `limit` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="10000"; Pool limit in distinct allocated tickets (claim or live attempt), from 1 through 10000. Reducing capacity preserves existing grants; own eligible attempts do not consume another slot. |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `name` | required | string; max UTF-8 bytes=96; Nonblank UTF-8 text. |
 | `run_id` | optional | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
@@ -85,7 +85,7 @@ For preconditions and a small example, run `workgraph help allocation.pool_put`.
               "x-maximumDecimal": "10000"
             }
           ],
-          "description": "Pool concurrency limit from 1 through 10000."
+          "description": "Pool limit in distinct allocated tickets (claim or live attempt), from 1 through 10000. Reducing capacity preserves existing grants; own eligible attempts do not consume another slot."
         },
         "name": {
           "allOf": [
@@ -117,24 +117,40 @@ For preconditions and a small example, run `workgraph help allocation.pool_put`.
         {
           "additionalProperties": false,
           "properties": {
+            "limit": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "10000"
+                }
+              ],
+              "description": "Pool concurrency limit from 1 through 10000."
+            },
+            "name": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Nonblank name of at most 96 UTF-8 bytes."
+            },
             "revision": {
               "allOf": [
                 {
-                  "allOf": [
-                    {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    }
-                  ],
-                  "description": "Positive decimal counter."
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
                 }
               ],
-              "description": "Affected entity revision; use as its next expected_revision."
+              "description": "Positive counter."
             }
           },
           "required": [
-            "revision"
+            "name",
+            "revision",
+            "limit"
           ],
           "type": "object"
         }

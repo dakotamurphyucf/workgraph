@@ -579,6 +579,58 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       "maxItems": 100,
       "type": "array"
     },
+    "handoff_d72ad7fdff6424143ff6ed680ced9d736b1f4ec09f59080beff253b5d2ef3805": {
+      "additionalProperties": false,
+      "properties": {
+        "blockers": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "completed": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "covers_through": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "decisions": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "next_steps": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "objective": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "resource_ids": {
+          "items": {
+            "allOf": [
+              {
+                "type": "string",
+                "x-maxUtf8Bytes": 97
+              }
+            ],
+            "description": "Resource identity or transaction alias"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "summary": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        }
+      },
+      "required": [
+        "summary",
+        "next_steps"
+      ],
+      "type": "object"
+    },
     "inputs_f0521b3c9696ae2535497dd9b78f52103228a778b5533836c932fe781f316892": {
       "items": {
         "$ref": "#/$defs/inputs_f3613cecf17489f76029d2dc07cb9f11c67152ee821b6f2054a7a30631ff423a"
@@ -1163,6 +1215,78 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         }
       ]
     },
+    "references_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 128
+                    }
+                  ],
+                  "description": "Validated typed identity"
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "ticket",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "type": "object"
+    },
+    "related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9": {
+      "items": {
+        "anyOf": [
+          {
+            "allOf": [
+              {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Resolved local identity; aliases are not accepted."
+              },
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "maxLength": 97,
+            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+            "type": "string"
+          }
+        ],
+        "description": "Literal entity ID or $alias resolved within transaction.apply."
+      },
+      "maxItems": 32,
+      "type": "array"
+    },
     "reviewers_5293bea1891d7660f8f87776b75dbfa8aafff70c57c08b02c4c9cdfa9b2a4366": {
       "additionalProperties": false,
       "properties": {
@@ -1317,47 +1441,6 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "scope_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3": {
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 128
-                    }
-                  ],
-                  "description": "Validated typed identity"
-                },
-                {
-                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                  "type": "string"
-                }
-              ]
-            },
-            {
-              "maxLength": 97,
-              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-              "type": "string"
-            }
-          ],
-          "description": "Literal entity ID or $alias resolved within transaction.apply."
-        },
-        "kind": {
-          "const": "ticket",
-          "type": "string"
-        }
-      },
-      "required": [
-        "kind",
-        "id"
-      ],
-      "type": "object"
-    },
     "scope_b8c5d36cb6162813a3828d73760a27fb3b582fc8fa92120647d45c177b3e99b2": {
       "oneOf": [
         {
@@ -1456,7 +1539,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "$ref": "#/$defs/scope_be4c565440ac5276da0af9e399841fff0e9e485b4b9883c0d49337298de1c5db"
         },
         {
-          "$ref": "#/$defs/scope_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3"
+          "$ref": "#/$defs/references_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3"
         }
       ]
     },
@@ -1717,6 +1800,132 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
             {
               "items": {
                 "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "method": {
+                        "const": "ticket.hierarchy.put",
+                        "type": "string"
+                      },
+                      "params": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "child_completion": {
+                            "enum": [
+                              "all_done",
+                              "done_or_canceled"
+                            ],
+                            "type": "string"
+                          },
+                          "descendant_prerequisites": {
+                            "enum": [
+                              "independent",
+                              "inherit"
+                            ],
+                            "type": "string"
+                          },
+                          "expected_revision": {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "4611686018427387903"
+                          },
+                          "reason": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 65536
+                              }
+                            ],
+                            "description": "Nonblank UTF8 text."
+                          },
+                          "ticket_id": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Validated coordination identity."
+                          }
+                        },
+                        "required": [
+                          "ticket_id",
+                          "expected_revision",
+                          "descendant_prerequisites",
+                          "child_completion",
+                          "reason"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "method": {
+                        "const": "project.finish",
+                        "type": "string"
+                      },
+                      "params": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "evidence": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 65536
+                              }
+                            ],
+                            "description": "Nonblank UTF8 text."
+                          },
+                          "expected_revision": {
+                            "allOf": [
+                              {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              }
+                            ],
+                            "description": "Positive decimal counter."
+                          },
+                          "handoff": {
+                            "allOf": [
+                              {
+                                "$ref": "#/$defs/handoff_d72ad7fdff6424143ff6ed680ced9d736b1f4ec09f59080beff253b5d2ef3805"
+                              }
+                            ],
+                            "description": "Finish handoff patch; omitted rich fields preserve previous values."
+                          },
+                          "project_id": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Validated coordination identity."
+                          }
+                        },
+                        "required": [
+                          "project_id",
+                          "expected_revision",
+                          "evidence",
+                          "handoff"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
                   {
                     "additionalProperties": false,
                     "properties": {
@@ -2919,13 +3128,12 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             },
                             "required": [
                               "expected_revision",
-                              "title",
                               "text"
                             ],
                             "type": "object"
                           }
                         ],
-                        "description": "resource_id may be omitted only to create at expected_revision zero."
+                        "description": "resource_id may be omitted only to create at expected_revision zero. Creation requires title; update omission preserves current title under the exact entity revision guard, independently of immutable content-version numbers."
                       }
                     },
                     "required": [
@@ -4054,56 +4262,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "description": "Nonblank bounded UTF-8 text"
                           },
                           "handoff": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "blockers": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 65536
-                              },
-                              "completed": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 65536
-                              },
-                              "covers_through": {
-                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                "type": "string",
-                                "x-maximumDecimal": "4611686018427387903"
-                              },
-                              "decisions": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 65536
-                              },
-                              "next_steps": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 65536
-                              },
-                              "objective": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 65536
-                              },
-                              "resource_ids": {
-                                "items": {
-                                  "allOf": [
-                                    {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 97
-                                    }
-                                  ],
-                                  "description": "Resource identity or transaction alias"
-                                },
-                                "maxItems": 100,
-                                "type": "array"
-                              },
-                              "summary": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 65536
-                              }
-                            },
-                            "required": [
-                              "summary",
-                              "next_steps"
-                            ],
-                            "type": "object"
+                            "$ref": "#/$defs/handoff_d72ad7fdff6424143ff6ed680ced9d736b1f4ec09f59080beff253b5d2ef3805"
                           },
                           "ticket_id": {
                             "allOf": [
@@ -4360,6 +4519,40 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                           "required": [
                                             "kind",
                                             "comment_id",
+                                            "revision"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "amendment_id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 96
+                                                }
+                                              ],
+                                              "description": "Validated ASCII identifier."
+                                            },
+                                            "kind": {
+                                              "const": "amendment",
+                                              "type": "string"
+                                            },
+                                            "revision": {
+                                              "allOf": [
+                                                {
+                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                  "type": "string",
+                                                  "x-maximumDecimal": "4611686018427387903"
+                                                }
+                                              ],
+                                              "description": "Positive exact version."
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "amendment_id",
                                             "revision"
                                           ],
                                           "type": "object"
@@ -4679,6 +4872,13 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                       }
                                     ],
                                     "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  },
+                                  "closure_policy": {
+                                    "enum": [
+                                      "manual",
+                                      "when_all_requests_terminal"
+                                    ],
+                                    "type": "string"
                                   },
                                   "expected_revision": {
                                     "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -5260,6 +5460,16 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                     ],
                                     "description": "Nonblank UTF8 text."
                                   },
+                                  "deadline_unix_ms": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "9223372036854775807"
+                                      }
+                                    ],
+                                    "description": "Canonical nonnegative Unix milliseconds within signed int64."
+                                  },
                                   "kind": {
                                     "enum": [
                                       "clarification",
@@ -5270,8 +5480,21 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                     ],
                                     "type": "string"
                                   },
+                                  "priority": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4"
+                                      }
+                                    ],
+                                    "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+                                  },
                                   "recipients": {
                                     "$ref": "#/$defs/members_db491f2282668f8c11a0d42352c8086492976cfe2e48fe28cf0cf988915b3ae3"
+                                  },
+                                  "related_request_ids": {
+                                    "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
                                   },
                                   "request_id": {
                                     "allOf": [
@@ -5290,6 +5513,9 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                       }
                                     ],
                                     "description": "Resolved local identity; aliases are not accepted."
+                                  },
+                                  "supersedes_request_ids": {
+                                    "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
                                   },
                                   "ticket_id": {
                                     "anyOf": [
@@ -5341,7 +5567,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "description": "Raw command object preserving explicit references."
                           }
                         ],
-                        "description": "Atomically create a scoped thread, authored question and accountable request."
+                        "description": "Atomically create a question, request and explicit scheduling metadata."
                       }
                     },
                     "required": [
@@ -5429,8 +5655,21 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                     ],
                                     "type": "string"
                                   },
+                                  "priority": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4"
+                                      }
+                                    ],
+                                    "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+                                  },
                                   "recipients": {
                                     "$ref": "#/$defs/members_db491f2282668f8c11a0d42352c8086492976cfe2e48fe28cf0cf988915b3ae3"
+                                  },
+                                  "related_request_ids": {
+                                    "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
                                   },
                                   "reply_to_request_id": {
                                     "anyOf": [
@@ -5476,6 +5715,9 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                       }
                                     ],
                                     "description": "Resolved local identity; aliases are not accepted."
+                                  },
+                                  "supersedes_request_ids": {
+                                    "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
                                   },
                                   "teams": {
                                     "items": {
@@ -5549,7 +5791,106 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "description": "Raw command object preserving explicit references."
                           }
                         ],
-                        "description": "Validated request.create arguments; domain preparation validates live references and transitions."
+                        "description": "Create an accountable request with captured question and scheduling metadata."
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "method": {
+                        "const": "request.metadata",
+                        "type": "string"
+                      },
+                      "params": {
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "deadline_unix_ms": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                            "type": "string",
+                                            "x-maximumDecimal": "9223372036854775807"
+                                          }
+                                        ],
+                                        "description": "Canonical nonnegative Unix milliseconds within signed int64."
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "expected_revision": {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  },
+                                  "priority": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4"
+                                      }
+                                    ],
+                                    "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+                                  },
+                                  "related_request_ids": {
+                                    "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
+                                  },
+                                  "request_id": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Resolved local identity; aliases are not accepted."
+                                          },
+                                          {
+                                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "maxLength": 97,
+                                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  },
+                                  "supersedes_request_ids": {
+                                    "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
+                                  }
+                                },
+                                "required": [
+                                  "request_id",
+                                  "expected_revision"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Raw command object preserving explicit references."
+                          }
+                        ],
+                        "description": "Creator/resolver guarded open-request priority, deadline and relationship patch."
                       }
                     },
                     "required": [
@@ -5865,7 +6206,8 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                                 "request_accepted",
                                                 "request_reassigned",
                                                 "request_resolved",
-                                                "request_cancelled"
+                                                "request_cancelled",
+                                                "request_updated"
                                               ],
                                               "type": "string"
                                             },
@@ -6135,7 +6477,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "x-maximumDecimal": "10000"
                               }
                             ],
-                            "description": "Pool concurrency limit from 1 through 10000."
+                            "description": "Pool limit in distinct allocated tickets (claim or live attempt), from 1 through 10000. Reducing capacity preserves existing grants; own eligible attempts do not consume another slot."
                           },
                           "name": {
                             "allOf": [
@@ -6171,6 +6513,31 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                       "params": {
                         "additionalProperties": false,
                         "properties": {
+                          "allowed_actor_ids": {
+                            "allOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "items": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "maxItems": 100,
+                                    "type": "array"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+                          },
                           "expected_revision": {
                             "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                             "type": "string",
@@ -7266,7 +7633,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "type": "array"
                               }
                             ],
-                            "description": "At most 100 distinct targets, normalized and ordered by path target."
+                            "description": "At most 100 distinct canonical targets. Policy edits require no ticket claim or nonterminal attempt; explicitly release/recover first."
                           },
                           "expected_revision": {
                             "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -7536,6 +7903,303 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                       },
                       "params": {
                         "$ref": "#/$defs/params_6fa8b40f038b9f14349e42c8ade8dc5fd0801d94d60379c325879d98314bb211"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "method": {
+                        "const": "ticket.amendment.publish",
+                        "type": "string"
+                      },
+                      "params": {
+                        "allOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amendment_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Validated coordination identity."
+                              },
+                              "expected_revision": {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              },
+                              "require_ack": {
+                                "type": "boolean"
+                              },
+                              "source": {
+                                "oneOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "body": {
+                                        "allOf": [
+                                          {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 65536
+                                          }
+                                        ],
+                                        "description": "Nonblank UTF8 text."
+                                      },
+                                      "kind": {
+                                        "const": "text",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "body"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "resource",
+                                        "type": "string"
+                                      },
+                                      "pin": {
+                                        "allOf": [
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "digest": {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 64
+                                              },
+                                              "resource_id": {
+                                                "allOf": [
+                                                  {
+                                                    "type": "string",
+                                                    "x-maxUtf8Bytes": 96
+                                                  }
+                                                ],
+                                                "description": "Validated ASCII identifier."
+                                              },
+                                              "revision": {
+                                                "allOf": [
+                                                  {
+                                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                    "type": "string",
+                                                    "x-maximumDecimal": "4611686018427387903"
+                                                  }
+                                                ],
+                                                "description": "Positive exact version."
+                                              }
+                                            },
+                                            "required": [
+                                              "resource_id",
+                                              "revision",
+                                              "digest"
+                                            ],
+                                            "type": "object"
+                                          }
+                                        ],
+                                        "description": "Exact resource revision and SHA-256 digest."
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "pin"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ]
+                              },
+                              "supersedes": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "amendment_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "revision": {
+                                      "allOf": [
+                                        {
+                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                          "type": "string",
+                                          "x-maximumDecimal": "4611686018427387903"
+                                        }
+                                      ],
+                                      "description": "Validated cooperative coordination record."
+                                    }
+                                  },
+                                  "required": [
+                                    "amendment_id",
+                                    "revision"
+                                  ],
+                                  "type": "object"
+                                },
+                                "maxItems": 32,
+                                "type": "array"
+                              },
+                              "ticket_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Validated coordination identity."
+                              },
+                              "title": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 512
+                                  }
+                                ],
+                                "description": "Nonblank UTF8 text."
+                              }
+                            },
+                            "required": [
+                              "amendment_id",
+                              "ticket_id",
+                              "expected_revision",
+                              "title",
+                              "source"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "description": "Validated cooperative coordination record."
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "method": {
+                        "const": "ticket.amendment.withdraw",
+                        "type": "string"
+                      },
+                      "params": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amendment_id": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Validated coordination identity."
+                          },
+                          "expected_revision": {
+                            "allOf": [
+                              {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              }
+                            ],
+                            "description": "Validated cooperative coordination record."
+                          },
+                          "reason": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 65536
+                              }
+                            ],
+                            "description": "Nonblank UTF8 text."
+                          }
+                        },
+                        "required": [
+                          "amendment_id",
+                          "expected_revision",
+                          "reason"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "method": {
+                        "const": "ticket.amendment.acknowledge",
+                        "type": "string"
+                      },
+                      "params": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amendment_id": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Validated coordination identity."
+                          },
+                          "expected_revision": {
+                            "allOf": [
+                              {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              }
+                            ],
+                            "description": "Validated cooperative coordination record."
+                          },
+                          "ticket_id": {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Validated coordination identity."
+                          },
+                          "token": {
+                            "allOf": [
+                              {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              }
+                            ],
+                            "description": "Validated cooperative coordination record."
+                          }
+                        },
+                        "required": [
+                          "amendment_id",
+                          "expected_revision",
+                          "ticket_id",
+                          "token"
+                        ],
+                        "type": "object"
                       }
                     },
                     "required": [
@@ -9618,6 +10282,39 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "type": "string",
                             "x-maximumDecimal": "9223372036854775807"
                           },
+                          "metrics": {
+                            "items": {
+                              "allOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 64
+                                    },
+                                    "unit": {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 32
+                                    },
+                                    "value": {
+                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                      "type": "string",
+                                      "x-maximumDecimal": "9223372036854775807"
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "unit",
+                                    "value"
+                                  ],
+                                  "type": "object"
+                                }
+                              ],
+                              "description": "Additive caller-reported integer sample; unique bounded ASCII name and explicit unit, no conversion."
+                            },
+                            "maxItems": 16,
+                            "type": "array"
+                          },
                           "provenance": {
                             "allOf": [
                               {
@@ -9805,6 +10502,58 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                               }
                             ],
                             "description": "Nonblank exact case-sensitive key without controls, 1..128 UTF-8 bytes"
+                          },
+                          "references": {
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "$ref": "#/$defs/references_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "anyOf": [
+                                        {
+                                          "allOf": [
+                                            {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 128
+                                                }
+                                              ],
+                                              "description": "Validated typed identity"
+                                            },
+                                            {
+                                              "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "maxLength": 97,
+                                          "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      ],
+                                      "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                    },
+                                    "kind": {
+                                      "const": "resource",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "id"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "maxItems": 32,
+                            "type": "array"
                           },
                           "scope": {
                             "$ref": "#/$defs/scope_d59f18935016ce41f1fc5c975d62a7f908afd3ff7e2e8ad3108ceffd7dc45c73"
@@ -10090,6 +10839,74 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
+    "amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Validated cooperative coordination record."
+        }
+      },
+      "required": [
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "answer_53ed60bc3ed51143f9d2b50935cbf5ea7b17b36e87f398abaa95142cdeed518e": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/answer_f2b34055793beccd1d4b46f5d43f9391f146766d290f7f682f780e7533e4df54"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "answer_f2b34055793beccd1d4b46f5d43f9391f146766d290f7f682f780e7533e4df54": {
+      "additionalProperties": false,
+      "properties": {
+        "comment_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive entity revision or activity serial."
+        }
+      },
+      "required": [
+        "comment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
     "applied_override_4fb3138e05f1de4eeea3316e946eb069f899573d7aa3fa50994b9ab9bc35cb88": {
       "anyOf": [
         {
@@ -10161,6 +10978,74 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "reason"
       ],
       "type": "object"
+    },
+    "artifact_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/artifact_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
+        },
+        {
+          "$ref": "#/$defs/artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "commit",
+              "type": "string"
+            },
+            "object_id": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "repository": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "repository",
+            "object_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "kind": {
+              "const": "checksum",
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "digest"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/artifact_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
+        },
+        {
+          "$ref": "#/$defs/artifact_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d"
+        },
+        {
+          "$ref": "#/$defs/artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
+        },
+        {
+          "$ref": "#/$defs/artifact_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+        }
+      ]
     },
     "artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3": {
       "additionalProperties": false,
@@ -10264,70 +11149,47 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "artifact_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/artifact_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
-        },
-        {
-          "$ref": "#/$defs/artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "commit",
-              "type": "string"
-            },
-            "object_id": {
+    "artifact_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "allOf": [
+            {
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "repository": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maxUtf8Bytes": 96
             }
-          },
-          "required": [
-            "kind",
-            "repository",
-            "object_id"
           ],
-          "type": "object"
+          "description": "Validated ASCII identifier."
         },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "digest": {
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "kind": {
-              "const": "checksum",
-              "type": "string"
-            },
-            "source": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maximumDecimal": "4611686018427387903"
             }
-          },
-          "required": [
-            "kind",
-            "source",
-            "digest"
           ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/$defs/artifact_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
-        },
-        {
-          "$ref": "#/$defs/artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
-        },
-        {
-          "$ref": "#/$defs/artifact_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+          "description": "Positive exact version."
         }
-      ]
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifact_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9"
+        }
+      ],
+      "description": "Immutable exact historical provenance pin."
     },
     "artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115": {
       "additionalProperties": false,
@@ -10402,15 +11264,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/artifact_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d"
-        }
-      ],
-      "description": "Immutable exact historical provenance pin."
-    },
-    "artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747": {
+    "artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261": {
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -10423,7 +11277,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "description": "Validated ASCII identifier."
         },
         "pin": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         }
       },
       "required": [
@@ -10533,6 +11387,72 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
+    "borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba": {
+      "items": {
+        "$ref": "#/$defs/borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "borrowers_f10e2b2d2cd522d1f82e1e8dffa637e0a57a72a8a9f73ab6b96610e415b75439": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "run_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "token": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        }
+      },
+      "required": [
+        "ticket_id",
+        "token",
+        "run_id",
+        "actor_id"
+      ],
+      "type": "object"
+    },
+    "borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/borrowers_f10e2b2d2cd522d1f82e1e8dffa637e0a57a72a8a9f73ab6b96610e415b75439"
+        }
+      ],
+      "description": "Positive exact claim borrower fence."
+    },
+    "changed_b7aca6dd218df547072af4626686638aa8b6d39b4859cb1ca2ba8eca5ba860f7": {
+      "items": {
+        "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+      },
+      "maxItems": 33,
+      "type": "array"
+    },
     "claim_77077879235b8e0e958976a41211eee09802e466e625173499e16573752dd2d7": {
       "allOf": [
         {
@@ -10600,6 +11520,66 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "type": "null"
         }
       ]
+    },
+    "content_05d9525d1931a178882403f3e78df60c38cd76ac93b11188045fa5134e064c85": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/content_d72ad7fdff6424143ff6ed680ced9d736b1f4ec09f59080beff253b5d2ef3805"
+        }
+      ],
+      "description": "Finish handoff patch; omitted rich fields preserve previous values."
+    },
+    "content_d72ad7fdff6424143ff6ed680ced9d736b1f4ec09f59080beff253b5d2ef3805": {
+      "additionalProperties": false,
+      "properties": {
+        "blockers": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "completed": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "covers_through": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "decisions": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "next_steps": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "objective": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "resource_ids": {
+          "items": {
+            "allOf": [
+              {
+                "type": "string",
+                "x-maxUtf8Bytes": 97
+              }
+            ],
+            "description": "Resource identity or transaction alias"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "summary": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        }
+      },
+      "required": [
+        "summary",
+        "next_steps"
+      ],
+      "type": "object"
     },
     "criteria_51752336628d984a38741e1affe4d05077fedb960f8ee0f05f55cdc8e486d574": {
       "items": {
@@ -10724,6 +11704,101 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "key"
       ],
       "type": "object"
+    },
+    "data_0b9f1aeb896baecfebfddbefa0b61bd150077960d3180d232c542c2c4d45dd91": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "handoff": {
+          "$ref": "#/$defs/handoff_a3e79121e8ed6c64ded9dc025d5d07af91e7b915ad99b9fb86f38031946e36ca"
+        },
+        "priority": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4"
+        },
+        "project_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved public identity; no aliases."
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive immutable entity revision."
+        },
+        "status": {
+          "enum": [
+            "backlog",
+            "todo",
+            "in_progress",
+            "done",
+            "canceled"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "title": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 512
+            }
+          ],
+          "description": "Nonblank name/title, at most512 UTF-8 bytes; never clipped."
+        }
+      },
+      "required": [
+        "project_id",
+        "title",
+        "description",
+        "revision",
+        "status",
+        "priority",
+        "summary",
+        "acceptance_criteria",
+        "archived",
+        "handoff"
+      ],
+      "type": "object"
+    },
+    "data_1736c062318911a968237a11d4099f28ac5ed7f2b559870b3fcbc32af506f803": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/data_0b9f1aeb896baecfebfddbefa0b61bd150077960d3180d232c542c2c4d45dd91"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "data_2936eb59a2ca2b17fb63b0c7a9ffaf8cede3a5714cc02953f0ea800b7731d0fb": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/data_567de792eb950edb610011b166247f39f380e7d1c4f925f0b67e906e15dee4a8"
+        }
+      ],
+      "description": "Canonical cooperative coordination data."
     },
     "data_298e1c9cd358a87741396aaea7514736ed65edc45707fa547ff1fd589cb033e7": {
       "additionalProperties": false,
@@ -11035,6 +12110,118 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
+    "data_2b4941c732c4571c47d2129565a668608afe8bdd9cb62d54280ed19589f97b7c": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_actor_ids": {
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Validated coordination identity."
+                  },
+                  "maxItems": 100,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          ],
+          "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+        },
+        "pools": {
+          "items": {
+            "allOf": [
+              {
+                "type": "string",
+                "x-maxUtf8Bytes": 96
+              }
+            ],
+            "description": "Nonblank name of at most 96 UTF-8 bytes."
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "required_capabilities": {
+          "items": {
+            "allOf": [
+              {
+                "type": "string",
+                "x-maxUtf8Bytes": 96
+              }
+            ],
+            "description": "Nonblank name of at most 96 UTF-8 bytes."
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive counter."
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Nonblank name of at most 96 UTF-8 bytes."
+            }
+          ],
+          "description": "Resolved opaque identity."
+        }
+      },
+      "required": [
+        "ticket_id",
+        "revision",
+        "required_capabilities",
+        "pools",
+        "allowed_actor_ids"
+      ],
+      "type": "object"
+    },
+    "data_31984aa4878ea036c49e16a29c94b20bb0f683c57290661a09c180a88aada02c": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/data_bae88313cab43e5b483299225bbe85adc280857d9de57e1e7437d9c931634d2f"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "data_3dd22232fd47826b525c71e842c35cd2c722b2084508f9d164af96d68226a821": {
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "$ref": "#/$defs/changed_b7aca6dd218df547072af4626686638aa8b6d39b4859cb1ca2ba8eca5ba860f7"
+        },
+        "reference": {
+          "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+        }
+      },
+      "required": [
+        "reference",
+        "changed"
+      ],
+      "type": "object"
+    },
     "data_4855a9d97035926562fd8e948691bf98f38ce58ce53da1d67e7f6ad6cec01f0b": {
       "additionalProperties": false,
       "properties": {
@@ -11189,6 +12376,24 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "description": "Exact planning mutation receipt."
     },
+    "data_567de792eb950edb610011b166247f39f380e7d1c4f925f0b67e906e15dee4a8": {
+      "additionalProperties": false,
+      "properties": {
+        "coordination_revision": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "recovery": {
+          "$ref": "#/$defs/recovery_a2c7cc85b0b5d46ea6912113b08fd8b7a6667e1b1913ffd5aa566361ead54d4c"
+        }
+      },
+      "required": [
+        "coordination_revision",
+        "recovery"
+      ],
+      "type": "object"
+    },
     "data_60d2bdf15a0a8249b428d743bcbbbe58c79be7715acb56e2c71611cbde54f0b0": {
       "allOf": [
         {
@@ -11225,53 +12430,6 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "data_68595bf2132c04ec36304ba336fb9b35ffa34740a5582e6580ed9f59036650a3": {
-      "allOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "revision": {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    }
-                  ],
-                  "description": "Positive decimal counter."
-                }
-              ],
-              "description": "Affected entity revision; use as its next expected_revision."
-            }
-          },
-          "required": [
-            "revision"
-          ],
-          "type": "object"
-        }
-      ],
-      "description": "Canonical data validated by the executable typed codec."
-    },
-    "data_71599d26b8d80623c0c14d2c4cfdc4e6bd29a526732596ec392b66f83d2776b5": {
-      "additionalProperties": false,
-      "properties": {
-        "coordination_revision": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "recovery": {
-          "$ref": "#/$defs/recovery_b64c1a92bd1acd4a11bc77cd6bceafb99039bbdd6d74907134bd50088f4974f4"
-        }
-      },
-      "required": [
-        "coordination_revision",
-        "recovery"
-      ],
-      "type": "object"
-    },
     "data_76275b436b001b49aafe6b4f938dfe46047553962ac3d8f90ccee44d9aeccd0b": {
       "allOf": [
         {
@@ -11280,7 +12438,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "description": "Exact canonical ticket identity, counters, ownership and links; prose can disclose bounded prefixes."
     },
-    "data_7878ce9aebdabffb2ffef28b2aef6082f478081f4d59abe316fb88b6597c661d": {
+    "data_8b9a963174cbdda6418cfd24a5a34c05d379bf6c55b167ecc74ab6daa2467879": {
       "additionalProperties": false,
       "properties": {
         "actor_id": {
@@ -11328,6 +12486,9 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
             }
           ],
           "description": "Validated JSON projection"
+        },
+        "references": {
+          "$ref": "#/$defs/references_9ac37c86a0e145c5e03ba6bf6eee054efbc4d9a87b1c688368a6c73572f0dde0"
         },
         "revision": {
           "allOf": [
@@ -11398,11 +12559,28 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "deleted",
         "actor_id",
         "timestamp",
-        "changed_at_revision"
+        "changed_at_revision",
+        "references"
       ],
       "type": "object"
     },
-    "data_859544fab71281afe5175a35df9584d98186a06ddbdf29bb9a09fbb3453deb16": {
+    "data_9da033f31a772f1becf29078715f598bf81092b1973e3f90103791310f721c92": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/data_9f8c02458725b06303532ab8f59784861ab85dcf0ac583a57750641e80c0b173"
+        }
+      ],
+      "description": "Exact public communication record; bounded views disclose omissions separately."
+    },
+    "data_9de27e60e5313f0700499908cb3263e1a2678451c86209ca10b0222034901c2e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/data_8b9a963174cbdda6418cfd24a5a34c05d379bf6c55b167ecc74ab6daa2467879"
+        }
+      ],
+      "description": "Attributed current fact or retained tombstone; JSON null is a present value. Multi-get may instead return an explicit missing key."
+    },
+    "data_9f8c02458725b06303532ab8f59784861ab85dcf0ac583a57750641e80c0b173": {
       "additionalProperties": false,
       "properties": {
         "board_id": {
@@ -11413,6 +12591,13 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
             }
           ],
           "description": "Resolved local identity; aliases are not accepted."
+        },
+        "closure_policy": {
+          "enum": [
+            "manual",
+            "when_all_requests_terminal"
+          ],
+          "type": "string"
         },
         "comment_ids": {
           "items": {
@@ -11516,150 +12701,10 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "mentions",
         "links",
         "state",
+        "closure_policy",
         "pinned",
         "comment_ids",
         "pinned_comment_ids"
-      ],
-      "type": "object"
-    },
-    "data_921499e453adaab440398996a4130feaead56f0e01067fd7ab02ec0cb9ede417": {
-      "additionalProperties": false,
-      "properties": {
-        "comment_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved local identity; aliases are not accepted."
-        },
-        "correlation_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 128
-                }
-              ],
-              "description": "Nonempty correlation string, at most 128 UTF-8 bytes."
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "created": {
-          "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
-        },
-        "deadline_unix_ms": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "9223372036854775807"
-                }
-              ],
-              "description": "Canonical nonnegative Unix milliseconds within signed int64."
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "deliveries": {
-          "$ref": "#/$defs/deliveries_68c6a37b2e612baf096fc8f07ab1f00bc1ba8f307912bc026daeadb0e6b8c829"
-        },
-        "kind": {
-          "enum": [
-            "clarification",
-            "review",
-            "help",
-            "blocker_resolution",
-            "handoff"
-          ],
-          "type": "string"
-        },
-        "related": {
-          "$ref": "#/$defs/related_585e1402fa014d22f5802cb06576ffed6b0fdf10a25008665367bacba490cdf4"
-        },
-        "reply_to_request_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Resolved local identity; aliases are not accepted."
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "request_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved local identity; aliases are not accepted."
-        },
-        "resolver_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved local identity; aliases are not accepted."
-        },
-        "responsibility": {
-          "$ref": "#/$defs/responsibility_463f506ac32fef34be592fc6dafbce2e70a88a630bd9ad61e96c1558f37389e1"
-        },
-        "revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive entity revision or activity serial."
-        },
-        "status": {
-          "$ref": "#/$defs/status_292fadb776bc15a7c092e6dc6feecbc54803ddeb982f66a68a96ef9e8e16025d"
-        },
-        "thread_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved local identity; aliases are not accepted."
-        }
-      },
-      "required": [
-        "request_id",
-        "revision",
-        "thread_id",
-        "kind",
-        "comment_id",
-        "correlation_id",
-        "reply_to_request_id",
-        "deadline_unix_ms",
-        "resolver_id",
-        "created",
-        "deliveries",
-        "responsibility",
-        "status"
       ],
       "type": "object"
     },
@@ -11757,41 +12802,29 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "data_cfff99c7887707a41bb2f49b478af47cc28fc50eb457a2317b0b013d562ac25b": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/data_859544fab71281afe5175a35df9584d98186a06ddbdf29bb9a09fbb3453deb16"
-        }
-      ],
-      "description": "Exact public communication record; bounded views disclose omissions separately."
-    },
-    "data_d3ec5b30a50c40a9a2c018f74b148870138f3508654f34ce8ee35179cbb10704": {
+    "data_bae88313cab43e5b483299225bbe85adc280857d9de57e1e7437d9c931634d2f": {
       "additionalProperties": false,
       "properties": {
-        "acceptance_criteria": {
-          "type": "string",
-          "x-maxUtf8Bytes": 65536
-        },
-        "archived": {
-          "type": "boolean"
-        },
-        "description": {
-          "type": "string",
-          "x-maxUtf8Bytes": 65536
-        },
-        "priority": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4"
-        },
-        "project_id": {
+        "actor_id": {
           "allOf": [
             {
               "type": "string",
               "x-maxUtf8Bytes": 96
             }
           ],
-          "description": "Resolved public identity; no aliases."
+          "description": "Validated coordination identity."
+        },
+        "last_observed_unix_ms": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "revision": {
           "allOf": [
@@ -11801,60 +12834,66 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
               "x-maximumDecimal": "4611686018427387903"
             }
           ],
-          "description": "Positive immutable entity revision."
+          "description": "Positive decimal counter."
         },
-        "status": {
-          "enum": [
-            "backlog",
-            "todo",
-            "in_progress",
-            "done",
-            "canceled"
-          ],
-          "type": "string"
-        },
-        "summary": {
-          "type": "string",
-          "x-maxUtf8Bytes": 65536
-        },
-        "title": {
+        "run_id": {
           "allOf": [
             {
               "type": "string",
-              "x-maxUtf8Bytes": 512
+              "x-maxUtf8Bytes": 96
             }
           ],
-          "description": "Nonblank name/title, at most512 UTF-8 bytes; never clipped."
+          "description": "Validated coordination identity."
+        },
+        "session_ids": {
+          "items": {
+            "allOf": [
+              {
+                "type": "string",
+                "x-maxUtf8Bytes": 96
+              }
+            ],
+            "description": "Validated coordination identity."
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "waiting",
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "type": "string"
         }
       },
       "required": [
-        "project_id",
-        "title",
-        "description",
+        "run_id",
         "revision",
         "status",
-        "priority",
-        "summary",
-        "acceptance_criteria",
-        "archived"
+        "actor_id",
+        "last_observed_unix_ms",
+        "session_ids"
       ],
       "type": "object"
     },
-    "data_d98ca956935fe57680c1d4a8219adddbef392e1158af8794e06732952d4cb445": {
+    "data_da72129c19244dd74b9f57e86c311a935893606463d241deeca5d7860cfca8e9": {
       "allOf": [
         {
-          "$ref": "#/$defs/data_71599d26b8d80623c0c14d2c4cfdc4e6bd29a526732596ec392b66f83d2776b5"
-        }
-      ],
-      "description": "Canonical cooperative coordination data."
-    },
-    "data_e375a7e2a676af3a0e8728a6a2416f23682ac8517490c6a518f6bc546fd7415f": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/data_921499e453adaab440398996a4130feaead56f0e01067fd7ab02ec0cb9ede417"
+          "$ref": "#/$defs/data_f7a1938118af014f41e264e04fb71fd354c368be74b341593518d358453a0c47"
         }
       ],
       "description": "Exact public communication record; bounded views disclose omissions separately."
+    },
+    "data_dd544c5bc0648061f47d69392227d01acdb277883135e9534f7ae4ab06ad845a": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/data_31984aa4878ea036c49e16a29c94b20bb0f683c57290661a09c180a88aada02c"
+        }
+      ],
+      "description": "Canonical data validated by the executable typed codec."
     },
     "data_e57e30d041cc2a976f071b3490d9a6e1e291aed74e70b3ec37071cb56d75a048": {
       "additionalProperties": false,
@@ -11901,13 +12940,204 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "data_efcb71086a806465f4a258137c5f7a6f3d3b24a2fc5e211398417d88fb8f2d97": {
+    "data_ea9cdd295c3f2c121de7056ac72d50470573e807b53609465b3f0f344d27eb37": {
       "allOf": [
         {
-          "$ref": "#/$defs/data_7878ce9aebdabffb2ffef28b2aef6082f478081f4d59abe316fb88b6597c661d"
+          "$ref": "#/$defs/data_3dd22232fd47826b525c71e842c35cd2c722b2084508f9d164af96d68226a821"
         }
       ],
-      "description": "Attributed current fact or retained tombstone; JSON null is a present value. Multi-get may instead return an explicit missing key."
+      "description": "Validated cooperative coordination record."
+    },
+    "data_f7a1938118af014f41e264e04fb71fd354c368be74b341593518d358453a0c47": {
+      "additionalProperties": false,
+      "properties": {
+        "comment_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        },
+        "comment_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive entity revision or activity serial."
+        },
+        "correlation_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 128
+                }
+              ],
+              "description": "Nonempty correlation string, at most 128 UTF-8 bytes."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created": {
+          "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
+        },
+        "deadline_unix_ms": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "9223372036854775807"
+                }
+              ],
+              "description": "Canonical nonnegative Unix milliseconds within signed int64."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deliveries": {
+          "$ref": "#/$defs/deliveries_68c6a37b2e612baf096fc8f07ab1f00bc1ba8f307912bc026daeadb0e6b8c829"
+        },
+        "kind": {
+          "enum": [
+            "clarification",
+            "review",
+            "help",
+            "blocker_resolution",
+            "handoff"
+          ],
+          "type": "string"
+        },
+        "priority": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4"
+            }
+          ],
+          "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+        },
+        "related": {
+          "$ref": "#/$defs/related_585e1402fa014d22f5802cb06576ffed6b0fdf10a25008665367bacba490cdf4"
+        },
+        "related_request_ids": {
+          "items": {
+            "allOf": [
+              {
+                "type": "string",
+                "x-maxUtf8Bytes": 96
+              }
+            ],
+            "description": "Resolved local identity; aliases are not accepted."
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "reply_to_request_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Resolved local identity; aliases are not accepted."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        },
+        "resolver_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        },
+        "responsibility": {
+          "$ref": "#/$defs/responsibility_463f506ac32fef34be592fc6dafbce2e70a88a630bd9ad61e96c1558f37389e1"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive entity revision or activity serial."
+        },
+        "status": {
+          "$ref": "#/$defs/status_d6465581d558901587c92260fc1338eb03bf6e05954e477807b32dd6ee886df4"
+        },
+        "supersedes_request_ids": {
+          "items": {
+            "allOf": [
+              {
+                "type": "string",
+                "x-maxUtf8Bytes": 96
+              }
+            ],
+            "description": "Resolved local identity; aliases are not accepted."
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "thread_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        }
+      },
+      "required": [
+        "request_id",
+        "revision",
+        "thread_id",
+        "kind",
+        "comment_id",
+        "comment_revision",
+        "correlation_id",
+        "reply_to_request_id",
+        "deadline_unix_ms",
+        "priority",
+        "related_request_ids",
+        "supersedes_request_ids",
+        "resolver_id",
+        "created",
+        "deliveries",
+        "responsibility",
+        "status"
+      ],
+      "type": "object"
     },
     "definition_9da4e99ca19339b32a5bb937561531449a0718aaaf6823e950f11f4c89b26e0b": {
       "allOf": [
@@ -11995,12 +13225,106 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24": {
+    "evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129": {
       "items": {
-        "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+        "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
       },
       "maxItems": 100,
       "type": "array"
+    },
+    "handoff_6657206e66ead6f493289ac26d12f8cba63984bd423bd0272e029c29c40e80e6": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        },
+        "content": {
+          "$ref": "#/$defs/content_05d9525d1931a178882403f3e78df60c38cd76ac93b11188045fa5134e064c85"
+        },
+        "evidence": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 65536
+            }
+          ],
+          "description": "Nonblank UTF8 text."
+        },
+        "project_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive decimal counter."
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated coordination identity."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamp": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonblank UTF8 text."
+        },
+        "workspace_revision": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        }
+      },
+      "required": [
+        "content",
+        "evidence",
+        "actor_id",
+        "run_id",
+        "timestamp",
+        "project_revision",
+        "workspace_revision"
+      ],
+      "type": "object"
+    },
+    "handoff_a3e79121e8ed6c64ded9dc025d5d07af91e7b915ad99b9fb86f38031946e36ca": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/handoff_cf24d1a4afaf33b070859d6a84820da9e586f9c7e0379fd51e3f859bb84f533e"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "handoff_cf24d1a4afaf33b070859d6a84820da9e586f9c7e0379fd51e3f859bb84f533e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/handoff_6657206e66ead6f493289ac26d12f8cba63984bd423bd0272e029c29c40e80e6"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
     },
     "hold_8354ef20d90b0adaa10a06814452f7b281b1014a07e9c6508ec4e1b984fcc174": {
       "anyOf": [
@@ -12042,12 +13366,93 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         }
       ]
     },
-    "inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3": {
+    "holder_5b035561f9ab837dba8d10e985dfdc398e121b3405fb55e33db0da3f0cb42488": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Nonblank name of at most 96 UTF-8 bytes."
+            }
+          ],
+          "description": "Resolved opaque identity."
+        },
+        "lease": {
+          "$ref": "#/$defs/lease_48014e7ea1e669256b13643164b9b88eedffeb768696ca173545012460c996ed"
+        },
+        "mode": {
+          "enum": [
+            "exclusive",
+            "shared"
+          ],
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin_5b7a798beaa308cf13710c2917bb2a76699d2333575468e7121e475edd042fca"
+        },
+        "run_id": {
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Nonblank name of at most 96 UTF-8 bytes."
+            }
+          ],
+          "description": "Resolved opaque identity."
+        },
+        "token": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive counter."
+        }
+      },
+      "required": [
+        "run_id",
+        "actor_id",
+        "token",
+        "mode",
+        "lease",
+        "origin"
+      ],
+      "type": "object"
+    },
+    "holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/holder_5b035561f9ab837dba8d10e985dfdc398e121b3405fb55e33db0da3f0cb42488"
+        }
+      ],
+      "description": "Validated holder fence, lease and origin."
+    },
+    "inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73": {
       "items": {
-        "$ref": "#/$defs/artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747"
+        "$ref": "#/$defs/artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261"
       },
       "maxItems": 100,
       "type": "array"
+    },
+    "lease_48014e7ea1e669256b13643164b9b88eedffeb768696ca173545012460c996ed": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/lease_91e1950561b84b345ad30283d8c9323712d7dbf08aa2b42e458e277237f7594b"
+        }
+      ],
+      "description": "Validated fenced lease with consistent policy and deadline."
     },
     "lease_8d4ec15e40d39c72641ee54e3e57608ad9eccfe50441c820f19059aadfc2e328": {
       "allOf": [
@@ -12056,6 +13461,68 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         }
       ],
       "description": "Actual Allocation_lease duration/deadline and counter invariants."
+    },
+    "lease_91e1950561b84b345ad30283d8c9323712d7dbf08aa2b42e458e277237f7594b": {
+      "additionalProperties": false,
+      "properties": {
+        "deadline_unix_ms": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "epoch": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive counter."
+        },
+        "last_unix_ms": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "9223372036854775807"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive counter."
+        }
+      },
+      "required": [
+        "epoch",
+        "revision",
+        "duration_ms",
+        "last_unix_ms",
+        "deadline_unix_ms"
+      ],
+      "type": "object"
     },
     "lease_b88bddea62049bcf82d922a92f2d3677595c20e053bbb3ddc912312697f7692e": {
       "additionalProperties": false,
@@ -12756,6 +14223,51 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       "required": [],
       "type": "object"
     },
+    "origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "manual",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/origin_1a68865753d699213ae4eaa4e34afe2bfadb93422b329d798e83e2d5718a0646"
+        }
+      ]
+    },
+    "origin_1a68865753d699213ae4eaa4e34afe2bfadb93422b329d798e83e2d5718a0646": {
+      "additionalProperties": false,
+      "properties": {
+        "borrowers": {
+          "$ref": "#/$defs/borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba"
+        },
+        "kind": {
+          "const": "automatic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "borrowers"
+      ],
+      "type": "object"
+    },
+    "origin_5b7a798beaa308cf13710c2917bb2a76699d2333575468e7121e475edd042fca": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc"
+        }
+      ],
+      "description": "Manual ownership or sorted nonempty exact claim borrowers (maximum 100)."
+    },
     "policy_binding_5db28eaba3be26dbd7ab9ec085f06fe2e9bd6b56b34c93b6f056c07d584f8912": {
       "allOf": [
         {
@@ -12944,7 +14456,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       "maxItems": 100000,
       "type": "array"
     },
-    "recovery_b64c1a92bd1acd4a11bc77cd6bceafb99039bbdd6d74907134bd50088f4974f4": {
+    "recovery_3b2c2142d3591154c04b9a04218110c3a7dcd982e9c7bb03136ecd997a9698a5": {
       "additionalProperties": false,
       "properties": {
         "actor_id": {
@@ -12956,8 +14468,11 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           ],
           "description": "Validated coordination identity."
         },
+        "borrowers": {
+          "$ref": "#/$defs/borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba"
+        },
         "request": {
-          "$ref": "#/$defs/request_567cf326ef873a06605603287bba71c7c9d22ee64705201ae972084ddc1dd8dc"
+          "$ref": "#/$defs/request_ee4bc8fa89f4e0c284210de7a073e008191e30cc38cbd37086323a8c2e48a3a8"
         },
         "run_id": {
           "anyOf": [
@@ -13000,9 +14515,99 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "actor_id",
         "run_id",
         "timestamp",
-        "sequence"
+        "sequence",
+        "borrowers"
       ],
       "type": "object"
+    },
+    "recovery_a2c7cc85b0b5d46ea6912113b08fd8b7a6667e1b1913ffd5aa566361ead54d4c": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recovery_3b2c2142d3591154c04b9a04218110c3a7dcd982e9c7bb03136ecd997a9698a5"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "references_397103ab92e01308f2beec5e86079e7342267f86d33e7a038b29746a5557a251": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 128
+                }
+              ],
+              "description": "Validated typed identity"
+            },
+            "kind": {
+              "const": "ticket",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 128
+                }
+              ],
+              "description": "Validated typed identity"
+            },
+            "kind": {
+              "const": "resource",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "references_479c22337d44a97b320c7901fc3b6b367186767cc47088c84f2b1028cdb6f907": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/references_397103ab92e01308f2beec5e86079e7342267f86d33e7a038b29746a5557a251"
+        }
+      ],
+      "description": "A ticket or resource navigation reference."
+    },
+    "references_7d10fcfc02b7f7df65259175c294fb779083ece0954d6e2ef8c24ba37b60d306": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/references_c87448e3ee33750f8d0f6acb5db28fcc648c1ca467f01b58c788487bf2b501fe"
+        }
+      ],
+      "description": "At most 32 distinct ticket/resource navigation references."
+    },
+    "references_9ac37c86a0e145c5e03ba6bf6eee054efbc4d9a87b1c688368a6c73572f0dde0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/references_7d10fcfc02b7f7df65259175c294fb779083ece0954d6e2ef8c24ba37b60d306"
+        }
+      ],
+      "description": "Validated JSON projection"
+    },
+    "references_c87448e3ee33750f8d0f6acb5db28fcc648c1ca467f01b58c788487bf2b501fe": {
+      "items": {
+        "$ref": "#/$defs/references_479c22337d44a97b320c7901fc3b6b367186767cc47088c84f2b1028cdb6f907"
+      },
+      "maxItems": 32,
+      "type": "array"
     },
     "related_585e1402fa014d22f5802cb06576ffed6b0fdf10a25008665367bacba490cdf4": {
       "allOf": [
@@ -13122,15 +14727,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "request_567cf326ef873a06605603287bba71c7c9d22ee64705201ae972084ddc1dd8dc": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/request_ffa86164abc25c6a3c3533c15da575d4d8746f7dffc74ee564b142d1648f8480"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "request_ffa86164abc25c6a3c3533c15da575d4d8746f7dffc74ee564b142d1648f8480": {
+    "request_52f5b62ff4d6484f4502ffe95dabb5127938f29a4f4e2308d9ab2bd8b908678e": {
       "additionalProperties": false,
       "properties": {
         "confirmation": {
@@ -13141,7 +14738,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "type": "string"
         },
         "evidence": {
-          "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+          "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
         },
         "expected_epoch": {
           "allOf": [
@@ -13225,6 +14822,14 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "reason"
       ],
       "type": "object"
+    },
+    "request_ee4bc8fa89f4e0c284210de7a073e008191e30cc38cbd37086323a8c2e48a3a8": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/request_52f5b62ff4d6484f4502ffe95dabb5127938f29a4f4e2308d9ab2bd8b908678e"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
     },
     "responsibility_29cb09e52f3a146c9cda3f10a1ab8f1b8a5d5a2248d90aa51348b970db2f22fd": {
       "additionalProperties": false,
@@ -13671,15 +15276,32 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "description": "Exact public communication record; bounded views disclose omissions separately."
     },
-    "status_1ff27be474ab0f2be09c8d736549135fa5bd292615aca37817686bcad4cc0cc5": {
+    "status_51d765e6b7a441ec33606709c179e10289b0e4f564ed89c13406ef03f5ae74d3": {
       "allOf": [
         {
-          "$ref": "#/$defs/status_7e5f182b83bdf65e23fc41d730ef867e1eada1abac33c31899a3cfbd4bb062e3"
+          "$ref": "#/$defs/status_eaaea0c11a39642f83db3216f52abc8539e737587697678da55e2f8011b5851e"
         }
       ],
       "description": "Exact public communication record; bounded views disclose omissions separately."
     },
-    "status_292fadb776bc15a7c092e6dc6feecbc54803ddeb982f66a68a96ef9e8e16025d": {
+    "status_b29cdddbc2674c5ae10c893515dfe17fe23a1685adb334d33cd70569f277cbdb": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
+        },
+        "kind": {
+          "const": "cancelled",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "attribution"
+      ],
+      "type": "object"
+    },
+    "status_d6465581d558901587c92260fc1338eb03bf6e05954e477807b32dd6ee886df4": {
       "oneOf": [
         {
           "allOf": [
@@ -13700,16 +15322,19 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "description": "Exact public communication record; bounded views disclose omissions separately."
         },
         {
-          "$ref": "#/$defs/status_1ff27be474ab0f2be09c8d736549135fa5bd292615aca37817686bcad4cc0cc5"
+          "$ref": "#/$defs/status_51d765e6b7a441ec33606709c179e10289b0e4f564ed89c13406ef03f5ae74d3"
         },
         {
           "$ref": "#/$defs/status_1c7cf53634b59c87f356b0f14a9a8298640d968745ee8eccd73c31be29d70e16"
         }
       ]
     },
-    "status_7e5f182b83bdf65e23fc41d730ef867e1eada1abac33c31899a3cfbd4bb062e3": {
+    "status_eaaea0c11a39642f83db3216f52abc8539e737587697678da55e2f8011b5851e": {
       "additionalProperties": false,
       "properties": {
+        "answer": {
+          "$ref": "#/$defs/answer_53ed60bc3ed51143f9d2b50935cbf5ea7b17b36e87f398abaa95142cdeed518e"
+        },
         "attribution": {
           "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
         },
@@ -13720,24 +15345,8 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       },
       "required": [
         "kind",
-        "attribution"
-      ],
-      "type": "object"
-    },
-    "status_b29cdddbc2674c5ae10c893515dfe17fe23a1685adb334d33cd70569f277cbdb": {
-      "additionalProperties": false,
-      "properties": {
-        "attribution": {
-          "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
-        },
-        "kind": {
-          "const": "cancelled",
-          "type": "string"
-        }
-      },
-      "required": [
-        "kind",
-        "attribution"
+        "attribution",
+        "answer"
       ],
       "type": "object"
     },
@@ -13897,6 +15506,97 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
+                        "allOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "child_completion": {
+                                "enum": [
+                                  "all_done",
+                                  "done_or_canceled"
+                                ],
+                                "type": "string"
+                              },
+                              "descendant_prerequisites": {
+                                "enum": [
+                                  "independent",
+                                  "inherit"
+                                ],
+                                "type": "string"
+                              },
+                              "reason": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 65536
+                                  }
+                                ],
+                                "description": "Nonblank UTF8 text."
+                              },
+                              "revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive decimal counter."
+                              },
+                              "ticket_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Validated coordination identity."
+                              }
+                            },
+                            "required": [
+                              "ticket_id",
+                              "revision",
+                              "descendant_prerequisites",
+                              "child_completion",
+                              "reason"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "description": "Explicit revisioned hierarchy policy with its exact audit reason."
+                      },
+                      "method": {
+                        "const": "ticket.hierarchy.put",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "data": {
+                        "$ref": "#/$defs/data_1736c062318911a968237a11d4099f28ac5ed7f2b559870b3fcbc32af506f803"
+                      },
+                      "method": {
+                        "const": "project.finish",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "data": {
                         "$ref": "#/$defs/data_b72f9db9dfa6e620fd30826f8a6a14b0d498247210b2e3e68c0d367d24f0d634"
                       },
                       "method": {
@@ -13914,7 +15614,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_d3ec5b30a50c40a9a2c018f74b148870138f3508654f34ce8ee35179cbb10704"
+                        "$ref": "#/$defs/data_1736c062318911a968237a11d4099f28ac5ed7f2b559870b3fcbc32af506f803"
                       },
                       "method": {
                         "const": "project.create",
@@ -13931,7 +15631,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_d3ec5b30a50c40a9a2c018f74b148870138f3508654f34ce8ee35179cbb10704"
+                        "$ref": "#/$defs/data_1736c062318911a968237a11d4099f28ac5ed7f2b559870b3fcbc32af506f803"
                       },
                       "method": {
                         "const": "project.update",
@@ -14479,7 +16179,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "description": "Resolved opaque entity ID."
                               },
                               "thread": {
-                                "$ref": "#/$defs/data_cfff99c7887707a41bb2f49b478af47cc28fc50eb457a2317b0b013d562ac25b"
+                                "$ref": "#/$defs/data_9da033f31a772f1becf29078715f598bf81092b1973e3f90103791310f721c92"
                               }
                             },
                             "required": [
@@ -14553,11 +16253,16 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                                     },
                                                     "kind": {
                                                       "enum": [
-                                                        "not_ready",
+                                                        "completed",
+                                                        "canceled",
+                                                        "archived",
+                                                        "blocked",
                                                         "claimed",
                                                         "missing_capability",
                                                         "pool_full",
-                                                        "parent_filtered"
+                                                        "parent_filtered",
+                                                        "run_terminal",
+                                                        "actor_not_allowed"
                                                       ],
                                                       "type": "string"
                                                     },
@@ -14578,7 +16283,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                               ],
                                               "description": "Overlapping candidate count and at most five exact example IDs."
                                             },
-                                            "maxItems": 5,
+                                            "maxItems": 10,
                                             "type": "array"
                                           },
                                           "run_limits": {
@@ -15160,7 +16865,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_d3ec5b30a50c40a9a2c018f74b148870138f3508654f34ce8ee35179cbb10704"
+                        "$ref": "#/$defs/data_1736c062318911a968237a11d4099f28ac5ed7f2b559870b3fcbc32af506f803"
                       },
                       "method": {
                         "const": "project.archive",
@@ -15775,23 +17480,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                           "additionalProperties": false,
                                           "properties": {
                                             "data": {
-                                              "allOf": [
-                                                {
-                                                  "additionalProperties": false,
-                                                  "properties": {
-                                                    "revision": {
-                                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                      "type": "string",
-                                                      "x-maximumDecimal": "4611686018427387903"
-                                                    }
-                                                  },
-                                                  "required": [
-                                                    "revision"
-                                                  ],
-                                                  "type": "object"
-                                                }
-                                              ],
-                                              "description": "Exact planning mutation receipt."
+                                              "$ref": "#/$defs/data_2b4941c732c4571c47d2129565a668608afe8bdd9cb62d54280ed19589f97b7c"
                                             },
                                             "kind": {
                                               "const": "ticket_policy_put",
@@ -16226,7 +17915,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_cfff99c7887707a41bb2f49b478af47cc28fc50eb457a2317b0b013d562ac25b"
+                        "$ref": "#/$defs/data_9da033f31a772f1becf29078715f598bf81092b1973e3f90103791310f721c92"
                       },
                       "method": {
                         "const": "thread.put",
@@ -16243,7 +17932,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_cfff99c7887707a41bb2f49b478af47cc28fc50eb457a2317b0b013d562ac25b"
+                        "$ref": "#/$defs/data_9da033f31a772f1becf29078715f598bf81092b1973e3f90103791310f721c92"
                       },
                       "method": {
                         "const": "thread.attach",
@@ -16260,7 +17949,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_cfff99c7887707a41bb2f49b478af47cc28fc50eb457a2317b0b013d562ac25b"
+                        "$ref": "#/$defs/data_9da033f31a772f1becf29078715f598bf81092b1973e3f90103791310f721c92"
                       },
                       "method": {
                         "const": "thread.pin_message",
@@ -16354,33 +18043,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                               "question": {
                                 "allOf": [
                                   {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "comment_id": {
-                                        "allOf": [
-                                          {
-                                            "type": "string",
-                                            "x-maxUtf8Bytes": 96
-                                          }
-                                        ],
-                                        "description": "Resolved local identity; aliases are not accepted."
-                                      },
-                                      "revision": {
-                                        "allOf": [
-                                          {
-                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                            "type": "string",
-                                            "x-maximumDecimal": "4611686018427387903"
-                                          }
-                                        ],
-                                        "description": "Positive entity revision or activity serial."
-                                      }
-                                    },
-                                    "required": [
-                                      "comment_id",
-                                      "revision"
-                                    ],
-                                    "type": "object"
+                                    "$ref": "#/$defs/answer_f2b34055793beccd1d4b46f5d43f9391f146766d290f7f682f780e7533e4df54"
                                   }
                                 ],
                                 "description": "Exact public communication record; bounded views disclose omissions separately."
@@ -16452,7 +18115,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_e375a7e2a676af3a0e8728a6a2416f23682ac8517490c6a518f6bc546fd7415f"
+                        "$ref": "#/$defs/data_da72129c19244dd74b9f57e86c311a935893606463d241deeca5d7860cfca8e9"
                       },
                       "method": {
                         "const": "request.create",
@@ -16469,7 +18132,24 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_e375a7e2a676af3a0e8728a6a2416f23682ac8517490c6a518f6bc546fd7415f"
+                        "$ref": "#/$defs/data_da72129c19244dd74b9f57e86c311a935893606463d241deeca5d7860cfca8e9"
+                      },
+                      "method": {
+                        "const": "request.metadata",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "data": {
+                        "$ref": "#/$defs/data_da72129c19244dd74b9f57e86c311a935893606463d241deeca5d7860cfca8e9"
                       },
                       "method": {
                         "const": "request.acknowledge",
@@ -16486,7 +18166,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_e375a7e2a676af3a0e8728a6a2416f23682ac8517490c6a518f6bc546fd7415f"
+                        "$ref": "#/$defs/data_da72129c19244dd74b9f57e86c311a935893606463d241deeca5d7860cfca8e9"
                       },
                       "method": {
                         "const": "request.accept",
@@ -16503,7 +18183,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_e375a7e2a676af3a0e8728a6a2416f23682ac8517490c6a518f6bc546fd7415f"
+                        "$ref": "#/$defs/data_da72129c19244dd74b9f57e86c311a935893606463d241deeca5d7860cfca8e9"
                       },
                       "method": {
                         "const": "request.reassign",
@@ -16520,7 +18200,72 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_e375a7e2a676af3a0e8728a6a2416f23682ac8517490c6a518f6bc546fd7415f"
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "answer": {
+                                    "$ref": "#/$defs/answer_53ed60bc3ed51143f9d2b50935cbf5ea7b17b36e87f398abaa95142cdeed518e"
+                                  },
+                                  "request_id": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Resolved local identity; aliases are not accepted."
+                                  },
+                                  "request_revision": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4611686018427387903"
+                                      }
+                                    ],
+                                    "description": "Positive entity revision or activity serial."
+                                  },
+                                  "status": {
+                                    "$ref": "#/$defs/status_d6465581d558901587c92260fc1338eb03bf6e05954e477807b32dd6ee886df4"
+                                  },
+                                  "thread_id": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Resolved local identity; aliases are not accepted."
+                                  },
+                                  "thread_revision": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4611686018427387903"
+                                      }
+                                    ],
+                                    "description": "Positive entity revision or activity serial."
+                                  }
+                                },
+                                "required": [
+                                  "request_id",
+                                  "request_revision",
+                                  "thread_id",
+                                  "thread_revision",
+                                  "status",
+                                  "answer"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Exact public communication record; bounded views disclose omissions separately."
+                          }
+                        ],
+                        "description": "Exact committed resolution and current thread revision."
                       },
                       "method": {
                         "const": "request.resolve",
@@ -16537,7 +18282,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_e375a7e2a676af3a0e8728a6a2416f23682ac8517490c6a518f6bc546fd7415f"
+                        "$ref": "#/$defs/data_da72129c19244dd74b9f57e86c311a935893606463d241deeca5d7860cfca8e9"
                       },
                       "method": {
                         "const": "request.cancel",
@@ -16576,11 +18321,12 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                             "request_accepted",
                                             "request_reassigned",
                                             "request_resolved",
-                                            "request_cancelled"
+                                            "request_cancelled",
+                                            "request_updated"
                                           ],
                                           "type": "string"
                                         },
-                                        "maxItems": 8,
+                                        "maxItems": 9,
                                         "type": "array"
                                       },
                                       "scope": {
@@ -16807,7 +18553,49 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_68595bf2132c04ec36304ba336fb9b35ffa34740a5582e6580ed9f59036650a3"
+                        "allOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "limit": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "10000"
+                                  }
+                                ],
+                                "description": "Pool concurrency limit from 1 through 10000."
+                              },
+                              "name": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Nonblank name of at most 96 UTF-8 bytes."
+                              },
+                              "revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive counter."
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "revision",
+                              "limit"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "description": "Canonical data validated by the executable typed codec."
                       },
                       "method": {
                         "const": "allocation.pool_put",
@@ -16824,7 +18612,12 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_68595bf2132c04ec36304ba336fb9b35ffa34740a5582e6580ed9f59036650a3"
+                        "allOf": [
+                          {
+                            "$ref": "#/$defs/data_2b4941c732c4571c47d2129565a668608afe8bdd9cb62d54280ed19589f97b7c"
+                          }
+                        ],
+                        "description": "Canonical data validated by the executable typed codec."
                       },
                       "method": {
                         "const": "allocation.ticket_policy_put",
@@ -16841,7 +18634,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_68595bf2132c04ec36304ba336fb9b35ffa34740a5582e6580ed9f59036650a3"
+                        "$ref": "#/$defs/data_dd544c5bc0648061f47d69392227d01acdb277883135e9534f7ae4ab06ad845a"
                       },
                       "method": {
                         "const": "run.register",
@@ -16858,7 +18651,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_68595bf2132c04ec36304ba336fb9b35ffa34740a5582e6580ed9f59036650a3"
+                        "$ref": "#/$defs/data_dd544c5bc0648061f47d69392227d01acdb277883135e9534f7ae4ab06ad845a"
                       },
                       "method": {
                         "const": "run.transition",
@@ -16875,7 +18668,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_68595bf2132c04ec36304ba336fb9b35ffa34740a5582e6580ed9f59036650a3"
+                        "$ref": "#/$defs/data_dd544c5bc0648061f47d69392227d01acdb277883135e9534f7ae4ab06ad845a"
                       },
                       "method": {
                         "const": "run.observe",
@@ -16892,7 +18685,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_68595bf2132c04ec36304ba336fb9b35ffa34740a5582e6580ed9f59036650a3"
+                        "$ref": "#/$defs/data_dd544c5bc0648061f47d69392227d01acdb277883135e9534f7ae4ab06ad845a"
                       },
                       "method": {
                         "const": "run.link_session",
@@ -16968,10 +18761,42 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                 "type": "string",
                                 "x-maximumDecimal": "4611686018427387903"
+                              },
+                              "holds": {
+                                "allOf": [
+                                  {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "holder": {
+                                          "$ref": "#/$defs/holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de"
+                                        },
+                                        "reservation_id": {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 96
+                                            }
+                                          ],
+                                          "description": "Validated coordination identity."
+                                        }
+                                      },
+                                      "required": [
+                                        "reservation_id",
+                                        "holder"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "maxItems": 32,
+                                    "type": "array"
+                                  }
+                                ],
+                                "description": "Validated cooperative coordination record."
                               }
                             },
                             "required": [
-                              "coordination_revision"
+                              "coordination_revision",
+                              "holds"
                             ],
                             "type": "object"
                           }
@@ -17100,10 +18925,36 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                 "type": "string",
                                 "x-maximumDecimal": "4611686018427387903"
+                              },
+                              "holds": {
+                                "allOf": [
+                                  {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "holder": {
+                                          "$ref": "#/$defs/holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de"
+                                        },
+                                        "target": {
+                                          "$ref": "#/$defs/target_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+                                        }
+                                      },
+                                      "required": [
+                                        "target",
+                                        "holder"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "maxItems": 32,
+                                    "type": "array"
+                                  }
+                                ],
+                                "description": "Validated cooperative coordination record."
                               }
                             },
                             "required": [
-                              "coordination_revision"
+                              "coordination_revision",
+                              "holds"
                             ],
                             "type": "object"
                           }
@@ -17232,7 +19083,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "additionalProperties": false,
                                 "properties": {
                                   "artifact": {
-                                    "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                                    "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                                   },
                                   "condition_id": {
                                     "allOf": [
@@ -17393,7 +19244,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                     "description": "Validated coordination identity."
                                   },
                                   "artifact": {
-                                    "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                                    "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                                   },
                                   "condition_id": {
                                     "allOf": [
@@ -17417,7 +19268,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                   "evidence": {
                                     "allOf": [
                                       {
-                                        "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                                        "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
                                       }
                                     ],
                                     "description": "Validated cooperative coordination record."
@@ -17525,7 +19376,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_d98ca956935fe57680c1d4a8219adddbef392e1158af8794e06732952d4cb445"
+                        "$ref": "#/$defs/data_2936eb59a2ca2b17fb63b0c7a9ffaf8cede3a5714cc02953f0ea800b7731d0fb"
                       },
                       "method": {
                         "const": "reservation.recover",
@@ -17542,10 +19393,74 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_d98ca956935fe57680c1d4a8219adddbef392e1158af8794e06732952d4cb445"
+                        "$ref": "#/$defs/data_2936eb59a2ca2b17fb63b0c7a9ffaf8cede3a5714cc02953f0ea800b7731d0fb"
                       },
                       "method": {
                         "const": "reservation.path.recover",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "data": {
+                        "$ref": "#/$defs/data_ea9cdd295c3f2c121de7056ac72d50470573e807b53609465b3f0f344d27eb37"
+                      },
+                      "method": {
+                        "const": "ticket.amendment.publish",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "data": {
+                        "$ref": "#/$defs/data_ea9cdd295c3f2c121de7056ac72d50470573e807b53609465b3f0f344d27eb37"
+                      },
+                      "method": {
+                        "const": "ticket.amendment.withdraw",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "method",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "data": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amendment": {
+                            "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+                          },
+                          "duplicate": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "amendment",
+                          "duplicate"
+                        ],
+                        "type": "object"
+                      },
+                      "method": {
+                        "const": "ticket.amendment.acknowledge",
                         "type": "string"
                       }
                     },
@@ -17729,7 +19644,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "type": "object"
                               },
                               "inputs": {
-                                "$ref": "#/$defs/inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3"
+                                "$ref": "#/$defs/inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73"
                               },
                               "manifest_id": {
                                 "allOf": [
@@ -17741,7 +19656,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "description": "Validated ASCII identifier."
                               },
                               "outputs": {
-                                "$ref": "#/$defs/inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3"
+                                "$ref": "#/$defs/inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73"
                               },
                               "published": {
                                 "$ref": "#/$defs/attribution_7ecef7b9fb6b6224f3aca23590fabc25d266b53872ccd0ec1c7d3131611e7983"
@@ -17847,7 +19762,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "properties": {
                               "artifacts": {
                                 "items": {
-                                  "$ref": "#/$defs/artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747"
+                                  "$ref": "#/$defs/artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261"
                                 },
                                 "maxItems": 200,
                                 "type": "array"
@@ -17879,7 +19794,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                 "x-maxUtf8Bytes": 65536
                               },
                               "evidence_pins": {
-                                "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                                "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
                               },
                               "manifest": {
                                 "anyOf": [
@@ -18350,10 +20265,10 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "description": "Validated ASCII identifier."
                           },
                           "evidence": {
-                            "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                            "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
                           },
                           "rationale": {
-                            "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                            "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                           },
                           "revision": {
                             "allOf": [
@@ -18422,10 +20337,10 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                         "additionalProperties": false,
                         "properties": {
                           "current": {
-                            "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                            "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                           },
                           "previous": {
-                            "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                            "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                           }
                         },
                         "required": [
@@ -18461,10 +20376,10 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "description": "Validated ASCII identifier."
                           },
                           "current": {
-                            "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                            "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                           },
                           "previous": {
-                            "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                            "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                           },
                           "revision": {
                             "allOf": [
@@ -18758,7 +20673,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_efcb71086a806465f4a258137c5f7a6f3d3b24a2fc5e211398417d88fb8f2d97"
+                        "$ref": "#/$defs/data_9de27e60e5313f0700499908cb3263e1a2678451c86209ca10b0222034901c2e"
                       },
                       "method": {
                         "const": "fact.put",
@@ -18775,7 +20690,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                     "additionalProperties": false,
                     "properties": {
                       "data": {
-                        "$ref": "#/$defs/data_efcb71086a806465f4a258137c5f7a6f3d3b24a2fc5e211398417d88fb8f2d97"
+                        "$ref": "#/$defs/data_9de27e60e5313f0700499908cb3263e1a2678451c86209ca10b0222034901c2e"
                       },
                       "method": {
                         "const": "fact.delete",

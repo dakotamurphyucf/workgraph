@@ -109,79 +109,227 @@ For preconditions and a small example, run `workgraph help project.create`. Use 
   "additionalProperties": false,
   "properties": {
     "data": {
-      "additionalProperties": false,
-      "properties": {
-        "acceptance_criteria": {
-          "type": "string",
-          "x-maxUtf8Bytes": 65536
-        },
-        "archived": {
-          "type": "boolean"
-        },
-        "description": {
-          "type": "string",
-          "x-maxUtf8Bytes": 65536
-        },
-        "priority": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4"
-        },
-        "project_id": {
-          "allOf": [
-            {
+      "allOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "acceptance_criteria": {
               "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved public identity; no aliases."
-        },
-        "revision": {
-          "allOf": [
-            {
+              "x-maxUtf8Bytes": 65536
+            },
+            "archived": {
+              "type": "boolean"
+            },
+            "description": {
+              "type": "string",
+              "x-maxUtf8Bytes": 65536
+            },
+            "handoff": {
+              "anyOf": [
+                {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "actor_id": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Validated coordination identity."
+                        },
+                        "content": {
+                          "allOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "blockers": {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 65536
+                                },
+                                "completed": {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 65536
+                                },
+                                "covers_through": {
+                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                  "type": "string",
+                                  "x-maximumDecimal": "4611686018427387903"
+                                },
+                                "decisions": {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 65536
+                                },
+                                "next_steps": {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 65536
+                                },
+                                "objective": {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 65536
+                                },
+                                "resource_ids": {
+                                  "items": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 97
+                                      }
+                                    ],
+                                    "description": "Resource identity or transaction alias"
+                                  },
+                                  "maxItems": 100,
+                                  "type": "array"
+                                },
+                                "summary": {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 65536
+                                }
+                              },
+                              "required": [
+                                "summary",
+                                "next_steps"
+                              ],
+                              "type": "object"
+                            }
+                          ],
+                          "description": "Finish handoff patch; omitted rich fields preserve previous values."
+                        },
+                        "evidence": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 65536
+                            }
+                          ],
+                          "description": "Nonblank UTF8 text."
+                        },
+                        "project_revision": {
+                          "allOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            }
+                          ],
+                          "description": "Positive decimal counter."
+                        },
+                        "run_id": {
+                          "anyOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated coordination identity."
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "timestamp": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 128
+                            }
+                          ],
+                          "description": "Nonblank UTF8 text."
+                        },
+                        "workspace_revision": {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        }
+                      },
+                      "required": [
+                        "content",
+                        "evidence",
+                        "actor_id",
+                        "run_id",
+                        "timestamp",
+                        "project_revision",
+                        "workspace_revision"
+                      ],
+                      "type": "object"
+                    }
+                  ],
+                  "description": "Validated cooperative coordination record."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "priority": {
               "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive immutable entity revision."
-        },
-        "status": {
-          "enum": [
-            "backlog",
-            "todo",
-            "in_progress",
-            "done",
-            "canceled"
-          ],
-          "type": "string"
-        },
-        "summary": {
-          "type": "string",
-          "x-maxUtf8Bytes": 65536
-        },
-        "title": {
-          "allOf": [
-            {
+              "x-maximumDecimal": "4"
+            },
+            "project_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Resolved public identity; no aliases."
+            },
+            "revision": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                }
+              ],
+              "description": "Positive immutable entity revision."
+            },
+            "status": {
+              "enum": [
+                "backlog",
+                "todo",
+                "in_progress",
+                "done",
+                "canceled"
+              ],
+              "type": "string"
+            },
+            "summary": {
               "type": "string",
-              "x-maxUtf8Bytes": 512
+              "x-maxUtf8Bytes": 65536
+            },
+            "title": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 512
+                }
+              ],
+              "description": "Nonblank name/title, at most512 UTF-8 bytes; never clipped."
             }
+          },
+          "required": [
+            "project_id",
+            "title",
+            "description",
+            "revision",
+            "status",
+            "priority",
+            "summary",
+            "acceptance_criteria",
+            "archived",
+            "handoff"
           ],
-          "description": "Nonblank name/title, at most512 UTF-8 bytes; never clipped."
+          "type": "object"
         }
-      },
-      "required": [
-        "project_id",
-        "title",
-        "description",
-        "revision",
-        "status",
-        "priority",
-        "summary",
-        "acceptance_criteria",
-        "archived"
       ],
-      "type": "object"
+      "description": "Validated cooperative coordination record."
     },
     "meta": {
       "allOf": [

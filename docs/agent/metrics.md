@@ -75,5 +75,16 @@ remaining capacity is not a promise that a particular operation will be admitted
 The query reads owner counters and folds retained planning audit in memory. Cost is
 linear in retained planning changes; there is no disk walk or metrics service.
 ]]></admission>
+<workflow name="custom-measures"><![CDATA[
+usage.report accepts up to16 distinct caller-reported {name,unit,value} metrics with
+nonnegative int64 values, in addition to existing token/elapsed fields. Reports are
+immutable. They are not provider billing, unique request counts or authentication. Avoid
+reporting the same spending at both run and attempt scope. usage.aggregate returns bounded
+captured rollups by the documented run/project/ticket selectors, preserving measurement
+name and unit. Overflow is explicit, and run spending without attempt attribution remains
+unassigned rather than invented ticket cost. Standalone empty claim-next observations add
+no planning commit; explicit durable no-op batches still do.
+]]></workflow>
+<method name="usage.aggregate" mode="Q"><contract href="../api-reference/usage.aggregate.md"/><behavior><![CDATA[Captured bounded usage totals and typed custom measure rollups with explicit overflow/unassigned accounting. Keep the returned continuation and capture guards.]]></behavior></method>
 </workgraph_reference>
 ```

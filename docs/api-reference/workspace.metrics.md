@@ -453,7 +453,63 @@ For preconditions and a small example, run `workgraph help workspace.metrics`. U
                       "type": "string",
                       "x-maximumDecimal": "9223372036854775807"
                     },
+                    "metric_overflow": {
+                      "type": "boolean"
+                    },
+                    "metric_series": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "metrics": {
+                      "items": {
+                        "allOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 64
+                              },
+                              "overflow": {
+                                "type": "boolean"
+                              },
+                              "samples": {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              },
+                              "unit": {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 32
+                              },
+                              "value": {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "9223372036854775807"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "unit",
+                              "samples",
+                              "value",
+                              "overflow"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "description": "Exact source-deduplicated name/unit sum; saturation is explicit."
+                      },
+                      "maxItems": 16,
+                      "type": "array"
+                    },
                     "observations": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "omitted_metric_series": {
                       "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                       "type": "string",
                       "x-maximumDecimal": "4611686018427387903"
@@ -471,7 +527,11 @@ For preconditions and a small example, run `workgraph help workspace.metrics`. U
                     "observations",
                     "tokens",
                     "elapsed_ms",
-                    "overflow"
+                    "overflow",
+                    "metrics",
+                    "metric_series",
+                    "omitted_metric_series",
+                    "metric_overflow"
                   ],
                   "type": "object"
                 }

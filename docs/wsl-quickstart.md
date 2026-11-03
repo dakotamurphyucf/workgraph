@@ -1,6 +1,42 @@
 # Workgraph on AlmaLinux 10 in WSL: reset, install, and quick start
 
-This guide installs **Workgraph v0.4.0 preview** on **x86_64/AMD64 AlmaLinux 10**
+For the candidate bootstrap, keep WG05_STATE under your Linux home on WSL,
+with a short private socket path. Do not place managed registry/workspace data on
+/mnt/c. Use x86_64 AlmaLinux10 userspace and check the actual qualification record;
+a native Linux/container result does not certify every Windows or WSL kernel.
+
+## Current source candidate (0.5)
+
+The download instructions below describe the published **v0.4.0** release and its
+bundled API 0.4 documentation. This checkout describes the **unreleased 0.5.0**
+candidate (API 0.5, affected stored roots 4). There is no 0.5 release-download URL in
+this guide. To use the new capabilities, build this matching checkout or use an
+explicitly supplied qualified local candidate bundle, then follow its bundled
+guide. Never open 0.4 data or reuse its saved journals with the candidate.
+
+From a source checkout with the matching toolchain already provisioned, select
+that switch through WORKGRAPH_OPAM_SWITCH if needed; do not change a global default:
+
+```sh
+./dev build @fmt @runtest @install
+WG="$PWD/_build/default/bin/main.exe"
+"$WG" --version
+"$WG" help ticket.hierarchy.put
+"$WG" help attention.read
+```
+
+The candidate version prints `0.5.0`. The full check command is a qualification
+step to execute on the target platform, not a claim that every platform passed.
+Use the [operator source setup](operator-guide.md#install-locally) when the
+matching toolchain is not yet installed. A platform label alone does not qualify
+a locally packaged binary; preserve its actual checksums and qualification record.
+For a fresh private runtime, use the [candidate bootstrap example](operator-guide.md#candidate-bootstrap).
+
+
+
+## Published v0.4 walkthrough
+
+This walkthrough installs **Workgraph v0.4.0 preview** on **x86_64/AMD64 AlmaLinux 10**
 inside WSL. Run the commands in your AlmaLinux terminal, as your normal user;
 use `sudo` only where shown. No OCaml, opam, or systemd setup is required.
 Use the guide bundled with your installed executable; do not mix v0.3 or older guides,

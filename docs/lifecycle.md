@@ -16,7 +16,11 @@ Ordinary attempts require evidence, ownership and the normal completion checks;
 manifests and accepted reviews are required only when an enabled review policy
 explicitly configures them.
 
-Parents can start by default. Unfinished children still prevent parent completion.
+Parents can start by default. The default all_done child policy prevents completion
+with unfinished or canceled children. An explicit audited ticket.hierarchy policy may
+allow done_or_canceled children locally; canceled prerequisites remain unsatisfied.
+Opt-in ancestor prerequisite inheritance carries source-owned waivers and blocker
+provenance, never ancestor ownership or its child-completion gate.
 `ticket.claim_next` accepts `leaf_only: true` to exclude parents with unfinished
 children. Equal-priority tickets are selected by creation order, including within a
 single transaction, while that transaction advances the workspace revision once.

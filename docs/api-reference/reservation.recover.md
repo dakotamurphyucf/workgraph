@@ -634,426 +634,11 @@ For preconditions and a small example, run `workgraph help reservation.recover`.
               "x-maximumDecimal": "4611686018427387903"
             },
             "recovery": {
-              "additionalProperties": false,
-              "properties": {
-                "actor_id": {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Validated coordination identity."
-                },
-                "request": {
-                  "allOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "confirmation": {
-                          "enum": [
-                            "stopped",
-                            "isolated"
-                          ],
-                          "type": "string"
-                        },
-                        "evidence": {
-                          "items": {
-                            "allOf": [
-                              {
-                                "oneOf": [
-                                  {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "digest": {
-                                        "type": "string",
-                                        "x-maxUtf8Bytes": 64
-                                      },
-                                      "kind": {
-                                        "const": "resource",
-                                        "type": "string"
-                                      },
-                                      "resource_id": {
-                                        "allOf": [
-                                          {
-                                            "type": "string",
-                                            "x-maxUtf8Bytes": 96
-                                          }
-                                        ],
-                                        "description": "Validated ASCII identifier."
-                                      },
-                                      "revision": {
-                                        "allOf": [
-                                          {
-                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                            "type": "string",
-                                            "x-maximumDecimal": "4611686018427387903"
-                                          }
-                                        ],
-                                        "description": "Positive exact version."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "resource_id",
-                                      "revision",
-                                      "digest"
-                                    ],
-                                    "type": "object"
-                                  },
-                                  {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "kind": {
-                                        "const": "event",
-                                        "type": "string"
-                                      },
-                                      "sequence": {
-                                        "allOf": [
-                                          {
-                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                            "type": "string",
-                                            "x-maximumDecimal": "4611686018427387903"
-                                          }
-                                        ],
-                                        "description": "Positive exact version."
-                                      },
-                                      "session_id": {
-                                        "allOf": [
-                                          {
-                                            "type": "string",
-                                            "x-maxUtf8Bytes": 96
-                                          }
-                                        ],
-                                        "description": "Validated ASCII identifier."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "session_id",
-                                      "sequence"
-                                    ],
-                                    "type": "object"
-                                  },
-                                  {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "kind": {
-                                        "const": "commit",
-                                        "type": "string"
-                                      },
-                                      "object_id": {
-                                        "type": "string",
-                                        "x-maxUtf8Bytes": 64
-                                      },
-                                      "repository": {
-                                        "type": "string",
-                                        "x-maxUtf8Bytes": 1024
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "repository",
-                                      "object_id"
-                                    ],
-                                    "type": "object"
-                                  },
-                                  {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "digest": {
-                                        "type": "string",
-                                        "x-maxUtf8Bytes": 64
-                                      },
-                                      "kind": {
-                                        "const": "checksum",
-                                        "type": "string"
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "x-maxUtf8Bytes": 1024
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "source",
-                                      "digest"
-                                    ],
-                                    "type": "object"
-                                  },
-                                  {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "comment_id": {
-                                        "allOf": [
-                                          {
-                                            "type": "string",
-                                            "x-maxUtf8Bytes": 96
-                                          }
-                                        ],
-                                        "description": "Validated ASCII identifier."
-                                      },
-                                      "kind": {
-                                        "const": "comment",
-                                        "type": "string"
-                                      },
-                                      "revision": {
-                                        "allOf": [
-                                          {
-                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                            "type": "string",
-                                            "x-maximumDecimal": "4611686018427387903"
-                                          }
-                                        ],
-                                        "description": "Positive exact version."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "comment_id",
-                                      "revision"
-                                    ],
-                                    "type": "object"
-                                  },
-                                  {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "contract_id": {
-                                        "allOf": [
-                                          {
-                                            "type": "string",
-                                            "x-maxUtf8Bytes": 96
-                                          }
-                                        ],
-                                        "description": "Validated ASCII identifier."
-                                      },
-                                      "kind": {
-                                        "const": "contract",
-                                        "type": "string"
-                                      },
-                                      "revision": {
-                                        "allOf": [
-                                          {
-                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                            "type": "string",
-                                            "x-maximumDecimal": "4611686018427387903"
-                                          }
-                                        ],
-                                        "description": "Positive exact version."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "contract_id",
-                                      "revision"
-                                    ],
-                                    "type": "object"
-                                  },
-                                  {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                      "decision_id": {
-                                        "allOf": [
-                                          {
-                                            "type": "string",
-                                            "x-maxUtf8Bytes": 96
-                                          }
-                                        ],
-                                        "description": "Validated ASCII identifier."
-                                      },
-                                      "kind": {
-                                        "const": "decision",
-                                        "type": "string"
-                                      },
-                                      "revision": {
-                                        "allOf": [
-                                          {
-                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                            "type": "string",
-                                            "x-maximumDecimal": "4611686018427387903"
-                                          }
-                                        ],
-                                        "description": "Positive exact version."
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "decision_id",
-                                      "revision"
-                                    ],
-                                    "type": "object"
-                                  }
-                                ]
-                              }
-                            ],
-                            "description": "Immutable exact historical provenance pin."
-                          },
-                          "maxItems": 100,
-                          "type": "array"
-                        },
-                        "expected_epoch": {
-                          "allOf": [
-                            {
-                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                              "type": "string",
-                              "x-maximumDecimal": "4611686018427387903"
-                            }
-                          ],
-                          "description": "Positive decimal counter."
-                        },
-                        "expected_lease_revision": {
-                          "allOf": [
-                            {
-                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                              "type": "string",
-                              "x-maximumDecimal": "4611686018427387903"
-                            }
-                          ],
-                          "description": "Positive decimal counter."
-                        },
-                        "old_actor_id": {
-                          "allOf": [
-                            {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 96
-                            }
-                          ],
-                          "description": "Validated coordination identity."
-                        },
-                        "old_run_id": {
-                          "allOf": [
-                            {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 96
-                            }
-                          ],
-                          "description": "Validated coordination identity."
-                        },
-                        "reason": {
-                          "allOf": [
-                            {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 65536
-                            }
-                          ],
-                          "description": "Nonblank UTF8 text."
-                        },
-                        "recovery_id": {
-                          "allOf": [
-                            {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 96
-                            }
-                          ],
-                          "description": "Validated coordination identity."
-                        },
-                        "target": {
-                          "oneOf": [
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "kind": {
-                                  "const": "named",
-                                  "type": "string"
-                                },
-                                "reservation_id": {
-                                  "allOf": [
-                                    {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 96
-                                    }
-                                  ],
-                                  "description": "Validated coordination identity."
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "reservation_id"
-                              ],
-                              "type": "object"
-                            },
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "kind": {
-                                  "const": "path",
-                                  "type": "string"
-                                },
-                                "target": {
-                                  "allOf": [
-                                    {
-                                      "additionalProperties": false,
-                                      "properties": {
-                                        "kind": {
-                                          "enum": [
-                                            "file",
-                                            "subtree"
-                                          ],
-                                          "type": "string"
-                                        },
-                                        "path": {
-                                          "type": "string",
-                                          "x-maxUtf8Bytes": 4096
-                                        },
-                                        "worktree_id": {
-                                          "allOf": [
-                                            {
-                                              "type": "string",
-                                              "x-maxUtf8Bytes": 96
-                                            }
-                                          ],
-                                          "description": "Explicit logical worktree identity."
-                                        }
-                                      },
-                                      "required": [
-                                        "worktree_id",
-                                        "kind",
-                                        "path"
-                                      ],
-                                      "type": "object"
-                                    }
-                                  ],
-                                  "description": "Normalized lexical file or subtree in an explicit worktree; no physical filesystem enforcement."
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "target"
-                              ],
-                              "type": "object"
-                            }
-                          ]
-                        },
-                        "token": {
-                          "allOf": [
-                            {
-                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                              "type": "string",
-                              "x-maximumDecimal": "4611686018427387903"
-                            }
-                          ],
-                          "description": "Positive decimal counter."
-                        }
-                      },
-                      "required": [
-                        "recovery_id",
-                        "target",
-                        "expected_epoch",
-                        "old_run_id",
-                        "old_actor_id",
-                        "token",
-                        "expected_lease_revision",
-                        "confirmation",
-                        "reason"
-                      ],
-                      "type": "object"
-                    }
-                  ],
-                  "description": "Validated cooperative coordination record."
-                },
-                "run_id": {
-                  "anyOf": [
-                    {
+              "allOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "actor_id": {
                       "allOf": [
                         {
                           "type": "string",
@@ -1062,39 +647,547 @@ For preconditions and a small example, run `workgraph help reservation.recover`.
                       ],
                       "description": "Validated coordination identity."
                     },
-                    {
-                      "type": "null"
+                    "borrowers": {
+                      "items": {
+                        "allOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "actor_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Exact claim identity."
+                              },
+                              "run_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Exact claim identity."
+                              },
+                              "ticket_id": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Exact claim identity."
+                              },
+                              "token": {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4611686018427387903"
+                              }
+                            },
+                            "required": [
+                              "ticket_id",
+                              "token",
+                              "run_id",
+                              "actor_id"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "description": "Positive exact claim borrower fence."
+                      },
+                      "maxItems": 100,
+                      "type": "array"
+                    },
+                    "request": {
+                      "allOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "confirmation": {
+                              "enum": [
+                                "stopped",
+                                "isolated"
+                              ],
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "items": {
+                                "allOf": [
+                                  {
+                                    "oneOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "digest": {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 64
+                                          },
+                                          "kind": {
+                                            "const": "resource",
+                                            "type": "string"
+                                          },
+                                          "resource_id": {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Validated ASCII identifier."
+                                          },
+                                          "revision": {
+                                            "allOf": [
+                                              {
+                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                "type": "string",
+                                                "x-maximumDecimal": "4611686018427387903"
+                                              }
+                                            ],
+                                            "description": "Positive exact version."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "resource_id",
+                                          "revision",
+                                          "digest"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "kind": {
+                                            "const": "event",
+                                            "type": "string"
+                                          },
+                                          "sequence": {
+                                            "allOf": [
+                                              {
+                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                "type": "string",
+                                                "x-maximumDecimal": "4611686018427387903"
+                                              }
+                                            ],
+                                            "description": "Positive exact version."
+                                          },
+                                          "session_id": {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Validated ASCII identifier."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "session_id",
+                                          "sequence"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "kind": {
+                                            "const": "commit",
+                                            "type": "string"
+                                          },
+                                          "object_id": {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 64
+                                          },
+                                          "repository": {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 1024
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "repository",
+                                          "object_id"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "digest": {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 64
+                                          },
+                                          "kind": {
+                                            "const": "checksum",
+                                            "type": "string"
+                                          },
+                                          "source": {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 1024
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "source",
+                                          "digest"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "comment_id": {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Validated ASCII identifier."
+                                          },
+                                          "kind": {
+                                            "const": "comment",
+                                            "type": "string"
+                                          },
+                                          "revision": {
+                                            "allOf": [
+                                              {
+                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                "type": "string",
+                                                "x-maximumDecimal": "4611686018427387903"
+                                              }
+                                            ],
+                                            "description": "Positive exact version."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "comment_id",
+                                          "revision"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "amendment_id": {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Validated ASCII identifier."
+                                          },
+                                          "kind": {
+                                            "const": "amendment",
+                                            "type": "string"
+                                          },
+                                          "revision": {
+                                            "allOf": [
+                                              {
+                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                "type": "string",
+                                                "x-maximumDecimal": "4611686018427387903"
+                                              }
+                                            ],
+                                            "description": "Positive exact version."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "amendment_id",
+                                          "revision"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "contract_id": {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Validated ASCII identifier."
+                                          },
+                                          "kind": {
+                                            "const": "contract",
+                                            "type": "string"
+                                          },
+                                          "revision": {
+                                            "allOf": [
+                                              {
+                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                "type": "string",
+                                                "x-maximumDecimal": "4611686018427387903"
+                                              }
+                                            ],
+                                            "description": "Positive exact version."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "contract_id",
+                                          "revision"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "decision_id": {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Validated ASCII identifier."
+                                          },
+                                          "kind": {
+                                            "const": "decision",
+                                            "type": "string"
+                                          },
+                                          "revision": {
+                                            "allOf": [
+                                              {
+                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                "type": "string",
+                                                "x-maximumDecimal": "4611686018427387903"
+                                              }
+                                            ],
+                                            "description": "Positive exact version."
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "decision_id",
+                                          "revision"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "description": "Immutable exact historical provenance pin."
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "expected_epoch": {
+                              "allOf": [
+                                {
+                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                  "type": "string",
+                                  "x-maximumDecimal": "4611686018427387903"
+                                }
+                              ],
+                              "description": "Positive decimal counter."
+                            },
+                            "expected_lease_revision": {
+                              "allOf": [
+                                {
+                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                  "type": "string",
+                                  "x-maximumDecimal": "4611686018427387903"
+                                }
+                              ],
+                              "description": "Positive decimal counter."
+                            },
+                            "old_actor_id": {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated coordination identity."
+                            },
+                            "old_run_id": {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated coordination identity."
+                            },
+                            "reason": {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 65536
+                                }
+                              ],
+                              "description": "Nonblank UTF8 text."
+                            },
+                            "recovery_id": {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated coordination identity."
+                            },
+                            "target": {
+                              "oneOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "named",
+                                      "type": "string"
+                                    },
+                                    "reservation_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "reservation_id"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "path",
+                                      "type": "string"
+                                    },
+                                    "target": {
+                                      "allOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "kind": {
+                                              "enum": [
+                                                "file",
+                                                "subtree"
+                                              ],
+                                              "type": "string"
+                                            },
+                                            "path": {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 4096
+                                            },
+                                            "worktree_id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 96
+                                                }
+                                              ],
+                                              "description": "Explicit logical worktree identity."
+                                            }
+                                          },
+                                          "required": [
+                                            "worktree_id",
+                                            "kind",
+                                            "path"
+                                          ],
+                                          "type": "object"
+                                        }
+                                      ],
+                                      "description": "Normalized lexical file or subtree in an explicit worktree; no physical filesystem enforcement."
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "target"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "token": {
+                              "allOf": [
+                                {
+                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                  "type": "string",
+                                  "x-maximumDecimal": "4611686018427387903"
+                                }
+                              ],
+                              "description": "Positive decimal counter."
+                            }
+                          },
+                          "required": [
+                            "recovery_id",
+                            "target",
+                            "expected_epoch",
+                            "old_run_id",
+                            "old_actor_id",
+                            "token",
+                            "expected_lease_revision",
+                            "confirmation",
+                            "reason"
+                          ],
+                          "type": "object"
+                        }
+                      ],
+                      "description": "Validated cooperative coordination record."
+                    },
+                    "run_id": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Validated coordination identity."
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sequence": {
+                      "allOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        }
+                      ],
+                      "description": "Positive decimal counter."
+                    },
+                    "timestamp": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 128
+                        }
+                      ],
+                      "description": "Nonblank UTF8 text."
                     }
-                  ]
-                },
-                "sequence": {
-                  "allOf": [
-                    {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    }
+                  },
+                  "required": [
+                    "request",
+                    "actor_id",
+                    "run_id",
+                    "timestamp",
+                    "sequence",
+                    "borrowers"
                   ],
-                  "description": "Positive decimal counter."
-                },
-                "timestamp": {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 128
-                    }
-                  ],
-                  "description": "Nonblank UTF8 text."
+                  "type": "object"
                 }
-              },
-              "required": [
-                "request",
-                "actor_id",
-                "run_id",
-                "timestamp",
-                "sequence"
               ],
-              "type": "object"
+              "description": "Validated cooperative coordination record."
             }
           },
           "required": [

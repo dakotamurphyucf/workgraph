@@ -10,6 +10,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `board_id` | required | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted.; string; pattern="^[A-Za-z0-9_-]{1,96}(?![\\s\\S])" &#124; string; pattern="^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])" |
+| `closure_policy` | optional | string; enum=["manual","when_all_requests_terminal"] |
 | `expected_revision` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
 | `links` | optional | array; max items=100 |
 | `mentions` | optional | array; max items=1000 |
@@ -108,6 +109,13 @@ For preconditions and a small example, run `workgraph help thread.put`. Use `--f
                     }
                   ],
                   "description": "Literal entity ID or $alias resolved within transaction.apply."
+                },
+                "closure_policy": {
+                  "enum": [
+                    "manual",
+                    "when_all_requests_terminal"
+                  ],
+                  "type": "string"
                 },
                 "expected_revision": {
                   "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -789,6 +797,13 @@ For preconditions and a small example, run `workgraph help thread.put`. Use `--f
               ],
               "description": "Resolved local identity; aliases are not accepted."
             },
+            "closure_policy": {
+              "enum": [
+                "manual",
+                "when_all_requests_terminal"
+              ],
+              "type": "string"
+            },
             "comment_ids": {
               "items": {
                 "allOf": [
@@ -1131,6 +1146,7 @@ For preconditions and a small example, run `workgraph help thread.put`. Use `--f
             "mentions",
             "links",
             "state",
+            "closure_policy",
             "pinned",
             "comment_ids",
             "pinned_comment_ids"

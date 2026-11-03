@@ -34,6 +34,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [activity.digest](activity.digest.md) | core | read | Deterministic bounded recorded resume or captured digest. |
 | [activity.since](activity.since.md) | advanced | read | Read bounded committed activity after a retained sequence. |
 | [actor.list](actor.list.md) | advanced | read | List actor records matching the explicit filters. |
+| [actor.overview](actor.overview.md) | advanced | read | Read held ownership, requests and explicitly selected unread state in one capture. |
 | [actor.put](actor.put.md) | advanced | mutation | Create or update actor metadata with revision guards. |
 | [allocation.pool_put](allocation.pool_put.md) | advanced | mutation | Create or update allocation limits with the pool's entity revision. |
 | [allocation.pools](allocation.pools.md) | advanced | read | Read allocation pools data. |
@@ -44,6 +45,8 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [attempt.get](attempt.get.md) | core | read | Read one attempt record and its current revision. |
 | [attempt.list](attempt.list.md) | advanced | read | List attempt records matching the explicit filters. |
 | [attempt.start](attempt.start.md) | advanced | mutation | Start attempt state. |
+| [attention.read](attention.read.md) | advanced | read | Read or wait for filtered exact-source attention; acknowledgement is explicit. |
+| [attention.wait](attention.wait.md) | advanced | read | Read or wait for filtered exact-source attention; acknowledgement is explicit. |
 | [board.get](board.get.md) | advanced | read | Read one board record and its current revision. |
 | [board.list](board.list.md) | advanced | read | List board records matching the explicit filters. |
 | [board.put](board.put.md) | advanced | mutation | Create a discussion board at revision 0 or update its guarded metadata. |
@@ -89,6 +92,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [fact.list](fact.list.md) | advanced | read | List fact records matching the explicit filters. |
 | [fact.multi_get](fact.multi_get.md) | core | read | Read fact multi get data. |
 | [fact.put](fact.put.md) | core | mutation | Write one bounded scoped JSON fact with an optional revision guard. |
+| [fact.references](fact.references.md) | advanced | read | Read fact references data. |
 | [fact.search](fact.search.md) | advanced | read | Search retained fact text with bounded results. |
 | [handoff.get](handoff.get.md) | core | read | Read the current structured handoff and its revision. |
 | [handoff.history](handoff.history.md) | advanced | read | Read retained attributed handoff history. |
@@ -118,8 +122,10 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [project.archive](project.archive.md) | advanced | mutation | Archive project metadata while preserving retained history. |
 | [project.brief](project.brief.md) | core | read | Read a bounded captured project summary, tickets and milestones. |
 | [project.create](project.create.md) | core | mutation | Create a new project with explicit identity and metadata. |
+| [project.finish](project.finish.md) | core | mutation | Finish project state. |
 | [project.get](project.get.md) | core | read | Read one project record and its current revision. |
 | [project.list](project.list.md) | core | read | List project records matching the explicit filters. |
+| [project.readiness](project.readiness.md) | core | read | Check captured project completion, ownership and gates without changing work. |
 | [project.update](project.update.md) | advanced | mutation | Update selected project fields with revision guards. |
 | [reconciliation.list](reconciliation.list.md) | advanced | read | List reconciliation records matching the explicit filters. |
 | [reconciliation.record](reconciliation.record.md) | advanced | mutation | Record reconciliation state. |
@@ -136,6 +142,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [request.get](request.get.md) | core | read | Read one request with its request and current thread revisions. |
 | [request.history](request.history.md) | advanced | read | Read retained attributed request history. |
 | [request.list](request.list.md) | core | read | List requests with recipient, ticket and resolver filters; reading acknowledges nothing. |
+| [request.metadata](request.metadata.md) | advanced | mutation | Metadata request state. |
 | [request.reassign](request.reassign.md) | advanced | mutation | Reassign request state. |
 | [request.resolve](request.resolve.md) | core | mutation | Resolve an accountable request as its resolver, optionally attaching an answer. |
 | [reservation.acquire](reservation.acquire.md) | advanced | mutation | Acquire reservation state. |
@@ -151,6 +158,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [reservation.release](reservation.release.md) | advanced | mutation | Release reservation state. |
 | [reservation.renew](reservation.renew.md) | advanced | mutation | Renew reservation state. |
 | [resource.archive](resource.archive.md) | advanced | mutation | Archive resource metadata while preserving retained history. |
+| [resource.brief](resource.brief.md) | advanced | read | Read an explicit bounded brief with exact expansion references and omission counts. |
 | [resource.finish_upload](resource.finish_upload.md) | advanced | mutation | Finish upload resource state. |
 | [resource.get](resource.get.md) | core | read | Read one resource record and its current revision. |
 | [resource.history](resource.history.md) | advanced | read | Read retained attributed resource history. |
@@ -213,14 +221,24 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [thread.put](thread.put.md) | advanced | mutation | Create a discussion thread at revision 0 or update its guarded metadata. |
 | [thread.reply](thread.reply.md) | advanced | mutation | Reply thread state. |
 | [thread.search](thread.search.md) | advanced | read | Search retained thread text with bounded results. |
+| [ticket.amendment.acknowledge](ticket.amendment.acknowledge.md) | advanced | mutation | Publish an immutable instruction revision, withdraw explicitly, or acknowledge an exact revision and claim. |
+| [ticket.amendment.acknowledgements](ticket.amendment.acknowledgements.md) | advanced | read | Read captured immutable amendment revisions and exact ownership acknowledgements with whole-record pagination. |
+| [ticket.amendment.get](ticket.amendment.get.md) | advanced | read | Read captured immutable amendment revisions and exact ownership acknowledgements with whole-record pagination. |
+| [ticket.amendment.history](ticket.amendment.history.md) | advanced | read | Read captured immutable amendment revisions and exact ownership acknowledgements with whole-record pagination. |
+| [ticket.amendment.list](ticket.amendment.list.md) | advanced | read | Read captured immutable amendment revisions and exact ownership acknowledgements with whole-record pagination. |
+| [ticket.amendment.publish](ticket.amendment.publish.md) | advanced | mutation | Publish an immutable instruction revision, withdraw explicitly, or acknowledge an exact revision and claim. |
+| [ticket.amendment.withdraw](ticket.amendment.withdraw.md) | advanced | mutation | Publish an immutable instruction revision, withdraw explicitly, or acknowledge an exact revision and claim. |
 | [ticket.archive](ticket.archive.md) | advanced | mutation | Archive ticket metadata while preserving retained history. |
 | [ticket.blockers](ticket.blockers.md) | core | read | Read the captured reasons blocking a ticket. |
+| [ticket.brief](ticket.brief.md) | advanced | read | Read an explicit bounded brief with exact expansion references and omission counts. |
 | [ticket.claim](ticket.claim.md) | advanced | mutation | Claim ticket state. |
-| [ticket.claim_next](ticket.claim_next.md) | core | mutation | Allocate eligible work and start an attempt under pool policy. |
+| [ticket.claim_next](ticket.claim_next.md) | core | mutation | Select eligible work atomically; standalone empty observations write nothing. |
 | [ticket.complete](ticket.complete.md) | advanced | mutation | Complete ticket state. |
 | [ticket.context](ticket.context.md) | core | read | Read captured ticket context, ownership, links and handoff. |
 | [ticket.create](ticket.create.md) | core | mutation | Create a new ticket with explicit identity and metadata. |
 | [ticket.finish](ticket.finish.md) | core | mutation | Record completion evidence and finish an active attempt atomically. |
+| [ticket.hierarchy.get](ticket.hierarchy.get.md) | advanced | read | Read stored hierarchy policy and effective flat-plan defaults. |
+| [ticket.hierarchy.put](ticket.hierarchy.put.md) | advanced | mutation | Create or update ticket hierarchy metadata with revision guards. |
 | [ticket.hold](ticket.hold.md) | advanced | mutation | Hold ticket state. |
 | [ticket.list](ticket.list.md) | core | read | List ticket records matching the explicit filters. |
 | [ticket.metadata](ticket.metadata.md) | core | mutation | Update a ticket's priority, assignee, labels, acceptance criteria or status. |
@@ -229,8 +247,8 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [ticket.paths.list](ticket.paths.list.md) | advanced | read | List ticket paths records matching the explicit filters. |
 | [ticket.paths.put](ticket.paths.put.md) | advanced | mutation | Create or update ticket paths metadata with revision guards. |
 | [ticket.progress](ticket.progress.md) | core | mutation | Append an attributed progress comment under current ownership. |
-| [ticket.readiness](ticket.readiness.md) | core | read | Explain whether a ticket can start and identify unmet prerequisites. |
-| [ticket.ready](ticket.ready.md) | core | read | List eligible ready tickets with optional parent and capability filters. |
+| [ticket.readiness](ticket.readiness.md) | core | read | Explain graph readiness and optional target_run_id allocation admission. |
+| [ticket.ready](ticket.ready.md) | core | read | List graph-ready tickets, or allocatable work for target_run_id under current admission. |
 | [ticket.reassign](ticket.reassign.md) | advanced | mutation | Reassign ticket state. |
 | [ticket.recover](ticket.recover.md) | advanced | mutation | Recover ticket state. |
 | [ticket.recovery.get](ticket.recovery.get.md) | advanced | read | Read immutable guarded ticket recovery audit. |
@@ -243,10 +261,12 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [ticket.start](ticket.start.md) | core | mutation | Claim a ready ticket and optionally start an attempt atomically. |
 | [ticket.update](ticket.update.md) | core | mutation | Update selected ticket fields with revision guards. |
 | [transaction.apply](transaction.apply.md) | core | mutation | Commit 1..32 ordered planning operations atomically, with typed creation aliases. |
+| [transaction.preflight](transaction.preflight.md) | advanced | read | Validate an atomic plan with actual domain preparation, without committing it. |
 | [upload.abort](upload.abort.md) | advanced | write | Discard private staging and free upload admission. |
 | [upload.begin](upload.begin.md) | advanced | write | Begin or resume actor-owned ephemeral byte staging. |
 | [upload.chunk](upload.chunk.md) | advanced | write | Stage a contiguous opaque byte chunk or exact range retry. |
 | [upload.status](upload.status.md) | advanced | write | Read private live staging progress. |
+| [usage.aggregate](usage.aggregate.md) | advanced | read | Aggregate immutable caller-reported usage and named integer samples in one current capture. |
 | [usage.list](usage.list.md) | advanced | read | List usage records matching the explicit filters. |
 | [usage.report](usage.report.md) | advanced | mutation | Report usage state. |
 | [validation.add](validation.add.md) | advanced | mutation | Add validation state. |

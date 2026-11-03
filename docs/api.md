@@ -1,5 +1,20 @@
 # API and runtime reference
 
+This checkout is the unreleased 0.5.0 candidate (API 0.5, affected stored roots 4).
+Published v0.4 downloads require their matching bundled docs and fresh independent
+data. See [compatibility](compatibility.md) for independent format identifiers.
+
+| Capability | Focused operating contract |
+| --- | --- |
+| Hierarchy policies, source-owned waivers, project finish, preflight, fact predicates/references | [Planning](agent/planning.md) |
+| Actor restrictions, attempt budgets, pool occupancy, nondurable empty acquisition | [Coordination](agent/coordination.md) |
+| Automatic borrowers, Manual holds, exact recovery and bounded reservation wait | [Ownership](agent/path-conditions-recovery.md) |
+| Pinned questions/answers, metadata/lineage and instruction amendments | [Communication/evidence](agent/communication-evidence.md) |
+| Filtered activity/current readiness and actor work/inbox views | [Attention](agent/attention.md) |
+| Immutable caller-reported measures and captured rollups | [Metrics](agent/metrics.md) |
+| Byte inputs, bounded paging, exact retries and safe startup | [CLI](agent/cli-contract.md) |
+| Captured execution, decoded inspection and exact-byte provenance | [Execution](agent/execution.md) |
+
 This reference documents the current CLI, planning API, client, resource transfers,
 exports and storage contracts. Start with the [README](../README.md) for installation
 and a quickstart or the [agent context guide](../AGENT_GUIDE.md) for concise operating
@@ -162,7 +177,8 @@ of visible work. Archived views remain available through `include_archived` and
 direct context queries.
 
 Statuses are `backlog`, `todo`, `in_progress`, `done` and `canceled`. Only done
-prerequisites unblock work. Parents and dependencies are separately acyclic.
+prerequisites unblock work. Parent containment is acyclic; direct plus inherited prerequisite edges are also
+validated structurally across policy changes and reparenting, even when waived/done.
 Ticket completion checks prerequisites and children. Default claims persist until
 release/completion; after a crash, resume with the recorded actor/run/token.
 Opt-in timed claims require explicit lease renewal; expiry does not stop the

@@ -9,7 +9,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | Input | Presence | Type and constraints |
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
-| `declarations` | required | array; max items=100; At most 100 distinct targets, normalized and ordered by path target. |
+| `declarations` | required | array; max items=100; At most 100 distinct canonical targets. Policy edits require no ticket claim or nonterminal attempt; explicitly release/recover first. |
 | `expected_revision` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `require_reservations` | optional | boolean |
@@ -133,7 +133,7 @@ For preconditions and a small example, run `workgraph help ticket.paths.put`. Us
               "type": "array"
             }
           ],
-          "description": "At most 100 distinct targets, normalized and ordered by path target."
+          "description": "At most 100 distinct canonical targets. Policy edits require no ticket claim or nonterminal attempt; explicitly release/recover first."
         },
         "expected_revision": {
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",

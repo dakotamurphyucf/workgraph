@@ -47,7 +47,7 @@ For preconditions and a small example, run `workgraph help initialize`. Use `--f
         "registry_format_version": {
           "allOf": [
             {
-              "const": "3",
+              "const": "4",
               "type": "string"
             }
           ],
@@ -60,7 +60,7 @@ For preconditions and a small example, run `workgraph help initialize`. Use `--f
         "workgraph_api": {
           "allOf": [
             {
-              "const": "0.4",
+              "const": "0.5",
               "type": "string"
             }
           ],

@@ -950,23 +950,92 @@ For preconditions and a small example, run `workgraph help template.instantiate`
                         "additionalProperties": false,
                         "properties": {
                           "data": {
-                            "allOf": [
-                              {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "revision": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "allowed_actor_ids": {
+                                "allOf": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "items": {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 96
+                                            }
+                                          ],
+                                          "description": "Validated coordination identity."
+                                        },
+                                        "maxItems": 100,
+                                        "type": "array"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+                              },
+                              "pools": {
+                                "items": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Nonblank name of at most 96 UTF-8 bytes."
+                                },
+                                "maxItems": 100,
+                                "type": "array"
+                              },
+                              "required_capabilities": {
+                                "items": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Nonblank name of at most 96 UTF-8 bytes."
+                                },
+                                "maxItems": 100,
+                                "type": "array"
+                              },
+                              "revision": {
+                                "allOf": [
+                                  {
                                     "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                     "type": "string",
                                     "x-maximumDecimal": "4611686018427387903"
                                   }
-                                },
-                                "required": [
-                                  "revision"
                                 ],
-                                "type": "object"
+                                "description": "Positive counter."
+                              },
+                              "ticket_id": {
+                                "allOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Nonblank name of at most 96 UTF-8 bytes."
+                                  }
+                                ],
+                                "description": "Resolved opaque identity."
                               }
+                            },
+                            "required": [
+                              "ticket_id",
+                              "revision",
+                              "required_capabilities",
+                              "pools",
+                              "allowed_actor_ids"
                             ],
-                            "description": "Exact planning mutation receipt."
+                            "type": "object"
                           },
                           "kind": {
                             "const": "ticket_policy_put",

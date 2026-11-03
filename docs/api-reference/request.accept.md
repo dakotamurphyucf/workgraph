@@ -865,6 +865,16 @@ For preconditions and a small example, run `workgraph help request.accept`. Use 
               ],
               "description": "Resolved local identity; aliases are not accepted."
             },
+            "comment_revision": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                }
+              ],
+              "description": "Positive entity revision or activity serial."
+            },
             "correlation_id": {
               "anyOf": [
                 {
@@ -942,6 +952,16 @@ For preconditions and a small example, run `workgraph help request.accept`. Use 
                 "handoff"
               ],
               "type": "string"
+            },
+            "priority": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4"
+                }
+              ],
+              "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
             },
             "related": {
               "allOf": [
@@ -1102,6 +1122,19 @@ For preconditions and a small example, run `workgraph help request.accept`. Use 
               ],
               "description": "Exact public communication record; bounded views disclose omissions separately."
             },
+            "related_request_ids": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Resolved local identity; aliases are not accepted."
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
             "reply_to_request_id": {
               "anyOf": [
                 {
@@ -1209,6 +1242,42 @@ For preconditions and a small example, run `workgraph help request.accept`. Use 
                     {
                       "additionalProperties": false,
                       "properties": {
+                        "answer": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "comment_id": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Resolved local identity; aliases are not accepted."
+                                },
+                                "revision": {
+                                  "allOf": [
+                                    {
+                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                      "type": "string",
+                                      "x-maximumDecimal": "4611686018427387903"
+                                    }
+                                  ],
+                                  "description": "Positive entity revision or activity serial."
+                                }
+                              },
+                              "required": [
+                                "comment_id",
+                                "revision"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "attribution": {
                           "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
                         },
@@ -1219,7 +1288,8 @@ For preconditions and a small example, run `workgraph help request.accept`. Use 
                       },
                       "required": [
                         "kind",
-                        "attribution"
+                        "attribution",
+                        "answer"
                       ],
                       "type": "object"
                     }
@@ -1250,6 +1320,19 @@ For preconditions and a small example, run `workgraph help request.accept`. Use 
                 }
               ]
             },
+            "supersedes_request_ids": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Resolved local identity; aliases are not accepted."
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
             "thread_id": {
               "allOf": [
                 {
@@ -1266,9 +1349,13 @@ For preconditions and a small example, run `workgraph help request.accept`. Use 
             "thread_id",
             "kind",
             "comment_id",
+            "comment_revision",
             "correlation_id",
             "reply_to_request_id",
             "deadline_unix_ms",
+            "priority",
+            "related_request_ids",
+            "supersedes_request_ids",
             "resolver_id",
             "created",
             "deliveries",

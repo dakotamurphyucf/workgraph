@@ -162,7 +162,7 @@ For preconditions and a small example, run `workgraph help request.get`. Use `--
       ],
       "type": "object"
     },
-    "messages_368ae459de8276686eb0c06cd8a775e044b7c1c92413f0f140e4260e11fe6844": {
+    "answer_368ae459de8276686eb0c06cd8a775e044b7c1c92413f0f140e4260e11fe6844": {
       "additionalProperties": false,
       "properties": {
         "actor_id": {
@@ -292,18 +292,18 @@ For preconditions and a small example, run `workgraph help request.get`. Use `--
       ],
       "type": "object"
     },
-    "messages_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f": {
+    "answer_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f": {
       "allOf": [
         {
-          "$ref": "#/$defs/messages_f94a184db7b7251f2a14ba7954a7f58ed5954d2c48b8c24b8023274e3e39d7bf"
+          "$ref": "#/$defs/answer_f94a184db7b7251f2a14ba7954a7f58ed5954d2c48b8c24b8023274e3e39d7bf"
         }
       ],
       "description": "A tombstone preserves provenance and an empty body."
     },
-    "messages_f94a184db7b7251f2a14ba7954a7f58ed5954d2c48b8c24b8023274e3e39d7bf": {
+    "answer_f94a184db7b7251f2a14ba7954a7f58ed5954d2c48b8c24b8023274e3e39d7bf": {
       "allOf": [
         {
-          "$ref": "#/$defs/messages_368ae459de8276686eb0c06cd8a775e044b7c1c92413f0f140e4260e11fe6844"
+          "$ref": "#/$defs/answer_368ae459de8276686eb0c06cd8a775e044b7c1c92413f0f140e4260e11fe6844"
         }
       ],
       "description": "Public comment/version view; complete provenance and explicitly budgeted prose."
@@ -738,257 +738,21 @@ For preconditions and a small example, run `workgraph help request.get`. Use `--
     "data": {
       "allOf": [
         {
-          "additionalProperties": false,
-          "properties": {
-            "comment_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Resolved local identity; aliases are not accepted."
-            },
-            "correlation_id": {
-              "anyOf": [
-                {
-                  "allOf": [
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "answer": {
+                  "anyOf": [
                     {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 128
-                    }
-                  ],
-                  "description": "Nonempty correlation string, at most 128 UTF-8 bytes."
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "created": {
-              "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
-            },
-            "deadline_unix_ms": {
-              "anyOf": [
-                {
-                  "allOf": [
+                      "$ref": "#/$defs/answer_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f"
+                    },
                     {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "9223372036854775807"
+                      "type": "null"
                     }
-                  ],
-                  "description": "Canonical nonnegative Unix milliseconds within signed int64."
+                  ]
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "deliveries": {
-              "items": {
-                "allOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "acknowledged": {
-                        "anyOf": [
-                          {
-                            "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "recipient": {
-                        "$ref": "#/$defs/recipient_72ee8295eb9c3a45accd3876ea2d3e1eabc18ffb494bfd7f353d2e2dbd2716bd"
-                      }
-                    },
-                    "required": [
-                      "recipient",
-                      "acknowledged"
-                    ],
-                    "type": "object"
-                  }
-                ],
-                "description": "Exact public communication record; bounded views disclose omissions separately."
-              },
-              "maxItems": 1000,
-              "type": "array"
-            },
-            "kind": {
-              "enum": [
-                "clarification",
-                "review",
-                "help",
-                "blocker_resolution",
-                "handoff"
-              ],
-              "type": "string"
-            },
-            "related": {
-              "allOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "discussion_serial": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "messages": {
-                      "allOf": [
-                        {
-                          "allOf": [
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "items": {
-                                  "items": {
-                                    "$ref": "#/$defs/messages_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f"
-                                  },
-                                  "maxItems": 100,
-                                  "type": "array"
-                                },
-                                "next_offset": {
-                                  "anyOf": [
-                                    {
-                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                      "type": "string",
-                                      "x-maximumDecimal": "4611686018427387903"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "offset": {
-                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                  "type": "string",
-                                  "x-maximumDecimal": "4611686018427387903"
-                                },
-                                "remaining": {
-                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                  "type": "string",
-                                  "x-maximumDecimal": "4611686018427387903"
-                                }
-                              },
-                              "required": [
-                                "items",
-                                "offset",
-                                "remaining",
-                                "next_offset"
-                              ],
-                              "type": "object"
-                            }
-                          ],
-                          "description": "Exact public communication record; bounded views disclose omissions separately."
-                        }
-                      ],
-                      "description": "Resumable page after budget fitting, with explicit remaining count."
-                    },
-                    "request_revision": {
-                      "allOf": [
-                        {
-                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                          "type": "string",
-                          "x-maximumDecimal": "4611686018427387903"
-                        }
-                      ],
-                      "description": "Positive entity revision or activity serial."
-                    },
-                    "source_message": {
-                      "$ref": "#/$defs/messages_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f"
-                    },
-                    "source_message_reference": {
-                      "allOf": [
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "comment_id": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Resolved local identity; aliases are not accepted."
-                            },
-                            "revision": {
-                              "allOf": [
-                                {
-                                  "anyOf": [
-                                    {
-                                      "allOf": [
-                                        {
-                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                          "type": "string",
-                                          "x-maximumDecimal": "4611686018427387903"
-                                        }
-                                      ],
-                                      "description": "Positive entity revision or activity serial."
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                }
-                              ],
-                              "description": "Null denotes current source version; initial message bodies have a positive pinned revision."
-                            }
-                          },
-                          "required": [
-                            "comment_id",
-                            "revision"
-                          ],
-                          "type": "object"
-                        }
-                      ],
-                      "description": "Exact public communication record; bounded views disclose omissions separately."
-                    },
-                    "source_message_version": {
-                      "const": "current",
-                      "type": "string"
-                    },
-                    "thread_id": {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Resolved local identity; aliases are not accepted."
-                    },
-                    "thread_revision": {
-                      "allOf": [
-                        {
-                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                          "type": "string",
-                          "x-maximumDecimal": "4611686018427387903"
-                        }
-                      ],
-                      "description": "Positive entity revision or activity serial."
-                    }
-                  },
-                  "required": [
-                    "thread_id",
-                    "thread_revision",
-                    "discussion_serial",
-                    "messages",
-                    "request_revision",
-                    "source_message",
-                    "source_message_version",
-                    "source_message_reference"
-                  ],
-                  "type": "object"
-                }
-              ],
-              "description": "Exact public communication record; bounded views disclose omissions separately."
-            },
-            "reply_to_request_id": {
-              "anyOf": [
-                {
+                "comment_id": {
                   "allOf": [
                     {
                       "type": "string",
@@ -997,86 +761,317 @@ For preconditions and a small example, run `workgraph help request.get`. Use `--
                   ],
                   "description": "Resolved local identity; aliases are not accepted."
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "request_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Resolved local identity; aliases are not accepted."
-            },
-            "resolver_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Resolved local identity; aliases are not accepted."
-            },
-            "responsibility": {
-              "oneOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "kind": {
-                      "const": "unaccepted",
-                      "type": "string"
+                "comment_revision": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
                     }
-                  },
-                  "required": [
-                    "kind"
                   ],
-                  "type": "object"
+                  "description": "Positive entity revision or activity serial."
                 },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "attribution": {
-                      "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
+                "correlation_id": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 128
+                        }
+                      ],
+                      "description": "Nonempty correlation string, at most 128 UTF-8 bytes."
                     },
-                    "kind": {
-                      "const": "accepted",
-                      "type": "string"
-                    },
-                    "recipient": {
-                      "$ref": "#/$defs/recipient_72ee8295eb9c3a45accd3876ea2d3e1eabc18ffb494bfd7f353d2e2dbd2716bd"
+                    {
+                      "type": "null"
                     }
+                  ]
+                },
+                "created": {
+                  "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
+                },
+                "deadline_unix_ms": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "9223372036854775807"
+                        }
+                      ],
+                      "description": "Canonical nonnegative Unix milliseconds within signed int64."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "deliveries": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "acknowledged": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipient": {
+                            "$ref": "#/$defs/recipient_72ee8295eb9c3a45accd3876ea2d3e1eabc18ffb494bfd7f353d2e2dbd2716bd"
+                          }
+                        },
+                        "required": [
+                          "recipient",
+                          "acknowledged"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "description": "Exact public communication record; bounded views disclose omissions separately."
                   },
-                  "required": [
-                    "kind",
-                    "recipient",
-                    "attribution"
+                  "maxItems": 1000,
+                  "type": "array"
+                },
+                "kind": {
+                  "enum": [
+                    "clarification",
+                    "review",
+                    "help",
+                    "blocker_resolution",
+                    "handoff"
                   ],
-                  "type": "object"
-                }
-              ]
-            },
-            "revision": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                }
-              ],
-              "description": "Positive entity revision or activity serial."
-            },
-            "status": {
-              "oneOf": [
-                {
+                  "type": "string"
+                },
+                "priority": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4"
+                    }
+                  ],
+                  "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+                },
+                "related": {
                   "allOf": [
                     {
                       "additionalProperties": false,
                       "properties": {
+                        "discussion_serial": {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        },
+                        "messages": {
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "items": {
+                                      "items": {
+                                        "$ref": "#/$defs/answer_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f"
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
+                                    "next_offset": {
+                                      "anyOf": [
+                                        {
+                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                          "type": "string",
+                                          "x-maximumDecimal": "4611686018427387903"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "offset": {
+                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                      "type": "string",
+                                      "x-maximumDecimal": "4611686018427387903"
+                                    },
+                                    "remaining": {
+                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                      "type": "string",
+                                      "x-maximumDecimal": "4611686018427387903"
+                                    }
+                                  },
+                                  "required": [
+                                    "items",
+                                    "offset",
+                                    "remaining",
+                                    "next_offset"
+                                  ],
+                                  "type": "object"
+                                }
+                              ],
+                              "description": "Exact public communication record; bounded views disclose omissions separately."
+                            }
+                          ],
+                          "description": "Resumable page after budget fitting, with explicit remaining count."
+                        },
+                        "request_revision": {
+                          "allOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            }
+                          ],
+                          "description": "Positive entity revision or activity serial."
+                        },
+                        "source_message": {
+                          "$ref": "#/$defs/answer_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f"
+                        },
+                        "source_message_reference": {
+                          "allOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "comment_id": {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Resolved local identity; aliases are not accepted."
+                                },
+                                "revision": {
+                                  "allOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "allOf": [
+                                            {
+                                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                              "type": "string",
+                                              "x-maximumDecimal": "4611686018427387903"
+                                            }
+                                          ],
+                                          "description": "Positive entity revision or activity serial."
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "description": "Null denotes current source version; initial message bodies have a positive pinned revision."
+                                }
+                              },
+                              "required": [
+                                "comment_id",
+                                "revision"
+                              ],
+                              "type": "object"
+                            }
+                          ],
+                          "description": "Exact public communication record; bounded views disclose omissions separately."
+                        },
+                        "source_message_version": {
+                          "const": "current",
+                          "type": "string"
+                        },
+                        "thread_id": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Resolved local identity; aliases are not accepted."
+                        },
+                        "thread_revision": {
+                          "allOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            }
+                          ],
+                          "description": "Positive entity revision or activity serial."
+                        }
+                      },
+                      "required": [
+                        "thread_id",
+                        "thread_revision",
+                        "discussion_serial",
+                        "messages",
+                        "request_revision",
+                        "source_message",
+                        "source_message_version",
+                        "source_message_reference"
+                      ],
+                      "type": "object"
+                    }
+                  ],
+                  "description": "Exact public communication record; bounded views disclose omissions separately."
+                },
+                "related_request_ids": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Resolved local identity; aliases are not accepted."
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                },
+                "reply_to_request_id": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Resolved local identity; aliases are not accepted."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "request_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Resolved local identity; aliases are not accepted."
+                },
+                "resolver_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Resolved local identity; aliases are not accepted."
+                },
+                "responsibility": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
                         "kind": {
-                          "const": "open",
+                          "const": "unaccepted",
                           "type": "string"
                         }
                       },
@@ -1084,12 +1079,7 @@ For preconditions and a small example, run `workgraph help request.get`. Use `--
                         "kind"
                       ],
                       "type": "object"
-                    }
-                  ],
-                  "description": "Exact public communication record; bounded views disclose omissions separately."
-                },
-                {
-                  "allOf": [
+                    },
                     {
                       "additionalProperties": false,
                       "properties": {
@@ -1097,83 +1087,210 @@ For preconditions and a small example, run `workgraph help request.get`. Use `--
                           "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
                         },
                         "kind": {
-                          "const": "resolved",
+                          "const": "accepted",
                           "type": "string"
+                        },
+                        "recipient": {
+                          "$ref": "#/$defs/recipient_72ee8295eb9c3a45accd3876ea2d3e1eabc18ffb494bfd7f353d2e2dbd2716bd"
                         }
                       },
                       "required": [
                         "kind",
+                        "recipient",
                         "attribution"
                       ],
                       "type": "object"
                     }
-                  ],
-                  "description": "Exact public communication record; bounded views disclose omissions separately."
+                  ]
                 },
-                {
+                "revision": {
                   "allOf": [
                     {
-                      "additionalProperties": false,
-                      "properties": {
-                        "attribution": {
-                          "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
-                        },
-                        "kind": {
-                          "const": "cancelled",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "kind",
-                        "attribution"
-                      ],
-                      "type": "object"
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
                     }
                   ],
-                  "description": "Exact public communication record; bounded views disclose omissions separately."
+                  "description": "Positive entity revision or activity serial."
+                },
+                "status": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "open",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        }
+                      ],
+                      "description": "Exact public communication record; bounded views disclose omissions separately."
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "answer": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "comment_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Resolved local identity; aliases are not accepted."
+                                    },
+                                    "revision": {
+                                      "allOf": [
+                                        {
+                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                          "type": "string",
+                                          "x-maximumDecimal": "4611686018427387903"
+                                        }
+                                      ],
+                                      "description": "Positive entity revision or activity serial."
+                                    }
+                                  },
+                                  "required": [
+                                    "comment_id",
+                                    "revision"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "attribution": {
+                              "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
+                            },
+                            "kind": {
+                              "const": "resolved",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "attribution",
+                            "answer"
+                          ],
+                          "type": "object"
+                        }
+                      ],
+                      "description": "Exact public communication record; bounded views disclose omissions separately."
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "attribution": {
+                              "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
+                            },
+                            "kind": {
+                              "const": "cancelled",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "attribution"
+                          ],
+                          "type": "object"
+                        }
+                      ],
+                      "description": "Exact public communication record; bounded views disclose omissions separately."
+                    }
+                  ]
+                },
+                "superseded_by_request_ids": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Resolved local identity; aliases are not accepted."
+                  },
+                  "maxItems": 100000,
+                  "type": "array"
+                },
+                "supersedes_request_ids": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Resolved local identity; aliases are not accepted."
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                },
+                "thread_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Resolved local identity; aliases are not accepted."
+                },
+                "thread_revision": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    }
+                  ],
+                  "description": "Positive entity revision or activity serial."
                 }
-              ]
-            },
-            "thread_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
+              },
+              "required": [
+                "request_id",
+                "revision",
+                "thread_id",
+                "kind",
+                "comment_id",
+                "comment_revision",
+                "correlation_id",
+                "reply_to_request_id",
+                "deadline_unix_ms",
+                "priority",
+                "related_request_ids",
+                "supersedes_request_ids",
+                "resolver_id",
+                "created",
+                "deliveries",
+                "responsibility",
+                "status",
+                "thread_revision",
+                "answer",
+                "superseded_by_request_ids"
               ],
-              "description": "Resolved local identity; aliases are not accepted."
-            },
-            "thread_revision": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                }
-              ],
-              "description": "Positive entity revision or activity serial."
+              "type": "object"
             }
-          },
-          "required": [
-            "request_id",
-            "revision",
-            "thread_id",
-            "kind",
-            "comment_id",
-            "correlation_id",
-            "reply_to_request_id",
-            "deadline_unix_ms",
-            "resolver_id",
-            "created",
-            "deliveries",
-            "responsibility",
-            "status",
-            "thread_revision"
           ],
-          "type": "object"
+          "description": "Exact public communication record; bounded views disclose omissions separately."
         }
       ],
-      "description": "Exact public communication record; bounded views disclose omissions separately."
+      "description": "Current request and pinned answer with matching exact reference."
     },
     "meta": {
       "$ref": "#/$defs/metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773"

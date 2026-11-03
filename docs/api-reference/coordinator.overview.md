@@ -187,48 +187,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "allocation_reasons_4ffa61bbc78e914d9a9a48b3410a1fd5ebb3f7a319ed2a693efc35948013cbe2": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "run_budget",
-          "type": "string"
-        },
-        "problem": {
-          "$ref": "#/$defs/problem_a55b5e3a398842ff64892173ab9adf76563e5c4f0d70b2701f71a4d779289d90"
-        }
-      },
-      "required": [
-        "kind",
-        "problem"
-      ],
-      "type": "object"
-    },
-    "allocation_reasons_67fedf23169331ee436c2bbbcc7ce8e2cbd97bed4c1298d866476198070f8cea": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_1a61c180ce298f015e88e664fe4ec7d75e1d8055d31e0e2e2d7e91f3706ef16a"
-        },
-        "kind": {
-          "const": "coordination",
-          "type": "string"
-        }
-      },
-      "required": [
-        "kind",
-        "details"
-      ],
-      "type": "object"
-    },
-    "allocation_reasons_98119743f3c5d129a875c79ab7f695904f926f38c3480dfb243545890a9b1704": {
-      "items": {
-        "$ref": "#/$defs/allocation_reasons_b61093b74b240a64dbba49f24e323ad1f1deac8ba17bcbb66484db37eb9aedcd"
-      },
-      "maxItems": 100000,
-      "type": "array"
-    },
-    "allocation_reasons_b61093b74b240a64dbba49f24e323ad1f1deac8ba17bcbb66484db37eb9aedcd": {
+    "allocation_reasons_169cd034502b4c726bf15d6947735d9f3983ac3072a61c5935416eb93fe0543f": {
       "oneOf": [
         {
           "additionalProperties": false,
@@ -303,6 +262,9 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
           "type": "object"
         },
         {
+          "$ref": "#/$defs/allocation_reasons_4c5f54916556cb5a713e9349daeccfb507fe5ab97d512e99185357f9630af474"
+        },
+        {
           "additionalProperties": false,
           "properties": {
             "kind": {
@@ -316,12 +278,70 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
           "type": "object"
         },
         {
-          "$ref": "#/$defs/allocation_reasons_4ffa61bbc78e914d9a9a48b3410a1fd5ebb3f7a319ed2a693efc35948013cbe2"
+          "$ref": "#/$defs/allocation_reasons_6e645c58d0cecd0e133f09c722a67d8efb9a7706614ed53a1c92d02746ce266b"
         },
         {
-          "$ref": "#/$defs/allocation_reasons_67fedf23169331ee436c2bbbcc7ce8e2cbd97bed4c1298d866476198070f8cea"
+          "$ref": "#/$defs/allocation_reasons_43718cf1217957dc789d92d67acee09cef108bbb83c16514383c1f71dba287ee"
         }
       ]
+    },
+    "allocation_reasons_33e7597ee9394ab9de0d526c69070b4a6dc786385975e9285291a0ecf0110a52": {
+      "items": {
+        "$ref": "#/$defs/allocation_reasons_169cd034502b4c726bf15d6947735d9f3983ac3072a61c5935416eb93fe0543f"
+      },
+      "maxItems": 100000,
+      "type": "array"
+    },
+    "allocation_reasons_43718cf1217957dc789d92d67acee09cef108bbb83c16514383c1f71dba287ee": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_d1302ebb84e31e7d740e904dda7f0226a3fdf67930d2db8fccd710598f455882"
+        },
+        "kind": {
+          "const": "coordination",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "details"
+      ],
+      "type": "object"
+    },
+    "allocation_reasons_4c5f54916556cb5a713e9349daeccfb507fe5ab97d512e99185357f9630af474": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "admission",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/reason_b88a571e72169db398c3a804178818c5296c87eede9052aa88f6bbe42ab47894"
+        }
+      },
+      "required": [
+        "kind",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "allocation_reasons_6e645c58d0cecd0e133f09c722a67d8efb9a7706614ed53a1c92d02746ce266b": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "run_budget",
+          "type": "string"
+        },
+        "problem": {
+          "$ref": "#/$defs/problem_72bdac2ee1327e59e0c89556ad5730f180322932f58903fbb80c98a96ee05ff3"
+        }
+      },
+      "required": [
+        "kind",
+        "problem"
+      ],
+      "type": "object"
     },
     "applied_override_4fb3138e05f1de4eeea3316e946eb069f899573d7aa3fa50994b9ab9bc35cb88": {
       "anyOf": [
@@ -394,6 +414,74 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
         "reason"
       ],
       "type": "object"
+    },
+    "artifact_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/artifact_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
+        },
+        {
+          "$ref": "#/$defs/artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "commit",
+              "type": "string"
+            },
+            "object_id": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "repository": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "repository",
+            "object_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "kind": {
+              "const": "checksum",
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "digest"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/artifact_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
+        },
+        {
+          "$ref": "#/$defs/artifact_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d"
+        },
+        {
+          "$ref": "#/$defs/artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
+        },
+        {
+          "$ref": "#/$defs/artifact_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+        }
+      ]
     },
     "artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3": {
       "additionalProperties": false,
@@ -497,70 +585,47 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "artifact_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/artifact_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
-        },
-        {
-          "$ref": "#/$defs/artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "commit",
-              "type": "string"
-            },
-            "object_id": {
+    "artifact_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "allOf": [
+            {
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "repository": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maxUtf8Bytes": 96
             }
-          },
-          "required": [
-            "kind",
-            "repository",
-            "object_id"
           ],
-          "type": "object"
+          "description": "Validated ASCII identifier."
         },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "digest": {
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "kind": {
-              "const": "checksum",
-              "type": "string"
-            },
-            "source": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maximumDecimal": "4611686018427387903"
             }
-          },
-          "required": [
-            "kind",
-            "source",
-            "digest"
           ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/$defs/artifact_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
-        },
-        {
-          "$ref": "#/$defs/artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
-        },
-        {
-          "$ref": "#/$defs/artifact_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+          "description": "Positive exact version."
         }
-      ]
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifact_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9"
+        }
+      ],
+      "description": "Immutable exact historical provenance pin."
     },
     "artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115": {
       "additionalProperties": false,
@@ -635,14 +700,6 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/artifact_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d"
-        }
-      ],
-      "description": "Immutable exact historical provenance pin."
-    },
     "attribution_7ecef7b9fb6b6224f3aca23590fabc25d266b53872ccd0ec1c7d3131611e7983": {
       "additionalProperties": false,
       "properties": {
@@ -688,11 +745,11 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "blockers_0af1292f286bbda21092a3b1f2adfbc22b5b2be354c73ae09f42ebc55d7d120b": {
+    "blockers_2053c71dff27e98d2e41496a50be5a83ac8d32e4b523b7f60be5d96230644fe4": {
       "additionalProperties": false,
       "properties": {
         "completion": {
-          "$ref": "#/$defs/completion_f2c8cfdecd66e3098697ba710a82666097327765bc1fbc0aa28f90b8378a59fc"
+          "$ref": "#/$defs/completion_9fcffd070fbc357d68ec8d30aad55b43b7c06ab521f31ad5b3d791618f99aee7"
         },
         "ready": {
           "type": "boolean"
@@ -703,7 +760,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
           "x-maximumDecimal": "4611686018427387903"
         },
         "reasons": {
-          "$ref": "#/$defs/reasons_a6c1ad9eda3806887bad1c791315213dfd04231060bda178212dd2da8f125e60"
+          "$ref": "#/$defs/reasons_325e94548a6b4a7570ce0bccf822784ab48ab0ec3772475807b5cecb0c3343ac"
         },
         "reassessments": {
           "$ref": "#/$defs/reassessments_3d54897f577c6c8fcc5d78b25ddc2b9f8f8ff7681bf480d7ef61acf7cc71f7b9"
@@ -718,15 +775,74 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "blockers_80821ae412247a2d9d662fd26eb071c845e6df6d408bd05c146edb63a5bbf3db": {
+    "blockers_d6a721a71312c3842d584657dd58eab587c84d216b03d138a5f8ed2707051190": {
       "allOf": [
         {
-          "$ref": "#/$defs/blockers_0af1292f286bbda21092a3b1f2adfbc22b5b2be354c73ae09f42ebc55d7d120b"
+          "$ref": "#/$defs/blockers_2053c71dff27e98d2e41496a50be5a83ac8d32e4b523b7f60be5d96230644fe4"
         }
       ],
       "description": "Complete reasons retain ownership/control fields and exact count."
     },
-    "completion_4adcea0ad96426fb2a72814052eaad8d9ede2562b9b547e13daee7f60a07082f": {
+    "borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba": {
+      "items": {
+        "$ref": "#/$defs/borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "borrowers_f10e2b2d2cd522d1f82e1e8dffa637e0a57a72a8a9f73ab6b96610e415b75439": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "run_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "token": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        }
+      },
+      "required": [
+        "ticket_id",
+        "token",
+        "run_id",
+        "actor_id"
+      ],
+      "type": "object"
+    },
+    "borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/borrowers_f10e2b2d2cd522d1f82e1e8dffa637e0a57a72a8a9f73ab6b96610e415b75439"
+        }
+      ],
+      "description": "Positive exact claim borrower fence."
+    },
+    "completion_59d8d84811d5684b8ea32d742eb08b0cd994e12585873b91905b511a91ebe141": {
       "additionalProperties": false,
       "properties": {
         "blocked_prerequisite_count": {
@@ -764,6 +880,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
                   "hold",
                   "prerequisites",
                   "children",
+                  "amendment_acknowledgements",
                   "configured_policy"
                 ],
                 "type": "string"
@@ -778,14 +895,14 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
             ],
             "type": "object"
           },
-          "maxItems": 4,
+          "maxItems": 5,
           "type": "array"
         },
         "policy": {
           "$ref": "#/$defs/policy_5db28eaba3be26dbd7ab9ec085f06fe2e9bd6b56b34c93b6f056c07d584f8912"
         },
         "problem": {
-          "$ref": "#/$defs/problem_44a4c6475129b712a98df1e1bfbfdfadf9b33549d31992f2e788b07a8014f08a"
+          "$ref": "#/$defs/problem_1ce0abd4ef1fb891b2e3e80d52801ff312658fa792111548c159501e08dab666"
         },
         "unfinished_child_count": {
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -823,13 +940,13 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "completion_f2c8cfdecd66e3098697ba710a82666097327765bc1fbc0aa28f90b8378a59fc": {
+    "completion_9fcffd070fbc357d68ec8d30aad55b43b7c06ab521f31ad5b3d791618f99aee7": {
       "allOf": [
         {
-          "$ref": "#/$defs/completion_4adcea0ad96426fb2a72814052eaad8d9ede2562b9b547e13daee7f60a07082f"
+          "$ref": "#/$defs/completion_59d8d84811d5684b8ea32d742eb08b0cd994e12585873b91905b511a91ebe141"
         }
       ],
-      "description": "Four exact completion checks with retained IDs and matching counts/problem."
+      "description": "Five exact completion checks with retained IDs and matching counts/problem."
     },
     "criteria_a800ef6887d2e8aa9dd3e05fcfab16ccc897dd52009a2d07b9948ecc44777500": {
       "additionalProperties": false,
@@ -883,13 +1000,49 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       "maxItems": 200,
       "type": "array"
     },
-    "details_06abbe4543812141b37adecea37b5ff5be9ee47b5d956376fd0b942a0bb72f9e": {
-      "allOf": [
+    "details_00f1a6c82e8525d354cc07d119476315d5daf627783c3a6026b4dbf7ac91496b": {
+      "oneOf": [
         {
-          "$ref": "#/$defs/details_4539b605aa7087703d74c4b42fb517f2506619157cc7f0b9c93fc3fa1b2f92b6"
+          "$ref": "#/$defs/details_5f4f8160daaf1e5e1a4fe45c5459a76839ae03083283f0102cb06bcf495d8b18"
+        },
+        {
+          "$ref": "#/$defs/details_f02f75422a18c38cb7b7d8aa3f63ead14daf1473e4e113f189ddf3fa103eba4b"
+        },
+        {
+          "$ref": "#/$defs/details_b4d8de47fc41486d001dfeeef541ae81e162573b9026f7e3b8efc3c108752454"
+        },
+        {
+          "$ref": "#/$defs/details_9f86ff90b79d00bca824c1566e95a0e53fd04df951d6e91053a0bb6f10b12506"
+        },
+        {
+          "$ref": "#/$defs/details_407bafc5d551bc6f7f3f19ebb3020fc092c2c11f6c76112a072cba80802036a7"
         }
+      ]
+    },
+    "details_04d4c2a8991e1e1d2747db05f4501d4f755631c476b2f8fff812a6403b64f35c": {
+      "additionalProperties": false,
+      "properties": {
+        "holder": {
+          "$ref": "#/$defs/holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de"
+        },
+        "kind": {
+          "const": "expired_required_ownership",
+          "type": "string"
+        },
+        "reservation": {
+          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+        },
+        "target": {
+          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+        }
+      },
+      "required": [
+        "kind",
+        "target",
+        "reservation",
+        "holder"
       ],
-      "description": "Exact readiness reason ownership_mode"
+      "type": "object"
     },
     "details_188c4a319fefdb480c031b61caf2142ff31971a3ed473d5ea87c6019d841e7ea": {
       "allOf": [
@@ -945,13 +1098,13 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "details_1a61c180ce298f015e88e664fe4ec7d75e1d8055d31e0e2e2d7e91f3706ef16a": {
+    "details_1e9f1113a001a8bfeeecde4397fbe05672d55d52c5a8b8aa20a2b45eada437cf": {
       "allOf": [
         {
-          "$ref": "#/$defs/details_513f3802822714909b9b8229975cb8d581dca38c8329c23cd3654997655ea4a4"
+          "$ref": "#/$defs/details_ba425ff76c583233eb28a1c80675dfac49011585bb6f71202bf52eacdab63276"
         }
       ],
-      "description": "Shared exact coordination blocker cases from authoritative readiness."
+      "description": "Public claim diagnostic."
     },
     "details_277774dfab7104a02c3fb45f79b721791c2a353c71b300417217b0d448a38c2b": {
       "additionalProperties": false,
@@ -970,88 +1123,166 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "details_389873126367fcaf7c25f42072f7c4fd2dd92fda3c4e6d9cb58bf6c85fc0e61e": {
-      "allOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "blockers": {
-              "items": {
-                "type": "string",
-                "x-maxUtf8Bytes": 65536
-              },
-              "maxItems": 100,
-              "type": "array"
-            },
-            "ticket_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "1..96 ASCII letters, digits, underscores or hyphens."
-            },
-            "type": {
-              "const": "readiness",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "ticket_id",
-            "blockers"
-          ],
-          "type": "object"
+    "details_2f9e4e965ef227982183985c2538283c404c2d82b5816cddaa13ac1ceb2b15fe": {
+      "additionalProperties": false,
+      "properties": {
+        "omitted_owners": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "owners": {
+          "$ref": "#/$defs/owners_9bb7b6aab156be91d1c98b2392c83b9992d2bfcc3092ac85fe597a70a233ac0f"
+        },
+        "requested": {
+          "$ref": "#/$defs/requested_c869e255136b20598049ec85d6600716429ab8e5ed525db346dabfe1f5e6bd11"
+        },
+        "type": {
+          "const": "reservation_conflict",
+          "type": "string"
         }
+      },
+      "required": [
+        "type",
+        "requested",
+        "owners",
+        "omitted_owners"
       ],
-      "description": "Public readiness diagnostic."
+      "type": "object"
     },
-    "details_418518f991ccf82c870dd567cecd55c13e91339cb3c3b4a836dec088a6c46cb0": {
+    "details_407bafc5d551bc6f7f3f19ebb3020fc092c2c11f6c76112a072cba80802036a7": {
       "allOf": [
         {
-          "$ref": "#/$defs/details_733dfe38ad8f28548e18ce8986f2c82eb00d587135523aee6c65464fbb88eb26"
+          "$ref": "#/$defs/details_d7e6da181e1587344eebcd3862c3b1308f7110788fe73c95249f5681359fccaf"
         }
       ],
       "description": "Exact readiness reason external_condition"
     },
-    "details_4539b605aa7087703d74c4b42fb517f2506619157cc7f0b9c93fc3fa1b2f92b6": {
+    "details_45c63697cfe997c90fcfafb8535bb6166033e76fd070345c9009e73f81a5f5e4": {
       "additionalProperties": false,
       "properties": {
-        "holder": {
-          "$ref": "#/$defs/holder_dab83ef0398799ac35926e532bbe91b44314e088f34a9ee11eabafd117958db7"
+        "actual": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
         },
-        "kind": {
-          "const": "ownership_mode",
+        "maximum": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "path": {
+          "items": {
+            "type": "string",
+            "x-maxUtf8Bytes": 4194304
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "type": {
+          "const": "size",
           "type": "string"
         },
-        "target": {
-          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+        "unit": {
+          "enum": [
+            "utf8_bytes",
+            "canonical_json_bytes"
+          ],
+          "type": "string"
         }
       },
       "required": [
-        "kind",
-        "target",
-        "holder"
+        "type",
+        "path",
+        "actual",
+        "maximum",
+        "unit"
       ],
       "type": "object"
     },
-    "details_513f3802822714909b9b8229975cb8d581dca38c8329c23cd3654997655ea4a4": {
+    "details_4677f9e73b6f2987f7e382fe1ff42ab5676dacd80ef309fde210123af2ef61a5": {
+      "additionalProperties": false,
+      "properties": {
+        "blockers": {
+          "items": {
+            "type": "string",
+            "x-maxUtf8Bytes": 65536
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "omitted_blockers": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens."
+        },
+        "type": {
+          "const": "readiness",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "ticket_id",
+        "blockers",
+        "omitted_blockers"
+      ],
+      "type": "object"
+    },
+    "details_50cde8452c4c4daca8c309ebd1d9de46b33f062ec92e69b10fbf1a6e902511d7": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_4677f9e73b6f2987f7e382fe1ff42ab5676dacd80ef309fde210123af2ef61a5"
+        }
+      ],
+      "description": "Exact blocker total is listed count plus omitted_blockers."
+    },
+    "details_53a02b4e3ce8e2b061635c4f5b4323e8ef88074ddbe69b43c04b63933fc4dfc2": {
       "oneOf": [
         {
-          "$ref": "#/$defs/details_5f4f8160daaf1e5e1a4fe45c5459a76839ae03083283f0102cb06bcf495d8b18"
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "const": "unclaimed",
+                  "type": "string"
+                },
+                "ticket_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "1..96 ASCII letters, digits, underscores or hyphens."
+                },
+                "type": {
+                  "const": "claim",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "ticket_id",
+                "status"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Public claim diagnostic."
         },
         {
-          "$ref": "#/$defs/details_cc1aa3f35fc857b0f43ffe43ad23deea86bcd8cd1ace4b18a852fe274f19b38f"
-        },
-        {
-          "$ref": "#/$defs/details_9b1a1e84b76e626b7574816c3d3d83fda3cce9430a60c90ec4bbe86f0a9f0c79"
-        },
-        {
-          "$ref": "#/$defs/details_06abbe4543812141b37adecea37b5ff5be9ee47b5d956376fd0b942a0bb72f9e"
-        },
-        {
-          "$ref": "#/$defs/details_418518f991ccf82c870dd567cecd55c13e91339cb3c3b4a836dec088a6c46cb0"
+          "$ref": "#/$defs/details_1e9f1113a001a8bfeeecde4397fbe05672d55d52c5a8b8aa20a2b45eada437cf"
         }
       ]
     },
@@ -1107,11 +1338,365 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "description": "Public field diagnostic."
     },
-    "details_733dfe38ad8f28548e18ce8986f2c82eb00d587135523aee6c65464fbb88eb26": {
+    "details_77077879235b8e0e958976a41211eee09802e466e625173499e16573752dd2d7": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_b5b22427034e3217713a2a1d8dca1ede66be3031fd7596ea75aa015074e28338"
+        }
+      ],
+      "description": "Positive ownership token equals immutable lease epoch."
+    },
+    "details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/details_71a17355fb294146ccf27e101861209cb57e393434d94b2b199f2ccf598ed0ff"
+        },
+        {
+          "$ref": "#/$defs/details_df1af6b0ba5d3cb827d5fa01b7850170fbd1f210af5b2b0b53ea30c433fb1bd4"
+        },
+        {
+          "$ref": "#/$defs/details_188c4a319fefdb480c031b61caf2142ff31971a3ed473d5ea87c6019d841e7ea"
+        },
+        {
+          "$ref": "#/$defs/details_53a02b4e3ce8e2b061635c4f5b4323e8ef88074ddbe69b43c04b63933fc4dfc2"
+        },
+        {
+          "$ref": "#/$defs/details_da1b80fb42337527ca99a0d8972034d62d771f9e41ba8964592c4f6a7a527d17"
+        },
+        {
+          "$ref": "#/$defs/details_d6f593be47785465f005435e041401887f18e083688d253e3cd4bc1d009a958b"
+        },
+        {
+          "$ref": "#/$defs/details_9d299e47f729c7f4e5c00da2a859073dd2c4c2c91d9178b5116349cbad916ee6"
+        },
+        {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "socket_path": {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 65536
+                },
+                "type": {
+                  "const": "socket_owner",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "socket_path"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Public socket_owner diagnostic."
+        },
+        {
+          "$ref": "#/$defs/details_8ebaf261bc8fa97f236cf0af65937e97f59e3feae9ebc310a3a0f9fc93c3025b"
+        },
+        {
+          "$ref": "#/$defs/details_cfc99946554e62e329c00e3059b047b86d6ee6382f0a8442dac0b33a26a8528b"
+        },
+        {
+          "$ref": "#/$defs/details_50cde8452c4c4daca8c309ebd1d9de46b33f062ec92e69b10fbf1a6e902511d7"
+        },
+        {
+          "$ref": "#/$defs/details_f3f22838851249a2bf428e187738502b2b53a812cbd0826eb4807ab27079aad3"
+        },
+        {
+          "$ref": "#/$defs/details_ab790f38d6390f36214877024ed6e370498378de634c063beda9efbc8167e9c7"
+        }
+      ]
+    },
+    "details_8ebaf261bc8fa97f236cf0af65937e97f59e3feae9ebc310a3a0f9fc93c3025b": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_c859722cf489869d8432f3c1b7dd119e18c89eb61db9c2c584050e3e74d9021c"
+        }
+      ],
+      "description": "Bounded exact admission reasons; total count is listed plus omitted."
+    },
+    "details_9d299e47f729c7f4e5c00da2a859073dd2c4c2c91d9178b5116349cbad916ee6": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_45c63697cfe997c90fcfafb8535bb6166033e76fd070345c9009e73f81a5f5e4"
+        }
+      ],
+      "description": "Exact rejected byte size and maximum, preserving nested field paths."
+    },
+    "details_9f86ff90b79d00bca824c1566e95a0e53fd04df951d6e91053a0bb6f10b12506": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_eb2fe8c955ee2bdf7078f843f60dffea031baf211b0abbb705e1c7e056e22528"
+        }
+      ],
+      "description": "Exact readiness reason ownership_mode"
+    },
+    "details_a6f1d6fab63a69079fa69fd5d36151039db7d4edded51e92530f03b6cc01929f": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens."
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "ownership",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "actor_id",
+        "run_id"
+      ],
+      "type": "object"
+    },
+    "details_ab790f38d6390f36214877024ed6e370498378de634c063beda9efbc8167e9c7": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_18a34a5e1c1c787179cf4224b3d539983835ad52dc429b5c372db41b73c45e44"
+        }
+      ],
+      "description": "Public capacity diagnostic."
+    },
+    "details_b4d8de47fc41486d001dfeeef541ae81e162573b9026f7e3b8efc3c108752454": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_04d4c2a8991e1e1d2747db05f4501d4f755631c476b2f8fff812a6403b64f35c"
+        }
+      ],
+      "description": "Exact readiness reason expired_required_ownership"
+    },
+    "details_b5b22427034e3217713a2a1d8dca1ede66be3031fd7596ea75aa015074e28338": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        },
+        "lease": {
+          "$ref": "#/$defs/lease_8d4ec15e40d39c72641ee54e3e57608ad9eccfe50441c820f19059aadfc2e328"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated coordination identity."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "token": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive decimal counter."
+        }
+      },
+      "required": [
+        "actor_id",
+        "run_id",
+        "token",
+        "lease"
+      ],
+      "type": "object"
+    },
+    "details_ba425ff76c583233eb28a1c80675dfac49011585bb6f71202bf52eacdab63276": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens."
+        },
+        "field": {
+          "enum": [
+            "actor",
+            "run",
+            "token"
+          ],
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "const": "mismatch",
+          "type": "string"
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens."
+        },
+        "type": {
+          "const": "claim",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "ticket_id",
+        "status",
+        "field",
+        "actor_id",
+        "run_id"
+      ],
+      "type": "object"
+    },
+    "details_c859722cf489869d8432f3c1b7dd119e18c89eb61db9c2c584050e3e74d9021c": {
+      "additionalProperties": false,
+      "properties": {
+        "omitted_reasons": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "reasons": {
+          "$ref": "#/$defs/reasons_165815690d6628de7f2f3cd60bbda9f97a2b07ec6baf602ab5eb4119a2197d0c"
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens."
+        },
+        "type": {
+          "const": "allocation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "ticket_id",
+        "reasons",
+        "omitted_reasons"
+      ],
+      "type": "object"
+    },
+    "details_cfc99946554e62e329c00e3059b047b86d6ee6382f0a8442dac0b33a26a8528b": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_2f9e4e965ef227982183985c2538283c404c2d82b5816cddaa13ac1ceb2b15fe"
+        }
+      ],
+      "description": "Bounded conflicting owner metadata with exact omissions; fencing tokens excluded."
+    },
+    "details_d1302ebb84e31e7d740e904dda7f0226a3fdf67930d2db8fccd710598f455882": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_00f1a6c82e8525d354cc07d119476315d5daf627783c3a6026b4dbf7ac91496b"
+        }
+      ],
+      "description": "Shared exact coordination blocker cases from authoritative readiness."
+    },
+    "details_d6f593be47785465f005435e041401887f18e083688d253e3cd4bc1d009a958b": {
+      "allOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "entity": {
+              "enum": [
+                "board",
+                "thread",
+                "team",
+                "request",
+                "message",
+                "subscription"
+              ],
+              "type": "string"
+            },
+            "entity_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens."
+            },
+            "type": {
+              "const": "identity_collision",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "entity",
+            "entity_id"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Public identity_collision diagnostic."
+    },
+    "details_d7e6da181e1587344eebcd3862c3b1308f7110788fe73c95249f5681359fccaf": {
       "additionalProperties": false,
       "properties": {
         "artifact": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         },
         "condition_id": {
           "allOf": [
@@ -1165,70 +1750,14 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "details_77077879235b8e0e958976a41211eee09802e466e625173499e16573752dd2d7": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/details_b5b22427034e3217713a2a1d8dca1ede66be3031fd7596ea75aa015074e28338"
-        }
-      ],
-      "description": "Positive ownership token equals immutable lease epoch."
-    },
-    "details_9b1a1e84b76e626b7574816c3d3d83fda3cce9430a60c90ec4bbe86f0a9f0c79": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/details_a9c7ad6bc8364203f029431d9665bcbd9e9983614779940297d1e7a2ed1dec0b"
-        }
-      ],
-      "description": "Exact readiness reason expired_required_ownership"
-    },
-    "details_a6f1d6fab63a69079fa69fd5d36151039db7d4edded51e92530f03b6cc01929f": {
-      "additionalProperties": false,
-      "properties": {
-        "actor_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "1..96 ASCII letters, digits, underscores or hyphens."
-        },
-        "run_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "1..96 ASCII letters, digits, underscores or hyphens."
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "type": {
-          "const": "ownership",
-          "type": "string"
-        }
-      },
-      "required": [
-        "type",
-        "actor_id",
-        "run_id"
-      ],
-      "type": "object"
-    },
-    "details_a9c7ad6bc8364203f029431d9665bcbd9e9983614779940297d1e7a2ed1dec0b": {
+    "details_d8b4e7454bc1a80b5d0441acc69f885eb1edf331ee14f6d0957f475a0cafe3ab": {
       "additionalProperties": false,
       "properties": {
         "holder": {
-          "$ref": "#/$defs/holder_dab83ef0398799ac35926e532bbe91b44314e088f34a9ee11eabafd117958db7"
+          "$ref": "#/$defs/holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de"
         },
         "kind": {
-          "const": "expired_required_ownership",
+          "const": "path_conflict",
           "type": "string"
         },
         "reservation": {
@@ -1246,93 +1775,13 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "details_ab790f38d6390f36214877024ed6e370498378de634c063beda9efbc8167e9c7": {
+    "details_da1b80fb42337527ca99a0d8972034d62d771f9e41ba8964592c4f6a7a527d17": {
       "allOf": [
         {
-          "$ref": "#/$defs/details_18a34a5e1c1c787179cf4224b3d539983835ad52dc429b5c372db41b73c45e44"
+          "$ref": "#/$defs/details_f98229f98967bc27c597d87ecd6c56a2139cbda5769f1cb1eea49d7fb5fcf6e0"
         }
       ],
-      "description": "Public capacity diagnostic."
-    },
-    "details_b5b22427034e3217713a2a1d8dca1ede66be3031fd7596ea75aa015074e28338": {
-      "additionalProperties": false,
-      "properties": {
-        "actor_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Validated coordination identity."
-        },
-        "lease": {
-          "$ref": "#/$defs/lease_8d4ec15e40d39c72641ee54e3e57608ad9eccfe50441c820f19059aadfc2e328"
-        },
-        "run_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Validated coordination identity."
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "token": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive decimal counter."
-        }
-      },
-      "required": [
-        "actor_id",
-        "run_id",
-        "token",
-        "lease"
-      ],
-      "type": "object"
-    },
-    "details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/details_71a17355fb294146ccf27e101861209cb57e393434d94b2b199f2ccf598ed0ff"
-        },
-        {
-          "$ref": "#/$defs/details_df1af6b0ba5d3cb827d5fa01b7850170fbd1f210af5b2b0b53ea30c433fb1bd4"
-        },
-        {
-          "$ref": "#/$defs/details_188c4a319fefdb480c031b61caf2142ff31971a3ed473d5ea87c6019d841e7ea"
-        },
-        {
-          "$ref": "#/$defs/details_389873126367fcaf7c25f42072f7c4fd2dd92fda3c4e6d9cb58bf6c85fc0e61e"
-        },
-        {
-          "$ref": "#/$defs/details_f3f22838851249a2bf428e187738502b2b53a812cbd0826eb4807ab27079aad3"
-        },
-        {
-          "$ref": "#/$defs/details_ab790f38d6390f36214877024ed6e370498378de634c063beda9efbc8167e9c7"
-        }
-      ]
-    },
-    "details_cc1aa3f35fc857b0f43ffe43ad23deea86bcd8cd1ace4b18a852fe274f19b38f": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/details_f38a673c8c6d2cf7ff5cc801da7425b12c29de74e38a42ec2322957c144508d1"
-        }
-      ],
-      "description": "Exact readiness reason path_conflict"
+      "description": "Public entity_revision diagnostic."
     },
     "details_df1af6b0ba5d3cb827d5fa01b7850170fbd1f210af5b2b0b53ea30c433fb1bd4": {
       "allOf": [
@@ -1364,18 +1813,15 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "description": "Public revision diagnostic."
     },
-    "details_f38a673c8c6d2cf7ff5cc801da7425b12c29de74e38a42ec2322957c144508d1": {
+    "details_eb2fe8c955ee2bdf7078f843f60dffea031baf211b0abbb705e1c7e056e22528": {
       "additionalProperties": false,
       "properties": {
         "holder": {
-          "$ref": "#/$defs/holder_dab83ef0398799ac35926e532bbe91b44314e088f34a9ee11eabafd117958db7"
+          "$ref": "#/$defs/holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de"
         },
         "kind": {
-          "const": "path_conflict",
+          "const": "ownership_mode",
           "type": "string"
-        },
-        "reservation": {
-          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
         },
         "target": {
           "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
@@ -1384,10 +1830,17 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       "required": [
         "kind",
         "target",
-        "reservation",
         "holder"
       ],
       "type": "object"
+    },
+    "details_f02f75422a18c38cb7b7d8aa3f63ead14daf1473e4e113f189ddf3fa103eba4b": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/details_d8b4e7454bc1a80b5d0441acc69f885eb1edf331ee14f6d0957f475a0cafe3ab"
+        }
+      ],
+      "description": "Exact readiness reason path_conflict"
     },
     "details_f3f22838851249a2bf428e187738502b2b53a812cbd0826eb4807ab27079aad3": {
       "allOf": [
@@ -1429,7 +1882,54 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "description": "Public version diagnostic."
     },
-    "holder_dab83ef0398799ac35926e532bbe91b44314e088f34a9ee11eabafd117958db7": {
+    "details_f98229f98967bc27c597d87ecd6c56a2139cbda5769f1cb1eea49d7fb5fcf6e0": {
+      "additionalProperties": false,
+      "properties": {
+        "actual": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "entity": {
+          "enum": [
+            "board",
+            "thread",
+            "team",
+            "request",
+            "message",
+            "subscription"
+          ],
+          "type": "string"
+        },
+        "entity_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens."
+        },
+        "expected": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "type": {
+          "const": "entity_revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "entity",
+        "entity_id",
+        "expected",
+        "actual"
+      ],
+      "type": "object"
+    },
+    "holder_5b035561f9ab837dba8d10e985dfdc398e121b3405fb55e33db0da3f0cb42488": {
       "additionalProperties": false,
       "properties": {
         "actor_id": {
@@ -1455,6 +1955,9 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
             "shared"
           ],
           "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin_5b7a798beaa308cf13710c2917bb2a76699d2333575468e7121e475edd042fca"
         },
         "run_id": {
           "allOf": [
@@ -1486,9 +1989,18 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
         "actor_id",
         "token",
         "mode",
-        "lease"
+        "lease",
+        "origin"
       ],
       "type": "object"
+    },
+    "holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/holder_5b035561f9ab837dba8d10e985dfdc398e121b3405fb55e33db0da3f0cb42488"
+        }
+      ],
+      "description": "Validated holder fence, lease and origin."
     },
     "lease_48014e7ea1e669256b13643164b9b88eedffeb768696ca173545012460c996ed": {
       "allOf": [
@@ -1638,6 +2150,164 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "description": "Validated cooperative coordination record."
     },
+    "metadata_14a40077437b9545239817b44f6de0491625239985ba520a8e444f975a27b66d": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated entity ID."
+        },
+        "elapsed_ms": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "9223372036854775807"
+        },
+        "metrics": {
+          "items": {
+            "allOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 64
+                  },
+                  "unit": {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 32
+                  },
+                  "value": {
+                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                    "type": "string",
+                    "x-maximumDecimal": "9223372036854775807"
+                  }
+                },
+                "required": [
+                  "name",
+                  "unit",
+                  "value"
+                ],
+                "type": "object"
+              }
+            ],
+            "description": "Additive caller-reported integer sample; unique bounded ASCII name and explicit unit, no conversion."
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "provenance": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 4096
+            }
+          ],
+          "description": "Nonblank attributed text."
+        },
+        "scope": {
+          "allOf": [
+            {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "run",
+                      "type": "string"
+                    },
+                    "run_id": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Validated entity ID."
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "run_id"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attempt_id": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Validated entity ID."
+                    },
+                    "kind": {
+                      "const": "attempt",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "attempt_id"
+                  ],
+                  "type": "object"
+                }
+              ]
+            }
+          ],
+          "description": "One immutable run or attempt scope."
+        },
+        "timestamp": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonblank attributed text."
+        },
+        "tokens": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "9223372036854775807"
+        },
+        "usage_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated entity ID."
+        }
+      },
+      "required": [
+        "usage_id",
+        "scope",
+        "actor_id",
+        "tokens",
+        "elapsed_ms",
+        "metrics",
+        "provenance",
+        "timestamp"
+      ],
+      "type": "object"
+    },
+    "metadata_159ec5c3b59871e109f82303bd73b47543b558e9375c60f9f4629114e15de88a": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_14a40077437b9545239817b44f6de0491625239985ba520a8e444f975a27b66d"
+        }
+      ],
+      "description": "Immutable externally reported record; exact IDs deduplicate and content changes conflict."
+    },
     "metadata_19908c0f5598ec74dc69340e403d7d78cf6be5dceaec26806596bf48b98759a9": {
       "additionalProperties": false,
       "properties": {
@@ -1716,6 +2386,43 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "unevaluatedProperties": false
     },
+    "metadata_1e79dee62b3b779f6fa4ca6431fc60781fb2930826729d8c43b2d544ac315291": {
+      "additionalProperties": false,
+      "properties": {
+        "epoch": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "holders": {
+          "items": {
+            "$ref": "#/$defs/holder_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "reservation_id": {
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Nonblank name of at most 96 UTF-8 bytes."
+            }
+          ],
+          "description": "Resolved opaque identity."
+        }
+      },
+      "required": [
+        "reservation_id",
+        "epoch",
+        "holders"
+      ],
+      "type": "object"
+    },
     "metadata_2f11b883ed328010e0aae68dbb4aa5f6cd6b6c0e787e15a6be2b8e3c666ada00": {
       "allOf": [
         {
@@ -1724,14 +2431,14 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "description": "Advisory current run liveness."
     },
-    "metadata_3575fa561c068f92a0ae14c167e64a46cb4c87992d6389992de83ca282c712cd": {
+    "metadata_3bf0ac4f08484bd6556b7b46fd153b7b6a634936ade532064cca2225498b1e1f": {
       "additionalProperties": false,
       "properties": {
         "allocation_reasons": {
-          "$ref": "#/$defs/allocation_reasons_98119743f3c5d129a875c79ab7f695904f926f38c3480dfb243545890a9b1704"
+          "$ref": "#/$defs/allocation_reasons_33e7597ee9394ab9de0d526c69070b4a6dc786385975e9285291a0ecf0110a52"
         },
         "blockers": {
-          "$ref": "#/$defs/blockers_80821ae412247a2d9d662fd26eb071c845e6df6d408bd05c146edb63a5bbf3db"
+          "$ref": "#/$defs/blockers_d6a721a71312c3842d584657dd58eab587c84d216b03d138a5f8ed2707051190"
         },
         "eligibility_scope": {
           "enum": [
@@ -2478,43 +3185,6 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       "required": [],
       "type": "object"
     },
-    "metadata_8f240e53750797371b6d33263d9c6fba3c7a4b9ac00b51efae74f26594e6efbe": {
-      "additionalProperties": false,
-      "properties": {
-        "epoch": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "holders": {
-          "items": {
-            "$ref": "#/$defs/holder_dab83ef0398799ac35926e532bbe91b44314e088f34a9ee11eabafd117958db7"
-          },
-          "maxItems": 100,
-          "type": "array"
-        },
-        "reservation_id": {
-          "allOf": [
-            {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Nonblank name of at most 96 UTF-8 bytes."
-            }
-          ],
-          "description": "Resolved opaque identity."
-        }
-      },
-      "required": [
-        "reservation_id",
-        "epoch",
-        "holders"
-      ],
-      "type": "object"
-    },
     "metadata_92f2b7d25941ffa21cf1c4261174ad9fcbddeac5d00b793e52dbe08e68a785b3": {
       "oneOf": [
         {
@@ -2571,14 +3241,6 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
         "policy"
       ],
       "type": "object"
-    },
-    "metadata_a587a38ed6585a83852d578bf4d777c4454344822d5a3cfb1ede956648bdefda": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_8f240e53750797371b6d33263d9c6fba3c7a4b9ac00b51efae74f26594e6efbe"
-        }
-      ],
-      "description": "Validated reservation holders and ownership fences."
     },
     "metadata_a65ea284436e3c64639ab210db03bf02c64aadf7de706960aa6b0fabfc585dbd": {
       "additionalProperties": false,
@@ -2727,7 +3389,80 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "description": "Validated cooperative coordination record."
     },
-    "metadata_c77c4c034b510248f10ae86ecee943a53e2e784b622a0c243770f0dba40c4fbc": {
+    "metadata_c97dfe62e7182d3f99a05db489accc16960fd3ccd79be460518635719d1fd1f5": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_a65ea284436e3c64639ab210db03bf02c64aadf7de706960aa6b0fabfc585dbd"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "metadata_ca2686a6c9b3ec9c0788250b7c869433ee19f14844de446884d410357e91a2d3": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_e07bbaf6fe2a45a5e1652b6290ece9a41248f4dca6a32bab4f99aea5e0437ee7"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "metadata_cdd1c772481df3286fc5c668f1a59cbadb1d21a302a7d1d08725059507fef396": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_1e79dee62b3b779f6fa4ca6431fc60781fb2930826729d8c43b2d544ac315291"
+        }
+      ],
+      "description": "Validated reservation holders and ownership fences."
+    },
+    "metadata_d3affe21c02bade7785a5691493bf76ba1db389db3093d75c257e4a3859785c1": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_19908c0f5598ec74dc69340e403d7d78cf6be5dceaec26806596bf48b98759a9"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "metadata_e07bbaf6fe2a45a5e1652b6290ece9a41248f4dca6a32bab4f99aea5e0437ee7": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_2f11b883ed328010e0aae68dbb4aa5f6cd6b6c0e787e15a6be2b8e3c666ada00"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "metadata_e17347941605ed493829ec8bdac6526b39d6c17125e44101309929ad4bb2674f": {
+      "additionalProperties": false,
+      "properties": {
+        "waiting_count": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "waiting_ticket_ids": {
+          "allOf": [
+            {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Validated coordination identity."
+              },
+              "maxItems": 100000,
+              "type": "array"
+            }
+          ],
+          "description": "Validated cooperative coordination record."
+        }
+      },
+      "required": [
+        "waiting_ticket_ids",
+        "waiting_count"
+      ],
+      "type": "object"
+    },
+    "metadata_e64f370444ba2c29a710be7f812de076434dadc1f2ac30763785e9779236b581": {
       "additionalProperties": false,
       "properties": {
         "attempt_id": {
@@ -2740,10 +3475,10 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
           "description": "Validated ASCII identifier."
         },
         "current": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         },
         "previous": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         },
         "revision": {
           "allOf": [
@@ -2891,195 +3626,6 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
         "previous",
         "current",
         "state"
-      ],
-      "type": "object"
-    },
-    "metadata_c97dfe62e7182d3f99a05db489accc16960fd3ccd79be460518635719d1fd1f5": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_a65ea284436e3c64639ab210db03bf02c64aadf7de706960aa6b0fabfc585dbd"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "metadata_ca2686a6c9b3ec9c0788250b7c869433ee19f14844de446884d410357e91a2d3": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_e07bbaf6fe2a45a5e1652b6290ece9a41248f4dca6a32bab4f99aea5e0437ee7"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "metadata_d0fa66dbdc803b2b9192d14418f27d77fd0189043071a4cccce5e860ba35e120": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_d653d46c72e3fd3092025efec10d5a011a68955e7f259ef5f25a8358f9a4370f"
-        }
-      ],
-      "description": "Immutable externally reported record; exact IDs deduplicate and content changes conflict."
-    },
-    "metadata_d3affe21c02bade7785a5691493bf76ba1db389db3093d75c257e4a3859785c1": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_19908c0f5598ec74dc69340e403d7d78cf6be5dceaec26806596bf48b98759a9"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "metadata_d653d46c72e3fd3092025efec10d5a011a68955e7f259ef5f25a8358f9a4370f": {
-      "additionalProperties": false,
-      "properties": {
-        "actor_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Validated entity ID."
-        },
-        "elapsed_ms": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "9223372036854775807"
-        },
-        "provenance": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 4096
-            }
-          ],
-          "description": "Nonblank attributed text."
-        },
-        "scope": {
-          "allOf": [
-            {
-              "oneOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "kind": {
-                      "const": "run",
-                      "type": "string"
-                    },
-                    "run_id": {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Validated entity ID."
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "run_id"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "attempt_id": {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Validated entity ID."
-                    },
-                    "kind": {
-                      "const": "attempt",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "attempt_id"
-                  ],
-                  "type": "object"
-                }
-              ]
-            }
-          ],
-          "description": "One immutable run or attempt scope."
-        },
-        "timestamp": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 128
-            }
-          ],
-          "description": "Nonblank attributed text."
-        },
-        "tokens": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "9223372036854775807"
-        },
-        "usage_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Validated entity ID."
-        }
-      },
-      "required": [
-        "usage_id",
-        "scope",
-        "actor_id",
-        "tokens",
-        "elapsed_ms",
-        "provenance",
-        "timestamp"
-      ],
-      "type": "object"
-    },
-    "metadata_e07bbaf6fe2a45a5e1652b6290ece9a41248f4dca6a32bab4f99aea5e0437ee7": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_2f11b883ed328010e0aae68dbb4aa5f6cd6b6c0e787e15a6be2b8e3c666ada00"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "metadata_e17347941605ed493829ec8bdac6526b39d6c17125e44101309929ad4bb2674f": {
-      "additionalProperties": false,
-      "properties": {
-        "waiting_count": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "waiting_ticket_ids": {
-          "allOf": [
-            {
-              "items": {
-                "allOf": [
-                  {
-                    "type": "string",
-                    "x-maxUtf8Bytes": 96
-                  }
-                ],
-                "description": "Validated coordination identity."
-              },
-              "maxItems": 100000,
-              "type": "array"
-            }
-          ],
-          "description": "Validated cooperative coordination record."
-        }
-      },
-      "required": [
-        "waiting_ticket_ids",
-        "waiting_count"
       ],
       "type": "object"
     },
@@ -3361,6 +3907,98 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
         }
       ]
     },
+    "origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "manual",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/origin_1a68865753d699213ae4eaa4e34afe2bfadb93422b329d798e83e2d5718a0646"
+        }
+      ]
+    },
+    "origin_1a68865753d699213ae4eaa4e34afe2bfadb93422b329d798e83e2d5718a0646": {
+      "additionalProperties": false,
+      "properties": {
+        "borrowers": {
+          "$ref": "#/$defs/borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba"
+        },
+        "kind": {
+          "const": "automatic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "borrowers"
+      ],
+      "type": "object"
+    },
+    "origin_5b7a798beaa308cf13710c2917bb2a76699d2333575468e7121e475edd042fca": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc"
+        }
+      ],
+      "description": "Manual ownership or sorted nonempty exact claim borrowers (maximum 100)."
+    },
+    "owners_9af9a782f0db2fb2f36e42f91875e325afa410d060c17b6d6148233505815b4e": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Stable owner identity."
+        },
+        "mode": {
+          "enum": [
+            "exclusive",
+            "shared"
+          ],
+          "type": "string"
+        },
+        "run_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Stable owner identity."
+        },
+        "target": {
+          "$ref": "#/$defs/requested_c869e255136b20598049ec85d6600716429ab8e5ed525db346dabfe1f5e6bd11"
+        }
+      },
+      "required": [
+        "target",
+        "actor_id",
+        "run_id",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "owners_9bb7b6aab156be91d1c98b2392c83b9992d2bfcc3092ac85fe597a70a233ac0f": {
+      "items": {
+        "$ref": "#/$defs/owners_9af9a782f0db2fb2f36e42f91875e325afa410d060c17b6d6148233505815b4e"
+      },
+      "maxItems": 16,
+      "type": "array"
+    },
     "policy_5db28eaba3be26dbd7ab9ec085f06fe2e9bd6b56b34c93b6f056c07d584f8912": {
       "allOf": [
         {
@@ -3488,234 +4126,21 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "unevaluatedProperties": false
     },
-    "problem_03956c65c703a1866cc83ae53de724f1237ecc93a120394b95c4493152bbdcf5": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_6d9a6ccf51c688ca12276ab6df48ed2f5b5611cabd3457962236e03036c13bb9"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_06951d6f1458daca7e63401ef6776ef42dcc4dde3d24bd3302abbe4657b128ba": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Unsupported_version",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_0bc679e1667134ef27c62daf32d0b28258f2f822b08431e9b91c38c73fbab680": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Idempotency_conflict",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_0c2f9e8bc44ae143e64e130011f52cdcb3576e5608cbada6d7d5a5a593cf5f20": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_36aefd723ea50519307549ee2a671dd04c626dafd195cb05d022b29801da2de3"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_136d0dd9b1eabb47dbd6f77043343bf5137567713a9ddb7fe222de402dc3d922": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Storage_unavailable",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_1674a95ca1d02bb78f29ccb4b9f57645a114b4e3ba0ebbfea87e4b9708b1f5da": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Already_claimed",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_2a809114d9432ed7cab2bdc6c35fdd1d726997d0bd835e9d78c0c4bf6fea06c3": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Outcome_unknown",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_2f2b592dc32a9e3679948d1d0cb807fd10456590c1fd7d11ab66ba428c6f0d0c": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Workspace_closed",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_3522387d4c8197d7789245c11519a7239deb4e7495ac8a9bf958e272b66f28dc": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_7e9621e0e0f752d4044cca1918b0c829211c1afa158cdfdaedcf0571b285b049"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_36aefd723ea50519307549ee2a671dd04c626dafd195cb05d022b29801da2de3": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Not_found",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_39f6e3dcd7bdcec260508dd45bb3f66b37ad0c90ad74e829f62154729ba29134": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Conflict",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_405c7aa4986ab63a95c27617f377b056be5ccce82a850caf961c882f151e72d8": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
-        },
-        "kind": {
-          "const": "Invalid_argument",
-          "type": "string"
-        },
-        "message": {
-          "type": "string",
-          "x-maxUtf8Bytes": 4194304
-        }
-      },
-      "required": [
-        "kind",
-        "message"
-      ],
-      "type": "object"
-    },
-    "problem_44a4c6475129b712a98df1e1bfbfdfadf9b33549d31992f2e788b07a8014f08a": {
+    "problem_1ce0abd4ef1fb891b2e3e80d52801ff312658fa792111548c159501e08dab666": {
       "anyOf": [
         {
-          "$ref": "#/$defs/problem_a55b5e3a398842ff64892173ab9adf76563e5c4f0d70b2701f71a4d779289d90"
+          "$ref": "#/$defs/problem_72bdac2ee1327e59e0c89556ad5730f180322932f58903fbb80c98a96ee05ff3"
         },
         {
           "type": "null"
         }
       ]
     },
-    "problem_595ea969957e01e19ec578b92c0169174e9d0432b18b9b511aff09bbd0cc6205": {
+    "problem_1f26525fdda66fdefbf4450ea812734303636b47f61155dc44371abb9cc15208": {
       "additionalProperties": false,
       "properties": {
         "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
         },
         "kind": {
           "const": "Dependency_cycle",
@@ -3732,27 +4157,27 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "problem_6ae811f48e80ed11d79c9412207647fbb13c21b436dd97e5e24e330e7c9cbe11": {
+    "problem_25f6eff23e0aff4fd07bc8be4dfbc15af6bd4a490a9b8bdd8bfe4aaf5881f605": {
       "allOf": [
         {
-          "$ref": "#/$defs/problem_405c7aa4986ab63a95c27617f377b056be5ccce82a850caf961c882f151e72d8"
+          "$ref": "#/$defs/problem_1f26525fdda66fdefbf4450ea812734303636b47f61155dc44371abb9cc15208"
         }
       ],
       "description": "Public error with optional typed diagnostic details."
     },
-    "problem_6d91affc3805626c539e44e736874a183117da2078554633b6b457e96597f844": {
+    "problem_2f7c2f8dd5f6795ae8e33901debeda06255bed8cdab2b87aba915e5f6a1337a4": {
       "allOf": [
         {
-          "$ref": "#/$defs/problem_06951d6f1458daca7e63401ef6776ef42dcc4dde3d24bd3302abbe4657b128ba"
+          "$ref": "#/$defs/problem_3f999d27ac5ba7836a29d7498138791c4dd4b30b1dc27adcfe5cd4fc68ff34ae"
         }
       ],
       "description": "Public error with optional typed diagnostic details."
     },
-    "problem_6d9a6ccf51c688ca12276ab6df48ed2f5b5611cabd3457962236e03036c13bb9": {
+    "problem_35de2ddf7703282859134c1f3ca90099d04b843049051d43d1f930785b729b1a": {
       "additionalProperties": false,
       "properties": {
         "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
         },
         "kind": {
           "const": "Stale_claim",
@@ -3769,19 +4194,40 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "problem_6fdeb9c3ad82122b4cc4527206d62a0d940ec71f6e70c781edcd8d4701c59f5b": {
+    "problem_3d03a1feff09b23f9c0b841b3fbb081d3aecdc90504a910adeef5cd73f3e449c": {
       "allOf": [
         {
-          "$ref": "#/$defs/problem_c8ddfa2a189d61b1ea0ce68364c65dd39d4623a56c4eb575e268be06adc715bd"
+          "$ref": "#/$defs/problem_e0681fdf2192fbe711fb9133caa4675b2b15881ef60e28029f67631b16d39be2"
         }
       ],
       "description": "Public error with optional typed diagnostic details."
     },
-    "problem_7e9621e0e0f752d4044cca1918b0c829211c1afa158cdfdaedcf0571b285b049": {
+    "problem_3f999d27ac5ba7836a29d7498138791c4dd4b30b1dc27adcfe5cd4fc68ff34ae": {
       "additionalProperties": false,
       "properties": {
         "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
+        "kind": {
+          "const": "Idempotency_conflict",
+          "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "type": "object"
+    },
+    "problem_415f3032cc27a9a1e466358c5730f436e0343621b95c3e01c89f7698c3065513": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
         },
         "kind": {
           "const": "Local_io",
@@ -3798,11 +4244,90 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "problem_9536e5abf19b49a375be0125dd986c9093fc92c67083730ac290058581880b84": {
+    "problem_41faa19492ac22e90d3154a24ca0885575702149c7048a2fc413d03104003dea": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_696c72fc73d0e2cfba8041811e1ba96633546b6b1a66a323b62ebfc2c606e141"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_46c75690f905695fdd2373c2d5eb0c6dc2ae29623005953e48f05a631422f613": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_9be8a6bd2073469870ee2c10cc5b51fcfee8983e51803108a76b8b0918d2a0c6"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_5534e7e7555bf5b1878507b8681fd91d059f7d653cc47247936a2683ccaa0bdb": {
       "additionalProperties": false,
       "properties": {
         "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
+        "kind": {
+          "const": "Unsupported_version",
+          "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "type": "object"
+    },
+    "problem_56aa331b3707c3982762e2c12b8160cc78acb73ab064809ed8868908c1f1bf41": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
+        "kind": {
+          "const": "Workspace_closed",
+          "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "type": "object"
+    },
+    "problem_670d58ca79932d675c319371589cb58db73be59443f00e4e733654e2540d9936": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
+        "kind": {
+          "const": "Not_found",
+          "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "type": "object"
+    },
+    "problem_696c72fc73d0e2cfba8041811e1ba96633546b6b1a66a323b62ebfc2c606e141": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
         },
         "kind": {
           "const": "Blocked",
@@ -3819,89 +4344,152 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "problem_9aa55d8dd778b46b09883a08a555ada7d512ce1148f60d627864c042e13bbd82": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_2a809114d9432ed7cab2bdc6c35fdd1d726997d0bd835e9d78c0c4bf6fea06c3"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_9edad020701e3a794cccc8476ccf36d108c0041dc2a61485afa91e4eefd66b5b": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_39f6e3dcd7bdcec260508dd45bb3f66b37ad0c90ad74e829f62154729ba29134"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_a0632492ce128ab1c648591ce635ddab398183b54485f7a1f9b812d87a1cc069": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_2f2b592dc32a9e3679948d1d0cb807fd10456590c1fd7d11ab66ba428c6f0d0c"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_a55b5e3a398842ff64892173ab9adf76563e5c4f0d70b2701f71a4d779289d90": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/problem_6ae811f48e80ed11d79c9412207647fbb13c21b436dd97e5e24e330e7c9cbe11"
-        },
-        {
-          "$ref": "#/$defs/problem_0c2f9e8bc44ae143e64e130011f52cdcb3576e5608cbada6d7d5a5a593cf5f20"
-        },
-        {
-          "$ref": "#/$defs/problem_9edad020701e3a794cccc8476ccf36d108c0041dc2a61485afa91e4eefd66b5b"
-        },
-        {
-          "$ref": "#/$defs/problem_c05f35719616cc9dd7d9dc8a73a91dde430246100d86e6532249839ecea8a7ad"
-        },
-        {
-          "$ref": "#/$defs/problem_f190ebb92201833911f5a43e8bb187e5a949f3d6871570c73264e1975e8b15f5"
-        },
-        {
-          "$ref": "#/$defs/problem_ee15a3f87dce56cb12a251b4d6a11fadd09c832c955942f89bf3eca4eea817ee"
-        },
-        {
-          "$ref": "#/$defs/problem_03956c65c703a1866cc83ae53de724f1237ecc93a120394b95c4493152bbdcf5"
-        },
-        {
-          "$ref": "#/$defs/problem_cfa68c1da69efab69638595e6786cdff7b5b713f791d367161313b4d31a3baab"
-        },
-        {
-          "$ref": "#/$defs/problem_6fdeb9c3ad82122b4cc4527206d62a0d940ec71f6e70c781edcd8d4701c59f5b"
-        },
-        {
-          "$ref": "#/$defs/problem_cb769ae4b7309fbb170dcadff3f070d9bbcd9d31b37995d6a28ae2fe534181d7"
-        },
-        {
-          "$ref": "#/$defs/problem_3522387d4c8197d7789245c11519a7239deb4e7495ac8a9bf958e272b66f28dc"
-        },
-        {
-          "$ref": "#/$defs/problem_9aa55d8dd778b46b09883a08a555ada7d512ce1148f60d627864c042e13bbd82"
-        },
-        {
-          "$ref": "#/$defs/problem_a0632492ce128ab1c648591ce635ddab398183b54485f7a1f9b812d87a1cc069"
-        },
-        {
-          "$ref": "#/$defs/problem_6d91affc3805626c539e44e736874a183117da2078554633b6b457e96597f844"
-        }
-      ]
-    },
-    "problem_c05f35719616cc9dd7d9dc8a73a91dde430246100d86e6532249839ecea8a7ad": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_9536e5abf19b49a375be0125dd986c9093fc92c67083730ac290058581880b84"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_c8ddfa2a189d61b1ea0ce68364c65dd39d4623a56c4eb575e268be06adc715bd": {
+    "problem_6e3c160e07bb4a33ba631eee337f4bf72e15c43e848187af202c89f2cf2d0dc2": {
       "additionalProperties": false,
       "properties": {
         "details": {
-          "$ref": "#/$defs/details_c7cd0302d2ef10b9fd36b53a7b3a132bf07481a0f810cd008b85f36801889e7d"
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
+        "kind": {
+          "const": "Storage_unavailable",
+          "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "type": "object"
+    },
+    "problem_6f09beb7e71d98e15266b84a13ee08ab08706d028d13ca59d0eb45100d17cf24": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_35de2ddf7703282859134c1f3ca90099d04b843049051d43d1f930785b729b1a"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_72bdac2ee1327e59e0c89556ad5730f180322932f58903fbb80c98a96ee05ff3": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/problem_3d03a1feff09b23f9c0b841b3fbb081d3aecdc90504a910adeef5cd73f3e449c"
+        },
+        {
+          "$ref": "#/$defs/problem_80b488162e9ebbd1371d46c649d927897b1fbddd23fbb6431214f7ac30a01e29"
+        },
+        {
+          "$ref": "#/$defs/problem_ac538cf71ef9e6c0afb6851610bd0382710e0803217f8f6dc5f0f4d43840d079"
+        },
+        {
+          "$ref": "#/$defs/problem_41faa19492ac22e90d3154a24ca0885575702149c7048a2fc413d03104003dea"
+        },
+        {
+          "$ref": "#/$defs/problem_25f6eff23e0aff4fd07bc8be4dfbc15af6bd4a490a9b8bdd8bfe4aaf5881f605"
+        },
+        {
+          "$ref": "#/$defs/problem_46c75690f905695fdd2373c2d5eb0c6dc2ae29623005953e48f05a631422f613"
+        },
+        {
+          "$ref": "#/$defs/problem_6f09beb7e71d98e15266b84a13ee08ab08706d028d13ca59d0eb45100d17cf24"
+        },
+        {
+          "$ref": "#/$defs/problem_2f7c2f8dd5f6795ae8e33901debeda06255bed8cdab2b87aba915e5f6a1337a4"
+        },
+        {
+          "$ref": "#/$defs/problem_7e1404be73ca68c13cfa4f26b7fef2cb0ba591e6bec1f5744d2c8f55aa99b0a2"
+        },
+        {
+          "$ref": "#/$defs/problem_f4a7fc032650782c8a74334f675b4627e4ee493f9deb0a4eb534da4e770efc6e"
+        },
+        {
+          "$ref": "#/$defs/problem_c3d28f22fe2b960a58887f68a297413a0ca7d8a3f27d385cd5ebd5197345c3fb"
+        },
+        {
+          "$ref": "#/$defs/problem_a03ae8ae59a73fa5a491c0d199581d9413b4c0459e4d14637064a0d243240e97"
+        },
+        {
+          "$ref": "#/$defs/problem_9d57f8c18e739c62241eca702d68aa72672fa10d1415e7133bc770eff718efbc"
+        },
+        {
+          "$ref": "#/$defs/problem_e063b0b87f2405737ca6090dd72f9d3d405773acdb9bf7dc0410e3dc25df0cec"
+        }
+      ]
+    },
+    "problem_7e1404be73ca68c13cfa4f26b7fef2cb0ba591e6bec1f5744d2c8f55aa99b0a2": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_9f7cd7ea6b3660d4948f5fa324f08019ea83b548171267ba9c5a57e4955d4691"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_80b488162e9ebbd1371d46c649d927897b1fbddd23fbb6431214f7ac30a01e29": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_670d58ca79932d675c319371589cb58db73be59443f00e4e733654e2540d9936"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_9452b1e06fb1f7732b02ce47aab55be10a2b2dc41f15c5f1dcf754da9808bca5": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
+        "kind": {
+          "const": "Outcome_unknown",
+          "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "type": "object"
+    },
+    "problem_9be8a6bd2073469870ee2c10cc5b51fcfee8983e51803108a76b8b0918d2a0c6": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
+        "kind": {
+          "const": "Already_claimed",
+          "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "type": "object"
+    },
+    "problem_9d57f8c18e739c62241eca702d68aa72672fa10d1415e7133bc770eff718efbc": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_56aa331b3707c3982762e2c12b8160cc78acb73ab064809ed8868908c1f1bf41"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_9f7cd7ea6b3660d4948f5fa324f08019ea83b548171267ba9c5a57e4955d4691": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
         },
         "kind": {
           "const": "Corrupt_store",
@@ -3918,103 +4506,392 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "type": "object"
     },
-    "problem_cb769ae4b7309fbb170dcadff3f070d9bbcd9d31b37995d6a28ae2fe534181d7": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_136d0dd9b1eabb47dbd6f77043343bf5137567713a9ddb7fe222de402dc3d922"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_cfa68c1da69efab69638595e6786cdff7b5b713f791d367161313b4d31a3baab": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_0bc679e1667134ef27c62daf32d0b28258f2f822b08431e9b91c38c73fbab680"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_ee15a3f87dce56cb12a251b4d6a11fadd09c832c955942f89bf3eca4eea817ee": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_1674a95ca1d02bb78f29ccb4b9f57645a114b4e3ba0ebbfea87e4b9708b1f5da"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "problem_f190ebb92201833911f5a43e8bb187e5a949f3d6871570c73264e1975e8b15f5": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/problem_595ea969957e01e19ec578b92c0169174e9d0432b18b9b511aff09bbd0cc6205"
-        }
-      ],
-      "description": "Public error with optional typed diagnostic details."
-    },
-    "reasons_2e2845bbf8bb42fd86168f8ed76b6f7de6cb0f5aafb850134c5e34893f29d9ea": {
+    "problem_9fc1b98f4084751cb8dfb4bde5a6ee100429ab20a948cdc23d919193c409781b": {
       "additionalProperties": false,
       "properties": {
         "details": {
-          "additionalProperties": false,
-          "properties": {
-            "actor_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Validated coordination identity."
-            },
-            "reason": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 65536
-                }
-              ],
-              "description": "Nonblank UTF8 text."
-            },
-            "timestamp": {
-              "type": "string",
-              "x-maxUtf8Bytes": 128
-            }
-          },
-          "required": [
-            "actor_id",
-            "reason",
-            "timestamp"
-          ],
-          "type": "object"
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
         },
         "kind": {
-          "const": "hold",
+          "const": "Conflict",
           "type": "string"
+        },
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
         }
       },
       "required": [
         "kind",
-        "details"
+        "message"
       ],
       "type": "object"
     },
-    "reasons_459c651b33699f22b705f8847d404b922df260072d67875920da1a88dcfc1b7b": {
+    "problem_a03ae8ae59a73fa5a491c0d199581d9413b4c0459e4d14637064a0d243240e97": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_9452b1e06fb1f7732b02ce47aab55be10a2b2dc41f15c5f1dcf754da9808bca5"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_ac538cf71ef9e6c0afb6851610bd0382710e0803217f8f6dc5f0f4d43840d079": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_9fc1b98f4084751cb8dfb4bde5a6ee100429ab20a948cdc23d919193c409781b"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_c3d28f22fe2b960a58887f68a297413a0ca7d8a3f27d385cd5ebd5197345c3fb": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_415f3032cc27a9a1e466358c5730f436e0343621b95c3e01c89f7698c3065513"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_e063b0b87f2405737ca6090dd72f9d3d405773acdb9bf7dc0410e3dc25df0cec": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_5534e7e7555bf5b1878507b8681fd91d059f7d653cc47247936a2683ccaa0bdb"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "problem_e0681fdf2192fbe711fb9133caa4675b2b15881ef60e28029f67631b16d39be2": {
       "additionalProperties": false,
       "properties": {
+        "details": {
+          "$ref": "#/$defs/details_8df86710156dd631feb310cc5834c18904b1c443b4e8bec3d8056a927d76c14c"
+        },
         "kind": {
-          "const": "observation_time_required",
+          "const": "Invalid_argument",
           "type": "string"
         },
-        "target": {
-          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+        "message": {
+          "type": "string",
+          "x-maxUtf8Bytes": 4194304
         }
       },
       "required": [
         "kind",
-        "target"
+        "message"
       ],
       "type": "object"
     },
-    "reasons_8949bb9e826fdb63b9a7efff088aaee6405eb9784cb5c034c74d568e0012fbd7": {
+    "problem_f4a7fc032650782c8a74334f675b4627e4ee493f9deb0a4eb534da4e770efc6e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/problem_6e3c160e07bb4a33ba631eee337f4bf72e15c43e848187af202c89f2cf2d0dc2"
+        }
+      ],
+      "description": "Public error with optional typed diagnostic details."
+    },
+    "reason_09ff10c457e84cf34a6ad36ad620ebaf7929e348285824ea83055f7993fe93c8": {
+      "additionalProperties": false,
+      "properties": {
+        "attempted": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "kind": {
+          "const": "budget_exhausted",
+          "type": "string"
+        },
+        "limit": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "unit": {
+          "enum": [
+            "total_attempts",
+            "active_attempts"
+          ],
+          "type": "string"
+        },
+        "used": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        }
+      },
+      "required": [
+        "kind",
+        "unit",
+        "used",
+        "limit",
+        "attempted"
+      ],
+      "type": "object"
+    },
+    "reason_120fcc1fb06acae71b9278a58e5614a367dfe26da147076fcb056f3d2a05bc67": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reason_09ff10c457e84cf34a6ad36ad620ebaf7929e348285824ea83055f7993fe93c8"
+        }
+      ],
+      "description": "Allocation budget_exhausted reason."
+    },
+    "reason_7a980374916cfa196aef135aa1d38c2ee2e0aaf0aca508ac864fed8042f4dadb": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reason_c74cda5d745ba7c418e6e3a72fa2810721c240589666bf56cd57652eb1079d6b"
+        }
+      ],
+      "description": "Allocation run_actor_mismatch reason."
+    },
+    "reason_83cdd502c7de3f99bf138038212412807f3d5a7a3f2197dd4ca123316698cfd2": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reason_c947db44e363d0644bdad5cb24a2fa098893e74deef1dc618172691eafbf213e"
+        }
+      ],
+      "description": "Allocation pool_full reason."
+    },
+    "reason_b88a571e72169db398c3a804178818c5296c87eede9052aa88f6bbe42ab47894": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "run_required",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Allocation run_required reason."
+        },
+        {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "unregistered_run",
+                  "type": "string"
+                },
+                "run_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Stable actor or run identifier."
+                }
+              },
+              "required": [
+                "kind",
+                "run_id"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Allocation unregistered_run reason."
+        },
+        {
+          "$ref": "#/$defs/reason_7a980374916cfa196aef135aa1d38c2ee2e0aaf0aca508ac864fed8042f4dadb"
+        },
+        {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "actor_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Stable actor or run identifier."
+                },
+                "kind": {
+                  "const": "actor_not_allowed",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "actor_id"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Allocation actor_not_allowed reason."
+        },
+        {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "terminal_run",
+                  "type": "string"
+                },
+                "run_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Stable actor or run identifier."
+                }
+              },
+              "required": [
+                "kind",
+                "run_id"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Allocation terminal_run reason."
+        },
+        {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "capability": {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                },
+                "kind": {
+                  "const": "missing_capability",
+                  "type": "string"
+                },
+                "run_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Stable actor or run identifier."
+                }
+              },
+              "required": [
+                "kind",
+                "run_id",
+                "capability"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Allocation missing_capability reason."
+        },
+        {
+          "$ref": "#/$defs/reason_83cdd502c7de3f99bf138038212412807f3d5a7a3f2197dd4ca123316698cfd2"
+        },
+        {
+          "$ref": "#/$defs/reason_120fcc1fb06acae71b9278a58e5614a367dfe26da147076fcb056f3d2a05bc67"
+        }
+      ]
+    },
+    "reason_c74cda5d745ba7c418e6e3a72fa2810721c240589666bf56cd57652eb1079d6b": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_actor": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Stable actor or run identifier."
+        },
+        "expected_actor": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Stable actor or run identifier."
+        },
+        "kind": {
+          "const": "run_actor_mismatch",
+          "type": "string"
+        },
+        "run_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Stable actor or run identifier."
+        }
+      },
+      "required": [
+        "kind",
+        "run_id",
+        "expected_actor",
+        "actual_actor"
+      ],
+      "type": "object"
+    },
+    "reason_c947db44e363d0644bdad5cb24a2fa098893e74deef1dc618172691eafbf213e": {
+      "additionalProperties": false,
+      "properties": {
+        "attempted": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "kind": {
+          "const": "pool_full",
+          "type": "string"
+        },
+        "limit": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "pool": {
+          "type": "string",
+          "x-maxUtf8Bytes": 96
+        },
+        "unit": {
+          "const": "allocated_tickets",
+          "type": "string"
+        },
+        "used": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        }
+      },
+      "required": [
+        "kind",
+        "pool",
+        "unit",
+        "used",
+        "limit",
+        "attempted"
+      ],
+      "type": "object"
+    },
+    "reasons_06ffd9a431d5d15dcc4da892be2558e52c13a4cedab145d89155d65a0da825f0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reasons_dcaf502b185ee98900b9a0e34abccbfb2d8f2ea275984db9fa7def11db06f773"
+        }
+      ],
+      "description": "Exact readiness reason allocation"
+    },
+    "reasons_0e44a02a41084f1d0f2aaaf645e208a2c7ea6ce2b533a0169a8e6b68b97c7dd8": {
       "oneOf": [
         {
           "allOf": [
@@ -4070,6 +4947,9 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
           "$ref": "#/$defs/reasons_8ec81acc54c9a274ff79838440a2b56abcd0e2da4c68822c940774a1a567ca28"
         },
         {
+          "$ref": "#/$defs/reasons_46b14455091a1f31376037039f501a33b966b3f585ec0d521c7af0f851a5e1bd"
+        },
+        {
           "allOf": [
             {
               "additionalProperties": false,
@@ -4101,21 +4981,143 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
           "$ref": "#/$defs/details_5f4f8160daaf1e5e1a4fe45c5459a76839ae03083283f0102cb06bcf495d8b18"
         },
         {
-          "$ref": "#/$defs/details_cc1aa3f35fc857b0f43ffe43ad23deea86bcd8cd1ace4b18a852fe274f19b38f"
+          "$ref": "#/$defs/details_f02f75422a18c38cb7b7d8aa3f63ead14daf1473e4e113f189ddf3fa103eba4b"
         },
         {
-          "$ref": "#/$defs/details_9b1a1e84b76e626b7574816c3d3d83fda3cce9430a60c90ec4bbe86f0a9f0c79"
+          "$ref": "#/$defs/details_b4d8de47fc41486d001dfeeef541ae81e162573b9026f7e3b8efc3c108752454"
         },
         {
-          "$ref": "#/$defs/details_06abbe4543812141b37adecea37b5ff5be9ee47b5d956376fd0b942a0bb72f9e"
+          "$ref": "#/$defs/details_9f86ff90b79d00bca824c1566e95a0e53fd04df951d6e91053a0bb6f10b12506"
         },
         {
-          "$ref": "#/$defs/details_418518f991ccf82c870dd567cecd55c13e91339cb3c3b4a836dec088a6c46cb0"
+          "$ref": "#/$defs/details_407bafc5d551bc6f7f3f19ebb3020fc092c2c11f6c76112a072cba80802036a7"
         },
         {
           "$ref": "#/$defs/reasons_cbb6189c375376c66ff48c6852156365b252410586582ee5380cd092b8cb7fb1"
+        },
+        {
+          "$ref": "#/$defs/reasons_06ffd9a431d5d15dcc4da892be2558e52c13a4cedab145d89155d65a0da825f0"
         }
       ]
+    },
+    "reasons_165815690d6628de7f2f3cd60bbda9f97a2b07ec6baf602ab5eb4119a2197d0c": {
+      "items": {
+        "$ref": "#/$defs/reason_b88a571e72169db398c3a804178818c5296c87eede9052aa88f6bbe42ab47894"
+      },
+      "maxItems": 16,
+      "type": "array"
+    },
+    "reasons_2e2845bbf8bb42fd86168f8ed76b6f7de6cb0f5aafb850134c5e34893f29d9ea": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "additionalProperties": false,
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated coordination identity."
+            },
+            "reason": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 65536
+                }
+              ],
+              "description": "Nonblank UTF8 text."
+            },
+            "timestamp": {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          },
+          "required": [
+            "actor_id",
+            "reason",
+            "timestamp"
+          ],
+          "type": "object"
+        },
+        "kind": {
+          "const": "hold",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "details"
+      ],
+      "type": "object"
+    },
+    "reasons_325e94548a6b4a7570ce0bccf822784ab48ab0ec3772475807b5cecb0c3343ac": {
+      "items": {
+        "$ref": "#/$defs/reasons_0e44a02a41084f1d0f2aaaf645e208a2c7ea6ce2b533a0169a8e6b68b97c7dd8"
+      },
+      "maxItems": 100000,
+      "type": "array"
+    },
+    "reasons_459c651b33699f22b705f8847d404b922df260072d67875920da1a88dcfc1b7b": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "observation_time_required",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+        }
+      },
+      "required": [
+        "kind",
+        "target"
+      ],
+      "type": "object"
+    },
+    "reasons_46b14455091a1f31376037039f501a33b966b3f585ec0d521c7af0f851a5e1bd": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reasons_7ba3df8371cc684cc1845c896d84eb2775ebc2b5cef581378e41b1dcd01cdf01"
+        }
+      ],
+      "description": "Exact readiness reason inherited_prerequisite"
+    },
+    "reasons_7ba3df8371cc684cc1845c896d84eb2775ebc2b5cef581378e41b1dcd01cdf01": {
+      "additionalProperties": false,
+      "properties": {
+        "ancestor_ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        },
+        "kind": {
+          "const": "inherited_prerequisite",
+          "type": "string"
+        },
+        "prerequisite_ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        }
+      },
+      "required": [
+        "kind",
+        "ancestor_ticket_id",
+        "prerequisite_ticket_id"
+      ],
+      "type": "object"
     },
     "reasons_8ec81acc54c9a274ff79838440a2b56abcd0e2da4c68822c940774a1a567ca28": {
       "allOf": [
@@ -4133,13 +5135,6 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
       ],
       "description": "Exact readiness reason hold"
     },
-    "reasons_a6c1ad9eda3806887bad1c791315213dfd04231060bda178212dd2da8f125e60": {
-      "items": {
-        "$ref": "#/$defs/reasons_8949bb9e826fdb63b9a7efff088aaee6405eb9784cb5c034c74d568e0012fbd7"
-      },
-      "maxItems": 100000,
-      "type": "array"
-    },
     "reasons_cbb6189c375376c66ff48c6852156365b252410586582ee5380cd092b8cb7fb1": {
       "allOf": [
         {
@@ -4147,6 +5142,23 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
         }
       ],
       "description": "Exact readiness reason observation_time_required"
+    },
+    "reasons_dcaf502b185ee98900b9a0e34abccbfb2d8f2ea275984db9fa7def11db06f773": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "allocation",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/reason_b88a571e72169db398c3a804178818c5296c87eede9052aa88f6bbe42ab47894"
+        }
+      },
+      "required": [
+        "kind",
+        "reason"
+      ],
+      "type": "object"
     },
     "reasons_f35f30c3c3674ed7d03af00e70e35e89faa70f38ad520af9faa9b34adc03c22c": {
       "additionalProperties": false,
@@ -4272,6 +5284,53 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
         "key"
       ],
       "type": "object"
+    },
+    "requested_a1fbb828d36a210410ba1b0cc2ca9064c97dc79d4437571c924716b263fa4032": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "path",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+        }
+      },
+      "required": [
+        "kind",
+        "target"
+      ],
+      "type": "object"
+    },
+    "requested_c869e255136b20598049ec85d6600716429ab8e5ed525db346dabfe1f5e6bd11": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "named",
+              "type": "string"
+            },
+            "reservation_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Stable owner identity."
+            }
+          },
+          "required": [
+            "kind",
+            "reservation_id"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/requested_a1fbb828d36a210410ba1b0cc2ca9064c97dc79d4437571c924716b263fa4032"
+        }
+      ]
     },
     "reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01": {
       "allOf": [
@@ -4546,7 +5605,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
                                     "type": "string"
                                   },
                                   "metadata": {
-                                    "$ref": "#/$defs/metadata_3575fa561c068f92a0ae14c167e64a46cb4c87992d6389992de83ca282c712cd"
+                                    "$ref": "#/$defs/metadata_3bf0ac4f08484bd6556b7b46fd153b7b6a634936ade532064cca2225498b1e1f"
                                   },
                                   "source": {
                                     "$ref": "#/$defs/next_item_source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -4572,7 +5631,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
                                     "type": "string"
                                   },
                                   "metadata": {
-                                    "$ref": "#/$defs/metadata_3575fa561c068f92a0ae14c167e64a46cb4c87992d6389992de83ca282c712cd"
+                                    "$ref": "#/$defs/metadata_3bf0ac4f08484bd6556b7b46fd153b7b6a634936ade532064cca2225498b1e1f"
                                   },
                                   "source": {
                                     "$ref": "#/$defs/next_item_source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -4754,7 +5813,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
                                     "type": "string"
                                   },
                                   "metadata": {
-                                    "$ref": "#/$defs/metadata_c77c4c034b510248f10ae86ecee943a53e2e784b622a0c243770f0dba40c4fbc"
+                                    "$ref": "#/$defs/metadata_e64f370444ba2c29a710be7f812de076434dadc1f2ac30763785e9779236b581"
                                   },
                                   "source": {
                                     "$ref": "#/$defs/next_item_source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -4806,7 +5865,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
                                     "type": "string"
                                   },
                                   "metadata": {
-                                    "$ref": "#/$defs/metadata_a587a38ed6585a83852d578bf4d777c4454344822d5a3cfb1ede956648bdefda"
+                                    "$ref": "#/$defs/metadata_cdd1c772481df3286fc5c668f1a59cbadb1d21a302a7d1d08725059507fef396"
                                   },
                                   "source": {
                                     "$ref": "#/$defs/next_item_source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -4832,7 +5891,7 @@ For preconditions and a small example, run `workgraph help coordinator.overview`
                                     "type": "string"
                                   },
                                   "metadata": {
-                                    "$ref": "#/$defs/metadata_d0fa66dbdc803b2b9192d14418f27d77fd0189043071a4cccce5e860ba35e120"
+                                    "$ref": "#/$defs/metadata_159ec5c3b59871e109f82303bd73b47543b558e9375c60f9f4629114e15de88a"
                                   },
                                   "source": {
                                     "$ref": "#/$defs/next_item_source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"

@@ -100,11 +100,12 @@ For preconditions and a small example, run `workgraph help subscription.get`. Us
                           "request_accepted",
                           "request_reassigned",
                           "request_resolved",
-                          "request_cancelled"
+                          "request_cancelled",
+                          "request_updated"
                         ],
                         "type": "string"
                       },
-                      "maxItems": 8,
+                      "maxItems": 9,
                       "type": "array"
                     },
                     "scope": {

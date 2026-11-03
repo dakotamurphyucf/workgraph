@@ -80,7 +80,9 @@ TARGET=$(jq -cn --arg id "$TICKET" '{kind:"ticket",id:$id}')
 Register one run per invocation, recording the actor and capabilities. Configure allocation
 pools/ticket policies and run budgets before selection. ticket.claim_next requires a fresh
 attempt ID, the target run field, AND matching envelope run_id. kind:"empty" means nothing
-was selected; do not assume a claim or attempt was created. kind:"selected" contains the
+was selected; standalone empty is nondurable and its exact identity may reevaluate
+until selection commits (explicit batches stay durable). Do not infer an attempt.
+kind:"selected" contains the
 claim/token and attempt result; attempt.get supplies its current record/revision.
 For explicit selection use ticket.claim first, then attempt.start with the same actor/run/
 token. Keep run_id on every claim-protected mutation. Read request/inbox and record progress

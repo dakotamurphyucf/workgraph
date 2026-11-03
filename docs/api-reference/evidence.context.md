@@ -273,7 +273,7 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
       ],
       "type": "object"
     },
-    "artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747": {
+    "artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261": {
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -286,7 +286,7 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
           "description": "Validated ASCII identifier."
         },
         "pin": {
-          "$ref": "#/$defs/current_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/current_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         }
       },
       "required": [
@@ -428,6 +428,74 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
       ],
       "type": "object"
     },
+    "current_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/current_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
+        },
+        {
+          "$ref": "#/$defs/current_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "commit",
+              "type": "string"
+            },
+            "object_id": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "repository": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "repository",
+            "object_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "kind": {
+              "const": "checksum",
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "digest"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/current_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
+        },
+        {
+          "$ref": "#/$defs/current_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d"
+        },
+        {
+          "$ref": "#/$defs/current_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
+        },
+        {
+          "$ref": "#/$defs/current_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+        }
+      ]
+    },
     "current_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3": {
       "additionalProperties": false,
       "properties": {
@@ -530,70 +598,47 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
       ],
       "type": "object"
     },
-    "current_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/current_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
-        },
-        {
-          "$ref": "#/$defs/current_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "commit",
-              "type": "string"
-            },
-            "object_id": {
+    "current_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "allOf": [
+            {
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "repository": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maxUtf8Bytes": 96
             }
-          },
-          "required": [
-            "kind",
-            "repository",
-            "object_id"
           ],
-          "type": "object"
+          "description": "Validated ASCII identifier."
         },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "digest": {
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "kind": {
-              "const": "checksum",
-              "type": "string"
-            },
-            "source": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maximumDecimal": "4611686018427387903"
             }
-          },
-          "required": [
-            "kind",
-            "source",
-            "digest"
           ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/$defs/current_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
-        },
-        {
-          "$ref": "#/$defs/current_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
-        },
-        {
-          "$ref": "#/$defs/current_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+          "description": "Positive exact version."
         }
-      ]
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "current_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/current_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9"
+        }
+      ],
+      "description": "Immutable exact historical provenance pin."
     },
     "current_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115": {
       "additionalProperties": false,
@@ -667,14 +712,6 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
         "digest"
       ],
       "type": "object"
-    },
-    "current_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/current_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d"
-        }
-      ],
-      "description": "Immutable exact historical provenance pin."
     },
     "effective_policy_5db28eaba3be26dbd7ab9ec085f06fe2e9bd6b56b34c93b6f056c07d584f8912": {
       "allOf": [
@@ -803,16 +840,16 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
       ],
       "unevaluatedProperties": false
     },
-    "evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24": {
+    "evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129": {
       "items": {
-        "$ref": "#/$defs/current_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+        "$ref": "#/$defs/current_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
       },
       "maxItems": 100,
       "type": "array"
     },
-    "inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3": {
+    "inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73": {
       "items": {
-        "$ref": "#/$defs/artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747"
+        "$ref": "#/$defs/artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261"
       },
       "maxItems": 100,
       "type": "array"
@@ -1205,7 +1242,7 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
                     "properties": {
                       "artifacts": {
                         "items": {
-                          "$ref": "#/$defs/artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747"
+                          "$ref": "#/$defs/artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261"
                         },
                         "maxItems": 200,
                         "type": "array"
@@ -1237,7 +1274,7 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
                         "x-maxUtf8Bytes": 65536
                       },
                       "evidence_pins": {
-                        "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                        "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
                       },
                       "manifest": {
                         "anyOf": [
@@ -1367,10 +1404,10 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
                 "description": "Validated ASCII identifier."
               },
               "evidence": {
-                "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
               },
               "rationale": {
-                "$ref": "#/$defs/current_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                "$ref": "#/$defs/current_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
               },
               "revision": {
                 "allOf": [
@@ -1473,7 +1510,7 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
                       "type": "object"
                     },
                     "inputs": {
-                      "$ref": "#/$defs/inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3"
+                      "$ref": "#/$defs/inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73"
                     },
                     "manifest_id": {
                       "allOf": [
@@ -1485,7 +1522,7 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
                       "description": "Validated ASCII identifier."
                     },
                     "outputs": {
-                      "$ref": "#/$defs/inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3"
+                      "$ref": "#/$defs/inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73"
                     },
                     "published": {
                       "$ref": "#/$defs/attribution_7ecef7b9fb6b6224f3aca23590fabc25d266b53872ccd0ec1c7d3131611e7983"
@@ -1647,10 +1684,10 @@ For preconditions and a small example, run `workgraph help evidence.context`. Us
                 "description": "Validated ASCII identifier."
               },
               "current": {
-                "$ref": "#/$defs/current_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                "$ref": "#/$defs/current_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
               },
               "previous": {
-                "$ref": "#/$defs/current_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                "$ref": "#/$defs/current_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
               },
               "revision": {
                 "allOf": [

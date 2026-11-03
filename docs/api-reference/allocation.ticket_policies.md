@@ -97,6 +97,31 @@ For preconditions and a small example, run `workgraph help allocation.ticket_pol
               "items": {
                 "additionalProperties": false,
                 "properties": {
+                  "allowed_actor_ids": {
+                    "allOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated coordination identity."
+                            },
+                            "maxItems": 100,
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+                  },
                   "pools": {
                     "items": {
                       "allOf": [
@@ -152,7 +177,8 @@ For preconditions and a small example, run `workgraph help allocation.ticket_pol
                   "ticket_id",
                   "revision",
                   "required_capabilities",
-                  "pools"
+                  "pools",
+                  "allowed_actor_ids"
                 ],
                 "type": "object"
               },

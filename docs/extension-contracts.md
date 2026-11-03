@@ -1,5 +1,12 @@
 # Local coordination and history contracts
 
+The current candidate also exposes pure transaction.preflight and filtered
+attention.read/wait. Preview prepares without reserving or acknowledging a write.
+Attention uses captured durable routing plus a separately paged current readiness
+snapshot; it never reconstructs transient readiness history or acknowledges delivery.
+Amendments, hierarchy and project completion are validated in command preparation,
+final ordered transactions and durable replay; none controls external processes.
+
 Workgraph is a local workspace and memory store for an agent harness. The harness
 owns model calls, context selection, compaction policy, agent launching, external
 side effects, provider token accounting, and deciding which work to pursue. No
@@ -11,7 +18,7 @@ implementation or compatibility branch.
 
 | Operations | Owner and durable boundary | Retry and retrieval |
 | --- | --- | --- |
-| Planning, boards, threads, requests, teams, subscriptions, runs, attempts, reservations, evidence, review, templates, budgets | The serial dispatcher prepares an immutable transaction; the persistence worker syncs referenced blobs, the transaction, and HEAD before publishing state | Actor-scoped mutation IDs return the original receipt; changed content conflicts. Atomic batches either publish all effects or none |
+| Planning, boards, threads, requests, teams, subscriptions, runs, attempts, reservations, evidence, review, templates, budgets | The serial dispatcher prepares an immutable transaction; the persistence worker syncs referenced blobs, the transaction, and HEAD before publishing state | Actor-scoped mutation IDs return the original committed receipt; changed content conflicts. Standalone empty claim-next is a nondurable observation with no receipt and may reevaluate. Explicit atomic batches either publish all effects or none |
 | Session create/archive/append | The same persistence owner maintains a separate immutable journal and synced history HEAD | Stable mutation IDs recover lost acknowledgements. Per-session client event IDs deduplicate exact content and reject changed content. Appending a transcript does not consume a planning revision |
 | Historical reads and lexical search | A bounded history worker reads an immutable capture while the workspace root is pinned | Exact payload bytes and complete supplied searchable text remain separate. A private disk index can be rebuilt. Explicit heads and event references recover an earlier context |
 | Changes read/wait | Durable audit metadata only; a parked connection waits outside the transaction dispatcher | Cursors bind workspace, source, filters, a captured upper bound, and history lineage. Changed or unavailable history requires an explicit rescan. Bodies are retrieved separately |

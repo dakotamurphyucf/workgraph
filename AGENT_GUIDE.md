@@ -4,8 +4,9 @@ Give an agent this file, its connection values, and access to the accompanying
 `docs/agent/`, `docs/api-reference/` and `examples/` directories. This is the
 capability overview; load one focused reference before an unfamiliar operation.
 The [README](README.md) contains the complete team tutorial and script sources.
-This checkout describes the next preview under development. Use the executable
-and documentation from the same checkout/package; older preview data and request
+This checkout describes the unreleased 0.5.0 candidate: application API 0.5 and
+affected storage roots 4 (independent formats retain their own identifiers). Use
+the executable and documentation from the same checkout/package; older preview data and request
 journals are not a compatibility contract.
 
 ```xml
@@ -202,8 +203,14 @@ every raw delivery ID for selective acknowledgement. Readiness is a separately
 paged current snapshot, not a history of every transient readiness change; this
 family stays manually paged. Capture
 before readiness/read/park to avoid missed wakes. Retain last consumed cursor, not
-an undelivered high-water mark. wgx is a read-only bounded preview; its local ready
-estimate and first-page panels are not scheduling or complete-audit authority.
+an undelivered high-water mark. Read attention.md before using this family.
+wgx requires an explicit executable/PATH and context. Its collections use bounded
+typed pagination and stop nonzero with exact continuation on incomplete traversal.
+Status uses daemon ticket.ready: graph-ready without --run, authoritative current
+eligibility with --run. Ticket/ready panels share a planning capture; auxiliary
+workspace panels have independent captures. Watch advances only consumed cursors.
+Bounded decoded previews disclose retention, EOF and provenance; exact raw bytes
+remain explicit. These views do not prove complete indexing or process liveness.
 ]]></capability>
   <capability name="export_and_audit" reference="docs/agent/administration.md"><![CDATA[
 Export a consistent workspace/all-workspaces snapshot; follow the actual returned
@@ -252,6 +259,7 @@ revisions. Obtain JSON contracts with schema METHOD and list with methods --core
 ]]></wire_rules>
 
 <references>
+  <reference href="docs/agent/attention.md" use="Filtered attention, current readiness, consumed cursors and actor work/inbox overview."/>
   <reference href="docs/agent/resume-digest.md" use="Bounded recorded task resumes, exact source expansion and captured incremental activity digests."/>
   <reference href="docs/agent/harness-hooks.md" use="Optional external notification callbacks and Codex startup/compaction hooks; persistent delivery IDs, exact acknowledgements and explicit handoff requests."/>
   <reference href="docs/agent/metrics.md" use="Inspect committed outcomes, status durations, reported usage and actual admission allowances; distinguish them from client-call measurements."/>

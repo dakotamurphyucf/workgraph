@@ -110,11 +110,32 @@ For preconditions and a small example, run `workgraph help run.observe`. Use `--
     "data": {
       "allOf": [
         {
-          "additionalProperties": false,
-          "properties": {
-            "revision": {
-              "allOf": [
-                {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "actor_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated coordination identity."
+                },
+                "last_observed_unix_ms": {
+                  "anyOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "9223372036854775807"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "revision": {
                   "allOf": [
                     {
                       "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -123,15 +144,52 @@ For preconditions and a small example, run `workgraph help run.observe`. Use `--
                     }
                   ],
                   "description": "Positive decimal counter."
+                },
+                "run_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated coordination identity."
+                },
+                "session_ids": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Validated coordination identity."
+                  },
+                  "maxItems": 100,
+                  "type": "array"
+                },
+                "status": {
+                  "enum": [
+                    "running",
+                    "waiting",
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
                 }
+              },
+              "required": [
+                "run_id",
+                "revision",
+                "status",
+                "actor_id",
+                "last_observed_unix_ms",
+                "session_ids"
               ],
-              "description": "Affected entity revision; use as its next expected_revision."
+              "type": "object"
             }
-          },
-          "required": [
-            "revision"
           ],
-          "type": "object"
+          "description": "Validated cooperative coordination record."
         }
       ],
       "description": "Canonical data validated by the executable typed codec."

@@ -16,7 +16,7 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | `resource_id` | optional | string; max UTF-8 bytes=97; Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation. |
 | `run_id` | optional | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `text` | required | string; max UTF-8 bytes=65536 |
-| `title` | required | string; max UTF-8 bytes=512; Nonblank title. |
+| `title` | optional | string; max UTF-8 bytes=512; Nonblank title. |
 | `workspace_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 
 For preconditions and a small example, run `workgraph help resource.put_text`. Use `--full` for the complete contracts below.
@@ -115,13 +115,12 @@ For preconditions and a small example, run `workgraph help resource.put_text`. U
           },
           "required": [
             "expected_revision",
-            "title",
             "text"
           ],
           "type": "object"
         }
       ],
-      "description": "resource_id may be omitted only to create at expected_revision zero."
+      "description": "resource_id may be omitted only to create at expected_revision zero. Creation requires title; update omission preserves current title under the exact entity revision guard, independently of immutable content-version numbers."
     }
   ],
   "unevaluatedProperties": false

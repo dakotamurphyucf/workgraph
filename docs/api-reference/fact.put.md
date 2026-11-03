@@ -12,6 +12,7 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | `expected_revision` | required | string; pattern="^(0&#124;[1-9][0-9]*)(?![\\s\\S])"; maximum decimal="4611686018427387903" |
 | `key` | required | string; max UTF-8 bytes=128; Nonblank exact case-sensitive key without controls, 1..128 UTF-8 bytes |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `references` | optional | array; max items=32 |
 | `run_id` | optional | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `scope` | required | tagged alternatives; see complete schema |
 | `value` | required | JSON; max canonical bytes=4096; max depth=16 |
@@ -24,6 +25,49 @@ For preconditions and a small example, run `workgraph help fact.put`. Use `--ful
 <summary><![CDATA[Write one bounded scoped JSON fact with an optional revision guard.]]></summary>
 <request_schema dialect="https://json-schema.org/draft/2020-12/schema">
 <![CDATA[{
+  "$defs": {
+    "references_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 128
+                    }
+                  ],
+                  "description": "Validated typed identity"
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "ticket",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
   "allOf": [
     {
       "properties": {
@@ -86,6 +130,58 @@ For preconditions and a small example, run `workgraph help fact.put`. Use `--ful
             }
           ],
           "description": "Nonblank exact case-sensitive key without controls, 1..128 UTF-8 bytes"
+        },
+        "references": {
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/references_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "anyOf": [
+                      {
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 128
+                              }
+                            ],
+                            "description": "Validated typed identity"
+                          },
+                          {
+                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      {
+                        "maxLength": 97,
+                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    ],
+                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                  },
+                  "kind": {
+                    "const": "resource",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maxItems": 32,
+          "type": "array"
         },
         "scope": {
           "oneOf": [
@@ -185,45 +281,7 @@ For preconditions and a small example, run `workgraph help fact.put`. Use `--ful
               "type": "object"
             },
             {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "anyOf": [
-                    {
-                      "allOf": [
-                        {
-                          "allOf": [
-                            {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 128
-                            }
-                          ],
-                          "description": "Validated typed identity"
-                        },
-                        {
-                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                          "type": "string"
-                        }
-                      ]
-                    },
-                    {
-                      "maxLength": 97,
-                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                      "type": "string"
-                    }
-                  ],
-                  "description": "Literal entity ID or $alias resolved within transaction.apply."
-                },
-                "kind": {
-                  "const": "ticket",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "kind",
-                "id"
-              ],
-              "type": "object"
+              "$ref": "#/$defs/references_b1e763dd57eee963ef6f6db917b1be1f9b54316fd03aedcd48db30b1106c37a3"
             }
           ]
         },
@@ -295,6 +353,75 @@ For preconditions and a small example, run `workgraph help fact.put`. Use `--ful
                     }
                   ],
                   "description": "Nonblank exact case-sensitive key without controls, 1..128 UTF-8 bytes"
+                }
+              ],
+              "description": "Validated JSON projection"
+            },
+            "references": {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "items": {
+                        "allOf": [
+                          {
+                            "oneOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "id": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 128
+                                      }
+                                    ],
+                                    "description": "Validated typed identity"
+                                  },
+                                  "kind": {
+                                    "const": "ticket",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "id"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "id": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 128
+                                      }
+                                    ],
+                                    "description": "Validated typed identity"
+                                  },
+                                  "kind": {
+                                    "const": "resource",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "id"
+                                ],
+                                "type": "object"
+                              }
+                            ]
+                          }
+                        ],
+                        "description": "A ticket or resource navigation reference."
+                      },
+                      "maxItems": 32,
+                      "type": "array"
+                    }
+                  ],
+                  "description": "At most 32 distinct ticket/resource navigation references."
                 }
               ],
               "description": "Validated JSON projection"
@@ -461,7 +588,8 @@ For preconditions and a small example, run `workgraph help fact.put`. Use `--ful
             "deleted",
             "actor_id",
             "timestamp",
-            "changed_at_revision"
+            "changed_at_revision",
+            "references"
           ],
           "type": "object"
         }

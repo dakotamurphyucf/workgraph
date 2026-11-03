@@ -103,5 +103,14 @@ this distinction rather than promising a current getter returns old content.
 <result><![CDATA[result.meta.workspace_revision; result.data {capture,entries,outstanding_requests,counts,cursor,has_more,markdown?}. capture {after,after_change_index nullable,through,lineage}. Each entry has workspace_revision,change_index,category,item with exact source refs. Complete records fit atomically; no first row fits returns Invalid_argument increasebudget.]]></result>
 </method>
 </methods>
+<workflow name="policy-and-amendment-audit"><![CDATA[
+Resume and digest retain typed hierarchy policy and instruction amendment records with
+exact event/source attribution. Amendment publication, acknowledgement and withdrawal
+records remain whole validated nested structures; no clipped object is disguised as a full
+change. If an exact required row cannot fit, increase max_bytes rather than fabricating a
+partial record. A digest is committed activity, not historical run eligibility.
+ticket.brief gives a smaller current overview; it does not replace selected facts, exact
+resource expansion or complete resume gates.
+]]></workflow>
 </workgraph_reference>
 ```

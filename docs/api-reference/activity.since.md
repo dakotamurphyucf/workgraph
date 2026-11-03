@@ -271,6 +271,55 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
+    "acknowledgement_1b1c611e0c52720845770480a1675e80b636a4c31cab50042de8ab3f218f5289": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment": {
+          "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+        },
+        "observed_unix_ms": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ownership": {
+          "$ref": "#/$defs/ownership_7e2b3111b0012e9b37c39ad68425c56c0d9468d2fff4c54fa2cdd80bd08b59b1"
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        },
+        "timestamp": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonblank UTF8 text."
+        }
+      },
+      "required": [
+        "amendment",
+        "ticket_id",
+        "ownership",
+        "timestamp",
+        "observed_unix_ms"
+      ],
+      "type": "object"
+    },
     "affected_ac2444a2102f36579a3305561ee3144995a6d2dafa46560d01459c141ba4dfb0": {
       "oneOf": [
         {
@@ -406,6 +455,74 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
+    "amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Validated cooperative coordination record."
+        }
+      },
+      "required": [
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "answer_53ed60bc3ed51143f9d2b50935cbf5ea7b17b36e87f398abaa95142cdeed518e": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/answer_f2b34055793beccd1d4b46f5d43f9391f146766d290f7f682f780e7533e4df54"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "answer_f2b34055793beccd1d4b46f5d43f9391f146766d290f7f682f780e7533e4df54": {
+      "additionalProperties": false,
+      "properties": {
+        "comment_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive entity revision or activity serial."
+        }
+      },
+      "required": [
+        "comment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
     "applied_override_4fb3138e05f1de4eeea3316e946eb069f899573d7aa3fa50994b9ab9bc35cb88": {
       "anyOf": [
         {
@@ -477,6 +594,74 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "reason"
       ],
       "type": "object"
+    },
+    "artifact_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/artifact_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
+        },
+        {
+          "$ref": "#/$defs/artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "commit",
+              "type": "string"
+            },
+            "object_id": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "repository": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "repository",
+            "object_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "kind": {
+              "const": "checksum",
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "x-maxUtf8Bytes": 1024
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "digest"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/artifact_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
+        },
+        {
+          "$ref": "#/$defs/artifact_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d"
+        },
+        {
+          "$ref": "#/$defs/artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
+        },
+        {
+          "$ref": "#/$defs/artifact_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+        }
+      ]
     },
     "artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3": {
       "additionalProperties": false,
@@ -580,70 +765,47 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "artifact_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/artifact_c9d81e6ed737bea66681128f75178ff3a96a3ad5ec9319ea612b9c176a844c58"
-        },
-        {
-          "$ref": "#/$defs/artifact_2c82864f96c5e2d824fa6b7ed3218a38c1cc1780703a872d8a70a39ec9f593a3"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "commit",
-              "type": "string"
-            },
-            "object_id": {
+    "artifact_5da1eff5bc84634ea8b2223aeeacafa62fb5d06befa47a6c9f624ff379059a7d": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "allOf": [
+            {
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "repository": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maxUtf8Bytes": 96
             }
-          },
-          "required": [
-            "kind",
-            "repository",
-            "object_id"
           ],
-          "type": "object"
+          "description": "Validated ASCII identifier."
         },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "digest": {
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
-              "x-maxUtf8Bytes": 64
-            },
-            "kind": {
-              "const": "checksum",
-              "type": "string"
-            },
-            "source": {
-              "type": "string",
-              "x-maxUtf8Bytes": 1024
+              "x-maximumDecimal": "4611686018427387903"
             }
-          },
-          "required": [
-            "kind",
-            "source",
-            "digest"
           ],
-          "type": "object"
-        },
-        {
-          "$ref": "#/$defs/artifact_5267007db0f8c7daa6e3bf92117894dd9ccc3615990094772f184390f184e559"
-        },
-        {
-          "$ref": "#/$defs/artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115"
-        },
-        {
-          "$ref": "#/$defs/artifact_4bdd92183296fa261cae0343fa16772e715e30f85affe42c00207102d84fd508"
+          "description": "Positive exact version."
         }
-      ]
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifact_0aec0c0ad7cf8cb6ae809ced07e01ab31275c6ddedfbe00f257f0827d78cdda9"
+        }
+      ],
+      "description": "Immutable exact historical provenance pin."
     },
     "artifact_b4444c5a675b3a72bdbbe98a7b264235b4eb89efc01a7b9ceb60dcd97e0f5115": {
       "additionalProperties": false,
@@ -718,15 +880,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/artifact_8851a847689607ef84803a7e5d64312802a3b0a6e6e0a3385335403fc152e00d"
-        }
-      ],
-      "description": "Immutable exact historical provenance pin."
-    },
-    "artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747": {
+    "artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261": {
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -739,7 +893,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "description": "Validated ASCII identifier."
         },
         "pin": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         }
       },
       "required": [
@@ -915,6 +1069,65 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
+    "borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba": {
+      "items": {
+        "$ref": "#/$defs/borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "borrowers_f10e2b2d2cd522d1f82e1e8dffa637e0a57a72a8a9f73ab6b96610e415b75439": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "run_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Exact claim identity."
+        },
+        "token": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        }
+      },
+      "required": [
+        "ticket_id",
+        "token",
+        "run_id",
+        "actor_id"
+      ],
+      "type": "object"
+    },
+    "borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/borrowers_f10e2b2d2cd522d1f82e1e8dffa637e0a57a72a8a9f73ab6b96610e415b75439"
+        }
+      ],
+      "description": "Positive exact claim borrower fence."
+    },
     "budget_0e43612803ff12781211bd727ebf847cf78b0e64c159c4140788b31700570ef9": {
       "additionalProperties": false,
       "properties": {
@@ -1014,11 +1227,11 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "description": "Allocation bounds and externally reported attention limits; null means unlimited."
     },
-    "change_f2c1ba384d02b4b228776e26c46ee70f2e71997aeb976138205c9078e43d4c30": {
+    "change_427d58bfe0f21ff9edd0473f5a428edafaaee5f09f6d1749e1446907077178d0": {
       "additionalProperties": false,
       "properties": {
         "command": {
-          "$ref": "#/$defs/command_55bf7408c438701850420a310b1f4d365d59d644007955aa07f7adabc3d69b5e"
+          "$ref": "#/$defs/command_9b84e267c4c0858090076048f9091ba4a23fd03602f0c7acffd216cc23052e10"
         },
         "revision": {
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -1146,22 +1359,6 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "command_55bf7408c438701850420a310b1f4d365d59d644007955aa07f7adabc3d69b5e": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/command_17da25acb89ce70e9b7b9de453f380315c313f9353f83d316cdac52ac4f5a0f1"
-        },
-        {
-          "$ref": "#/$defs/command_c74dee04e39d4a182ada63652d2bfeeea215c11355da362e97087b41bca1dd8a"
-        },
-        {
-          "$ref": "#/$defs/command_5c4f5bdfd3b67c9081d36674ca3896407f9cd8cdaf14ca896cddfa7598b033b1"
-        },
-        {
-          "$ref": "#/$defs/command_9364c42d3d17f289523e77f901554817de2d2dd88caeeaf03acd45c8d453b454"
-        }
-      ]
-    },
     "command_5c4f5bdfd3b67c9081d36674ca3896407f9cd8cdaf14ca896cddfa7598b033b1": {
       "additionalProperties": false,
       "properties": {
@@ -1179,7 +1376,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "command_9364c42d3d17f289523e77f901554817de2d2dd88caeeaf03acd45c8d453b454": {
+    "command_6d331a6f988d15157d130a5399e2cfb00e511a3da14cf0aa9846f7d6233f0acb": {
       "additionalProperties": false,
       "properties": {
         "kind": {
@@ -1187,7 +1384,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "type": "string"
         },
         "usage": {
-          "$ref": "#/$defs/usage_d0fa66dbdc803b2b9192d14418f27d77fd0189043071a4cccce5e860ba35e120"
+          "$ref": "#/$defs/usage_159ec5c3b59871e109f82303bd73b47543b558e9375c60f9f4629114e15de88a"
         }
       },
       "required": [
@@ -1195,6 +1392,22 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "usage"
       ],
       "type": "object"
+    },
+    "command_9b84e267c4c0858090076048f9091ba4a23fd03602f0c7acffd216cc23052e10": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/command_17da25acb89ce70e9b7b9de453f380315c313f9353f83d316cdac52ac4f5a0f1"
+        },
+        {
+          "$ref": "#/$defs/command_c74dee04e39d4a182ada63652d2bfeeea215c11355da362e97087b41bca1dd8a"
+        },
+        {
+          "$ref": "#/$defs/command_5c4f5bdfd3b67c9081d36674ca3896407f9cd8cdaf14ca896cddfa7598b033b1"
+        },
+        {
+          "$ref": "#/$defs/command_6d331a6f988d15157d130a5399e2cfb00e511a3da14cf0aa9846f7d6233f0acb"
+        }
+      ]
     },
     "command_c74dee04e39d4a182ada63652d2bfeeea215c11355da362e97087b41bca1dd8a": {
       "additionalProperties": false,
@@ -1365,29 +1578,22 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         }
       ]
     },
-    "evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24": {
+    "evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129": {
       "items": {
-        "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+        "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
       },
       "maxItems": 100,
       "type": "array"
     },
-    "evidence_d7a74ee238686250a397b58c53909ae1c39f3b09c08db2eac3f7d58295dc731d": {
+    "evidence_c6dc8715d568c8c58108775372e8b9e16a5fd49d38d12edc004a42e1b9267604": {
       "allOf": [
         {
-          "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+          "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
         }
       ],
       "description": "Validated cooperative coordination record."
     },
-    "holders_bd309a945637937c1c9cd7300ceb185ddc108521658daecf42c331e07e142930": {
-      "items": {
-        "$ref": "#/$defs/holders_dab83ef0398799ac35926e532bbe91b44314e088f34a9ee11eabafd117958db7"
-      },
-      "maxItems": 100,
-      "type": "array"
-    },
-    "holders_dab83ef0398799ac35926e532bbe91b44314e088f34a9ee11eabafd117958db7": {
+    "holders_5b035561f9ab837dba8d10e985dfdc398e121b3405fb55e33db0da3f0cb42488": {
       "additionalProperties": false,
       "properties": {
         "actor_id": {
@@ -1413,6 +1619,9 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
             "shared"
           ],
           "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin_5b7a798beaa308cf13710c2917bb2a76699d2333575468e7121e475edd042fca"
         },
         "run_id": {
           "allOf": [
@@ -1444,13 +1653,29 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "actor_id",
         "token",
         "mode",
-        "lease"
+        "lease",
+        "origin"
       ],
       "type": "object"
     },
-    "inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3": {
+    "holders_62df5a1fe2b582a7b116dde3568bc24d2de7fa1f4a81a3f42104a28c0bf4a04f": {
       "items": {
-        "$ref": "#/$defs/artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747"
+        "$ref": "#/$defs/holders_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "holders_c38f60566fd7722c73a4c687580820e0f419a5cd0e80e88b6e7bc0a7884dd1de": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/holders_5b035561f9ab837dba8d10e985dfdc398e121b3405fb55e33db0da3f0cb42488"
+        }
+      ],
+      "description": "Validated holder fence, lease and origin."
+    },
+    "inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73": {
+      "items": {
+        "$ref": "#/$defs/artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261"
       },
       "maxItems": 100,
       "type": "array"
@@ -1998,6 +2223,42 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "required": [],
       "type": "object"
     },
+    "metrics_a2b58976ddd5992ff4dd5c2138db4fc098d5aa7b4c4fe31da353cd7b50742b2e": {
+      "items": {
+        "$ref": "#/$defs/metrics_f7c5af936b14833a7c742a44ccd3563f65a4c87b564d2587d0d6895f94d2816a"
+      },
+      "maxItems": 16,
+      "type": "array"
+    },
+    "metrics_f7c5af936b14833a7c742a44ccd3563f65a4c87b564d2587d0d6895f94d2816a": {
+      "allOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            },
+            "unit": {
+              "type": "string",
+              "x-maxUtf8Bytes": 32
+            },
+            "value": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            }
+          },
+          "required": [
+            "name",
+            "unit",
+            "value"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Additive caller-reported integer sample; unique bounded ASCII name and explicit unit, no conversion."
+    },
     "nodes_48d6b4ac85109086fd027fa994689b9a544c569fceb253283507778a20b0b93e": {
       "additionalProperties": false,
       "properties": {
@@ -2101,7 +2362,52 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "maxItems": 31,
       "type": "array"
     },
-    "original_6ef312ae8ef80161013a61d55d8f085f9753dc6feb07b6039752942674039f6e": {
+    "origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "manual",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/origin_1a68865753d699213ae4eaa4e34afe2bfadb93422b329d798e83e2d5718a0646"
+        }
+      ]
+    },
+    "origin_1a68865753d699213ae4eaa4e34afe2bfadb93422b329d798e83e2d5718a0646": {
+      "additionalProperties": false,
+      "properties": {
+        "borrowers": {
+          "$ref": "#/$defs/borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba"
+        },
+        "kind": {
+          "const": "automatic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "borrowers"
+      ],
+      "type": "object"
+    },
+    "origin_5b7a798beaa308cf13710c2917bb2a76699d2333575468e7121e475edd042fca": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc"
+        }
+      ],
+      "description": "Manual ownership or sorted nonempty exact claim borrowers (maximum 100)."
+    },
+    "original_9dc113febfe150aaa0821f05033a1601f673f311c363615e79af62272aeaed47": {
       "additionalProperties": false,
       "properties": {
         "actor_id": {
@@ -2114,7 +2420,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "description": "Validated coordination identity."
         },
         "artifact": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         },
         "condition_id": {
           "allOf": [
@@ -2136,7 +2442,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "description": "Positive decimal counter."
         },
         "evidence": {
-          "$ref": "#/$defs/evidence_d7a74ee238686250a397b58c53909ae1c39f3b09c08db2eac3f7d58295dc731d"
+          "$ref": "#/$defs/evidence_c6dc8715d568c8c58108775372e8b9e16a5fd49d38d12edc004a42e1b9267604"
         },
         "operation_id": {
           "allOf": [
@@ -2215,6 +2521,94 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "sequence"
       ],
       "type": "object"
+    },
+    "ownership_7e2b3111b0012e9b37c39ad68425c56c0d9468d2fff4c54fa2cdd80bd08b59b1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated coordination identity."
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated coordination identity."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "token": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Validated cooperative coordination record."
+        }
+      },
+      "required": [
+        "actor_id",
+        "run_id",
+        "token"
+      ],
+      "type": "object"
+    },
+    "pin_30a2dcd97f01bd0be9ac8786bc572ad6d8410c0980b7b4fe274734ce4f0abc72": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "resource_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Validated ASCII identifier."
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive exact version."
+        }
+      },
+      "required": [
+        "resource_id",
+        "revision",
+        "digest"
+      ],
+      "type": "object"
+    },
+    "pin_435860a4a6b834fdfa532bfbde34eec4dbaa3dc6e43e2be915ddd287aff51d1e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/pin_30a2dcd97f01bd0be9ac8786bc572ad6d8410c0980b7b4fe274734ce4f0abc72"
+        }
+      ],
+      "description": "Exact resource revision and SHA-256 digest."
     },
     "policy_binding_5db28eaba3be26dbd7ab9ec085f06fe2e9bd6b56b34c93b6f056c07d584f8912": {
       "allOf": [
@@ -2350,7 +2744,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "maxItems": 2048,
       "type": "array"
     },
-    "reconciliation_c77c4c034b510248f10ae86ecee943a53e2e784b622a0c243770f0dba40c4fbc": {
+    "reconciliation_e64f370444ba2c29a710be7f812de076434dadc1f2ac30763785e9779236b581": {
       "additionalProperties": false,
       "properties": {
         "attempt_id": {
@@ -2363,10 +2757,10 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "description": "Validated ASCII identifier."
         },
         "current": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         },
         "previous": {
-          "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+          "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
         },
         "revision": {
           "allOf": [
@@ -2412,15 +2806,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "reservation_2a0ce77f3fb09fa7f43a764aa5133af5bf0e176fb91013be221025b5a95ffed8": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/reservation_8d8cf9d836ec99b20e25e49a09b6d5b3e5d075c659684a42ab1961bf05c5c573"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "reservation_8d8cf9d836ec99b20e25e49a09b6d5b3e5d075c659684a42ab1961bf05c5c573": {
+    "reservation_03562362f422a25e0ab8eced5f6ad609a44b277ccee7bba3cc9510e448441673": {
       "additionalProperties": false,
       "properties": {
         "epoch": {
@@ -2429,7 +2815,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "x-maximumDecimal": "4611686018427387903"
         },
         "holders": {
-          "$ref": "#/$defs/holders_bd309a945637937c1c9cd7300ceb185ddc108521658daecf42c331e07e142930"
+          "$ref": "#/$defs/holders_62df5a1fe2b582a7b116dde3568bc24d2de7fa1f4a81a3f42104a28c0bf4a04f"
         },
         "target": {
           "$ref": "#/$defs/target_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
@@ -2442,7 +2828,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "reservation_8f240e53750797371b6d33263d9c6fba3c7a4b9ac00b51efae74f26594e6efbe": {
+    "reservation_1e79dee62b3b779f6fa4ca6431fc60781fb2930826729d8c43b2d544ac315291": {
       "additionalProperties": false,
       "properties": {
         "epoch": {
@@ -2451,7 +2837,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "x-maximumDecimal": "4611686018427387903"
         },
         "holders": {
-          "$ref": "#/$defs/holders_bd309a945637937c1c9cd7300ceb185ddc108521658daecf42c331e07e142930"
+          "$ref": "#/$defs/holders_62df5a1fe2b582a7b116dde3568bc24d2de7fa1f4a81a3f42104a28c0bf4a04f"
         },
         "reservation_id": {
           "allOf": [
@@ -2475,10 +2861,18 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "reservation_a587a38ed6585a83852d578bf4d777c4454344822d5a3cfb1ede956648bdefda": {
+    "reservation_ab2296699ddd3b9f2135ac49d8de07c6b45043db5ded47d9f0c356432bbcd321": {
       "allOf": [
         {
-          "$ref": "#/$defs/reservation_8f240e53750797371b6d33263d9c6fba3c7a4b9ac00b51efae74f26594e6efbe"
+          "$ref": "#/$defs/reservation_03562362f422a25e0ab8eced5f6ad609a44b277ccee7bba3cc9510e448441673"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "reservation_cdd1c772481df3286fc5c668f1a59cbadb1d21a302a7d1d08725059507fef396": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reservation_1e79dee62b3b779f6fa4ca6431fc60781fb2930826729d8c43b2d544ac315291"
         }
       ],
       "description": "Validated reservation holders and ownership fences."
@@ -3133,6 +3527,13 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "maxItems": 100,
       "type": "array"
     },
+    "targets_e9a15f15b38f2b28db60fd93358035276aef6b2a7ca514795194a5950a46acb4": {
+      "items": {
+        "$ref": "#/$defs/target_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+      },
+      "maxItems": 200,
+      "type": "array"
+    },
     "template_2dd5fafbe7078928d00b6d4f2042bd3fa57f1b9086c85de80844ddd87d485c74": {
       "additionalProperties": false,
       "properties": {
@@ -3297,15 +3698,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "usage_d0fa66dbdc803b2b9192d14418f27d77fd0189043071a4cccce5e860ba35e120": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/usage_d653d46c72e3fd3092025efec10d5a011a68955e7f259ef5f25a8358f9a4370f"
-        }
-      ],
-      "description": "Immutable externally reported record; exact IDs deduplicate and content changes conflict."
-    },
-    "usage_d653d46c72e3fd3092025efec10d5a011a68955e7f259ef5f25a8358f9a4370f": {
+    "usage_14a40077437b9545239817b44f6de0491625239985ba520a8e444f975a27b66d": {
       "additionalProperties": false,
       "properties": {
         "actor_id": {
@@ -3321,6 +3714,9 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
           "type": "string",
           "x-maximumDecimal": "9223372036854775807"
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics_a2b58976ddd5992ff4dd5c2138db4fc098d5aa7b4c4fe31da353cd7b50742b2e"
         },
         "provenance": {
           "allOf": [
@@ -3364,10 +3760,19 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "actor_id",
         "tokens",
         "elapsed_ms",
+        "metrics",
         "provenance",
         "timestamp"
       ],
       "type": "object"
+    },
+    "usage_159ec5c3b59871e109f82303bd73b47543b558e9375c60f9f4629114e15de88a": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/usage_14a40077437b9545239817b44f6de0491625239985ba520a8e444f975a27b66d"
+        }
+      ],
+      "description": "Immutable externally reported record; exact IDs deduplicate and content changes conflict."
     },
     "version_3300d54401c0d6918a627b199f2ef4e9bc690f24ca5c835e91539cfac72d3f2b": {
       "allOf": [
@@ -3502,6 +3907,70 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                           ],
                                           "description": "Nonblank exact case-sensitive key without controls, 1..128 UTF-8 bytes"
                                         },
+                                        "references": {
+                                          "allOf": [
+                                            {
+                                              "items": {
+                                                "allOf": [
+                                                  {
+                                                    "oneOf": [
+                                                      {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "id": {
+                                                            "allOf": [
+                                                              {
+                                                                "type": "string",
+                                                                "x-maxUtf8Bytes": 128
+                                                              }
+                                                            ],
+                                                            "description": "Validated typed identity"
+                                                          },
+                                                          "kind": {
+                                                            "const": "ticket",
+                                                            "type": "string"
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "kind",
+                                                          "id"
+                                                        ],
+                                                        "type": "object"
+                                                      },
+                                                      {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "id": {
+                                                            "allOf": [
+                                                              {
+                                                                "type": "string",
+                                                                "x-maxUtf8Bytes": 128
+                                                              }
+                                                            ],
+                                                            "description": "Validated typed identity"
+                                                          },
+                                                          "kind": {
+                                                            "const": "resource",
+                                                            "type": "string"
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "kind",
+                                                          "id"
+                                                        ],
+                                                        "type": "object"
+                                                      }
+                                                    ]
+                                                  }
+                                                ],
+                                                "description": "A ticket or resource navigation reference."
+                                              },
+                                              "maxItems": 32,
+                                              "type": "array"
+                                            }
+                                          ],
+                                          "description": "At most 32 distinct ticket/resource navigation references."
+                                        },
                                         "revision": {
                                           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                           "type": "string",
@@ -3628,7 +4097,8 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                         "deleted",
                                         "actor_id",
                                         "timestamp",
-                                        "changed_at_revision"
+                                        "changed_at_revision",
+                                        "references"
                                       ],
                                       "type": "object"
                                     }
@@ -3664,6 +4134,9 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                               "attribution": {
                                                 "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
                                               },
+                                              "causal_body": {
+                                                "$ref": "#/$defs/answer_53ed60bc3ed51143f9d2b50935cbf5ea7b17b36e87f398abaa95142cdeed518e"
+                                              },
                                               "kind": {
                                                 "enum": [
                                                   "thread_changed",
@@ -3673,7 +4146,8 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                   "request_accepted",
                                                   "request_reassigned",
                                                   "request_resolved",
-                                                  "request_cancelled"
+                                                  "request_cancelled",
+                                                  "request_updated"
                                                 ],
                                                 "type": "string"
                                               },
@@ -3795,7 +4269,8 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                               "source_revision",
                                               "kind",
                                               "attribution",
-                                              "recipients"
+                                              "recipients",
+                                              "causal_body"
                                             ],
                                             "type": "object"
                                           },
@@ -4054,6 +4529,13 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                               ],
                                                               "description": "Resolved local identity; aliases are not accepted."
                                                             },
+                                                            "closure_policy": {
+                                                              "enum": [
+                                                                "manual",
+                                                                "when_all_requests_terminal"
+                                                              ],
+                                                              "type": "string"
+                                                            },
                                                             "comment_ids": {
                                                               "items": {
                                                                 "allOf": [
@@ -4162,6 +4644,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                             "mentions",
                                                             "links",
                                                             "state",
+                                                            "closure_policy",
                                                             "pinned",
                                                             "comment_ids",
                                                             "pinned_comment_ids"
@@ -4263,7 +4746,8 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                     "request_accepted",
                                                     "request_reassigned",
                                                     "request_resolved",
-                                                    "request_cancelled"
+                                                    "request_cancelled",
+                                                    "request_updated"
                                                   ],
                                                   "type": "string"
                                                 },
@@ -4282,6 +4766,16 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                                 }
                                                               ],
                                                               "description": "Resolved local identity; aliases are not accepted."
+                                                            },
+                                                            "comment_revision": {
+                                                              "allOf": [
+                                                                {
+                                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                                  "type": "string",
+                                                                  "x-maximumDecimal": "4611686018427387903"
+                                                                }
+                                                              ],
+                                                              "description": "Positive entity revision or activity serial."
                                                             },
                                                             "correlation_id": {
                                                               "anyOf": [
@@ -4360,6 +4854,29 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                                 "handoff"
                                                               ],
                                                               "type": "string"
+                                                            },
+                                                            "priority": {
+                                                              "allOf": [
+                                                                {
+                                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                                  "type": "string",
+                                                                  "x-maximumDecimal": "4"
+                                                                }
+                                                              ],
+                                                              "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+                                                            },
+                                                            "related_request_ids": {
+                                                              "items": {
+                                                                "allOf": [
+                                                                  {
+                                                                    "type": "string",
+                                                                    "x-maxUtf8Bytes": 96
+                                                                  }
+                                                                ],
+                                                                "description": "Resolved local identity; aliases are not accepted."
+                                                              },
+                                                              "maxItems": 32,
+                                                              "type": "array"
                                                             },
                                                             "reply_to_request_id": {
                                                               "anyOf": [
@@ -4468,6 +4985,9 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                                     {
                                                                       "additionalProperties": false,
                                                                       "properties": {
+                                                                        "answer": {
+                                                                          "$ref": "#/$defs/answer_53ed60bc3ed51143f9d2b50935cbf5ea7b17b36e87f398abaa95142cdeed518e"
+                                                                        },
                                                                         "attribution": {
                                                                           "$ref": "#/$defs/acknowledged_4303e14275093acfe385279b04730ecd2ebc99a72bf6b1bc611d58f210af7298"
                                                                         },
@@ -4478,7 +4998,8 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                                       },
                                                                       "required": [
                                                                         "kind",
-                                                                        "attribution"
+                                                                        "attribution",
+                                                                        "answer"
                                                                       ],
                                                                       "type": "object"
                                                                     }
@@ -4509,6 +5030,19 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                                 }
                                                               ]
                                                             },
+                                                            "supersedes_request_ids": {
+                                                              "items": {
+                                                                "allOf": [
+                                                                  {
+                                                                    "type": "string",
+                                                                    "x-maxUtf8Bytes": 96
+                                                                  }
+                                                                ],
+                                                                "description": "Resolved local identity; aliases are not accepted."
+                                                              },
+                                                              "maxItems": 32,
+                                                              "type": "array"
+                                                            },
                                                             "thread_id": {
                                                               "allOf": [
                                                                 {
@@ -4525,9 +5059,13 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                             "thread_id",
                                                             "kind",
                                                             "comment_id",
+                                                            "comment_revision",
                                                             "correlation_id",
                                                             "reply_to_request_id",
                                                             "deadline_unix_ms",
+                                                            "priority",
+                                                            "related_request_ids",
+                                                            "supersedes_request_ids",
                                                             "resolver_id",
                                                             "created",
                                                             "deliveries",
@@ -4582,11 +5120,12 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                                           "request_accepted",
                                                                           "request_reassigned",
                                                                           "request_resolved",
-                                                                          "request_cancelled"
+                                                                          "request_cancelled",
+                                                                          "request_updated"
                                                                         ],
                                                                         "type": "string"
                                                                       },
-                                                                      "maxItems": 8,
+                                                                      "maxItems": 9,
                                                                       "type": "array"
                                                                     },
                                                                     "scope": {
@@ -4878,6 +5417,31 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                 "policy": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "allowed_actor_ids": {
+                                                      "allOf": [
+                                                        {
+                                                          "anyOf": [
+                                                            {
+                                                              "items": {
+                                                                "allOf": [
+                                                                  {
+                                                                    "type": "string",
+                                                                    "x-maxUtf8Bytes": 96
+                                                                  }
+                                                                ],
+                                                                "description": "Validated coordination identity."
+                                                              },
+                                                              "maxItems": 100,
+                                                              "type": "array"
+                                                            },
+                                                            {
+                                                              "type": "null"
+                                                            }
+                                                          ]
+                                                        }
+                                                      ],
+                                                      "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+                                                    },
                                                     "pools": {
                                                       "items": {
                                                         "allOf": [
@@ -4933,7 +5497,8 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                     "ticket_id",
                                                     "revision",
                                                     "required_capabilities",
-                                                    "pools"
+                                                    "pools",
+                                                    "allowed_actor_ids"
                                                   ],
                                                   "type": "object"
                                                 }
@@ -5182,7 +5747,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                   "type": "string"
                                                 },
                                                 "reservation": {
-                                                  "$ref": "#/$defs/reservation_a587a38ed6585a83852d578bf4d777c4454344822d5a3cfb1ede956648bdefda"
+                                                  "$ref": "#/$defs/reservation_cdd1c772481df3286fc5c668f1a59cbadb1d21a302a7d1d08725059507fef396"
                                                 }
                                               },
                                               "required": [
@@ -5199,12 +5764,71 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                   "type": "string"
                                                 },
                                                 "reservation": {
-                                                  "$ref": "#/$defs/reservation_2a0ce77f3fb09fa7f43a764aa5133af5bf0e176fb91013be221025b5a95ffed8"
+                                                  "$ref": "#/$defs/reservation_ab2296699ddd3b9f2135ac49d8de07c6b45043db5ded47d9f0c356432bbcd321"
                                                 }
                                               },
                                               "required": [
                                                 "kind",
                                                 "reservation"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "claim": {
+                                                  "$ref": "#/$defs/borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291"
+                                                },
+                                                "kind": {
+                                                  "const": "claim_paths_reserved",
+                                                  "type": "string"
+                                                },
+                                                "now_unix_ms": {
+                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                  "type": "string",
+                                                  "x-maximumDecimal": "9223372036854775807"
+                                                },
+                                                "previous_claim": {
+                                                  "anyOf": [
+                                                    {
+                                                      "$ref": "#/$defs/borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291"
+                                                    },
+                                                    {
+                                                      "type": "null"
+                                                    }
+                                                  ]
+                                                },
+                                                "targets": {
+                                                  "$ref": "#/$defs/targets_e9a15f15b38f2b28db60fd93358035276aef6b2a7ca514795194a5950a46acb4"
+                                                }
+                                              },
+                                              "required": [
+                                                "kind",
+                                                "claim",
+                                                "previous_claim",
+                                                "now_unix_ms",
+                                                "targets"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "claim": {
+                                                  "$ref": "#/$defs/borrowers_fd1c9ab16b39c1adfae92b018461fcd2acb68fd83532b0b5044d558f2a900291"
+                                                },
+                                                "kind": {
+                                                  "const": "claim_paths_released",
+                                                  "type": "string"
+                                                },
+                                                "targets": {
+                                                  "$ref": "#/$defs/targets_e9a15f15b38f2b28db60fd93358035276aef6b2a7ca514795194a5950a46acb4"
+                                                }
+                                              },
+                                              "required": [
+                                                "kind",
+                                                "claim",
+                                                "targets"
                                               ],
                                               "type": "object"
                                             },
@@ -5292,7 +5916,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                           "additionalProperties": false,
                                                           "properties": {
                                                             "artifact": {
-                                                              "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                                                              "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                                                             },
                                                             "condition_id": {
                                                               "allOf": [
@@ -5420,7 +6044,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                           "type": "string"
                                                         },
                                                         "signal": {
-                                                          "$ref": "#/$defs/original_6ef312ae8ef80161013a61d55d8f085f9753dc6feb07b6039752942674039f6e"
+                                                          "$ref": "#/$defs/original_9dc113febfe150aaa0821f05033a1601f673f311c363615e79af62272aeaed47"
                                                         }
                                                       },
                                                       "required": [
@@ -5455,7 +6079,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                           "type": "string"
                                                         },
                                                         "reservation": {
-                                                          "$ref": "#/$defs/reservation_a587a38ed6585a83852d578bf4d777c4454344822d5a3cfb1ede956648bdefda"
+                                                          "$ref": "#/$defs/reservation_cdd1c772481df3286fc5c668f1a59cbadb1d21a302a7d1d08725059507fef396"
                                                         }
                                                       },
                                                       "required": [
@@ -5472,7 +6096,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                           "type": "string"
                                                         },
                                                         "reservation": {
-                                                          "$ref": "#/$defs/reservation_2a0ce77f3fb09fa7f43a764aa5133af5bf0e176fb91013be221025b5a95ffed8"
+                                                          "$ref": "#/$defs/reservation_ab2296699ddd3b9f2135ac49d8de07c6b45043db5ded47d9f0c356432bbcd321"
                                                         }
                                                       },
                                                       "required": [
@@ -5488,162 +6112,11 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                   "type": "string"
                                                 },
                                                 "recovery": {
-                                                  "additionalProperties": false,
-                                                  "properties": {
-                                                    "actor_id": {
-                                                      "allOf": [
-                                                        {
-                                                          "type": "string",
-                                                          "x-maxUtf8Bytes": 96
-                                                        }
-                                                      ],
-                                                      "description": "Validated coordination identity."
-                                                    },
-                                                    "request": {
-                                                      "allOf": [
-                                                        {
-                                                          "additionalProperties": false,
-                                                          "properties": {
-                                                            "confirmation": {
-                                                              "enum": [
-                                                                "stopped",
-                                                                "isolated"
-                                                              ],
-                                                              "type": "string"
-                                                            },
-                                                            "evidence": {
-                                                              "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
-                                                            },
-                                                            "expected_epoch": {
-                                                              "allOf": [
-                                                                {
-                                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                                  "type": "string",
-                                                                  "x-maximumDecimal": "4611686018427387903"
-                                                                }
-                                                              ],
-                                                              "description": "Positive decimal counter."
-                                                            },
-                                                            "expected_lease_revision": {
-                                                              "allOf": [
-                                                                {
-                                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                                  "type": "string",
-                                                                  "x-maximumDecimal": "4611686018427387903"
-                                                                }
-                                                              ],
-                                                              "description": "Positive decimal counter."
-                                                            },
-                                                            "old_actor_id": {
-                                                              "allOf": [
-                                                                {
-                                                                  "type": "string",
-                                                                  "x-maxUtf8Bytes": 96
-                                                                }
-                                                              ],
-                                                              "description": "Validated coordination identity."
-                                                            },
-                                                            "old_run_id": {
-                                                              "allOf": [
-                                                                {
-                                                                  "type": "string",
-                                                                  "x-maxUtf8Bytes": 96
-                                                                }
-                                                              ],
-                                                              "description": "Validated coordination identity."
-                                                            },
-                                                            "reason": {
-                                                              "allOf": [
-                                                                {
-                                                                  "type": "string",
-                                                                  "x-maxUtf8Bytes": 65536
-                                                                }
-                                                              ],
-                                                              "description": "Nonblank UTF8 text."
-                                                            },
-                                                            "recovery_id": {
-                                                              "allOf": [
-                                                                {
-                                                                  "type": "string",
-                                                                  "x-maxUtf8Bytes": 96
-                                                                }
-                                                              ],
-                                                              "description": "Validated coordination identity."
-                                                            },
-                                                            "target": {
-                                                              "oneOf": [
-                                                                {
-                                                                  "additionalProperties": false,
-                                                                  "properties": {
-                                                                    "kind": {
-                                                                      "const": "named",
-                                                                      "type": "string"
-                                                                    },
-                                                                    "reservation_id": {
-                                                                      "allOf": [
-                                                                        {
-                                                                          "type": "string",
-                                                                          "x-maxUtf8Bytes": 96
-                                                                        }
-                                                                      ],
-                                                                      "description": "Validated coordination identity."
-                                                                    }
-                                                                  },
-                                                                  "required": [
-                                                                    "kind",
-                                                                    "reservation_id"
-                                                                  ],
-                                                                  "type": "object"
-                                                                },
-                                                                {
-                                                                  "additionalProperties": false,
-                                                                  "properties": {
-                                                                    "kind": {
-                                                                      "const": "path",
-                                                                      "type": "string"
-                                                                    },
-                                                                    "target": {
-                                                                      "$ref": "#/$defs/target_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
-                                                                    }
-                                                                  },
-                                                                  "required": [
-                                                                    "kind",
-                                                                    "target"
-                                                                  ],
-                                                                  "type": "object"
-                                                                }
-                                                              ]
-                                                            },
-                                                            "token": {
-                                                              "allOf": [
-                                                                {
-                                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                                  "type": "string",
-                                                                  "x-maximumDecimal": "4611686018427387903"
-                                                                }
-                                                              ],
-                                                              "description": "Positive decimal counter."
-                                                            }
-                                                          },
-                                                          "required": [
-                                                            "recovery_id",
-                                                            "target",
-                                                            "expected_epoch",
-                                                            "old_run_id",
-                                                            "old_actor_id",
-                                                            "token",
-                                                            "expected_lease_revision",
-                                                            "confirmation",
-                                                            "reason"
-                                                          ],
-                                                          "type": "object"
-                                                        }
-                                                      ],
-                                                      "description": "Validated cooperative coordination record."
-                                                    },
-                                                    "run_id": {
-                                                      "anyOf": [
-                                                        {
+                                                  "allOf": [
+                                                    {
+                                                      "additionalProperties": false,
+                                                      "properties": {
+                                                        "actor_id": {
                                                           "allOf": [
                                                             {
                                                               "type": "string",
@@ -5652,39 +6125,199 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                           ],
                                                           "description": "Validated coordination identity."
                                                         },
-                                                        {
-                                                          "type": "null"
+                                                        "borrowers": {
+                                                          "$ref": "#/$defs/borrowers_dba549fa700c275c772263b51cb185390e1f3c09f0c35caf4af6e8e0637368ba"
+                                                        },
+                                                        "request": {
+                                                          "allOf": [
+                                                            {
+                                                              "additionalProperties": false,
+                                                              "properties": {
+                                                                "confirmation": {
+                                                                  "enum": [
+                                                                    "stopped",
+                                                                    "isolated"
+                                                                  ],
+                                                                  "type": "string"
+                                                                },
+                                                                "evidence": {
+                                                                  "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
+                                                                },
+                                                                "expected_epoch": {
+                                                                  "allOf": [
+                                                                    {
+                                                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                                      "type": "string",
+                                                                      "x-maximumDecimal": "4611686018427387903"
+                                                                    }
+                                                                  ],
+                                                                  "description": "Positive decimal counter."
+                                                                },
+                                                                "expected_lease_revision": {
+                                                                  "allOf": [
+                                                                    {
+                                                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                                      "type": "string",
+                                                                      "x-maximumDecimal": "4611686018427387903"
+                                                                    }
+                                                                  ],
+                                                                  "description": "Positive decimal counter."
+                                                                },
+                                                                "old_actor_id": {
+                                                                  "allOf": [
+                                                                    {
+                                                                      "type": "string",
+                                                                      "x-maxUtf8Bytes": 96
+                                                                    }
+                                                                  ],
+                                                                  "description": "Validated coordination identity."
+                                                                },
+                                                                "old_run_id": {
+                                                                  "allOf": [
+                                                                    {
+                                                                      "type": "string",
+                                                                      "x-maxUtf8Bytes": 96
+                                                                    }
+                                                                  ],
+                                                                  "description": "Validated coordination identity."
+                                                                },
+                                                                "reason": {
+                                                                  "allOf": [
+                                                                    {
+                                                                      "type": "string",
+                                                                      "x-maxUtf8Bytes": 65536
+                                                                    }
+                                                                  ],
+                                                                  "description": "Nonblank UTF8 text."
+                                                                },
+                                                                "recovery_id": {
+                                                                  "allOf": [
+                                                                    {
+                                                                      "type": "string",
+                                                                      "x-maxUtf8Bytes": 96
+                                                                    }
+                                                                  ],
+                                                                  "description": "Validated coordination identity."
+                                                                },
+                                                                "target": {
+                                                                  "oneOf": [
+                                                                    {
+                                                                      "additionalProperties": false,
+                                                                      "properties": {
+                                                                        "kind": {
+                                                                          "const": "named",
+                                                                          "type": "string"
+                                                                        },
+                                                                        "reservation_id": {
+                                                                          "allOf": [
+                                                                            {
+                                                                              "type": "string",
+                                                                              "x-maxUtf8Bytes": 96
+                                                                            }
+                                                                          ],
+                                                                          "description": "Validated coordination identity."
+                                                                        }
+                                                                      },
+                                                                      "required": [
+                                                                        "kind",
+                                                                        "reservation_id"
+                                                                      ],
+                                                                      "type": "object"
+                                                                    },
+                                                                    {
+                                                                      "additionalProperties": false,
+                                                                      "properties": {
+                                                                        "kind": {
+                                                                          "const": "path",
+                                                                          "type": "string"
+                                                                        },
+                                                                        "target": {
+                                                                          "$ref": "#/$defs/target_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+                                                                        }
+                                                                      },
+                                                                      "required": [
+                                                                        "kind",
+                                                                        "target"
+                                                                      ],
+                                                                      "type": "object"
+                                                                    }
+                                                                  ]
+                                                                },
+                                                                "token": {
+                                                                  "allOf": [
+                                                                    {
+                                                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                                      "type": "string",
+                                                                      "x-maximumDecimal": "4611686018427387903"
+                                                                    }
+                                                                  ],
+                                                                  "description": "Positive decimal counter."
+                                                                }
+                                                              },
+                                                              "required": [
+                                                                "recovery_id",
+                                                                "target",
+                                                                "expected_epoch",
+                                                                "old_run_id",
+                                                                "old_actor_id",
+                                                                "token",
+                                                                "expected_lease_revision",
+                                                                "confirmation",
+                                                                "reason"
+                                                              ],
+                                                              "type": "object"
+                                                            }
+                                                          ],
+                                                          "description": "Validated cooperative coordination record."
+                                                        },
+                                                        "run_id": {
+                                                          "anyOf": [
+                                                            {
+                                                              "allOf": [
+                                                                {
+                                                                  "type": "string",
+                                                                  "x-maxUtf8Bytes": 96
+                                                                }
+                                                              ],
+                                                              "description": "Validated coordination identity."
+                                                            },
+                                                            {
+                                                              "type": "null"
+                                                            }
+                                                          ]
+                                                        },
+                                                        "sequence": {
+                                                          "allOf": [
+                                                            {
+                                                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                              "type": "string",
+                                                              "x-maximumDecimal": "4611686018427387903"
+                                                            }
+                                                          ],
+                                                          "description": "Positive decimal counter."
+                                                        },
+                                                        "timestamp": {
+                                                          "allOf": [
+                                                            {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 128
+                                                            }
+                                                          ],
+                                                          "description": "Nonblank UTF8 text."
                                                         }
-                                                      ]
-                                                    },
-                                                    "sequence": {
-                                                      "allOf": [
-                                                        {
-                                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                          "type": "string",
-                                                          "x-maximumDecimal": "4611686018427387903"
-                                                        }
+                                                      },
+                                                      "required": [
+                                                        "request",
+                                                        "actor_id",
+                                                        "run_id",
+                                                        "timestamp",
+                                                        "sequence",
+                                                        "borrowers"
                                                       ],
-                                                      "description": "Positive decimal counter."
-                                                    },
-                                                    "timestamp": {
-                                                      "allOf": [
-                                                        {
-                                                          "type": "string",
-                                                          "x-maxUtf8Bytes": 128
-                                                        }
-                                                      ],
-                                                      "description": "Nonblank UTF8 text."
+                                                      "type": "object"
                                                     }
-                                                  },
-                                                  "required": [
-                                                    "request",
-                                                    "actor_id",
-                                                    "run_id",
-                                                    "timestamp",
-                                                    "sequence"
                                                   ],
-                                                  "type": "object"
+                                                  "description": "Validated cooperative coordination record."
                                                 }
                                               },
                                               "required": [
@@ -5810,6 +6443,395 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                             {
                               "additionalProperties": false,
                               "properties": {
+                                "kind": {
+                                  "const": "hierarchy_policy_put",
+                                  "type": "string"
+                                },
+                                "policy": {
+                                  "allOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "child_completion": {
+                                          "enum": [
+                                            "all_done",
+                                            "done_or_canceled"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "descendant_prerequisites": {
+                                          "enum": [
+                                            "independent",
+                                            "inherit"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "reason": {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 65536
+                                            }
+                                          ],
+                                          "description": "Nonblank UTF8 text."
+                                        },
+                                        "revision": {
+                                          "allOf": [
+                                            {
+                                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                              "type": "string",
+                                              "x-maximumDecimal": "4611686018427387903"
+                                            }
+                                          ],
+                                          "description": "Positive decimal counter."
+                                        },
+                                        "ticket_id": {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 96
+                                            }
+                                          ],
+                                          "description": "Validated coordination identity."
+                                        }
+                                      },
+                                      "required": [
+                                        "ticket_id",
+                                        "revision",
+                                        "descendant_prerequisites",
+                                        "child_completion",
+                                        "reason"
+                                      ],
+                                      "type": "object"
+                                    }
+                                  ],
+                                  "description": "Explicit revisioned hierarchy policy with its exact audit reason."
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "policy"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "acknowledgement": {
+                                  "$ref": "#/$defs/acknowledgement_1b1c611e0c52720845770480a1675e80b636a4c31cab50042de8ab3f218f5289"
+                                },
+                                "kind": {
+                                  "const": "amendment_unchanged",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "acknowledgement"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "change": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "revision": {
+                                      "allOf": [
+                                        {
+                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                          "type": "string",
+                                          "x-maximumDecimal": "4611686018427387903"
+                                        }
+                                      ],
+                                      "description": "Validated cooperative coordination record."
+                                    },
+                                    "update": {
+                                      "oneOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "kind": {
+                                              "const": "revisions",
+                                              "type": "string"
+                                            },
+                                            "records": {
+                                              "allOf": [
+                                                {
+                                                  "items": {
+                                                    "allOf": [
+                                                      {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "attribution": {
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                              "actor_id": {
+                                                                "allOf": [
+                                                                  {
+                                                                    "type": "string",
+                                                                    "x-maxUtf8Bytes": 96
+                                                                  }
+                                                                ],
+                                                                "description": "Validated coordination identity."
+                                                              },
+                                                              "run_id": {
+                                                                "anyOf": [
+                                                                  {
+                                                                    "allOf": [
+                                                                      {
+                                                                        "type": "string",
+                                                                        "x-maxUtf8Bytes": 96
+                                                                      }
+                                                                    ],
+                                                                    "description": "Validated coordination identity."
+                                                                  },
+                                                                  {
+                                                                    "type": "null"
+                                                                  }
+                                                                ]
+                                                              },
+                                                              "timestamp": {
+                                                                "allOf": [
+                                                                  {
+                                                                    "type": "string",
+                                                                    "x-maxUtf8Bytes": 128
+                                                                  }
+                                                                ],
+                                                                "description": "Nonblank UTF8 text."
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "actor_id",
+                                                              "run_id",
+                                                              "timestamp"
+                                                            ],
+                                                            "type": "object"
+                                                          },
+                                                          "content": {
+                                                            "oneOf": [
+                                                              {
+                                                                "additionalProperties": false,
+                                                                "properties": {
+                                                                  "kind": {
+                                                                    "const": "published",
+                                                                    "type": "string"
+                                                                  },
+                                                                  "publication": {
+                                                                    "allOf": [
+                                                                      {
+                                                                        "additionalProperties": false,
+                                                                        "properties": {
+                                                                          "require_ack": {
+                                                                            "type": "boolean"
+                                                                          },
+                                                                          "source": {
+                                                                            "oneOf": [
+                                                                              {
+                                                                                "additionalProperties": false,
+                                                                                "properties": {
+                                                                                  "body": {
+                                                                                    "allOf": [
+                                                                                      {
+                                                                                        "type": "string",
+                                                                                        "x-maxUtf8Bytes": 65536
+                                                                                      }
+                                                                                    ],
+                                                                                    "description": "Nonblank UTF8 text."
+                                                                                  },
+                                                                                  "kind": {
+                                                                                    "const": "text",
+                                                                                    "type": "string"
+                                                                                  }
+                                                                                },
+                                                                                "required": [
+                                                                                  "kind",
+                                                                                  "body"
+                                                                                ],
+                                                                                "type": "object"
+                                                                              },
+                                                                              {
+                                                                                "additionalProperties": false,
+                                                                                "properties": {
+                                                                                  "kind": {
+                                                                                    "const": "resource",
+                                                                                    "type": "string"
+                                                                                  },
+                                                                                  "pin": {
+                                                                                    "$ref": "#/$defs/pin_435860a4a6b834fdfa532bfbde34eec4dbaa3dc6e43e2be915ddd287aff51d1e"
+                                                                                  }
+                                                                                },
+                                                                                "required": [
+                                                                                  "kind",
+                                                                                  "pin"
+                                                                                ],
+                                                                                "type": "object"
+                                                                              }
+                                                                            ]
+                                                                          },
+                                                                          "supersedes": {
+                                                                            "items": {
+                                                                              "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+                                                                            },
+                                                                            "maxItems": 32,
+                                                                            "type": "array"
+                                                                          },
+                                                                          "title": {
+                                                                            "allOf": [
+                                                                              {
+                                                                                "type": "string",
+                                                                                "x-maxUtf8Bytes": 512
+                                                                              }
+                                                                            ],
+                                                                            "description": "Nonblank UTF8 text."
+                                                                          }
+                                                                        },
+                                                                        "required": [
+                                                                          "title",
+                                                                          "source",
+                                                                          "require_ack",
+                                                                          "supersedes"
+                                                                        ],
+                                                                        "type": "object"
+                                                                      }
+                                                                    ],
+                                                                    "description": "Validated cooperative coordination record."
+                                                                  }
+                                                                },
+                                                                "required": [
+                                                                  "kind",
+                                                                  "publication"
+                                                                ],
+                                                                "type": "object"
+                                                              },
+                                                              {
+                                                                "additionalProperties": false,
+                                                                "properties": {
+                                                                  "kind": {
+                                                                    "const": "withdrawn",
+                                                                    "type": "string"
+                                                                  },
+                                                                  "previous": {
+                                                                    "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+                                                                  },
+                                                                  "reason": {
+                                                                    "allOf": [
+                                                                      {
+                                                                        "type": "string",
+                                                                        "x-maxUtf8Bytes": 65536
+                                                                      }
+                                                                    ],
+                                                                    "description": "Nonblank UTF8 text."
+                                                                  }
+                                                                },
+                                                                "required": [
+                                                                  "kind",
+                                                                  "previous",
+                                                                  "reason"
+                                                                ],
+                                                                "type": "object"
+                                                              },
+                                                              {
+                                                                "additionalProperties": false,
+                                                                "properties": {
+                                                                  "kind": {
+                                                                    "const": "superseded",
+                                                                    "type": "string"
+                                                                  },
+                                                                  "previous": {
+                                                                    "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+                                                                  },
+                                                                  "replacement": {
+                                                                    "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+                                                                  }
+                                                                },
+                                                                "required": [
+                                                                  "kind",
+                                                                  "previous",
+                                                                  "replacement"
+                                                                ],
+                                                                "type": "object"
+                                                              }
+                                                            ]
+                                                          },
+                                                          "reference": {
+                                                            "$ref": "#/$defs/amendment_6c2c035cb8dce291f6e969057be7b1514dc5e141ca91b8cb79283ef757ddc677"
+                                                          },
+                                                          "ticket_id": {
+                                                            "allOf": [
+                                                              {
+                                                                "type": "string",
+                                                                "x-maxUtf8Bytes": 96
+                                                              }
+                                                            ],
+                                                            "description": "Validated coordination identity."
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "reference",
+                                                          "ticket_id",
+                                                          "content",
+                                                          "attribution"
+                                                        ],
+                                                        "type": "object"
+                                                      }
+                                                    ],
+                                                    "description": "Validated cooperative coordination record."
+                                                  },
+                                                  "maxItems": 33,
+                                                  "type": "array"
+                                                }
+                                              ],
+                                              "description": "Validated cooperative coordination record."
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "records"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "acknowledgement": {
+                                              "$ref": "#/$defs/acknowledgement_1b1c611e0c52720845770480a1675e80b636a4c31cab50042de8ab3f218f5289"
+                                            },
+                                            "kind": {
+                                              "const": "acknowledged",
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "acknowledgement"
+                                          ],
+                                          "type": "object"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "revision",
+                                    "update"
+                                  ],
+                                  "type": "object"
+                                },
+                                "kind": {
+                                  "const": "amendment_changed",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "change"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
                                 "event": {
                                   "additionalProperties": false,
                                   "properties": {
@@ -5818,7 +6840,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                     },
                                     "reconciliations": {
                                       "items": {
-                                        "$ref": "#/$defs/reconciliation_c77c4c034b510248f10ae86ecee943a53e2e784b622a0c243770f0dba40c4fbc"
+                                        "$ref": "#/$defs/reconciliation_e64f370444ba2c29a710be7f812de076434dadc1f2ac30763785e9779236b581"
                                       },
                                       "maxItems": 100000,
                                       "type": "array"
@@ -5899,43 +6921,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                       "description": "Positive exact version."
                                                     },
                                                     "schema": {
-                                                      "allOf": [
-                                                        {
-                                                          "additionalProperties": false,
-                                                          "properties": {
-                                                            "digest": {
-                                                              "type": "string",
-                                                              "x-maxUtf8Bytes": 64
-                                                            },
-                                                            "resource_id": {
-                                                              "allOf": [
-                                                                {
-                                                                  "type": "string",
-                                                                  "x-maxUtf8Bytes": 96
-                                                                }
-                                                              ],
-                                                              "description": "Validated ASCII identifier."
-                                                            },
-                                                            "revision": {
-                                                              "allOf": [
-                                                                {
-                                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                                  "type": "string",
-                                                                  "x-maximumDecimal": "4611686018427387903"
-                                                                }
-                                                              ],
-                                                              "description": "Positive exact version."
-                                                            }
-                                                          },
-                                                          "required": [
-                                                            "resource_id",
-                                                            "revision",
-                                                            "digest"
-                                                          ],
-                                                          "type": "object"
-                                                        }
-                                                      ],
-                                                      "description": "Exact resource revision and SHA-256 digest."
+                                                      "$ref": "#/$defs/pin_435860a4a6b834fdfa532bfbde34eec4dbaa3dc6e43e2be915ddd287aff51d1e"
                                                     },
                                                     "schema_version": {
                                                       "allOf": [
@@ -6023,7 +7009,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                       "type": "object"
                                                     },
                                                     "inputs": {
-                                                      "$ref": "#/$defs/inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3"
+                                                      "$ref": "#/$defs/inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73"
                                                     },
                                                     "manifest_id": {
                                                       "allOf": [
@@ -6035,7 +7021,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                       "description": "Validated ASCII identifier."
                                                     },
                                                     "outputs": {
-                                                      "$ref": "#/$defs/inputs_b2fa9cfeeb9330eb46eba832985a536c24d56e93f09d6c173f480837e69f84a3"
+                                                      "$ref": "#/$defs/inputs_617860a3639361f453cd99c2732f77ff8c9ae81c3317116bc993821ab341bf73"
                                                     },
                                                     "published": {
                                                       "$ref": "#/$defs/attribution_7ecef7b9fb6b6224f3aca23590fabc25d266b53872ccd0ec1c7d3131611e7983"
@@ -6227,7 +7213,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                   "properties": {
                                                     "artifacts": {
                                                       "items": {
-                                                        "$ref": "#/$defs/artifacts_aca9444e31b91b01ade3591ec247bf720258234b606613cc5da47942eee20747"
+                                                        "$ref": "#/$defs/artifacts_724bf564df930dcd26935ca773b27709aa5edc19677ea6480197709f08037261"
                                                       },
                                                       "maxItems": 200,
                                                       "type": "array"
@@ -6259,7 +7245,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                       "x-maxUtf8Bytes": 65536
                                                     },
                                                     "evidence_pins": {
-                                                      "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                                                      "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
                                                     },
                                                     "manifest": {
                                                       "anyOf": [
@@ -6717,10 +7703,10 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                                   "description": "Validated ASCII identifier."
                                                 },
                                                 "evidence": {
-                                                  "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                                                  "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
                                                 },
                                                 "rationale": {
-                                                  "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                                                  "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                                                 },
                                                 "revision": {
                                                   "allOf": [
@@ -6786,14 +7772,14 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                           "additionalProperties": false,
                                           "properties": {
                                             "current": {
-                                              "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                                              "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                                             },
                                             "kind": {
                                               "const": "input_changed",
                                               "type": "string"
                                             },
                                             "previous": {
-                                              "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                                              "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                                             }
                                           },
                                           "required": [
@@ -6811,7 +7797,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                               "type": "string"
                                             },
                                             "reconciliation": {
-                                              "$ref": "#/$defs/reconciliation_c77c4c034b510248f10ae86ecee943a53e2e784b622a0c243770f0dba40c4fbc"
+                                              "$ref": "#/$defs/reconciliation_e64f370444ba2c29a710be7f812de076434dadc1f2ac30763785e9779236b581"
                                             }
                                           },
                                           "required": [
@@ -6863,7 +7849,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                               "additionalProperties": false,
                               "properties": {
                                 "change": {
-                                  "$ref": "#/$defs/change_f2c1ba384d02b4b228776e26c46ee70f2e71997aeb976138205c9078e43d4c30"
+                                  "$ref": "#/$defs/change_427d58bfe0f21ff9edd0473f5a428edafaaee5f09f6d1749e1446907077178d0"
                                 },
                                 "kind": {
                                   "const": "policy_changed",
@@ -6880,7 +7866,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                               "additionalProperties": false,
                               "properties": {
                                 "change": {
-                                  "$ref": "#/$defs/change_f2c1ba384d02b4b228776e26c46ee70f2e71997aeb976138205c9078e43d4c30"
+                                  "$ref": "#/$defs/change_427d58bfe0f21ff9edd0473f5a428edafaaee5f09f6d1749e1446907077178d0"
                                 },
                                 "kind": {
                                   "const": "policy_unchanged",
@@ -6925,7 +7911,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                               "type": "string"
                                             },
                                             "evidence": {
-                                              "$ref": "#/$defs/evidence_8bbeea4ea6b9c10aaaf87ac9043e2d2e8e9e5f4289cabec490bb11340c13dc24"
+                                              "$ref": "#/$defs/evidence_4b343b30518b48dc77dd10764646c1dbc0c0f13542cba7a50cc83e26ffd89129"
                                             },
                                             "expected_lease_revision": {
                                               "allOf": [
@@ -7089,7 +8075,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                           "additionalProperties": false,
                                           "properties": {
                                             "artifact": {
-                                              "$ref": "#/$defs/artifact_daef06f5bbe8e28dd1e5a36796d02ece99275de7852919c8c2ded17a4117ab29"
+                                              "$ref": "#/$defs/artifact_6870c269f0f4ae9884d0e92db20d97abe68bbde75ac80bc0da0fc044665be5a0"
                                             },
                                             "condition_id": {
                                               "allOf": [
@@ -7101,7 +8087,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                               "description": "Validated coordination identity."
                                             },
                                             "evidence": {
-                                              "$ref": "#/$defs/evidence_d7a74ee238686250a397b58c53909ae1c39f3b09c08db2eac3f7d58295dc731d"
+                                              "$ref": "#/$defs/evidence_c6dc8715d568c8c58108775372e8b9e16a5fd49d38d12edc004a42e1b9267604"
                                             },
                                             "expected_revision": {
                                               "allOf": [
@@ -7153,7 +8139,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                           "type": "object"
                                         },
                                         "original": {
-                                          "$ref": "#/$defs/original_6ef312ae8ef80161013a61d55d8f085f9753dc6feb07b6039752942674039f6e"
+                                          "$ref": "#/$defs/original_9dc113febfe150aaa0821f05033a1601f673f311c363615e79af62272aeaed47"
                                         }
                                       },
                                       "required": [
@@ -7472,79 +8458,227 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                                   "type": "string"
                                 },
                                 "project": {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "acceptance_criteria": {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 65536
-                                    },
-                                    "archived": {
-                                      "type": "boolean"
-                                    },
-                                    "description": {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 65536
-                                    },
-                                    "priority": {
-                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                      "type": "string",
-                                      "x-maximumDecimal": "4"
-                                    },
-                                    "project_id": {
-                                      "allOf": [
-                                        {
+                                  "allOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "acceptance_criteria": {
                                           "type": "string",
-                                          "x-maxUtf8Bytes": 96
-                                        }
-                                      ],
-                                      "description": "Resolved public identity; no aliases."
-                                    },
-                                    "revision": {
-                                      "allOf": [
-                                        {
+                                          "x-maxUtf8Bytes": 65536
+                                        },
+                                        "archived": {
+                                          "type": "boolean"
+                                        },
+                                        "description": {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 65536
+                                        },
+                                        "handoff": {
+                                          "anyOf": [
+                                            {
+                                              "allOf": [
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "actor_id": {
+                                                      "allOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "x-maxUtf8Bytes": 96
+                                                        }
+                                                      ],
+                                                      "description": "Validated coordination identity."
+                                                    },
+                                                    "content": {
+                                                      "allOf": [
+                                                        {
+                                                          "additionalProperties": false,
+                                                          "properties": {
+                                                            "blockers": {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 65536
+                                                            },
+                                                            "completed": {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 65536
+                                                            },
+                                                            "covers_through": {
+                                                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                              "type": "string",
+                                                              "x-maximumDecimal": "4611686018427387903"
+                                                            },
+                                                            "decisions": {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 65536
+                                                            },
+                                                            "next_steps": {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 65536
+                                                            },
+                                                            "objective": {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 65536
+                                                            },
+                                                            "resource_ids": {
+                                                              "items": {
+                                                                "allOf": [
+                                                                  {
+                                                                    "type": "string",
+                                                                    "x-maxUtf8Bytes": 97
+                                                                  }
+                                                                ],
+                                                                "description": "Resource identity or transaction alias"
+                                                              },
+                                                              "maxItems": 100,
+                                                              "type": "array"
+                                                            },
+                                                            "summary": {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 65536
+                                                            }
+                                                          },
+                                                          "required": [
+                                                            "summary",
+                                                            "next_steps"
+                                                          ],
+                                                          "type": "object"
+                                                        }
+                                                      ],
+                                                      "description": "Finish handoff patch; omitted rich fields preserve previous values."
+                                                    },
+                                                    "evidence": {
+                                                      "allOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "x-maxUtf8Bytes": 65536
+                                                        }
+                                                      ],
+                                                      "description": "Nonblank UTF8 text."
+                                                    },
+                                                    "project_revision": {
+                                                      "allOf": [
+                                                        {
+                                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                          "type": "string",
+                                                          "x-maximumDecimal": "4611686018427387903"
+                                                        }
+                                                      ],
+                                                      "description": "Positive decimal counter."
+                                                    },
+                                                    "run_id": {
+                                                      "anyOf": [
+                                                        {
+                                                          "allOf": [
+                                                            {
+                                                              "type": "string",
+                                                              "x-maxUtf8Bytes": 96
+                                                            }
+                                                          ],
+                                                          "description": "Validated coordination identity."
+                                                        },
+                                                        {
+                                                          "type": "null"
+                                                        }
+                                                      ]
+                                                    },
+                                                    "timestamp": {
+                                                      "allOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "x-maxUtf8Bytes": 128
+                                                        }
+                                                      ],
+                                                      "description": "Nonblank UTF8 text."
+                                                    },
+                                                    "workspace_revision": {
+                                                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                      "type": "string",
+                                                      "x-maximumDecimal": "4611686018427387903"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "content",
+                                                    "evidence",
+                                                    "actor_id",
+                                                    "run_id",
+                                                    "timestamp",
+                                                    "project_revision",
+                                                    "workspace_revision"
+                                                  ],
+                                                  "type": "object"
+                                                }
+                                              ],
+                                              "description": "Validated cooperative coordination record."
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "priority": {
                                           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                           "type": "string",
-                                          "x-maximumDecimal": "4611686018427387903"
-                                        }
-                                      ],
-                                      "description": "Positive immutable entity revision."
-                                    },
-                                    "status": {
-                                      "enum": [
-                                        "backlog",
-                                        "todo",
-                                        "in_progress",
-                                        "done",
-                                        "canceled"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "summary": {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 65536
-                                    },
-                                    "title": {
-                                      "allOf": [
-                                        {
+                                          "x-maximumDecimal": "4"
+                                        },
+                                        "project_id": {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 96
+                                            }
+                                          ],
+                                          "description": "Resolved public identity; no aliases."
+                                        },
+                                        "revision": {
+                                          "allOf": [
+                                            {
+                                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                              "type": "string",
+                                              "x-maximumDecimal": "4611686018427387903"
+                                            }
+                                          ],
+                                          "description": "Positive immutable entity revision."
+                                        },
+                                        "status": {
+                                          "enum": [
+                                            "backlog",
+                                            "todo",
+                                            "in_progress",
+                                            "done",
+                                            "canceled"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "summary": {
                                           "type": "string",
-                                          "x-maxUtf8Bytes": 512
+                                          "x-maxUtf8Bytes": 65536
+                                        },
+                                        "title": {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 512
+                                            }
+                                          ],
+                                          "description": "Nonblank name/title, at most512 UTF-8 bytes; never clipped."
                                         }
+                                      },
+                                      "required": [
+                                        "project_id",
+                                        "title",
+                                        "description",
+                                        "revision",
+                                        "status",
+                                        "priority",
+                                        "summary",
+                                        "acceptance_criteria",
+                                        "archived",
+                                        "handoff"
                                       ],
-                                      "description": "Nonblank name/title, at most512 UTF-8 bytes; never clipped."
+                                      "type": "object"
                                     }
-                                  },
-                                  "required": [
-                                    "project_id",
-                                    "title",
-                                    "description",
-                                    "revision",
-                                    "status",
-                                    "priority",
-                                    "summary",
-                                    "acceptance_criteria",
-                                    "archived"
                                   ],
-                                  "type": "object"
+                                  "description": "Validated cooperative coordination record."
                                 }
                               },
                               "required": [

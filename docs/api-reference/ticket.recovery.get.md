@@ -259,6 +259,40 @@ For preconditions and a small example, run `workgraph help ticket.recovery.get`.
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "amendment_id": {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Validated ASCII identifier."
+                                  },
+                                  "kind": {
+                                    "const": "amendment",
+                                    "type": "string"
+                                  },
+                                  "revision": {
+                                    "allOf": [
+                                      {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "4611686018427387903"
+                                      }
+                                    ],
+                                    "description": "Positive exact version."
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "amendment_id",
+                                  "revision"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "additionalProperties": false,
+                                "properties": {
                                   "contract_id": {
                                     "allOf": [
                                       {
