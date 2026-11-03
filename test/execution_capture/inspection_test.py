@@ -104,11 +104,14 @@ with tempfile.TemporaryDirectory(prefix="wg-inspect-", dir="/tmp") as temporary:
 
     live = root / "live"
     release = root / "release"
-    live_script = "from pathlib import Path; import time,sys; p=Path(sys.argv[1]);\nwhile not p.exists(): time.sleep(.01)"
-    child = subprocess.Popen([binary, "evidence-run", "--stage", str(live), "--cwd", str(root), "--", sys.executable, "-c", live_script, str(release)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ready = root / "child-ready"
+    live_script = "from pathlib import Path; import time,sys; p=Path(sys.argv[1]); Path(sys.argv[2]).touch();\nwhile not p.exists(): time.sleep(.01)"
+    child = subprocess.Popen([binary, "evidence-run", "--stage", str(live), "--cwd", str(root), "--", sys.executable, "-c", live_script, str(release), str(ready)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         deadline = time.monotonic() + 5
-        while not (live / "owner.json").exists():
+        # The child launches after stage initialization. File existence alone
+        # can race the parent's still-in-progress ownership JSON write.
+        while not ready.exists():
             assert child.poll() is None and time.monotonic() < deadline
             time.sleep(.01)
         live_token = json.loads((live / "owner.json").read_text())["token"]
