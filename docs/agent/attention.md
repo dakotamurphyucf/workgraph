@@ -10,7 +10,7 @@ attention.read/wait combine bounded committed communication, fact, ticket and re
 invalidation activity. Selectors inside the filter object (project_id, ticket_ids,
 run_id, kinds, fact_scope/fact_prefix and explicit recipient/consumer_id) compose with AND; selected source kinds compose with OR. Communication requires an
 explicit recipient and consumer. Reading never acknowledges any delivery. Logical
-notification groups retain every raw delivery ID for selective inbox.acknowledge.
+notification groups retain every raw delivery ID for selective inbox.ack.
 Capture before checking current readiness, then read/park from the consumed cursor to
 avoid a missed wake. Wait is bounded outside the serialized dispatcher and cancels
 without acknowledgements or ownership changes. Keep source-specific continuation and

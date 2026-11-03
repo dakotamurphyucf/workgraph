@@ -104,7 +104,7 @@ this distinction rather than promising a current getter returns old content.
 </method>
 </methods>
 <workflow name="policy-and-amendment-audit"><![CDATA[
-Resume and digest retain typed hierarchy policy and instruction amendment records with
+activity.digest retains typed hierarchy policy and instruction amendment records with
 exact event/source attribution. Amendment publication, acknowledgement and withdrawal
 records remain whole validated nested structures; no clipped object is disguised as a full
 change. If an exact required row cannot fit, increase max_bytes rather than fabricating a

@@ -450,8 +450,8 @@ ownership, ancestor status, or the ancestor's unfinished-child gate. A waiver be
 to the ticket declaring the prerequisite; a descendant cannot waive an inherited edge. Own
 edges precede inherited edges, with deterministic nearest-source deduplication and
 explicit blocker provenance. Structural cycles are rejected across direct plus inherited
-prerequisite edges regardless of done status or waivers, including a parent depending on
-its inheriting descendant. Reparenting receives the same validation. "done_or_canceled"
+prerequisite edges regardless of done status or waivers, including an inheriting parent depending
+on its descendant. Reparenting receives the same validation. "done_or_canceled"
 permits locally canceled children for parent completion; canceled prerequisite tickets
 remain unsatisfied everywhere. Policy changes are audited and rechecked by current
 completion; they do not revoke claims or stop processes.
