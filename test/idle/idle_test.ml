@@ -90,7 +90,7 @@ let%expect_test
      printf "submitted batch=%d\n" (State.revision (State.candidate prepared))
    | Observed _ -> failwith "explicit batch became nondurable");
   [%expect
-    {| 
+    {|
     observed=1 kind=empty unchanged=true
     observed=1 kind=empty unchanged=true
     transaction=2 changes=1 blobs=0
@@ -398,7 +398,7 @@ let%expect_test
        ~candidates:[ candidate; candidate ]
        ~limits:[]);
   [%expect
-    {| 
+    {|
     Invalid_argument
     Invalid_argument
     Invalid_argument
