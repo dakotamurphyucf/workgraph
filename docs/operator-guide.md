@@ -1,9 +1,10 @@
 # Install and operate Workgraph
 
-The skill folder layout shown in this checkout is new. Published v0.5.0 packages
-still contain the earlier agent guide layout. For the new skill, copy the complete
-folder from this checkout using [skill installation](agent-skill.md); the existing
-0.5 executable can use it. Newly built packages include the skill.
+Version 0.5.1 includes the complete portable agent skill. See
+[skill installation](agent-skill.md). Upgrading from 0.5.0 keeps the same API and
+storage formats: retain your workspace, registry, contexts and saved requests.
+Shut down the old daemon gracefully and restart with the new executable and the
+same connection values. No data reset or migration is required.
 
 Workgraph is a standalone early preview. It needs no hosted service, model
 key, or account. The daemon and CLI are the same executable. All paths supplied
@@ -44,15 +45,15 @@ collects these automatically. Check the tool's `--help` for supported labels and
 does not qualify a binary. Native bundles contain `bin/workgraph`; verify their
 checksums and use a binary matching the target OS, architecture and runtime.
 
-## Bootstrap v0.5.0 preview
+## Bootstrap v0.5.1 preview
 
 <a id="candidate-bootstrap"></a>
 
-This release identifies package 0.5.0/API 0.5 and affected stored roots 4.
-Install a [matching release package](releases/v0.5.0.md#install) or build from source
-as above. Follow the [upgrade steps](releases/v0.5.0.md#upgrade-from-04-or-an-older-preview)
+This release identifies package 0.5.1/API 0.5 and affected stored roots 4.
+Install a [matching release package](releases/v0.5.1.md#install) or build from source
+as above. Follow the [upgrade steps](releases/v0.5.1.md#upgrade-from-04-or-an-older-preview)
 before replacing an older executable. These commands use fresh private sibling
-roots, socket, contexts and journals; WG must name the matching 0.5.0 executable.
+roots, socket, contexts and journals; WG must name the matching 0.5.1 executable.
 Old data, request journals and exports are not accepted or automatically migrated.
 
 ```sh

@@ -8,7 +8,7 @@ messages used by direct clients; ordinary CLI users can skip the transport secti
 Return to [the capability guide](../SKILL.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for v0.5.0 preview/API 0.5, not compatibility guarantees for previously published
+contracts for v0.5.1 preview/API 0.5 (unchanged from 0.5.0), not compatibility guarantees for previously published
 previews. Earlier planning/root data and saved requests require their matching build;
 start this preview with fresh registry/workspace folders, socket, contexts and request
 journals. Older exports cannot be restored into 0.5. Preserve older binary/archive
