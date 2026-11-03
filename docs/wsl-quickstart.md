@@ -1,177 +1,61 @@
-# Workgraph on AlmaLinux 10 in WSL: reset, install, and quick start
+# Workgraph on AlmaLinux 10 in WSL: install and quick start
 
-For the candidate bootstrap, keep WG05_STATE under your Linux home on WSL,
-with a short private socket path. Do not place managed registry/workspace data on
-/mnt/c. Use x86_64 AlmaLinux10 userspace and check the actual qualification record;
-a native Linux/container result does not certify every Windows or WSL kernel.
+This walkthrough installs **Workgraph v0.5.0 preview** on **x86_64/AMD64 AlmaLinux
+10** userspace inside WSL. It uses API **0.5** and affected stored roots **4**.
+Run commands in your AlmaLinux terminal as your normal user; use `sudo` only where
+shown. No OCaml, opam or systemd setup is required for the RPM.
 
-## Current source candidate (0.5)
+Native AlmaLinux tar/RPM qualification does not qualify an actual WSL kernel,
+Windows or SELinux policy. The standard AlmaLinux 10 AMD64 image requires an
+x86-64-v3-capable CPU. Keep registry/workspace data and the socket under your
+Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.5.0.md#qualification-and-limits).
 
-The download instructions below describe the published **v0.4.0** release and its
-bundled API 0.4 documentation. This checkout describes the **unreleased 0.5.0**
-candidate (API 0.5, affected stored roots 4). There is no 0.5 release-download URL in
-this guide. To use the new capabilities, build this matching checkout or use an
-explicitly supplied qualified local candidate bundle, then follow its bundled
-guide. Never open 0.4 data or reuse its saved journals with the candidate.
+## Preserve an older setup before upgrading
 
-From a source checkout with the matching toolchain already provisioned, select
-that switch through WORKGRAPH_OPAM_SWITCH if needed; do not change a global default:
+For a first installation, continue with [Install v0.5.0](#install-v050).
+For an existing setup, follow the complete [upgrade steps](releases/v0.5.0.md#upgrade-from-04-or-an-older-preview)
+**before** upgrading the RPM, which replaces `/usr/bin/workgraph`:
 
-```sh
-./dev build @fmt @runtest @install
-WG="$PWD/_build/default/bin/main.exe"
-"$WG" --version
-"$WG" help ticket.hierarchy.put
-"$WG" help attention.read
-```
+1. Identify the actual older binary (`type -a workgraph`), daemon socket,
+   registered roots and custom launchers. Keep its matching executable and
+   downloaded native/source/RPM archives so you can still read older data.
+2. With that older executable and context, resolve or retain exact uncertain
+   request journals, export and verify needed data, then stop custom launchers
+   and shut down the old daemon gracefully. Preserve complete stopped registry
+   and workspace roots, contexts, journals, logs and exports separately.
+3. Install 0.5.0 and use the fresh version-specific paths below. Do not reuse an
+   old socket, context, request directory or managed root. Older exports cannot
+   be restored by 0.5. Do not change format markers or copy old managed files.
 
-The candidate version prints `0.5.0`. The full check command is a qualification
-step to execute on the target platform, not a claim that every platform passed.
-Use the [operator source setup](operator-guide.md#install-locally) when the
-matching toolchain is not yet installed. A platform label alone does not qualify
-a locally packaged binary; preserve its actual checksums and qualification record.
-For a fresh private runtime, use the [candidate bootstrap example](operator-guide.md#candidate-bootstrap).
+No deletion is required to upgrade. Uninstalling an RPM does not remove workspace
+data. A reset is an optional, separate destructive choice: only after stopping
+all owners and verifying retained backups, explicitly select the exact old roots
+and contexts you intend to discard. Deleting only a registry leaves custom
+workspace roots elsewhere; never broadly delete paths named `workgraph`, socket
+guards or locks to force a new setup.
 
-
-
-## Published v0.4 walkthrough
-
-This walkthrough installs **Workgraph v0.4.0 preview** on **x86_64/AMD64 AlmaLinux 10**
-inside WSL. Run the commands in your AlmaLinux terminal, as your normal user;
-use `sudo` only where shown. No OCaml, opam, or systemd setup is required.
-Use the guide bundled with your installed executable; do not mix v0.3 or older guides,
-saved requests or data with v0.4.
-
-For a first installation, skip the optional reset and begin with
-[Install v0.4.0](#install-v040).
-
-The preview has changed its API and storage format. Start with fresh registry
-and workspace folders; old prototype data has no migration support. You may
-retain old data separately with its matching executable instead of deleting it.
-
-## Optional: remove an older installation and its data
-
-Removing the RPM does **not** remove workspace data. An older manually installed
-executable can also take precedence over the RPM in your `PATH`.
-
-### 1. Identify the old executable and workspace folders
-
-```bash
-type -a workgraph
-rpm -q workgraph
-```
-
-While the old daemon is running, list its registered workspace roots. Set
-`OLD_SOCKET` to the socket you actually used; the value below is an earlier
-example location. Another example was `$HOME/.workgraph-demo/wg.sock`.
-
-```bash
-OLD_SOCKET="$HOME/.local/state/workgraph/daemon.sock"
-workgraph call "$OLD_SOCKET" workspace.list '{}'
-```
-
-Record any workspace roots outside the main Workgraph directory. Those folders
-need separate cleanup if you want to discard their data. If the daemon is
-already stopped, use your previous startup configuration to identify its paths;
-you do not need to start it merely to uninstall the executable.
-
-### 2. Stop the old daemon
-
-Stop any custom launcher you created so it cannot restart the daemon, then:
-
-```bash
-workgraph call "$OLD_SOCKET" daemon.shutdown '{}'
-```
-
-Alternatively, press **Ctrl-C** in the terminal running the foreground daemon.
-Repeat for any other old instances you intend to reset. If shutdown fails, stop
-and resolve that before deleting data. Do not delete managed folders, socket
-files, or locks while their daemon is running.
-
-### 3. Remove the old executable
-
-If `rpm -q workgraph` found an installed package:
-
-```bash
-sudo dnf remove workgraph
-```
-
-If `type -a workgraph` also showed a manually installed copy at
-`~/.local/bin/workgraph`, remove that copy:
-
-```bash
-rm -i -- "$HOME/.local/bin/workgraph"
-```
-
-For other manual installations, remove only the confirmed old executable or
-dedicated installation directory. Remove old shell aliases or `PATH` entries
-pointing to extracted packages or source-build installations. Do not delete a
-source repository or shared development tools just to uninstall Workgraph.
-
-Clear Bash's cached executable locations and check again:
-
-```bash
-hash -r
-type -a workgraph
-```
-
-For a complete uninstall, the last command should report that Workgraph was not
-found. You do not need to uninstall opam or its shared toolchains.
-
-### 4. Optionally delete old local data
-
-**Deletion permanently removes tickets, resources, conversation history, and
-other state in the selected folders.** Skip this step to retain old data
-separately. If you need a backup, preserve the complete stopped workspace root
-before deleting it.
-
-The following are example locations from earlier setup instructions. Run only
-the commands matching directories you have inspected and want to discard:
-
-```bash
-rm -rI -- "$HOME/.local/state/workgraph"
-rm -rI -- "$HOME/.workgraph-demo"
-rm -rI -- "$HOME/.local/state/workgraph-0.2"
-rm -rI -- "$HOME/.local/state/workgraph-0.3"
-```
-
-GNU `rm -I` asks for confirmation before recursive deletion. These commands are
-for AlmaLinux, not the host Windows or macOS shell.
-
-If you also want to erase a setup made with this guide, stop its daemon first,
-then explicitly delete its separate directory:
-
-```bash
-rm -rI -- "$HOME/.local/state/workgraph-0.4"
-```
-
-Separately remove any custom workspace roots identified earlier, and old
-context/request folders you no longer need. **Deleting the registry alone does
-not delete workspaces stored elsewhere.** Exports and Git copies also remain
-where you stored them. Do not broadly search for and delete everything named
-`workgraph`.
-
-## Install v0.4.0
+## Install v0.5.0
 
 Download the RPM and checksums from the
-[v0.4.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0):
+[v0.5.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.0):
 
 ```bash
+set -euo pipefail
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
 sudo dnf install -y jq
 
-mkdir -p "$HOME/Downloads/workgraph-0.4.0"
-cd "$HOME/Downloads/workgraph-0.4.0" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.5.0"
+cd "$HOME/Downloads/workgraph-0.5.0" || exit
 
-RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.4.0"
+RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.0"
 
-curl -fLO "$RELEASE/workgraph-0.4.0-1.el10.x86_64.rpm"
+curl -fLO "$RELEASE/workgraph-0.5.0-1.el10.x86_64.rpm"
 curl -fLO "$RELEASE/SHA256SUMS"
 
-awk '$2 == "workgraph-0.4.0-1.el10.x86_64.rpm" { print; count++ }
+awk '$2 == "workgraph-0.5.0-1.el10.x86_64.rpm" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > rpm.SHA256SUMS &&
   sha256sum --check rpm.SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.4.0-1.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.5.0-1.el10.x86_64.rpm
 
 hash -r
 command -v workgraph
@@ -183,7 +67,7 @@ version:
 
 ```text
 /usr/bin/workgraph
-0.4.0
+0.5.0
 ```
 
 The executable uses standard AlmaLinux system libraries. `jq` is needed only
@@ -192,14 +76,14 @@ for the shell example below that extracts an ownership token.
 ## Start the daemon and create a workspace
 
 Keep managed data and the socket on the Linux filesystem under `$HOME`, rather
-than `/mnt/c`. This setup uses a private directory dedicated to v0.4.0.
+than `/mnt/c`. This setup uses a private directory dedicated to v0.5.0.
 
 ```bash
 workgraph init --help
 workgraph help request.ask
 
 umask 077
-WG_HOME="$HOME/.local/state/workgraph-0.4"
+WG_HOME="$HOME/.local/state/workgraph-0.5"
 mkdir -p "$WG_HOME"
 
 export WG_CONTEXT="$WG_HOME/agent.json"
@@ -222,7 +106,7 @@ and writes connection defaults to `agent.json`. Repeating the same setup reuses
 the matching workspace and context. The first run requires a fresh workspace
 root; do not precreate `$WG_HOME/workspace`.
 
-| Location under `~/.local/state/workgraph-0.4/` | Purpose |
+| Location under `~/.local/state/workgraph-0.5/` | Purpose |
 | --- | --- |
 | `registry/` | Local workspace registrations and administrative state |
 | `workspace/` | This workspace's durable tickets, resources, and history |
@@ -260,20 +144,19 @@ workgraph ticket create --context "$WG_CONTEXT" \
 Start the ticket and retain the returned ownership token:
 
 ```bash
-WG_TOKEN=$(
-  workgraph ticket start --context "$WG_CONTEXT" \
-    --ticket-id first-task \
-    --initial-note "Testing the basic workflow." |
-  jq -er '.result.data.token'
-)
+if started=$(workgraph ticket start --context "$WG_CONTEXT" \
+  --ticket-id first-task --initial-note "Testing the basic workflow."); then
+  WG_TOKEN=$(jq -er '.result.data.token' <<<"$started")
+else
+  exit 1  # Preserve the exact saved request; do not invent a new retry identity.
+fi
 ```
 
 Record progress, then finish using that token:
 
 ```bash
-workgraph comment add --context "$WG_CONTEXT" \
-  --json-field target '{"kind":"ticket","id":"first-task"}' \
-  --kind progress \
+workgraph ticket progress --context "$WG_CONTEXT" \
+  --ticket-id first-task --token "$WG_TOKEN" \
   --body "Installation and basic commands work."
 
 workgraph ticket finish --context "$WG_CONTEXT" \
@@ -307,7 +190,7 @@ Omit `--output text` to receive JSON. In a new terminal, restore the context
 variable before running commands:
 
 ```bash
-export WG_CONTEXT="$HOME/.local/state/workgraph-0.4/agent.json"
+export WG_CONTEXT="$HOME/.local/state/workgraph-0.5/agent.json"
 ```
 
 ## Give an agent access
@@ -328,7 +211,7 @@ and permission to use your Workgraph socket.
 > break work into tickets, record progress and decisions, and recover context
 > between sessions. Read `/usr/share/doc/workgraph/AGENT_GUIDE.md` and follow its
 > references when needed. Use `/usr/bin/workgraph` with
-> `--context /home/<your-linux-user>/.local/state/workgraph-0.4/agent.json`.
+> `--context /home/<your-linux-user>/.local/state/workgraph-0.5/agent.json`.
 > The workspace is `demo`; the project is `demo-project`.
 
 To print the actual connection values for this setup:
@@ -336,15 +219,15 @@ To print the actual connection values for this setup:
 ```bash
 printf 'Executable: %s\nContext: %s\nGuide: %s\n' \
   "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph-0.4/agent.json" \
+  "$HOME/.local/state/workgraph-0.5/agent.json" \
   '/usr/share/doc/workgraph/AGENT_GUIDE.md'
 ```
 
 This context identifies one actor, `agent-1`. For multiple cooperating agents,
 give each its own actor/context and request directory while sharing the daemon
 and workspace. The agent guide explains optional runs and coordination. After
-a hard reset, give agents the new context and guide; do not reuse old saved
-requests or old prototype workspace roots.
+an upgrade or deliberate reset, give agents the new context and matching guide;
+do not reuse old saved requests or old prototype workspace roots.
 
 ## Stop and restart
 
@@ -360,11 +243,12 @@ commands just to resume work. Shutting down the WSL instance ends its running
 processes; run setup again when returning. No automatic startup service is
 installed by this guide.
 
-If startup reports an occupied socket, connection refusal alone does not prove
-it is abandoned. Stop all possible daemon owners and custom launchers before
-manually removing only a verified abandoned socket path. Keep registry locks and
-managed storage untouched. If ownership is uncertain, select a fresh private
-socket path and explicitly update your context/startup configuration.
+Startup uses an exclusive socket-path guard and recovers only an exact previously
+recorded native socket identity after ownership and peer checks. Foreign, live,
+replaced or unknown endpoints refuse. A crash before identity publication can
+require a fresh private endpoint. Connection refusal or a process-name guess is
+not cleanup authority. Preserve locks, logs and managed data; choose a fresh socket
+and explicitly update startup/context configuration if ownership is uncertain.
 
 ## Platform checks and further information
 

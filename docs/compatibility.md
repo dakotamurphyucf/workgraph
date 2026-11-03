@@ -1,7 +1,7 @@
 # Workgraph format and durability
 
 Workgraph is an early preview with one current schema per representation. The
-0.5 candidate deliberately breaks the 0.4 application API and affected stored roots.
+0.5.0 preview deliberately breaks the 0.4 application API and affected stored roots.
 It has no legacy readers, automatic migrations, or backward compatibility promises.
 A package version, application API identifier and stored-format identifier serve
 different purposes; they need not have the same value.
@@ -41,10 +41,11 @@ outer planning envelope does not renumber every nested format.
 
 Use the matching released binary and its bundled guide to inspect older data.
 For this preview, create a fresh registry and fresh workspace roots for 0.5, with
-a separate socket if an older daemon is still running. Preserve older data for use
+a fresh socket, contexts and request journals. Preserve older data for use
 with its matching binary. Do not change a marker by hand or point the new daemon
 at old roots expecting a migration. Old saved requests and old exports are not a
-supported route into 0.5.
+supported route into 0.5. Preserve the matching older binary and archives before
+replacing an installation; follow the [release upgrade steps](releases/v0.5.0.md#upgrade-from-04-or-an-older-preview).
 
 Unsupported registry startup rejects before creating its daemon lock; unsupported
 workspace descriptors reject before creating workspace lock/repair directories.

@@ -1,45 +1,22 @@
 # AlmaLinux 10 on x86_64, including WSL
 
-## Current source candidate (0.5)
+Use the [release notes](releases/v0.5.0.md) for features, breaking changes, upgrade
+steps and qualification limits. Use a matching 0.5.0 executable and guide.
 
-The download instructions below describe the published **v0.4.0** release and its
-bundled API 0.4 documentation. This checkout describes the **unreleased 0.5.0**
-candidate (API 0.5, affected stored roots 4). There is no 0.5 release-download URL in
-this guide. To use the new capabilities, build this matching checkout or use an
-explicitly supplied qualified local candidate bundle, then follow its bundled
-guide. Never open 0.4 data or reuse its saved journals with the candidate.
+## Install v0.5.0 preview
 
-From a source checkout with the matching toolchain already provisioned, select
-that switch through WORKGRAPH_OPAM_SWITCH if needed; do not change a global default:
-
-```sh
-./dev build @fmt @runtest @install
-WG="$PWD/_build/default/bin/main.exe"
-"$WG" --version
-"$WG" help ticket.hierarchy.put
-"$WG" help attention.read
-```
-
-The candidate version prints `0.5.0`. The full check command is a qualification
-step to execute on the target platform, not a claim that every platform passed.
-Use the [operator source setup](operator-guide.md#install-locally) when the
-matching toolchain is not yet installed. A platform label alone does not qualify
-a locally packaged binary; preserve its actual checksums and qualification record.
-For a fresh private runtime, use the [candidate bootstrap example](operator-guide.md#candidate-bootstrap).
-
-
-
-## Published v0.4 installation
-
-This installation walkthrough targets **v0.4.0** and its matching bundled guide/API.
+This installation walkthrough targets **v0.5.0 preview**, application API **0.5**
+and affected stored roots **4**, with its matching bundled guide/API.
 Download its packages and qualification evidence from the
-[v0.4.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0).
+[v0.5.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
 or the local packaging procedure below. Start with fresh registry/workspace
-folders: v0.3 and older data and saved requests are unsupported, with no migration.
+folders, socket, contexts and request journals. All older-preview data and exports
+are unsupported by 0.5, with no migration. Preserve the matching older binary and
+archives before upgrading; follow the [release upgrade steps](releases/v0.5.0.md#upgrade-from-04-or-an-older-preview).
 
-For copy-and-paste installation, optional removal of an older setup, and a first
-ticket workflow, use the [WSL reset and quick-start guide](wsl-quickstart.md).
+For copy-and-paste installation, preservation of an older setup, and a first
+ticket workflow, use the [WSL install and quick-start guide](wsl-quickstart.md).
 
 The native package targets ordinary AlmaLinux 10 x86_64/AMD64 userspace. It runs
 in the foreground and requires no systemd service, automatic startup or OCaml
@@ -63,20 +40,20 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.4.0-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.5.0-1.el10.x86_64.rpm
 workgraph --version
 ```
 
 For the tarball:
 
 ```sh
-tar -xzf workgraph-0.4.0-almalinux-10-x86_64.tar.gz
-export PATH="$PWD/workgraph-0.4.0-almalinux-10-x86_64/bin:$PATH"
+tar -xzf workgraph-0.5.0-almalinux-10-x86_64.tar.gz
+export PATH="$PWD/workgraph-0.5.0-almalinux-10-x86_64/bin:$PATH"
 workgraph --version
 ```
 
 Keep the extracted archive directory together so the agent guide and its references
-remain available. The version must print `0.4.0`. The executable links to the
+remain available. The version must print `0.5.0`. The executable links to the
 AlmaLinux system libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
 Python 3 is needed for the supplied examples and qualification walkthrough.
@@ -86,19 +63,20 @@ Third-party license texts and an exact dependency inventory are retained under
 
 After installation, `workgraph init --help` and `workgraph help request.ask`
 work offline. The bundled [agent CLI contract](agent/cli-contract.md) covers
-context setup, saved exact retries and the v0.4 API. Its
+context setup, saved exact retries and the API 0.5 contract. Its
 [communication reference](agent/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 
-For the published v0.4 binary, startup never removes an occupied socket automatically. Connection refusal alone
-proves no ownership; stop all possible owners and launchers before manually
-removing a verified abandoned socket. Choose a fresh private socket path when
-ownership is uncertain, and preserve managed data and registry locks.
+Startup holds an exclusive socket-path ownership guard. Recovery removes only
+the exact recorded native socket identity after ownership/peer checks; foreign,
+live, replaced or unknown paths refuse. Connection refusal alone grants no cleanup
+authority. Preserve locks and managed data, and choose a fresh private endpoint
+when ownership is uncertain. See [administration](agent/administration.md).
 
 ## Run inside AlmaLinux WSL
 
 Keep the registry, managed workspaces and socket on the distribution's Linux
-filesystem, such as `$HOME/.local/state/workgraph-0.4`. Avoid `/mnt/c` for managed
+filesystem, such as `$HOME/.local/state/workgraph-0.5`. Avoid `/mnt/c` for managed
 stores: Workgraph relies on Linux locking, Unix sockets, atomic rename and
 directory synchronization. Microsoft also recommends using the Linux filesystem
 when working with Linux tools. See [Microsoft's WSL filesystem guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
@@ -106,20 +84,20 @@ when working with Linux tools. See [Microsoft's WSL filesystem guidance](https:/
 In an AlmaLinux WSL shell:
 
 ```sh
-mkdir -p "$HOME/.local/state/workgraph-0.4"
-chmod 700 "$HOME/.local/state/workgraph-0.4"
-workgraph serve "$HOME/.local/state/workgraph-0.4/registry" \
-  "$HOME/.local/state/workgraph-0.4/daemon.sock"
+mkdir -p "$HOME/.local/state/workgraph-0.5"
+chmod 700 "$HOME/.local/state/workgraph-0.5"
+workgraph serve "$HOME/.local/state/workgraph-0.5/registry" \
+  "$HOME/.local/state/workgraph-0.5/daemon.sock"
 ```
 
 Leave that foreground process running. In a second AlmaLinux WSL shell:
 
 ```sh
-workgraph call "$HOME/.local/state/workgraph-0.4/daemon.sock" initialize '{}'
-workgraph call "$HOME/.local/state/workgraph-0.4/daemon.sock" workspace.create \
-  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph-0.4/demo","actor_id":"operator","mutation_id":"create-demo"}'
-workgraph call "$HOME/.local/state/workgraph-0.4/daemon.sock" workspace.list '{}'
-workgraph call "$HOME/.local/state/workgraph-0.4/daemon.sock" daemon.shutdown '{}'
+workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" initialize '{}'
+workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" workspace.create \
+  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph-0.5/demo","actor_id":"operator","mutation_id":"create-demo"}'
+workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" workspace.list '{}'
+workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" daemon.shutdown '{}'
 ```
 
 For an end-to-end check on the actual WSL installation, install Git and Python 3,
@@ -128,11 +106,11 @@ under the Linux home filesystem:
 
 ```sh
 sudo dnf install git python3
-tar -xzf workgraph-0.4.0-source.tar.gz
-python3 workgraph-0.4.0/tools/installed_smoke.py "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph-0.4/wsl-qualification"
-python3 workgraph-0.4.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
-  --directory "$HOME/.local/state/workgraph-0.4/wsl-history-qualification"
+tar -xzf workgraph-0.5.0-source.tar.gz
+python3 workgraph-0.5.0/tools/installed_smoke.py "$(command -v workgraph)" \
+  "$HOME/.local/state/workgraph-0.5/wsl-qualification"
+python3 workgraph-0.5.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
+  --directory "$HOME/.local/state/workgraph-0.5/wsl-history-qualification"
 ```
 
 Both destination directories must be unused. The first walkthrough checks the

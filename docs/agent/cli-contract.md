@@ -4,9 +4,11 @@ Read this shared CLI and wire contract before constructing requests.
 Return to [the capability guide](../../AGENT_GUIDE.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for unreleased v0.5.0/API 0.5, not compatibility guarantees for previously published
+contracts for v0.5.0 preview/API 0.5, not compatibility guarantees for previously published
 previews. Earlier planning/root data and saved requests require their matching build;
-start this preview with fresh registry/workspace folders and request journals.
+start this preview with fresh registry/workspace folders, socket, contexts and request
+journals. Older exports cannot be restored into 0.5. Preserve older binary/archive
+bytes before replacement; see the [upgrade steps](../releases/v0.5.0.md#upgrade-from-04-or-an-older-preview).
 
 ```xml
 <workgraph_reference name="cli-contract">

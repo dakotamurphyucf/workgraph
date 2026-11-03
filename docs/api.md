@@ -1,8 +1,9 @@
 # API and runtime reference
 
-This checkout is the unreleased 0.5.0 candidate (API 0.5, affected stored roots 4).
-Published v0.4 downloads require their matching bundled docs and fresh independent
-data. See [compatibility](compatibility.md) for independent format identifiers.
+This guide describes the 0.5.0 preview release (API 0.5, affected stored roots 4).
+Use matching packaged docs and fresh registry/workspace roots, socket, contexts and
+request journals when upgrading from older previews. Older exports are not a
+migration path; preserve the matching old binary and data. See [compatibility](compatibility.md) for independent format identifiers.
 
 | Capability | Focused operating contract |
 | --- | --- |

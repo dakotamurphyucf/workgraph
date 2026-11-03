@@ -4,10 +4,13 @@ Give an agent this file, its connection values, and access to the accompanying
 `docs/agent/`, `docs/api-reference/` and `examples/` directories. This is the
 capability overview; load one focused reference before an unfamiliar operation.
 The [README](README.md) contains the complete team tutorial and script sources.
-This checkout describes the unreleased 0.5.0 candidate: application API 0.5 and
+This guide describes the 0.5.0 preview release: application API 0.5 and
 affected storage roots 4 (independent formats retain their own identifiers). Use
-the executable and documentation from the same checkout/package; older preview data and request
-journals are not a compatibility contract.
+the executable and documentation from the same checkout/package; older preview
+data and request journals are unsupported. Preserve the matching older binary, exports and archives;
+start 0.5 with fresh registry/workspace roots, socket, contexts and request journals.
+There is no automatic migration or older-export restore. See the
+[release and upgrade notes](docs/releases/v0.5.0.md).
 
 ```xml
 <workgraph_agent_guide schema="current-preview">

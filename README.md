@@ -12,12 +12,13 @@ model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE).
 The harness owns agents, prompts, model calls, filesystem edits and external side
 effects; Workgraph records and coordinates their work.
 
-**Version boundary:** this checkout documents development toward the next preview.
-The published [v0.4.0 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.4.0)
-has matching packaged documentation. New methods in this checkout require its
-matching executable; they are not a claim that a newer release exists. Preview
-formats are intentionally incompatible across breaking versions. Use fresh
-registry/workspace data and request journals when changing an incompatible preview.
+**Version boundary:** [v0.5.0 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.0)
+uses application API **0.5** and affected stored roots **4**. Use its matching
+executable and bundled documentation. This is a breaking prerelease: preserve
+your older binary, archives and data, then start with fresh registry/workspace
+roots, socket, contexts and request journals. There is no automatic migration or
+restore of older exports into 0.5. Read the [release and upgrade notes](docs/releases/v0.5.0.md)
+before replacing an installation.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
 Give an agent the concise [AGENT_GUIDE.md](AGENT_GUIDE.md), its own context, and
@@ -170,7 +171,9 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following concrete URLs install **v0.4.0**, whose own documentation applies.
+The following concrete URLs install **v0.5.0 preview**, whose bundled documentation
+applies. For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
+before replacing its executable or RPM.
 Choose the matching platform and stop if checksum verification fails. Keep WSL
 managed data on Linux `$HOME`, not `/mnt/c`. Review privileged installation commands
 under your own machine policy.
@@ -179,10 +182,10 @@ under your own machine policy.
 # AlmaLinux 10 x86_64, including AlmaLinux under WSL
 set -euo pipefail
 sudo dnf install -y jq curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.4.0"
-cd "$HOME/Downloads/workgraph-0.4.0"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.4.0
-FILE=workgraph-0.4.0-1.el10.x86_64.rpm
+mkdir -p "$HOME/Downloads/workgraph-0.5.0"
+cd "$HOME/Downloads/workgraph-0.5.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.0
+FILE=workgraph-0.5.0-1.el10.x86_64.rpm
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
@@ -197,19 +200,19 @@ shell examples and helper; install it through your usual package manager.
 
 ```bash
 set -euo pipefail
-mkdir -p "$HOME/Downloads/workgraph-0.4.0"
-cd "$HOME/Downloads/workgraph-0.4.0"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.4.0
-FILE=workgraph-0.4.0-macos-arm64.tar.gz
+mkdir -p "$HOME/Downloads/workgraph-0.5.0"
+cd "$HOME/Downloads/workgraph-0.5.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.0
+FILE=workgraph-0.5.0-macos-arm64.tar.gz
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
 shasum -a 256 --check selected.sha256
-mkdir -p "$HOME/.local/opt/workgraph-0.4.0" "$HOME/.local/bin"
-tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.4.0"
-# Inspect the archive's bin/ and accompanying docs/ layout before choosing a link.
-ln -s "$HOME/.local/opt/workgraph-0.4.0/workgraph-0.4.0-macos-arm64/bin/workgraph" "$HOME/.local/bin/workgraph"
-export PATH="$HOME/.local/bin:$PATH"
+mkdir -p "$HOME/.local/opt/workgraph-0.5.0"
+tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.5.0"
+# Keep the versioned archive and docs together; select its executable explicitly.
+export PATH="$HOME/.local/opt/workgraph-0.5.0/workgraph-0.5.0-macos-arm64/bin:$PATH"
+hash -r
 workgraph --version
 ```
 
@@ -227,6 +230,16 @@ unrelated opam switches or global defaults. See [engineering standards](engineer
 ./dev build @fmt @runtest @install
 ```
 
+### Upgrade from an older preview
+
+Keep the matching older executable and downloaded archives before replacing the
+command on PATH or upgrading an RPM. With that executable, finish or retain exact
+uncertain requests, export and verify needed workspaces, stop its launchers and
+shut down gracefully. Preserve complete stopped registry/workspace roots, contexts,
+journals and exports separately. Verification is not a cross-version restore path.
+Use fresh 0.5 roots and a new socket/context/request directory; do not edit format
+markers or copy old managed files into them. See the [step-by-step upgrade](docs/releases/v0.5.0.md#upgrade-from-04-or-an-older-preview).
+
 ### Bootstrap a private workspace
 
 Choose an absolute, private state parent and a matching executable. These are
@@ -238,7 +251,7 @@ it is not a promise to overwrite arbitrary mismatched directories safely.
 umask 077
 WG=workgraph                       # or absolute matching checkout executable
 export WG
-WG_HOME="$HOME/.local/state/workgraph-demo"
+WG_HOME="$HOME/.local/state/workgraph-0.5"
 mkdir -p "$WG_HOME"
 export WG_CONTEXT="$WG_HOME/agent.json"
 "$WG" init --context "$WG_CONTEXT" --socket "$WG_HOME/daemon.sock" \
@@ -249,7 +262,7 @@ wg() { "$WG" --context "$WG_CONTEXT" "$@"; }
 ```
 
 ```text
-~/.local/state/workgraph-demo/
+~/.local/state/workgraph-0.5/
 ├── daemon.sock       local connection endpoint
 ├── daemon.log        startup and diagnostics; inspect first on failure
 ├── registry/         daemon's workspace registrations
@@ -873,8 +886,8 @@ not a retention budget or throughput guarantee.
 
 ## Watch agents work
 
-Install the maintained source from **this matching checkout**; do not fetch an
-unpublished release or overwrite a locally adapted installed helper automatically.
+Install the maintained source from **the matching 0.5.0 checkout or package**.
+Preserve a locally adapted installed helper before replacing it.
 The complete same source is included below. Requirements: Bash, `jq`, matching
 `workgraph` on PATH and an explicit context. `wgx` makes read-only requests.
 
@@ -1095,7 +1108,7 @@ rollover, not silent pruning or an automatic migration.
 - [macOS](docs/macos-install.md), [AlmaLinux/WSL](docs/wsl-quickstart.md), [gated review](docs/gated-review-workflow.md)
 - [Coordination runner](examples/coordination-runner.py), [coordination shell](examples/coordination-workflow.sh), [notifications](examples/notification-watcher.py), [history adapter](examples/history-adapter.py), [Codex hooks](examples/codex-hooks/)
 - [Generated API reference](docs/api-reference/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
-- [Repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](docs/guide-coverage.md)
+- [v0.5.0 release and upgrade notes](docs/releases/v0.5.0.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](docs/guide-coverage.md)
 
 ## Complete maintained scripts
 
