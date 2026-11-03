@@ -837,7 +837,21 @@ let query_with_texts ?now_unix_ms t ~resource_texts ~method_ ~params =
 ;;
 
 let query ?now_unix_ms t ~method_ ~params =
-  if List.mem Brief_api.query_methods method_ ~equal:String.equal
+  if String.equal method_ "project.readiness"
+  then
+    Json.decode (fun () ->
+      let project =
+        find_project t (Id.Project.t_of_jsonaf (Json.field params "project_id"))
+      in
+      let unscoped =
+        match params with
+        | `Object fields ->
+          Json.obj (List.Assoc.remove fields "workspace_id" ~equal:String.equal)
+        | _ -> Json.fail Invalid_argument "query params require object"
+      in
+      Project_completion_api.query (project_completion t project) ~params:unscoped
+      |> unwrap_domain)
+  else if List.mem Brief_api.query_methods method_ ~equal:String.equal
   then
     Json.decode (fun () ->
       let request = Brief_api.Request.decode ~method_ params |> unwrap_domain in

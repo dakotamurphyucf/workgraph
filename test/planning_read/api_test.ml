@@ -60,6 +60,7 @@ let project id : Planning_wire.Project.t =
   ; summary = String.make 65536 's'
   ; acceptance_criteria = String.make 65536 'a'
   ; archived = false
+  ; handoff = None
   }
 ;;
 

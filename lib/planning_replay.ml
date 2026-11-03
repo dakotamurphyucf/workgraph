@@ -267,11 +267,35 @@ let apply_event t = function
     expected settings.revision (t.settings.revision + 1);
     { t with settings }
   | Project_put p ->
-    let previous =
-      Option.value_map (Map.find t.projects p.id) ~default:0 ~f:(fun p ->
-        p.Project.revision)
+    let previous = Map.find t.projects p.id in
+    let revision =
+      Option.value_map previous ~default:0 ~f:(fun old -> old.Project.revision)
     in
-    expected p.revision (previous + 1);
+    expected p.revision (revision + 1);
+    let prior_handoff = Option.bind previous ~f:(fun old -> old.Project.handoff) in
+    require
+      (Option.is_none prior_handoff || Option.is_some p.handoff)
+      Corrupt_store
+      "project completion handoff cannot be discarded";
+    if not (Option.equal Project_completion.Handoff.equal prior_handoff p.handoff)
+    then (
+      require
+        (Option.is_some previous && Domain_command.Status.equal p.status Done)
+        Corrupt_store
+        "project handoff requires an existing completed project";
+      Option.iter p.handoff ~f:(fun handoff ->
+        require
+          (Project_completion.Handoff.project_revision handoff = p.revision)
+          Corrupt_store
+          "new project handoff revision differs"));
+    if
+      Domain_command.Status.equal p.status Done
+      && (Option.is_none previous
+          || (not
+                (Option.value_map previous ~default:false ~f:(fun old ->
+                   Domain_command.Status.equal old.Project.status Done)))
+          || not (Option.equal Project_completion.Handoff.equal prior_handoff p.handoff))
+    then check_project_complete t p;
     { t with projects = Map.set t.projects ~key:p.id ~data:p }
   | Milestone_put milestone ->
     let previous =
@@ -1002,6 +1026,28 @@ let replay t payload =
                 "Condition notification routing differs")
          | _ -> ());
         (match event with
+         | Event.Project_put project ->
+           let previous =
+             Option.bind (Map.find state.projects project.id) ~f:(fun p ->
+               p.Project.handoff)
+           in
+           if not (Option.equal Project_completion.Handoff.equal previous project.handoff)
+           then
+             Option.iter project.handoff ~f:(fun handoff ->
+               let actor = Id.Actor.t_of_jsonaf (Json.field payload "actor") in
+               let run =
+                 Option.map (Json.optional payload "run_id") ~f:Id.Run.t_of_jsonaf
+               in
+               Option.iter run ~f:(fun run ->
+                 validate_run_actor state ~run ~actor |> unwrap_domain);
+               Project_completion.Handoff.validate_publication
+                 handoff
+                 ~actor
+                 ~run
+                 ~timestamp:(Json.field payload "timestamp" |> Json.text)
+                 ~project_revision:project.revision
+                 ~workspace_revision:t.revision
+               |> unwrap_domain)
          | Event.Amendment_unchanged ack ->
            require
              (Id.Actor.equal
@@ -1081,6 +1127,30 @@ let replay t payload =
     in
     let state = apply_resolved t None None events in
     validate ~previous:t state;
+    List.iter events ~f:(function
+      | Event.Project_put project when Domain_command.Status.equal project.status Done ->
+        let current = find_project state project.id in
+        if Domain_command.Status.equal current.status Done
+        then check_project_complete state current
+      | Project_put _
+      | Milestone_put _
+      | Ticket_put _
+      | Facts_changed _
+      | Communication_changed _
+      | Agent_run_changed _
+      | Amendment_changed _
+      | Amendment_unchanged _
+      | Evidence_changed _
+      | Policy_changed _
+      | Policy_unchanged _
+      | Allocation_empty _
+      | Settings_changed _
+      | Workspace_updated _
+      | Signal_receipt _
+      | Ticket_recovered _
+      | Comment_changed _
+      | Handoff_put _
+      | Resource_changed _ -> ());
     Map.iter state.tickets ~f:(fun ticket ->
       if
         Domain_command.Status.equal ticket.Ticket.status Done

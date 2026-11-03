@@ -49,6 +49,7 @@ let rec wire command =
      | Milestone_schedule _
      | Milestone_update _
      | Project_create _
+     | Project_finish _
      | Project_update _
      | Related_link _
      | Resource_metadata _

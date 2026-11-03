@@ -79,10 +79,27 @@ let response =
       | value -> Some (Json.integer value)
     in
     let count = Json.field data "items" |> Json.list |> List.length in
+    let keys =
+      Json.field data "items"
+      |> Json.list
+      |> List.map ~f:(fun item ->
+        match Api_codec.decode P.Blocker.codec item |> unwrap with
+        | Ticket { ticket_id; _ } -> 0, Id.Ticket.to_string ticket_id
+        | Milestone { milestone_id; _ } -> 1, Id.Milestone.to_string milestone_id)
+    in
+    let ordered =
+      List.is_sorted_strictly keys ~compare:(fun (kind, id) (other_kind, other_id) ->
+        match Int.compare kind other_kind with
+        | 0 -> String.compare id other_id
+        | order -> order)
+    in
     let offset = integer "offset"
     and remaining = integer "remaining" in
     if
       (not (Bool.equal (flag "can_complete") expected_ready))
+      || (not ordered)
+      || Option.exists (optional "required_bytes") ~f:(fun bytes ->
+        bytes < 4096 || bytes > 1048576)
       || (expected_ready && (count > 0 || remaining > 0))
       || ((not expected_ready) && offset = 0 && count = 0 && remaining = 0)
       || count > Int.max_value - offset

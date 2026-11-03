@@ -294,6 +294,15 @@ let resource_request codec =
 
 let entries =
   [ Entry
+      { name = "project.finish"
+      ; request = Project_completion.Command.codec
+      ; command = (fun command -> Project_finish command)
+      ; project =
+          (function
+            | Project_finish command -> Some command
+            | _ -> None)
+      }
+  ; Entry
       { name = "workspace.update"
       ; request =
           Api_codec.object_

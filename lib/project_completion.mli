@@ -113,6 +113,19 @@ module Handoff : sig
   val resource_ids : t -> Id.Resource.t list
   val covers_through : t -> int
   val project_revision : t -> int
+  val equal : t -> t -> bool
+
+  (** Check a newly published handoff against its enclosing project event and the
+      immutable state immediately preceding the transaction. *)
+  val validate_publication
+    :  t
+    -> actor:Id.Actor.t
+    -> run:Id.Run.t option
+    -> timestamp:string
+    -> project_revision:int
+    -> workspace_revision:int
+    -> (unit, Problem.t) Result.t
+
   val codec : t Api_codec.t
   val jsonaf_of_t : t -> Jsonaf.t
   val t_of_jsonaf : Jsonaf.t -> t

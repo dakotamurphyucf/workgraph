@@ -50,6 +50,37 @@ let readable_files t =
   let projects =
     values t.projects
     |> Sequence.map ~f:(fun p ->
+      let handoff =
+        Option.value_map p.Project.handoff ~default:"" ~f:(fun handoff ->
+          let record = Project_completion.Handoff.jsonaf_of_t handoff in
+          let content = Json.field record "content" in
+          "\n## Completion handoff\n\n"
+          ^ "Actor: "
+          ^ (Json.field record "actor_id" |> Json.text)
+          ^ "; recorded: "
+          ^ (Json.field record "timestamp" |> Json.text)
+          ^ "; observed workspace revision: "
+          ^ (Json.field record "workspace_revision" |> Json.text)
+          ^ ".\n"
+          ^ (List.map
+               [ "Summary", Json.field content "summary"
+               ; "Objective", Json.field content "objective"
+               ; "Completed", Json.field content "completed"
+               ; "Decisions", Json.field content "decisions"
+               ; "Blockers", Json.field content "blockers"
+               ; "Next steps", Json.field content "next_steps"
+               ; "Evidence and checks", Json.field record "evidence"
+               ]
+               ~f:(fun (heading, body) ->
+                 Readable_markdown.section ~heading (Json.text body))
+             |> String.concat)
+          ^ "\n### Resources\n\n"
+          ^ (Project_completion.Handoff.resource_ids handoff
+             |> List.map ~f:(fun id ->
+               let id = Id.Resource.to_string id in
+               "- [" ^ id ^ "](../resources/" ^ id ^ ".md)\n")
+             |> String.concat))
+      in
       ( "projects/" ^ Id.Project.to_string p.Project.id ^ ".md"
       , "# "
         ^ p.title
@@ -58,6 +89,7 @@ let readable_files t =
         ^ "\n\n```json\n"
         ^ Json.pretty (Project.jsonaf_of_t p)
         ^ "\n```\n"
+        ^ handoff
         ^ discussion (Entity_ref.Project p.id) ))
   in
   let milestones =

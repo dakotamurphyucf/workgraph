@@ -41,6 +41,7 @@ module Project = struct
     ; summary : string
     ; acceptance_criteria : string
     ; archived : bool
+    ; handoff : Project_completion.Handoff.t option
     }
   [@@deriving sexp, jsonaf]
 end
@@ -1049,6 +1050,77 @@ let readiness ?run ?now_unix_ms t (ticket : Ticket.t) =
     ]
 ;;
 
+let unwrap_domain = function
+  | Ok value -> value
+  | Error error -> raise (Json.Decode_error error)
+;;
+
+let project_completion t (project : Project.t) =
+  let belongs (ticket : Ticket.t) =
+    Option.equal Id.Project.equal ticket.project (Some project.id)
+  in
+  let members = Map.data t.tickets |> List.filter ~f:belongs in
+  let tickets =
+    List.map members ~f:(fun ticket ->
+      { Project_completion.Ticket.id = ticket.id
+      ; status = ticket.status
+      ; archived = ticket.archived
+      ; claimed = Option.is_some ticket.claim
+      ; active_attempts =
+          Agent_run.attempts_for_ticket t.agent_runs ticket.id
+          |> List.filter_map ~f:(fun attempt ->
+            if Attempt.State.terminal attempt.Attempt.state then None else Some attempt.id)
+      ; completion_problem =
+          (if Domain_command.Status.equal ticket.status Done
+           then Result.error (completion_problem t ticket)
+           else None)
+      })
+  in
+  let milestones =
+    Map.data t.milestones
+    |> List.filter_map ~f:(fun milestone ->
+      if Id.Project.equal milestone.Milestone.project project.id
+      then
+        Some
+          { Project_completion.Milestone.id = milestone.id
+          ; status = milestone.status
+          ; archived = milestone.archived
+          }
+      else None)
+  in
+  let target_belongs = function
+    | Entity_ref.Project id -> Id.Project.equal id project.id
+    | Ticket id -> belongs (find_ticket t id)
+    | Milestone id -> Id.Project.equal (find_milestone t id).project project.id
+    | Workspace | Resource _ -> false
+  in
+  let open_requests =
+    Communication.requests t.communication
+    |> List.count ~f:(fun request ->
+      Communication.Request.Status.equal request.status Open
+      &&
+      let thread =
+        Communication.get_thread t.communication request.thread |> Option.value_exn
+      in
+      List.exists thread.links ~f:target_belongs
+      || target_belongs
+           (Communication.thread_target t.communication thread.id |> unwrap_domain))
+  in
+  Project_completion.create
+    ~project:project.id
+    ~project_revision:project.revision
+    ~workspace_revision:t.revision
+    ~status:project.status
+    ~tickets
+    ~milestones
+    ~open_requests
+  |> unwrap_domain
+;;
+
+let check_project_complete t project =
+  Project_completion.ensure_can_complete (project_completion t project) |> unwrap_domain
+;;
+
 let check_claim (ticket : Ticket.t) ~actor ~run ~token =
   match ticket.claim with
   | Some claim
@@ -1336,7 +1408,25 @@ let validate ?previous t =
       "invalid project priority";
     bounded p.summary 65_536;
     bounded p.acceptance_criteria 65_536;
-    require (p.revision > 0) Corrupt_store "invalid project revision");
+    require (p.revision > 0) Corrupt_store "invalid project revision";
+    Option.iter p.handoff ~f:(fun handoff ->
+      ignore (Project_completion.Handoff.jsonaf_of_t handoff : Jsonaf.t);
+      require
+        (Project_completion.Handoff.project_revision handoff <= p.revision)
+        Corrupt_store
+        "project handoff is ahead of project revision";
+      List.iter (Project_completion.Handoff.resource_ids handoff) ~f:(fun id ->
+        require (Map.mem t.resources id) Not_found "project handoff resource missing"));
+    if Domain_command.Status.equal p.status Done
+    then (
+      let counts = Project_completion.counts (project_completion t p) in
+      require
+        (counts.unfinished_tickets = 0
+         && counts.unfinished_milestones = 0
+         && counts.claimed_tickets = 0
+         && counts.active_attempts = 0)
+        Blocked
+        "reopen the project before introducing unfinished or owned work"));
   Map.iter t.milestones ~f:(fun milestone ->
     valid_title milestone.Milestone.title;
     bounded milestone.description 65_536;
@@ -1554,11 +1644,6 @@ let validate_terminal_reconciliation_owner t (attempt : Attempt.t) ~actor ~run =
     "terminal reconciliation actor or run differs from its recorded consumer"
 ;;
 
-let unwrap_domain = function
-  | Ok value -> value
-  | Error error -> raise (Json.Decode_error error)
-;;
-
 let to_json t =
   Json.obj
     [ "workspace_id", Id.Workspace.jsonaf_of_t t.workspace
@@ -1672,6 +1757,7 @@ let project_view (value : Project.t) : Planning_wire.Project.t =
   ; summary = value.summary
   ; acceptance_criteria = value.acceptance_criteria
   ; archived = value.archived
+  ; handoff = value.handoff
   }
 ;;
 

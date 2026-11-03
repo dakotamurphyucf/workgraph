@@ -304,6 +304,7 @@ module Project = struct
     ; summary : string
     ; acceptance_criteria : string
     ; archived : bool
+    ; handoff : Project_completion.Handoff.t option
     }
   [@@deriving sexp, jsonaf]
 end

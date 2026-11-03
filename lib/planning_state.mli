@@ -37,6 +37,7 @@ module Project : sig
     ; summary : string
     ; acceptance_criteria : string
     ; archived : bool
+    ; handoff : Project_completion.Handoff.t option
     }
   [@@deriving sexp, jsonaf]
 end
@@ -346,6 +347,13 @@ val completion_readiness : t -> Ticket.t -> Jsonaf.t
     includes bounded typed readiness details naming the ticket and its blockers;
     other domain failures retain their original kind and details. *)
 val check_complete : t -> Ticket.t -> unit
+
+(** Inspect all current members, including archived unfinished work, and current
+    ownership from one immutable capture. Open requests are observational. *)
+val project_completion : t -> Project.t -> Project_completion.t
+
+(** Raise the captured completion problem if a project cannot finish. *)
+val check_project_complete : t -> Project.t -> unit
 
 val check_claim : Ticket.t -> actor:Id.Actor.t -> run:Id.Run.t option -> token:int -> unit
 

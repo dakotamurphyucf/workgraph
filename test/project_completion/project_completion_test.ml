@@ -53,6 +53,27 @@ let%expect_test "readiness pages are fenced and oversized blockers retain exact 
   in
   let first = query state {|{"project_id":"p","limit":"2"}|} |> ok in
   let data = Json.field first "data" in
+  let response =
+    List.find_map
+      Project_completion_api.methods
+      ~f:(fun (Api_method.Packed.Pack method_) ->
+        if String.equal (Api_method.name method_) "project.readiness"
+        then Some (Api_codec.as_json (Api_method.response_codec method_))
+        else None)
+    |> Option.value_exn
+  in
+  let replace value key replacement =
+    match value with
+    | `Object fields ->
+      Json.obj (List.Assoc.add fields key replacement ~equal:String.equal)
+    | `Array _ | `String _ | `Number _ | `True | `False | `Null -> assert false
+  in
+  let rows = Json.field data "items" |> Json.list in
+  List.iter
+    [ List.rev rows; [ List.hd_exn rows; List.hd_exn rows ] ]
+    ~f:(fun items ->
+      assert (
+        Result.is_error (Api_codec.decode response (replace data "items" (`Array items)))));
   assert (Json.integer (Json.field data "remaining") = 3);
   assert (Json.integer (Json.field data "next_offset") = 2);
   let second =
@@ -71,6 +92,10 @@ let%expect_test "readiness pages are fenced and oversized blockers retain exact 
   in
   let small = query large {|{"project_id":"p","max_bytes":"4096"}|} |> ok in
   let data = Json.field small "data" in
+  List.iter [ 1; 1048577 ] ~f:(fun required ->
+    assert (
+      Result.is_error
+        (Api_codec.decode response (replace data "required_bytes" (Json.int required)))));
   assert (List.is_empty (Json.list (Json.field data "items")));
   assert (Json.integer (Json.field data "next_offset") = 0);
   let required = Json.integer (Json.field data "required_bytes") in

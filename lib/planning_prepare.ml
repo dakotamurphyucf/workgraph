@@ -1564,9 +1564,36 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         ; summary = ""
         ; acceptance_criteria = ""
         ; archived = false
+        ; handoff = None
         }
       in
       [ Event.Project_put p ], project_view_json p, []
+    | Project_finish { project; expected_revision; evidence; handoff } ->
+      let previous = find_project t project in
+      expected previous.revision expected_revision;
+      require (previous.revision < Int.max_value) Conflict "project revision exhausted";
+      Option.iter run ~f:(fun run -> validate_run_actor t ~run ~actor |> unwrap_domain);
+      check_project_complete t previous;
+      let handoff =
+        Project_completion.Handoff.create
+          ~previous:previous.handoff
+          ~patch:handoff
+          ~evidence
+          ~actor
+          ~run
+          ~timestamp
+          ~project_revision:(previous.revision + 1)
+          ~workspace_revision:t.revision
+        |> unwrap_domain
+      in
+      let project =
+        { previous with
+          status = Done
+        ; revision = previous.revision + 1
+        ; handoff = Some handoff
+        }
+      in
+      [ Event.Project_put project ], project_view_json project, []
     | Project_update
         { id
         ; expected_revision
@@ -1580,6 +1607,9 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         } ->
       let p = find_project t id in
       expected p.revision expected_revision;
+      require (p.revision < Int.max_value) Conflict "project revision exhausted";
+      if Option.equal Domain_command.Status.equal status (Some Done)
+      then check_project_complete t p;
       let p =
         { p with
           title = Option.value title ~default:p.title
@@ -2357,6 +2387,7 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
             | Settings_put _
             | Workspace_update _
             | Ticket_metadata _
+            | Project_finish _
             | Project_create _
             | Project_update _
             | Milestone_create _
@@ -2426,6 +2457,11 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
         | _ -> ());
       (* Later operations must not invalidate a completion performed in this batch. *)
       List.iter commands ~f:(function
+        | Project_finish { project = id; _ }
+        | Project_update { id; status = Some Done; _ } ->
+          let project = find_project staged id in
+          if Domain_command.Status.equal project.status Done
+          then check_project_complete staged project
         | Domain_command.Lifecycle (Ticket_lifecycle.Command.Finish { ticket_id = id; _ })
         | Domain_command.Ticket_complete { id; _ }
         | Ticket_update { id; status = Some Done; _ }

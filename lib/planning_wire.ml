@@ -107,6 +107,7 @@ module Project = struct
     ; summary : string
     ; acceptance_criteria : string
     ; archived : bool
+    ; handoff : Project_completion.Handoff.t option
     }
 
   let codec =
@@ -120,13 +121,17 @@ module Project = struct
           ++ Fields.required "priority" (Api_codec.decimal ~max:4)
           ++ Fields.required "summary" text
           ++ Fields.required "acceptance_criteria" text
-          ++ Fields.required "archived" Api_codec.boolean)
+          ++ Fields.required "archived" Api_codec.boolean
+          ++ Fields.required
+               "handoff"
+               (Api_codec.nullable Project_completion.Handoff.codec))
          ~decode:
            (fun
-             ( ( ( (((((project_id, title), description), revision), status), priority)
-                 , summary )
-               , acceptance_criteria )
-             , archived ) ->
+             ( ( ( ( (((((project_id, title), description), revision), status), priority)
+                   , summary )
+                 , acceptance_criteria )
+               , archived )
+             , handoff ) ->
            { project_id
            ; title
            ; description
@@ -136,6 +141,7 @@ module Project = struct
            ; summary
            ; acceptance_criteria
            ; archived
+           ; handoff
            })
          ~encode:
            (fun
@@ -148,12 +154,20 @@ module Project = struct
               ; summary
               ; acceptance_criteria
               ; archived
+              ; handoff
               } :
                t) ->
-           ( ( ( (((((project_id, title), description), revision), status), priority)
-               , summary )
-             , acceptance_criteria )
-           , archived )))
+           ( ( ( ( (((((project_id, title), description), revision), status), priority)
+                 , summary )
+               , acceptance_criteria )
+             , archived )
+           , handoff )))
+    |> fun codec ->
+    Coordination_wire.checked codec (fun project ->
+      Option.iter project.handoff ~f:(fun handoff ->
+        if Project_completion.Handoff.project_revision handoff > project.revision
+        then
+          Json.fail Invalid_argument "project handoff revision exceeds project revision"))
   ;;
 end
 

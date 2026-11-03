@@ -269,7 +269,8 @@ let codec ~method_ =
   | "label.put" -> Some label
   | "status.put" -> Some workflow_status
   | "workspace.update" | "workspace.archive" -> Some workspace
-  | "project.create" | "project.update" | "project.archive" -> Some project
+  | "project.create" | "project.update" | "project.archive" | "project.finish" ->
+    Some project
   | "milestone.create" | "milestone.update" | "milestone.archive" | "milestone.schedule"
     -> Some milestone
   | "ticket.create" -> Some ticket

@@ -65,6 +65,7 @@ let layout method_ =
     | "status.list"
     | "project.list"
     | "project.get"
+    | "project.readiness"
     | "project.brief"
     | "milestone.list"
     | "milestone.get"

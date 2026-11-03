@@ -59,6 +59,8 @@ let everyday =
     ; "project.brief"
     ; "project.create"
     ; "project.get"
+    ; "project.readiness"
+    ; "project.finish"
     ; "project.list"
     ; "ticket.create"
     ; "ticket.list"
@@ -240,6 +242,10 @@ let methods =
     ]
   @ List.map Brief_api.methods ~f:scoped
   @ List.map Planning_read_api.methods ~f:scoped
+  @ (Project_completion_api.methods
+     |> List.filter ~f:(fun (Api_method.Packed.Pack method_) ->
+       Api_method.Mode.equal (Api_method.mode method_) Read)
+     |> List.map ~f:scoped)
   @ List.map Planning_context_api.methods ~f:scoped
   @ declared_methods Resume_api.query_methods ~descriptor:Resume_api.descriptor
   @ List.map Agent_run_policy_api.methods ~f:scoped

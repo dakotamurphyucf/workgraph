@@ -507,6 +507,27 @@ module Handoff = struct
   let project_revision t = t.project_revision
   let jsonaf_of_t t = Api_codec.encode codec t |> unwrap
   let t_of_jsonaf json = Api_codec.decode codec json |> unwrap
+
+  let equal a b =
+    String.equal (Json.canonical (jsonaf_of_t a)) (Json.canonical (jsonaf_of_t b))
+  ;;
+
+  let validate_publication t ~actor ~run ~timestamp ~project_revision ~workspace_revision =
+    Json.decode (fun () ->
+      ignore (Api_codec.encode codec t |> unwrap : Jsonaf.t);
+      if
+        not
+          (Id.Actor.equal t.actor actor
+           && Option.equal Id.Run.equal t.run run
+           && String.equal t.timestamp timestamp
+           && t.project_revision = project_revision
+           && t.workspace_revision = workspace_revision)
+      then
+        Json.fail
+          Corrupt_store
+          "project handoff attribution or capture differs from publication")
+  ;;
+
   let unchecked_t_of_sexp = t_of_sexp
 
   let t_of_sexp sexp =

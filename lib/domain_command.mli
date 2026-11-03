@@ -58,6 +58,7 @@ type t = Planning_command.t =
       ; title : string
       ; description : string
       }
+  | Project_finish of Project_completion.Command.t
   | Project_update of
       { id : Id.Project.t
       ; expected_revision : int
