@@ -9,7 +9,7 @@ import time
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from daemon_ready import is_listening
+from daemon_ready import is_current_daemon_ready
 EXE = Path(sys.argv.pop(1)).resolve()
 
 
@@ -30,12 +30,16 @@ class Hierarchy(unittest.TestCase):
         self.write("dependency.add", ticket_id="parent", prerequisite_id="source")
 
     def start(self):
+        self.log.flush()
+        log_path = self.root / "daemon.log"
+        log_offset = log_path.stat().st_size
         self.daemon = subprocess.Popen([str(EXE), "serve", str(self.root / "registry"), str(self.address)], stdout=self.log, stderr=self.log)
         deadline = time.monotonic() + 10
-        while not is_listening(self.address):
+        while True:
             if self.daemon.poll() is not None or time.monotonic() >= deadline:
-                self.log.seek(0)
-                self.fail(self.log.read())
+                self.fail(log_path.read_text())
+            if is_current_daemon_ready(self.address, log_path, log_offset):
+                return
             time.sleep(.01)
 
     def call(self, method, **params):
