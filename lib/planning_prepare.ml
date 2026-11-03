@@ -2008,6 +2008,16 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       bounded text 65_536;
       let digest = Json.hash text in
       let previous = Map.find t.resources id in
+      expected
+        (Option.value_map previous ~default:0 ~f:(fun r -> r.Resource.revision))
+        expected_revision;
+      let title =
+        match title, previous with
+        | Some title, _ -> title
+        | None, Some resource -> resource.Resource.metadata.title
+        | None, None ->
+          Json.fail Invalid_argument "title is required when creating a resource"
+      in
       let filename =
         Option.value
           filename

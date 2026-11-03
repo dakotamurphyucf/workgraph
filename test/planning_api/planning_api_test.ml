@@ -329,7 +329,7 @@ let%expect_test "template staging validates exact initial and duplicate receipts
       (Domain_command.Resource_put
          { id = resource
          ; expected_revision = 0
-         ; title = "Template"
+         ; title = Some "Template"
          ; text = Json.canonical (Workflow_template.Spec.to_json spec)
          ; filename = None
          ; mime_type = None

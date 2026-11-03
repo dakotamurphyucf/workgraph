@@ -3,3 +3,9 @@
  (deps discovery_socket_test.py)
  (action
   (run python3 %{dep:discovery_socket_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps text_io_test.py)
+ (action
+  (run python3 %{dep:text_io_test.py} %{exe:../../bin/main.exe})))

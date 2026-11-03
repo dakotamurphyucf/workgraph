@@ -26,15 +26,30 @@ val upload
   -> (Jsonaf.t, Problem.t) Result.t
 
 module Download : sig
+  (** [destination] is an absolute fresh-file path or [-] for CLI stdout.
+      [spool] is an absolute fresh-file path, admitted only with destination [-].
+      The CLI materializes that file through [download] before copying its bytes.
+      Omitted [version] selects and pins the first returned immutable version. *)
   type t =
     { workspace : Id.Workspace.t
     ; resource : Id.Resource.t
     ; version : int option
     ; destination : string
+    ; spool : string option
     }
 
   val of_params : Jsonaf.t -> (t, Problem.t) Result.t
 end
+
+(** Stream a download with the same version/range/chunk/full digest checks as
+    [download], returning the exact resource identity receipt. Output may contain
+    a verified chunk prefix before a final integrity failure. No local file is
+    created; [destination] must be [-] and [spool] absent. *)
+val stream
+  :  Download.t
+  -> client:Client.t
+  -> output:_ Eio.Flow.sink
+  -> (Jsonaf.t, Problem.t) Result.t
 
 (** Pins the first returned immutable version and verifies chunk offsets, lengths,
     hashes and the complete content digest. Syncs a private file, atomically links
@@ -42,7 +57,8 @@ end
     Failures before publication leave no destination. Private partial-file cleanup
     is best-effort; process kills may leave an unreferenced .downloading-* file.
     Bad destination paths/collisions are Invalid_argument; other expected local
-    I/O is Local_io. Failure to sync an installed destination is Outcome_unknown. *)
+    I/O is Local_io. Failure to sync an installed destination is Outcome_unknown.
+    Requires an absolute file destination with [spool] absent. *)
 val download
   :  Download.t
   -> client:Client.t

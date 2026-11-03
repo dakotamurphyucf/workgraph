@@ -30,9 +30,9 @@ Agent-local defaults:
 Request options:
   --output json|text            JSON output (default) or human-readable result
   --timeout SECONDS             Finite request timeout (default 30)
-  --params-file FILE            Read a JSON parameter object
+  --params-file FILE|-          Read a JSON object (one bounded stdin source)
   --json-field FIELD JSON       Typed parameter
-  --field-file FIELD FILE       Read a UTF-8 string parameter
+  --field-file FIELD FILE|-     Read exact UTF-8 bytes (including newlines)
   --save-request ABS_FILE       Sync a new exact retry file before sending
 
 Field names use hyphens or underscores. --workspace-id and --actor-id specify
@@ -51,11 +51,37 @@ type options =
   ; timeout_seconds : float
   ; save_request : string option
   ; request_directory : string option
+  ; materialized : bool
   }
 
 let field_name value = String.tr value ~target:'-' ~replacement:'_'
 
-let parse_options ~fs arguments =
+let parse_options ~fs ~stdin arguments =
+  let rec stdin_consumers = function
+    | [] -> 0
+    | "--params-file" :: "-" :: rest | "--field-file" :: _ :: "-" :: rest ->
+      1 + stdin_consumers rest
+    | ("--json-field" | "--field-file") :: _ :: _ :: rest -> stdin_consumers rest
+    | ("--self" | "--json") :: rest -> stdin_consumers rest
+    | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> stdin_consumers rest
+    | _ :: rest -> stdin_consumers rest
+  in
+  if stdin_consumers arguments > 1
+  then Json.fail Invalid_argument "stdin permits exactly one explicit input consumer";
+  let read_input file ~operation =
+    if String.equal file "-"
+    then (
+      let max_bytes = 4 * 1024 * 1024 in
+      let bytes =
+        try Eio.Buf_read.(of_flow stdin ~max_size:(max_bytes + 1) |> take_all) with
+        | Eio.Buf_read.Buffer_limit_exceeded ->
+          Json.fail Invalid_argument "stdin exceeds 4194304-byte input limit"
+      in
+      if String.length bytes > max_bytes
+      then Json.fail Invalid_argument "stdin exceeds 4194304-byte input limit";
+      bytes)
+    else Local_file.read Eio.Path.(fs / file) ~operation
+  in
   let initial =
     { fields = []
     ; named_fields = []
@@ -64,6 +90,7 @@ let parse_options ~fs arguments =
     ; timeout_seconds = 30.
     ; save_request = None
     ; request_directory = None
+    ; materialized = false
     }
   in
   let add options key value =
@@ -96,21 +123,22 @@ let parse_options ~fs arguments =
       loop { options with save_request = Some file } rest
     | "--params-file" :: file :: rest ->
       let json =
-        Local_file.read Eio.Path.(fs / file) ~operation:"read parameter file"
-        |> Json.parse
-        |> Disk.unwrap
+        read_input file ~operation:"read parameter file" |> Json.parse |> Disk.unwrap
       in
       let options =
         match json with
         | `Object fields ->
-          List.fold fields ~init:options ~f:(fun o (key, value) -> add o key value)
+          List.fold
+            fields
+            ~init:{ options with materialized = true }
+            ~f:(fun o (key, value) -> add o key value)
         | _ -> Json.fail Invalid_argument "parameter file requires an object"
       in
       loop options rest
     | "--json-field" :: key :: value :: rest ->
       loop (add options key (Json.parse value |> Disk.unwrap)) rest
     | "--field-file" :: key :: file :: rest ->
-      let bytes = Local_file.read Eio.Path.(fs / file) ~operation:"read field file" in
+      let bytes = read_input file ~operation:"read field file" in
       if
         not
           (Uutf.String.fold_utf_8
@@ -120,7 +148,7 @@ let parse_options ~fs arguments =
              true
              bytes)
       then Json.fail Invalid_argument "field file must be UTF-8";
-      loop (add options key (Json.string bytes)) rest
+      loop (add { options with materialized = true } key (Json.string bytes)) rest
     | flag :: value :: rest when String.is_prefix flag ~prefix:"--" ->
       let key = field_name (String.drop_prefix flag 2) in
       let options = add options key (Json.string value) in
@@ -246,6 +274,16 @@ let run ~env arguments =
           (Option.is_some options.save_request || Option.is_some options.request_directory)
       |> Disk.unwrap
     in
+    if options.materialized
+    then
+      Option.iter
+        (Api_catalog.find method_)
+        ~f:(fun (Api_method.Packed.Pack definition) ->
+          ignore
+            (Api_codec.decode
+               (Api_method.request_codec definition)
+               (Protocol.Request.params request)
+             |> Disk.unwrap));
     let upload =
       if String.equal (Protocol.Request.method_ request) "resource.upload"
       then
@@ -260,6 +298,12 @@ let run ~env arguments =
       | Some plan ->
         Protocol.Request.with_params request (Transfer.Upload_plan.params plan)
         |> Disk.unwrap
+    in
+    let download =
+      if String.equal method_ "resource.download"
+      then
+        Some (Transfer.Download.of_params (Protocol.Request.params request) |> Disk.unwrap)
+      else None
     in
     let save_request =
       match options.save_request, options.request_directory with
@@ -278,18 +322,46 @@ let run ~env arguments =
         Eio.Path.(fs / file)
         (Json.canonical (Protocol.Request.to_json request));
       diagnostic ("saved_request: " ^ file));
+    let raw_download =
+      String.equal method_ "resource.download"
+      && Option.exists
+           (Json.optional (Protocol.Request.params request) "destination")
+           ~f:(fun value -> String.equal (Json.text value) "-")
+    in
     let response =
       match upload with
       | Some plan -> Protocol.Success (Transfer.upload plan ~client ~fs |> Disk.unwrap)
       | None when String.equal (Protocol.Request.method_ request) "resource.download" ->
-        let plan =
-          Transfer.Download.of_params (Protocol.Request.params request) |> Disk.unwrap
+        let plan = Option.value_exn download in
+        let receipt =
+          if raw_download
+          then (
+            match plan.spool with
+            | None ->
+              Transfer.stream plan ~client ~output:(Eio.Stdenv.stdout env) |> Disk.unwrap
+            | Some destination ->
+              let receipt =
+                Transfer.download
+                  { plan with destination; spool = None }
+                  ~client
+                  ~fs
+                  ~random:(Eio.Stdenv.secure_random env)
+                |> Disk.unwrap
+              in
+              Local_file.protect
+                ~operation:"copy verified spool"
+                ~path:destination
+                (fun () ->
+                   Eio.Path.with_open_in
+                     Eio.Path.(fs / destination)
+                     (fun source -> Eio.Flow.copy source (Eio.Stdenv.stdout env)))
+              |> Disk.unwrap;
+              receipt)
+          else
+            Transfer.download plan ~client ~fs ~random:(Eio.Stdenv.secure_random env)
+            |> Disk.unwrap
         in
-        Protocol.Success
-          (Transfer.download plan ~client ~fs ~random:(Eio.Stdenv.secure_random env)
-           |> Disk.unwrap
-           |> Api_response.project Value
-           |> Api_response.to_json)
+        Protocol.Success (receipt |> Api_response.project Value |> Api_response.to_json)
       | None -> Client.execute client request |> Disk.unwrap
     in
     (match response with
@@ -297,7 +369,13 @@ let run ~env arguments =
        let envelope = Api_response.of_json value |> Disk.unwrap in
        Api_response.require_durable envelope |> Disk.unwrap
      | Success _ | Failure _ -> ());
-    if options.text
+    if raw_download
+    then (
+      match response with
+      | Success value ->
+        diagnostic (Json.canonical (Protocol.response_json request (Success value)))
+      | Failure error -> diagnostic (Json.canonical (Problem.to_json error)))
+    else if options.text
     then (
       match response with
       | Success value -> output (render_text value)
@@ -427,7 +505,7 @@ let run ~env arguments =
         code
       | "evidence-publish" :: rest ->
         let socket, rest = with_socket rest in
-        let options = parse_options ~fs rest in
+        let options = parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest in
         if options.self
         then Json.fail Invalid_argument "--self is unsupported for evidence-publish";
         let directory =
@@ -553,7 +631,7 @@ let run ~env arguments =
         output Cli_bootstrap.help;
         0
       | ("init" | "bootstrap") :: rest ->
-        let options = parse_options ~fs rest in
+        let options = parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest in
         if options.self then Json.fail Invalid_argument "--self is unsupported for init";
         if Option.is_some options.save_request
         then
@@ -600,7 +678,7 @@ let run ~env arguments =
              | `Object fields -> fields
              | _ -> Json.fail Invalid_argument "call parameters require an object"
            in
-           let options = parse_options ~fs rest in
+           let options = parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest in
            if not (List.is_empty options.fields)
            then
              Json.fail Invalid_argument "call fields must be supplied in its JSON object";
@@ -622,7 +700,7 @@ let run ~env arguments =
           | file :: rest -> file, rest
           | [] -> Json.fail Invalid_argument "retry requires a request file"
         in
-        let options = parse_options ~fs rest in
+        let options = parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest in
         if
           (not (List.is_empty options.fields))
           || options.self
@@ -670,13 +748,13 @@ let run ~env arguments =
         (match rest with
          | _ :: _ ->
            let method_, rest = Cli_reference.resolve_method rest |> Disk.unwrap in
-           request socket method_ (parse_options ~fs rest)
+           request socket method_ (parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest)
          | [] ->
            Json.fail Invalid_argument "request requires METHOD: request ABS_SOCKET METHOD")
       | _ :: _ ->
         let method_, rest = Cli_reference.resolve_method arguments |> Disk.unwrap in
         let socket, rest = with_socket rest in
-        request socket method_ (parse_options ~fs rest))
+        request socket method_ (parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest))
   in
   match result with
   | Ok code -> code

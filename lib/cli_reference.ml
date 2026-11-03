@@ -63,10 +63,13 @@ let helper_help = function
     Some
       "resource.download [local helper]\n\
        Usage: workgraph --context ABS_FILE resource download --resource-id ID\n\
-       --destination ABS_NEW_FILE [--version CONTENT_VERSION]\n\
+       --destination ABS_NEW_FILE|- [--version CONTENT_VERSION]\n\
        No actor/run/mutation fields. The destination parent must exist; never replaces\n\
        a destination. Pins the first immutable version and verifies all chunks and\n\
        the complete digest before publishing the private downloaded file.\n\
+       Destination - streams raw bytes to stdout; its JSON receipt goes to stderr.\n\
+       A later integrity error may follow an emitted prefix. Add --spool ABS_NEW_FILE\n\
+       to verify the complete download before emitting bytes; the 0600 spool is retained.\n\
        Result paths: .result.data.resource_id, .version, .digest, .size_bytes, \
        .destination.\n\
        A post-publication directory-sync error is Outcome_unknown; inspect the retained\n\
@@ -450,8 +453,9 @@ let preconditions name mode request =
          operation params. Separate commands are independent commits."
       ]
     | "resource.put_text" ->
-      [ "title is required on both create and update; omitted filename/MIME metadata is \
-         retained."
+      [ "Creation requires title; updating may omit it to preserve current title under \
+         the exact entity expected_revision guard. Omitted filename/MIME are retained. \
+         Content version.revision/digest identify immutable bytes, not the entity guard."
       ]
     | "board.put" | "thread.put" ->
       [ "Use expected_revision 0 to create; updating requires the entity's current \
@@ -569,6 +573,11 @@ let brief method_ =
         | `Object fields ->
           Json.obj (List.Assoc.add fields ~equal:String.equal field value)
         | _ -> sample
+      in
+      let sample =
+        if String.equal name "resource.put_text"
+        then set sample "title" (Json.string "Recorded notes")
+        else sample
       in
       let sample =
         if

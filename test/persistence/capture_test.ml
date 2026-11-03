@@ -33,7 +33,7 @@ let%expect_test "export pins independent journal head and restores shared blobs"
                 Domain_command.Resource_put
                   { id = Id.Resource.of_string "note" |> ok
                   ; expected_revision = 0
-                  ; title = "Shared content"
+                  ; title = Some "Shared content"
                   ; text = "one exact preserved message"
                   ; filename = Some "note.txt"
                   ; mime_type = Some "text/plain"

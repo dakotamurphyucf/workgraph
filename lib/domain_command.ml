@@ -204,7 +204,7 @@ type t = Planning_command.t =
   | Resource_put of
       { id : Id.Resource.t
       ; expected_revision : int
-      ; title : string
+      ; title : string option
       ; text : string
       ; filename : string option
       ; mime_type : string option

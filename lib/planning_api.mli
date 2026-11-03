@@ -2,7 +2,9 @@ open Core
 
 (** Executable codecs for base planning mutations. Public requests retain omitted
     generated IDs; resolution must precede [decode_resolved]. Codec declarations
-    supply both wire validation and reference schemas. *)
+    supply both wire validation and reference schemas. Resource text updates may
+    omit title to preserve metadata; creation requires a title. Publication uses
+    the current entity revision, not the immutable content-version number. *)
 val methods : string list
 
 val request_schema : method_:string -> Jsonaf.t option

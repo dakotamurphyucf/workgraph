@@ -281,27 +281,120 @@ module Download = struct
     ; resource : Id.Resource.t
     ; version : int option
     ; destination : string
+    ; spool : string option
     }
 
   let of_params params =
     Json.decode (fun () ->
       Json.fields
         params
-        ~allowed:[ "workspace_id"; "resource_id"; "version"; "destination" ];
+        ~allowed:[ "workspace_id"; "resource_id"; "version"; "destination"; "spool" ];
       let workspace = Id.Workspace.t_of_jsonaf (Json.field params "workspace_id") in
       let resource = Id.Resource.t_of_jsonaf (Json.field params "resource_id") in
       let version = Option.map (Json.optional params "version") ~f:Json.integer in
       if Option.exists version ~f:(Int.equal 0)
       then Json.fail Invalid_argument "resource version must be positive";
       let destination = Json.text (Json.field params "destination") in
-      Disk.absolute destination;
-      { workspace; resource; version; destination })
+      let spool = Option.map (Json.optional params "spool") ~f:Json.text in
+      if String.equal destination "-"
+      then Option.iter spool ~f:Disk.absolute
+      else (
+        Disk.absolute destination;
+        if Option.is_some spool
+        then Json.fail Invalid_argument "spool requires destination -");
+      { workspace; resource; version; destination; spool })
   ;;
 end
+
+let copy_download (plan : Download.t) ~client ~output =
+  let rec chunks offset selected_version expected_digest expected_size context =
+    let params =
+      [ "workspace_id", Id.Workspace.jsonaf_of_t plan.workspace
+      ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
+      ; "offset", Json.int offset
+      ; "length", Json.int Upload.max_chunk_bytes
+      ]
+      @ Option.value_map selected_version ~default:[] ~f:(fun version ->
+        [ "version", Json.int version ])
+    in
+    let result = invoke client "resource.read_chunk" params in
+    let version = Json.integer (Json.field result "version") in
+    let hash = digest (Json.field result "digest") in
+    let size = Json.integer (Json.field result "size_bytes") in
+    if
+      version = 0
+      || size > Resource.max_blob_bytes
+      || (not
+            (Id.Resource.equal
+               (Id.Resource.t_of_jsonaf (Json.field result "resource_id"))
+               plan.resource))
+      || Json.integer (Json.field result "offset") <> offset
+      || Option.exists selected_version ~f:(fun previous ->
+        not (Int.equal previous version))
+      || Option.exists expected_digest ~f:(fun previous ->
+        not (String.equal previous hash))
+      || Option.exists expected_size ~f:(fun previous -> not (Int.equal previous size))
+    then Json.fail Conflict "download version or range identity changed";
+    let encoded =
+      Json.bounded_text
+        (Json.field result "data_base64")
+        ~max_bytes:((Upload.max_chunk_bytes + 2) / 3 * 4)
+    in
+    let bytes =
+      match Base64.decode encoded with
+      | Ok bytes when String.equal (Base64.encode_string bytes) encoded -> bytes
+      | Ok _ | Error _ -> Json.fail Corrupt_store "invalid base64 download chunk"
+    in
+    let length = String.length bytes in
+    if
+      offset > size
+      || length > Upload.max_chunk_bytes
+      || length <> Int.min Upload.max_chunk_bytes (size - offset)
+      || not (String.equal (Json.hash bytes) (digest (Json.field result "chunk_digest")))
+    then Json.fail Corrupt_store "download chunk length or checksum differs";
+    let next = offset + length in
+    let eof =
+      match Json.field result "eof" with
+      | `True -> true
+      | `False -> false
+      | _ -> Json.fail Corrupt_store "invalid download EOF"
+    in
+    if not (Bool.equal eof (Int.equal next size))
+    then Json.fail Corrupt_store "inconsistent download EOF";
+    (match Json.field result "next_offset" with
+     | `Null when eof -> ()
+     | value when (not eof) && Json.integer value = next -> ()
+     | _ -> Json.fail Corrupt_store "inconsistent download cursor");
+    Eio.Flow.copy_string bytes output;
+    let context = Digestif.SHA256.feed_string context bytes in
+    if eof
+    then (
+      if not (String.equal Digestif.SHA256.(get context |> to_hex) hash)
+      then Json.fail Corrupt_store "complete download checksum differs";
+      Json.obj
+        [ "resource_id", Id.Resource.jsonaf_of_t plan.resource
+        ; "version", Json.int version
+        ; "digest", Json.string hash
+        ; "size_bytes", Json.int size
+        ; "destination", Json.string plan.destination
+        ])
+    else chunks next (Some version) (Some hash) (Some size) context
+  in
+  chunks 0 plan.version None None Digestif.SHA256.empty
+;;
+
+let stream (plan : Download.t) ~client ~output =
+  Disk.protect (fun () ->
+    if not (String.equal plan.destination "-" && Option.is_none plan.spool)
+    then Json.fail Invalid_argument "stream requires destination - without spool";
+    copy_download plan ~client ~output)
+;;
 
 let download (plan : Download.t) ~client ~fs ~random =
   Local_file.protect ~operation:"download destination" ~path:plan.destination (fun () ->
     Disk.absolute plan.destination;
+    if Option.is_some plan.spool
+    then Json.fail Invalid_argument "file download cannot specify spool";
     let dst = Eio.Path.(fs / plan.destination) in
     (match Eio.Path.kind ~follow:false dst with
      | `Not_found -> ()
@@ -329,85 +422,9 @@ let download (plan : Download.t) ~client ~fs ~random =
       let response =
         Eio.Path.with_open_out ~create:(`Exclusive 0o600) temporary (fun output ->
           owned := true;
-          let rec chunks offset selected_version expected_digest expected_size context =
-            let params =
-              [ "workspace_id", Id.Workspace.jsonaf_of_t plan.workspace
-              ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
-              ; "offset", Json.int offset
-              ; "length", Json.int Upload.max_chunk_bytes
-              ]
-              @ Option.value_map selected_version ~default:[] ~f:(fun version ->
-                [ "version", Json.int version ])
-            in
-            let result = invoke client "resource.read_chunk" params in
-            let version = Json.integer (Json.field result "version") in
-            let hash = digest (Json.field result "digest") in
-            let size = Json.integer (Json.field result "size_bytes") in
-            if
-              version = 0
-              || size > Resource.max_blob_bytes
-              || (not
-                    (Id.Resource.equal
-                       (Id.Resource.t_of_jsonaf (Json.field result "resource_id"))
-                       plan.resource))
-              || Json.integer (Json.field result "offset") <> offset
-              || Option.exists selected_version ~f:(fun previous ->
-                not (Int.equal previous version))
-              || Option.exists expected_digest ~f:(fun previous ->
-                not (String.equal previous hash))
-              || Option.exists expected_size ~f:(fun previous ->
-                not (Int.equal previous size))
-            then Json.fail Conflict "download version or range identity changed";
-            let encoded =
-              Json.bounded_text
-                (Json.field result "data_base64")
-                ~max_bytes:((Upload.max_chunk_bytes + 2) / 3 * 4)
-            in
-            let bytes =
-              match Base64.decode encoded with
-              | Ok bytes when String.equal (Base64.encode_string bytes) encoded -> bytes
-              | Ok _ | Error _ -> Json.fail Corrupt_store "invalid base64 download chunk"
-            in
-            let length = String.length bytes in
-            if
-              offset > size
-              || length > Upload.max_chunk_bytes
-              || length <> Int.min Upload.max_chunk_bytes (size - offset)
-              || not
-                   (String.equal
-                      (Json.hash bytes)
-                      (digest (Json.field result "chunk_digest")))
-            then Json.fail Corrupt_store "download chunk length or checksum differs";
-            let next = offset + length in
-            let eof =
-              match Json.field result "eof" with
-              | `True -> true
-              | `False -> false
-              | _ -> Json.fail Corrupt_store "invalid download EOF"
-            in
-            if not (Bool.equal eof (Int.equal next size))
-            then Json.fail Corrupt_store "inconsistent download EOF";
-            (match Json.field result "next_offset" with
-             | `Null when eof -> ()
-             | value when (not eof) && Json.integer value = next -> ()
-             | _ -> Json.fail Corrupt_store "inconsistent download cursor");
-            Eio.Flow.copy_string bytes output;
-            let context = Digestif.SHA256.feed_string context bytes in
-            if eof
-            then (
-              if not (String.equal Digestif.SHA256.(get context |> to_hex) hash)
-              then Json.fail Corrupt_store "complete download checksum differs";
-              Eio.File.sync output;
-              Json.obj
-                [ "resource_id", Id.Resource.jsonaf_of_t plan.resource
-                ; "version", Json.int version
-                ; "digest", Json.string hash
-                ; "size_bytes", Json.int size
-                ; "destination", Json.string plan.destination
-                ])
-            else chunks next (Some version) (Some hash) (Some size) context
-          in
-          chunks 0 plan.version None None Digestif.SHA256.empty)
+          let receipt = copy_download plan ~client ~output in
+          Eio.File.sync output;
+          receipt)
       in
       Local_file.link_exclusive
         ~src:temporary

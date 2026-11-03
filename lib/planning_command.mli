@@ -1,6 +1,9 @@
 open Core
 module Status = Workflow.Category
 
+(** [Resource_put] requires title on creation; update omission preserves current
+    metadata under its exact entity revision guard. Durable publication records
+    resolved metadata and a distinct immutable content-version identity. *)
 type t =
   | Batch of t list
   | Lifecycle of Ticket_lifecycle.Command.t
@@ -204,7 +207,7 @@ type t =
   | Resource_put of
       { id : Id.Resource.t
       ; expected_revision : int
-      ; title : string
+      ; title : string option
       ; text : string
       ; filename : string option
       ; mime_type : string option

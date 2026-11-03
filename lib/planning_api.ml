@@ -174,7 +174,7 @@ module Resource_put_text_request = struct
   type t =
     { id : string option
     ; expected_revision : int
-    ; title : string
+    ; title : string option
     ; text : string
     ; filename : string option
     ; mime_type : string option
@@ -280,9 +280,16 @@ let resource_request codec =
           (Problem.create
              Invalid_argument
              "resource_id is required when expected_revision is nonzero")
+      else if request.expected_revision = 0 && Option.is_none request.title
+      then
+        Error
+          (Problem.create Invalid_argument "title is required when creating a resource")
       else Ok request)
     ~encode:Fn.id
-    ~description:"resource_id may be omitted only to create at expected_revision zero."
+    ~description:
+      "resource_id may be omitted only to create at expected_revision zero. Creation \
+       requires title; update omission preserves current title under the exact entity \
+       revision guard, independently of immutable content-version numbers."
 ;;
 
 let entries =
@@ -1014,7 +1021,7 @@ let entries =
                (Fields.map
                   (Fields.optional "resource_id" reference
                    ++ Fields.required "expected_revision" decimal
-                   ++ Fields.required "title" title
+                   ++ Fields.optional "title" title
                    ++ Fields.required "text" text
                    ++ Fields.optional "filename" text
                    ++ Fields.optional "mime_type" text)
