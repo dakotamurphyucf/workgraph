@@ -11,7 +11,8 @@ let key = ok (Facts.Key.of_string "answer")
 let value = ok (Facts.Value.of_json `Null)
 
 let put expected_revision =
-  Facts.Command.Put { scope = Workspace; key; expected_revision; value }
+  Facts.Command.Put
+    { scope = Workspace; key; expected_revision; value; references = None }
 ;;
 
 let prepare state command sequence =
@@ -60,7 +61,7 @@ let%expect_test "guarded null, tombstone, recreation and replay validation" =
     Conflict
     Conflict
     Corrupt_store
-    {"actor_id":"actor","changed_at_revision":"3","deleted":false,"key":"answer","revision":"3","scope":{"kind":"workspace"},"timestamp":"2026-10-08T12:00:00Z","value":null,"value_type":"null"}
+    {"actor_id":"actor","changed_at_revision":"3","deleted":false,"key":"answer","references":[],"revision":"3","scope":{"kind":"workspace"},"timestamp":"2026-10-08T12:00:00Z","value":null,"value_type":"null"}
     Invalid_argument |}]
 ;;
 
@@ -102,7 +103,13 @@ let%expect_test
     ok (Facts.Value.of_json (`Array [ Json.string (String.make 3900 'x') ]))
   in
   let command =
-    Facts.Command.Put { scope = Workspace; key; expected_revision = 0; value = payload }
+    Facts.Command.Put
+      { scope = Workspace
+      ; key
+      ; expected_revision = 0
+      ; value = payload
+      ; references = None
+      }
   in
   let change, _ = ok (prepare Facts.empty command 1) in
   let state = ok (Facts.apply Facts.empty change) in
@@ -151,6 +158,7 @@ let%expect_test "search beyond first hundred, ordered missing keys, exact query 
         Facts.Command.Put
           { scope = Workspace
           ; key
+          ; references = None
           ; expected_revision = 0
           ; value = ok (Facts.Value.of_json (`String "match"))
           }
@@ -257,7 +265,13 @@ let%expect_test "prefix schema and response codecs follow actual methods" =
         ok
           (prepare
              state
-             (Facts.Command.Put { scope = Workspace; key; expected_revision = 0; value })
+             (Facts.Command.Put
+                { scope = Workspace
+                ; key
+                ; expected_revision = 0
+                ; value
+                ; references = None
+                })
              1)
       in
       ok (Facts.apply state change))
@@ -283,6 +297,10 @@ let%expect_test "prefix schema and response codecs follow actual methods" =
       | "fact.multi_get" ->
         [ "keys", `Array [ Json.string "alpha"; Json.string "missing" ] ]
       | "fact.search" -> [ "text", Json.string "alpha" ]
+      | "fact.references" ->
+        [ ( "reference"
+          , Json.obj [ "kind", Json.string "ticket"; "id", Json.string "target" ] )
+        ]
       | _ -> []
     in
     let result =
@@ -305,6 +323,7 @@ let%expect_test "prefix schema and response codecs follow actual methods" =
   [%expect
     {|
     (alpha alphabet)
+    ok
     ok
     ok
     ok

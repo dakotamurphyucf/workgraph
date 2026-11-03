@@ -69,6 +69,7 @@ let%expect_test "fact tombstones keep admission keys and increase retained bytes
       (Facts.Command.Put
          { scope = Workspace
          ; key
+         ; references = None
          ; expected_revision = 0
          ; value = ok (Facts.Value.of_json (Json.string "hello"))
          })

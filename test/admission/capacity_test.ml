@@ -149,6 +149,7 @@ let%expect_test "retained fact guards identify binding meters without changing s
              { scope = Workspace
              ; key
              ; expected_revision = (if keys then 0 else revision - 1)
+             ; references = None
              ; value
              })
           ~actor

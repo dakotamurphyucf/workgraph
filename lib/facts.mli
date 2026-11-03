@@ -33,6 +33,18 @@ module Value : sig
   val codec : t Api_codec.t
 end
 
+module Reference : sig
+  (** Navigation references, not dependencies or ownership. *)
+  type t =
+    | Ticket of Id.Ticket.t
+    | Resource of Id.Resource.t
+  [@@deriving sexp, compare, equal]
+
+  val codec : t Api_codec.t
+  val list_codec : t list Api_codec.t
+  val target : t -> Entity_ref.t
+end
+
 module Command : sig
   type t =
     | Put of
@@ -40,6 +52,7 @@ module Command : sig
         ; key : Key.t
         ; expected_revision : int
         ; value : Value.t
+        ; references : Reference.t list option
         }
     | Delete of
         { scope : Scope.t
@@ -50,7 +63,10 @@ module Command : sig
 
   val codec : string -> (t Api_codec.t, Problem.t) Result.t
 
-  (** The same request fields, permitting transaction aliases only in scope IDs.
+  (** Put accepts at most 32 distinct references. Omission preserves the current
+      references (empty on creation); an empty list clears them. Delete retains
+      references in its tombstone for audit, but reverse lookup excludes tombstones.
+      The same request fields permit transaction aliases in scope/reference IDs.
       JSON fact values remain literal, including strings beginning with [$]. *)
   val raw_codec : string -> (Jsonaf.t Api_codec.t, Problem.t) Result.t
 
@@ -79,6 +95,7 @@ module Change : sig
   val key : t -> Key.t
   val revision : t -> int
   val value : t -> Value.t option
+  val references : t -> Reference.t list
   val actor : t -> Id.Actor.t
   val run : t -> Id.Run.t option
   val sequence : t -> int
@@ -110,10 +127,14 @@ val prepare
 
 (** Revalidates resolved versions, revision continuity, nondecreasing event
     sequence, capacity and tombstone lifecycle. Outer replay must additionally
-    bind scope existence and actor/run/timestamp/sequence to its durable event. *)
+    bind scope/reference existence and actor/run/timestamp/sequence to its durable
+    event. Tombstones retain the preceding version's references. *)
 val apply : t -> Change.t -> (t, Problem.t) Result.t
 
+(** Validates scopes and every retained version's references against the captured
+    planning/resource state. *)
 val validate_targets : t -> exists:(Entity_ref.t -> bool) -> (unit, Problem.t) Result.t
+
 val mutation_methods : string list
 val query_methods : string list
 
@@ -135,7 +156,11 @@ val query_methods : string list
     measured against the final public response. Whole items are omitted when
     needed; arbitrary JSON values are never clipped. If no selected item fits,
     returns Invalid_argument instructing clients to increase the budget.
-    Get's data is one current record; all other data is a page object. *)
+    Get's data is one current record; all other data is a page object.
+    [fact.references] requires [reference] and optionally [scope]; it returns active
+    current records referencing that exact ticket/resource across all scopes when
+    scope is omitted, in scope/key order, with the same pagination/budget guards.
+    It does not expand referenced entities or interpret the fact's JSON value. *)
 val query
   :  t
   -> workspace_revision:int

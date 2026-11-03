@@ -99,6 +99,7 @@ let%expect_test
       Facts.Command.Put
         { scope = Workspace
         ; key = Facts.Key.of_string name |> ok
+        ; references = None
         ; expected_revision = 0
         ; value = Facts.Value.of_json (json body |> ok) |> ok
         }

@@ -184,6 +184,92 @@ module Value = struct
   ;;
 end
 
+module Reference = struct
+  type t =
+    | Ticket of Id.Ticket.t
+    | Resource of Id.Resource.t
+  [@@deriving sexp, compare, equal]
+
+  module Wire = struct
+    type ('ticket, 'resource) t =
+      | Ticket of 'ticket
+      | Resource of 'resource
+
+    let codec ticket resource =
+      let branch kind id ~decode ~encode =
+        Api_codec.object_
+          (Api_codec.Fields.map
+             (Api_codec.Fields.both
+                (Api_codec.Fields.required "kind" (Api_codec.literal kind))
+                (Api_codec.Fields.required "id" id))
+             ~decode:(fun ((), id) -> decode id)
+             ~encode:(fun value -> (), encode value))
+      in
+      Api_codec.tagged
+        ~discriminator:"kind"
+        ~select:(function
+          | Ticket _ -> "ticket"
+          | Resource _ -> "resource")
+        ~cases:
+          [ ( "ticket"
+            , branch
+                "ticket"
+                ticket
+                ~decode:(fun id -> Ticket id)
+                ~encode:(function
+                  | Ticket id -> id
+                  | Resource _ -> Json.fail Invalid_argument "reference mismatch") )
+          ; ( "resource"
+            , branch
+                "resource"
+                resource
+                ~decode:(fun id -> Resource id)
+                ~encode:(function
+                  | Resource id -> id
+                  | Ticket _ -> Json.fail Invalid_argument "reference mismatch") )
+          ]
+    ;;
+  end
+
+  let ticket = id_codec Id.Ticket.of_string Id.Ticket.to_string
+  let resource = id_codec Id.Resource.of_string Id.Resource.to_string
+
+  let codec =
+    Api_codec.map
+      (Wire.codec ticket resource)
+      ~decode:(function
+        | Wire.Ticket id -> Ok (Ticket id)
+        | Resource id -> Ok (Resource id))
+      ~encode:(function
+        | Ticket id -> Wire.Ticket id
+        | Resource id -> Resource id)
+      ~description:"A ticket or resource navigation reference."
+  ;;
+
+  let list_codec =
+    Api_codec.map
+      (Api_codec.list codec ~max_items:32)
+      ~decode:(fun references ->
+        if List.contains_dup references ~compare
+        then invalid "fact references must be distinct"
+        else Ok references)
+      ~encode:Fn.id
+      ~description:"At most 32 distinct ticket/resource navigation references."
+  ;;
+
+  let raw_list_codec =
+    Api_codec.list
+      (Api_codec.as_json
+         (Wire.codec (Api_codec.reference ticket) (Api_codec.reference resource)))
+      ~max_items:32
+  ;;
+
+  let target = function
+    | Ticket id -> Entity_ref.Ticket id
+    | Resource id -> Entity_ref.Resource id
+  ;;
+end
+
 module Command = struct
   type t =
     | Put of
@@ -191,6 +277,7 @@ module Command = struct
         ; key : Key.t
         ; expected_revision : int
         ; value : Value.t
+        ; references : Reference.t list option
         }
     | Delete of
         { scope : Scope.t
@@ -208,16 +295,18 @@ module Command = struct
          (Fields.required "expected_revision" (decimal ~max:Int.max_value)))
   ;;
 
-  let put_fields scope =
+  let put_fields scope references =
     Api_codec.Fields.both
       (common_fields scope)
-      (Api_codec.Fields.required "value" Value.codec)
+      (Api_codec.Fields.both
+         (Api_codec.Fields.required "value" Value.codec)
+         (Api_codec.Fields.optional "references" references))
   ;;
 
   let raw_codec method_ =
     let raw fields = Api_codec.as_json (Api_codec.object_ fields) in
     match method_ with
-    | "fact.put" -> Ok (raw (put_fields Scope.raw_codec))
+    | "fact.put" -> Ok (raw (put_fields Scope.raw_codec Reference.raw_list_codec))
     | "fact.delete" -> Ok (raw (common_fields Scope.raw_codec))
     | _ -> invalid "unknown fact mutation"
   ;;
@@ -229,12 +318,12 @@ module Command = struct
       Ok
         (object_
            (Fields.map
-              (put_fields Scope.codec)
-              ~decode:(fun ((scope, (key, expected_revision)), value) ->
-                Put { scope; key; expected_revision; value })
+              (put_fields Scope.codec Reference.list_codec)
+              ~decode:(fun ((scope, (key, expected_revision)), (value, references)) ->
+                Put { scope; key; expected_revision; value; references })
               ~encode:(function
-                | Put { scope; key; expected_revision; value } ->
-                  (scope, (key, expected_revision)), value
+                | Put { scope; key; expected_revision; value; references } ->
+                  (scope, (key, expected_revision)), (value, references)
                 | Delete _ -> Json.fail Invalid_argument "command mismatch")))
     | "fact.delete" ->
       Ok
@@ -275,6 +364,7 @@ module Change = struct
     ; key : Key.t
     ; revision : int
     ; value : Value.t option
+    ; references : Reference.t list
     ; actor_id : Id.Actor.t
     ; run_id : Id.Run.t option
     ; timestamp : string
@@ -286,6 +376,7 @@ module Change = struct
       ([ "scope", unwrap (Api_codec.encode Scope.codec t.scope)
        ; "key", Json.string t.key
        ; "revision", Json.int t.revision
+       ; "references", unwrap (Api_codec.encode Reference.list_codec t.references)
        ; ("deleted", if Option.is_none t.value then `True else `False)
        ; "actor_id", Id.Actor.jsonaf_of_t t.actor_id
        ; "timestamp", Json.string t.timestamp
@@ -306,6 +397,7 @@ module Change = struct
           ; "revision"
           ; "deleted"
           ; "value"
+          ; "references"
           ; "actor_id"
           ; "run_id"
           ; "timestamp"
@@ -326,6 +418,9 @@ module Change = struct
       if deleted && revision = 1
       then Json.fail Invalid_argument "first fact revision cannot be deletion";
       let value = Option.map value ~f:(fun json -> unwrap (Value.of_json json)) in
+      let references =
+        unwrap (Api_codec.decode Reference.list_codec (Json.field json "references"))
+      in
       let actor_id = Id.Actor.t_of_jsonaf (Json.field json "actor_id") in
       let run_id = Option.map (Json.optional json "run_id") ~f:Id.Run.t_of_jsonaf in
       let timestamp =
@@ -333,7 +428,7 @@ module Change = struct
           (Api_codec.decode (Api_codec.text ~max_bytes:128) (Json.field json "timestamp"))
       in
       if String.is_empty timestamp then Json.fail Invalid_argument "empty timestamp";
-      { scope; key; revision; value; actor_id; run_id; timestamp; sequence })
+      { scope; key; revision; value; references; actor_id; run_id; timestamp; sequence })
   ;;
 
   let codec =
@@ -354,22 +449,43 @@ module Change = struct
                   "run_id"
                   (Coordination_wire.id Id.Run.of_string Id.Run.to_string)
              ++ F.required "timestamp" (Coordination_wire.nonblank ~max_bytes:128)
-             ++ F.required "changed_at_revision" (Api_codec.decimal ~max:Int.max_value))
+             ++ F.required "changed_at_revision" (Api_codec.decimal ~max:Int.max_value)
+             ++ F.required "references" Reference.list_codec)
             ~decode:
               (fun
-                ( ( ((((((scope, key), revision), deleted), value), actor_id), run_id)
-                  , timestamp )
-                , sequence ) ->
+                ( ( ( ((((((scope, key), revision), deleted), value), actor_id), run_id)
+                    , timestamp )
+                  , sequence )
+                , references ) ->
               if Bool.equal deleted (Option.is_some value)
               then Json.fail Invalid_argument "deleted/value mismatch";
-              { scope; key; revision; value; actor_id; run_id; timestamp; sequence })
+              { scope
+              ; key
+              ; revision
+              ; value
+              ; references
+              ; actor_id
+              ; run_id
+              ; timestamp
+              ; sequence
+              })
             ~encode:
               (fun
-                { scope; key; revision; value; actor_id; run_id; timestamp; sequence } ->
-              ( ( ( (((((scope, key), revision), Option.is_none value), value), actor_id)
-                  , run_id )
-                , timestamp )
-              , sequence ))))
+                { scope
+                ; key
+                ; revision
+                ; value
+                ; references
+                ; actor_id
+                ; run_id
+                ; timestamp
+                ; sequence
+                } ->
+              ( ( ( ( (((((scope, key), revision), Option.is_none value), value), actor_id)
+                    , run_id )
+                  , timestamp )
+                , sequence )
+              , references ))))
       ~decode:(fun value ->
         if
           value.revision > 0
@@ -396,6 +512,7 @@ module Change = struct
   let key t = t.key
   let revision t = t.revision
   let value t = t.value
+  let references t = t.references
   let actor t = t.actor_id
   let run t = t.run_id
   let sequence t = t.sequence
@@ -442,6 +559,13 @@ let apply t change =
         | [] -> false
       then Error (Problem.create Corrupt_store "fact already deleted")
       else if
+        Option.is_none change.value
+        &&
+        match previous with
+        | head :: _ -> not (List.equal Reference.equal head.references change.references)
+        | [] -> false
+      then Error (Problem.create Corrupt_store "fact deletion must retain references")
+      else if
         match previous with
         | head :: _ -> head.Change.sequence > change.sequence
         | [] -> false
@@ -474,60 +598,80 @@ let apply t change =
 ;;
 
 let prepare t command ~actor ~run ~timestamp ~sequence =
-  let scope, key, expected_revision, value =
-    match command with
-    | Command.Put { scope; key; expected_revision; value } ->
-      scope, key, expected_revision, Some value
-    | Delete { scope; key; expected_revision } -> scope, key, expected_revision, None
-  in
-  let previous = Map.find t.entries (scope, key) in
-  let current =
-    match previous with
-    | Some (head :: _) -> head.Change.revision
-    | None | Some [] -> 0
-  in
-  if expected_revision <> current
-  then Error (Problem.create Conflict "fact revision guard mismatch")
-  else if
-    Option.is_none value
-    &&
-    match previous with
-    | Some (head :: _) -> Option.is_none head.Change.value
-    | None | Some [] -> false
-  then Error (Problem.create Conflict "fact already deleted")
-  else if current = Int.max_value
-  then Error (Problem.create Blocked "fact revision exhausted")
-  else if current = 0 && Option.is_none value
-  then Error (Problem.create Not_found "fact key does not exist")
-  else (
-    let change =
-      { Change.scope
-      ; key
-      ; revision = current + 1
-      ; value
-      ; actor_id = actor
-      ; run_id = run
-      ; timestamp
-      ; sequence
-      }
+  Result.bind (Command.encode command) ~f:(fun _ ->
+    let scope, key, expected_revision, value, references =
+      match command with
+      | Command.Put { scope; key; expected_revision; value; references } ->
+        scope, key, expected_revision, Some value, references
+      | Delete { scope; key; expected_revision } ->
+        scope, key, expected_revision, None, None
     in
-    Result.map (apply t change) ~f:(fun _ ->
-      let receipt =
-        match Change.to_json change with
-        | `Object fields ->
-          Json.obj
-            (fields
-             @ Option.to_list
-                 (Option.map value ~f:(fun value ->
-                    "value_type", Json.string (Value.type_name value))))
-        | _ -> assert false
+    let previous = Map.find t.entries (scope, key) in
+    let current =
+      match previous with
+      | Some (head :: _) -> head.Change.revision
+      | None | Some [] -> 0
+    in
+    if expected_revision <> current
+    then Error (Problem.create Conflict "fact revision guard mismatch")
+    else if
+      Option.is_none value
+      &&
+      match previous with
+      | Some (head :: _) -> Option.is_none head.Change.value
+      | None | Some [] -> false
+    then Error (Problem.create Conflict "fact already deleted")
+    else if current = Int.max_value
+    then Error (Problem.create Blocked "fact revision exhausted")
+    else if current = 0 && Option.is_none value
+    then Error (Problem.create Not_found "fact key does not exist")
+    else (
+      let references =
+        match references with
+        | Some references -> references
+        | None ->
+          (match previous with
+           | Some (head :: _) -> head.Change.references
+           | None | Some [] -> [])
       in
-      change, receipt))
+      let change =
+        { Change.scope
+        ; key
+        ; revision = current + 1
+        ; value
+        ; references
+        ; actor_id = actor
+        ; run_id = run
+        ; timestamp
+        ; sequence
+        }
+      in
+      Result.map (apply t change) ~f:(fun _ ->
+        let receipt =
+          match Change.to_json change with
+          | `Object fields ->
+            Json.obj
+              (fields
+               @ Option.to_list
+                   (Option.map value ~f:(fun value ->
+                      "value_type", Json.string (Value.type_name value))))
+          | _ -> assert false
+        in
+        change, receipt)))
 ;;
 
 let validate_targets t ~exists =
   if Map.keys t.entries |> List.for_all ~f:(fun (scope, _) -> exists (Scope.target scope))
-  then Ok ()
+  then
+    if
+      Map.data t.entries
+      |> List.for_all
+           ~f:
+             (List.for_all ~f:(fun change ->
+                List.for_all change.Change.references ~f:(fun reference ->
+                  exists (Reference.target reference))))
+    then Ok ()
+    else Error (Problem.create Corrupt_store "fact reference does not exist")
   else Error (Problem.create Corrupt_store "fact scope does not exist")
 ;;
 
@@ -540,6 +684,7 @@ let query_methods =
   ; "fact.keys"
   ; "fact.history"
   ; "fact.search"
+  ; "fact.references"
   ]
 ;;
 
@@ -623,7 +768,8 @@ let readable_files t =
 
 module Query = struct
   type t =
-    { scope : Scope.t
+    { scope : Scope.t option
+    ; reference : Reference.t option
     ; key : Key.t option
     ; keys : Key.t list option
     ; text : string option
@@ -684,7 +830,13 @@ module Query = struct
       in
       let base_fields =
         Fields.both
-          (Fields.required "scope" Scope.codec)
+          (if String.equal method_ "fact.references"
+           then Fields.optional "scope" Scope.codec
+           else
+             Fields.map
+               (Fields.required "scope" Scope.codec)
+               ~decode:Option.some
+               ~encode:Option.value_exn)
           (Fields.both
              field_key
              (Fields.both
@@ -741,22 +893,35 @@ module Query = struct
            then Fields.optional "predicates" Fact_predicate.conjunction_codec
            else Fields.map Fields.empty ~decode:(fun () -> None) ~encode:(fun _ -> ()))
       in
+      let fields =
+        Fields.both
+          fields
+          (if String.equal method_ "fact.references"
+           then
+             Fields.map
+               (Fields.required "reference" Reference.codec)
+               ~decode:Option.some
+               ~encode:Option.value_exn
+           else Fields.map Fields.empty ~decode:(fun () -> None) ~encode:(fun _ -> ()))
+      in
       Ok
         (object_
            (Fields.map
               fields
               ~decode:
                 (fun
-                  ( ( ( scope
-                      , ( key
-                        , ( keys
-                          , ( text
-                            , ( limit
-                              , (offset, (at_revision, (max_bytes, include_deleted))) ) )
-                          ) ) )
-                    , prefix )
-                  , predicates ) ->
+                  ( ( ( ( scope
+                        , ( key
+                          , ( keys
+                            , ( text
+                              , ( limit
+                                , (offset, (at_revision, (max_bytes, include_deleted))) )
+                              ) ) ) )
+                      , prefix )
+                    , predicates )
+                  , reference ) ->
                 { scope
+                ; reference
                 ; key
                 ; keys
                 ; text
@@ -771,6 +936,7 @@ module Query = struct
               ~encode:
                 (fun
                   { scope
+                  ; reference
                   ; key
                   ; keys
                   ; text
@@ -790,7 +956,7 @@ module Query = struct
                         , (limit, (offset, (at_revision, (max_bytes, include_deleted))))
                         ) ) ) )
                 in
-                (base, prefix), predicates)))
+                ((base, prefix), predicates), reference)))
   ;;
 
   let codec method_ =
@@ -821,7 +987,7 @@ let query t ~workspace_revision ~method_ ~params =
           Map.to_alist t.entries
           |> List.filter_map ~f:(fun ((scope, key), versions) ->
             if
-              Scope.equal scope request.scope
+              Option.for_all request.scope ~f:(Scope.equal scope)
               && Option.for_all request.prefix ~f:(fun prefix ->
                 String.is_prefix key ~prefix)
             then Some (key, versions)
@@ -854,7 +1020,9 @@ let query t ~workspace_revision ~method_ ~params =
               | Some head -> current_json head
               | None ->
                 Json.obj
-                  [ "scope", unwrap (Api_codec.encode Scope.codec request.scope)
+                  [ ( "scope"
+                    , unwrap
+                        (Api_codec.encode Scope.codec (Option.value_exn request.scope)) )
                   ; "key", Json.string key
                   ; "missing", `True
                   ])
@@ -870,12 +1038,23 @@ let query t ~workspace_revision ~method_ ~params =
                 if visible head
                 then Some (current_json ~metadata:(String.equal method_ "fact.keys") head)
                 else None))
+          | "fact.references" ->
+            let reference = Option.value_exn request.reference in
+            List.filter_map histories ~f:(fun (_, versions) ->
+              Option.bind (List.hd versions) ~f:(fun head ->
+                if
+                  Option.is_some head.Change.value
+                  && List.mem head.references reference ~equal:Reference.equal
+                then Some (current_json head)
+                else None))
           | "fact.search" ->
             let text = Option.value_exn request.text in
             let documents =
               search_documents t
               |> List.filter ~f:(fun doc ->
-                Entity_ref.equal doc.Search.Document.target (Scope.target request.scope)
+                Entity_ref.equal
+                  doc.Search.Document.target
+                  (Scope.target (Option.value_exn request.scope))
                 &&
                 match doc.Search.Document.source with
                 | Search.Source.Fact { key; _ } ->
@@ -1025,6 +1204,7 @@ module Response = struct
       ; optional "run_id" (id_codec Id.Run.of_string Id.Run.to_string)
       ; field "timestamp" (Api_codec.text ~max_bytes:128)
       ; field "changed_at_revision" count
+      ; field "references" Reference.list_codec
       ; optional "value_type" value_type
       ]
       @ (if metadata then [] else [ optional "value" Value.codec ])
@@ -1057,6 +1237,7 @@ module Response = struct
             if revision < 1 || sequence < 1 || (deleted && revision = 1)
             then Json.fail Invalid_argument "invalid fact response revision";
             ignore (Json.field json "actor_id" : Jsonaf.t);
+            ignore (Json.field json "references" : Jsonaf.t);
             if String.is_empty (Json.text (Json.field json "timestamp"))
             then Json.fail Invalid_argument "empty fact response timestamp";
             let value = Json.optional json "value" in
@@ -1119,7 +1300,8 @@ module Response = struct
       Ok (record ~metadata:false ~missing:false)
     | "fact.keys" -> Ok (page (record ~metadata:true ~missing:false))
     | "fact.multi_get" -> Ok (page (record ~metadata:false ~missing:true))
-    | "fact.list" | "fact.history" -> Ok (page (record ~metadata:false ~missing:false))
+    | "fact.list" | "fact.history" | "fact.references" ->
+      Ok (page (record ~metadata:false ~missing:false))
     | "fact.search" -> Ok (page search_item)
     | _ -> invalid "unknown fact method"
   ;;

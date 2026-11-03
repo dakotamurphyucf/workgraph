@@ -1409,6 +1409,8 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
              ~timestamp
              ~sequence:(t.revision + 1))
       in
+      List.iter (Facts.Change.references change) ~f:(fun reference ->
+        validate_target t (Facts.Reference.target reference));
       let method_, _ = unwrap_domain (Facts.Command.encode command) in
       let codec = unwrap_domain (Facts.response_codec method_) in
       (match Api_codec.encode codec result with

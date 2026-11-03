@@ -840,10 +840,17 @@ let query ?now_unix_ms t ~method_ ~params =
         | `Object fields -> fields
         | _ -> Json.fail Invalid_argument "query params require object"
       in
-      let scope =
-        Json.field params "scope" |> Api_codec.decode Facts.Scope.codec |> unwrap_domain
-      in
-      validate_target t (Facts.Scope.target scope);
+      Option.iter (Json.optional params "scope") ~f:(fun json ->
+        let scope = Api_codec.decode Facts.Scope.codec json |> unwrap_domain in
+        validate_target t (Facts.Scope.target scope));
+      if String.equal method_ "fact.references"
+      then (
+        let reference =
+          Json.field params "reference"
+          |> Api_codec.decode Facts.Reference.codec
+          |> unwrap_domain
+        in
+        validate_target t (Facts.Reference.target reference));
       let result =
         Facts.query
           t.facts
