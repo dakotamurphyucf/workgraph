@@ -9,7 +9,10 @@ module Put : sig
     }
 
   (** Explicit ID, nonnegative policy revision, both policy enums, and nonblank
-      bounded audit reason. Omitted policy fields are not implicit patches. *)
+      bounded audit reason. Omitted policy fields are not implicit patches.
+      Harnesses monitor audit/attention for policy changes; instruction acceptance
+      gates use explicit amendments. Hierarchy edits preserve claims and finish
+      rechecks the current policy. *)
   val codec : t Api_codec.t
 end
 

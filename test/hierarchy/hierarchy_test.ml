@@ -434,3 +434,82 @@ let%expect_test "deep ancestor validation and blocker resolution use iterative t
     p:n0
   |}]
 ;;
+
+let%expect_test "blocker provenance agrees with prerequisite-first reference selection" =
+  Quickcheck.test
+    (List.gen_with_length 6 (Int.gen_incl 0 127))
+    ~trials:100
+    ~f:(fun masks ->
+      let ids = List.init 6 ~f:(fun index -> id ("n" ^ Int.to_string index)) in
+      let nodes =
+        List.mapi masks ~f:(fun index mask ->
+          let prerequisites =
+            List.filteri ids ~f:(fun bit _ -> bit < index && mask land (1 lsl bit) <> 0)
+          in
+          { Hierarchy_graph.Node.ticket = List.nth_exn ids index
+          ; parent = (if index = 0 then None else Some (List.nth_exn ids (index - 1)))
+          ; prerequisites
+          ; waived = (if index mod 2 = 0 then prerequisites else [])
+          ; done_ = index mod 3 = 0
+          ; descendant_prerequisites = (if mask land 64 = 0 then Independent else Inherit)
+          })
+      in
+      let table =
+        List.map nodes ~f:(fun node -> node.Hierarchy_graph.Node.ticket, node)
+        |> Id.Ticket.Map.of_alist_exn
+      in
+      let graph = capture nodes in
+      assert (Result.is_ok (Hierarchy_graph.validate graph ~tickets:ids));
+      List.iter ids ~f:(fun ticket ->
+        let rec owners ticket =
+          let node = Map.find_exn table ticket in
+          node :: Option.value_map node.parent ~default:[] ~f:owners
+        in
+        let owners = owners ticket in
+        let expected =
+          List.filter_map ids ~f:(fun prerequisite ->
+            if (Map.find_exn table prerequisite).done_
+            then None
+            else
+              List.find_mapi owners ~f:(fun distance owner ->
+                if
+                  (distance = 0
+                   || Hierarchy_policy.Descendant_prerequisites.equal
+                        owner.descendant_prerequisites
+                        Inherit)
+                  && List.mem owner.prerequisites prerequisite ~equal:Id.Ticket.equal
+                  && not (List.mem owner.waived prerequisite ~equal:Id.Ticket.equal)
+                then
+                  Some
+                    { Hierarchy_graph.Blocker.prerequisite
+                    ; ancestor = (if distance = 0 then None else Some owner.ticket)
+                    }
+                else None))
+        in
+        assert (
+          List.equal
+            Hierarchy_graph.Blocker.equal
+            expected
+            (Hierarchy_graph.blockers graph ~ticket |> ok))));
+  List.iter
+    [ [ node "a"; node "a" ]
+    ; [ node ~prerequisites:[ "p" ] ~waived:[ "p"; "p" ] "a"; node "p" ]
+    ]
+    ~f:(fun nodes ->
+      let graph =
+        Hierarchy_graph.create ~find:(fun ticket ->
+          List.find nodes ~f:(fun node ->
+            Id.Ticket.equal ticket node.Hierarchy_graph.Node.ticket))
+      in
+      report
+        (Hierarchy_graph.validate
+           graph
+           ~tickets:(List.map nodes ~f:(fun node -> node.Hierarchy_graph.Node.ticket))));
+  print_endline "600 blocker projections agree";
+  [%expect
+    {|
+    Invalid_argument
+    Invalid_argument
+    600 blocker projections agree
+  |}]
+;;

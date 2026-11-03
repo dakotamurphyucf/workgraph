@@ -39,15 +39,14 @@ let inherits (node : Node.t) =
   Hierarchy_policy.Descendant_prerequisites.equal node.descendant_prerequisites Inherit
 ;;
 
-let is_waived (node : Node.t) id = List.mem node.waived id ~equal:Id.Ticket.equal
-
 let blockers t ~ticket =
   Json.decode (fun () ->
     let node = find_exn t ticket in
     let add_owner blockers (owner : Node.t) ~ancestor =
+      let waived = Id.Ticket.Set.of_list owner.waived in
       List.fold owner.prerequisites ~init:blockers ~f:(fun blockers prerequisite ->
         let target = find_exn t prerequisite in
-        if Map.mem blockers prerequisite || is_waived owner prerequisite || target.done_
+        if Map.mem blockers prerequisite || Set.mem waived prerequisite || target.done_
         then blockers
         else Map.set blockers ~key:prerequisite ~data:{ Blocker.prerequisite; ancestor })
     in
@@ -74,34 +73,38 @@ let add_dependent dependents ~prerequisite ~ticket =
 
 let validate t ~tickets =
   Json.decode (fun () ->
+    let inventory = Id.Ticket.Set.of_list tickets in
     require
-      (not (List.contains_dup tickets ~compare:Id.Ticket.compare))
+      (Set.length inventory = List.length tickets)
       Invalid_argument
       "Duplicate hierarchy ticket";
-    let inventory = Id.Ticket.Set.of_list tickets in
-    (* Capture the callback once per node. All subsequent validation operates on
-       this immutable map, including when a caller supplied a mutable callback. *)
+    (* Capture each node once; subsequent validation uses only this immutable map. *)
     let nodes =
       List.fold tickets ~init:Id.Ticket.Map.empty ~f:(fun nodes ticket ->
         Map.set nodes ~key:ticket ~data:(find_exn t ticket))
+    in
+    let direct =
+      Map.map nodes ~f:(fun node -> Id.Ticket.Set.of_list node.Node.prerequisites)
     in
     let check_reference id =
       require (Set.mem inventory id) Not_found "Hierarchy reference not found"
     in
     let children =
       Map.fold nodes ~init:Id.Ticket.Map.empty ~f:(fun ~key:ticket ~data:node children ->
+        let prerequisites = Map.find_exn direct ticket in
+        let waived = Id.Ticket.Set.of_list node.Node.waived in
         require
-          (not (List.contains_dup node.Node.prerequisites ~compare:Id.Ticket.compare))
+          (Set.length prerequisites = List.length node.prerequisites)
           Invalid_argument
           "Duplicate hierarchy prerequisite";
         require
-          (not (List.contains_dup node.waived ~compare:Id.Ticket.compare))
+          (Set.length waived = List.length node.waived)
           Invalid_argument
           "Duplicate hierarchy waiver";
-        List.iter node.prerequisites ~f:check_reference;
-        List.iter node.waived ~f:(fun id ->
+        Set.iter prerequisites ~f:check_reference;
+        Set.iter waived ~f:(fun id ->
           require
-            (List.mem node.prerequisites id ~equal:Id.Ticket.equal)
+            (Set.mem prerequisites id)
             Invalid_argument
             "Hierarchy waiver has no direct edge");
         match node.parent with
@@ -125,7 +128,7 @@ let validate t ~tickets =
           let parent_node = Map.find_exn nodes parent in
           let higher = Map.find_exn !inherited parent in
           if inherits parent_node
-          then Set.union higher (Id.Ticket.Set.of_list parent_node.prerequisites)
+          then Set.union higher (Map.find_exn direct parent)
           else higher
       in
       inherited := Map.set !inherited ~key:ticket ~data:ancestor_edges;
@@ -133,7 +136,7 @@ let validate t ~tickets =
       := Map.set
            !effective
            ~key:ticket
-           ~data:(Set.union ancestor_edges (Id.Ticket.Set.of_list node.prerequisites));
+           ~data:(Set.union ancestor_edges (Map.find_exn direct ticket));
       Option.iter (Map.find children ticket) ~f:(fun ids ->
         Set.iter ids ~f:(Queue.enqueue ready))
     done;
