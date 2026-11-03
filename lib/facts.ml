@@ -633,6 +633,7 @@ module Query = struct
     ; max_bytes : int option
     ; include_deleted : bool option
     ; prefix : string option
+    ; predicates : Fact_predicate.t list option
     }
 
   let validate request =
@@ -729,19 +730,32 @@ module Query = struct
            then Fields.optional "prefix" (text ~max_bytes:128)
            else Fields.map Fields.empty ~decode:(fun () -> None) ~encode:(fun _ -> ()))
       in
+      let fields =
+        Fields.both
+          fields
+          (if
+             List.mem
+               [ "fact.list"; "fact.keys"; "fact.search" ]
+               method_
+               ~equal:String.equal
+           then Fields.optional "predicates" Fact_predicate.conjunction_codec
+           else Fields.map Fields.empty ~decode:(fun () -> None) ~encode:(fun _ -> ()))
+      in
       Ok
         (object_
            (Fields.map
               fields
               ~decode:
                 (fun
-                  ( ( scope
-                    , ( key
-                      , ( keys
-                        , ( text
-                          , (limit, (offset, (at_revision, (max_bytes, include_deleted))))
-                          ) ) ) )
-                  , prefix ) ->
+                  ( ( ( scope
+                      , ( key
+                        , ( keys
+                          , ( text
+                            , ( limit
+                              , (offset, (at_revision, (max_bytes, include_deleted))) ) )
+                          ) ) )
+                    , prefix )
+                  , predicates ) ->
                 { scope
                 ; key
                 ; keys
@@ -752,6 +766,7 @@ module Query = struct
                 ; max_bytes
                 ; include_deleted
                 ; prefix
+                ; predicates
                 })
               ~encode:
                 (fun
@@ -765,6 +780,7 @@ module Query = struct
                   ; max_bytes
                   ; include_deleted
                   ; prefix
+                  ; predicates
                   } ->
                 let base =
                   ( scope
@@ -774,7 +790,7 @@ module Query = struct
                         , (limit, (offset, (at_revision, (max_bytes, include_deleted))))
                         ) ) ) )
                 in
-                base, prefix)))
+                (base, prefix), predicates)))
   ;;
 
   let codec method_ =
@@ -815,7 +831,16 @@ let query t ~workspace_revision ~method_ ~params =
           Option.bind (List.Assoc.find histories key ~equal:Key.equal) ~f:List.hd
         in
         let include_deleted = Option.value request.include_deleted ~default:false in
-        let visible head = include_deleted || Option.is_some head.Change.value in
+        let predicates = Option.value request.predicates ~default:[] in
+        let matches head =
+          List.is_empty predicates
+          || Option.value_map head.Change.value ~default:false ~f:(fun value ->
+            List.for_all predicates ~f:(fun predicate ->
+              Fact_predicate.matches predicate ~value:(Value.to_json value)))
+        in
+        let visible head =
+          (include_deleted || Option.is_some head.Change.value) && matches head
+        in
         let items =
           match method_ with
           | "fact.get" ->
@@ -850,7 +875,12 @@ let query t ~workspace_revision ~method_ ~params =
             let documents =
               search_documents t
               |> List.filter ~f:(fun doc ->
-                Entity_ref.equal doc.Search.Document.target (Scope.target request.scope))
+                Entity_ref.equal doc.Search.Document.target (Scope.target request.scope)
+                &&
+                match doc.Search.Document.source with
+                | Search.Source.Fact { key; _ } ->
+                  Option.value_map (find key) ~default:false ~f:matches
+                | _ -> false)
             in
             List.concat_map documents ~f:(fun document ->
               (Search.matches [ document ] ~text ~kinds:None ~offset:0 ~limit:1).items)

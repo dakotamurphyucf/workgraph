@@ -123,8 +123,10 @@ val query_methods : string list
     explicit missing keys. List/keys default to active keys; [include_deleted]
     enables tombstones; optional [prefix] on list/keys is an exact case-sensitive
     UTF-8 prefix of at most 128 bytes (empty is allowed). Get and multi_get return retained tombstones explicitly;
-    history is oldest-first. Search covers current active key and canonical value
-    text. Scope/key ordering is deterministic; duplicate multi_get keys retain
+    history is oldest-first. List/keys/search accept at most eight ANDed scalar
+    equality [predicates] with JSON-pointer paths (see [Fact_predicate]). Filtering
+    precedes pagination and never treats a tombstone as a null value. Search covers
+    current active key and canonical value text. Scope/key ordering is deterministic; duplicate multi_get keys retain
     caller order. Offset pages require an exact workspace [at_revision].
     Get accepts scope/key/at_revision/max_bytes; other methods also accept
     limit/offset. Include_deleted is accepted only by list/keys. Limits default
