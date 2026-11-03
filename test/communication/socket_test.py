@@ -178,14 +178,31 @@ class CommunicationSocketTest(unittest.TestCase):
                     answered = saved_mutation("request.resolve", answer_path, request_id="asked",
                                               expected_revision="1", body="Use existing events.")
                     self.assertEqual(answered["data"]["status"]["kind"], "resolved")
+                    self.assertEqual(answered["data"]["request_revision"], "2")
+                    self.assertEqual(answered["data"]["thread_revision"], "4")
+                    answer_ref = answered["data"]["answer"]
+                    pinned = read("request.get", request_id="asked")["data"]
+                    self.assertEqual(pinned["status"]["answer"], answer_ref)
+                    self.assertEqual(pinned["answer"]["body"], "Use existing events.")
+                    self.assertEqual(pinned["comment_revision"], "1")
                     question_thread = read("thread.get", thread_id=ask["thread_id"])["data"]
-                    self.assertEqual(question_thread["revision"], "3")
+                    self.assertEqual(question_thread["revision"], "4")
+                    self.assertEqual(question_thread["state"], "resolved")
                     self.assertEqual(len(question_thread["comment_ids"]), 2)
                     answer_comment = read("comment.get", comment_id=question_thread["comment_ids"][1])["data"]
                     self.assertEqual(answer_comment["body"], "Use existing events.")
                     self.assertEqual(answer_comment["actor_id"], "alice")
                     self.assertEqual(answer_comment["reply_to_comment_id"], ask["question"]["comment_id"])
-                    self.assertEqual(read("request.get", request_id="asked")["data"]["thread_revision"], "3")
+                    self.assertEqual(read("request.get", request_id="asked")["data"]["thread_revision"], "4")
+                    mutate("comment.tombstone", "answer-tombstone", comment_id=answer_ref["comment_id"],
+                           expected_revision="1")
+                    self.assertTrue(read("comment.get", comment_id=answer_ref["comment_id"])["data"]["tombstone"])
+                    self.assertEqual(read("request.get", request_id="asked")["data"]["answer"]["body"], "Use existing events.")
+                    deliveries = read("inbox.read", consumer_id="answer-pins", recipient=bob)["data"]["items"]
+                    resolved_packet = next(item for item in deliveries if item["kind"] == "request_resolved" and item["source"]["id"] == "asked")
+                    self.assertEqual(resolved_packet["causal_body"], answer_ref)
+                    self.assertEqual(resolved_packet["body_source"]["body"], "Use existing events.")
+                    self.assertEqual(resolved_packet["request_status"], "resolved")
                     mutate("ticket.create", "ask-ticket", ticket_id="task", title="Task")
                     ticket_ask = mutate("request.ask", "ticket-ask", request_id="ticket-ask",
                                         ticket_id="task", title="Task question", body="Which task?",

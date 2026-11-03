@@ -99,7 +99,7 @@ let%expect_test "ask and answer compose existing events and replay exactly" =
     ask: workspace=1 request=1 thread=2 question=1
     derived IDs fit: true
     ask replay: true; original untouched: 0
-    answer: workspace=2 request=2 thread=3 messages=2
+    answer: workspace=2 request=2 thread=4 messages=2
     answer replay: true
     |}]
 ;;
@@ -349,7 +349,7 @@ let%expect_test "ask creation aliases resolve before atomic answer preparation" 
     |> fun json -> get (get json "data") "body" |> Json.text |> print_endline);
   [%expect
     {|
-    batch: workspace=1 request=2 thread=3
+    batch: workspace=1 request=2 thread=4
     ok
     Invalid_argument
     Preserve $question as text
@@ -384,4 +384,252 @@ let%expect_test "ask accepts the full declared recipient and UTF-8 body bounds" 
     (List.length request.deliveries)
     (List.length thread.participants);
   [%expect {| deliveries=1000 participants=1 |}]
+;;
+
+let%expect_test "answers and causal deliveries retain exact versions after edits" =
+  let asked = prepare (empty ()) (ask ()) |> unwrap |> State.candidate in
+  let resolution =
+    prepare
+      asked
+      (Communication
+         (Request_resolve
+            { id = request; expected_revision = 1; body = Some "Pinned answer" }))
+    |> unwrap
+  in
+  let resolved = State.candidate resolution in
+  let receipt = State.result resolution in
+  let pin = get receipt "answer" in
+  let answer_id = get pin "comment_id" |> Id.Comment.t_of_jsonaf in
+  let request_record state =
+    query
+      state
+      "request.get"
+      (Json.obj [ "request_id", Communication_id.Request.jsonaf_of_t request ])
+    |> fun j -> get j "record"
+  in
+  let question =
+    (Communication.get_request (State.communication asked) request |> Option.value_exn)
+      .message
+  in
+  let edit state id body =
+    prepare state (Comment_edit { id; expected_revision = 1; body; tombstone = false })
+    |> unwrap
+    |> State.candidate
+  in
+  let changed =
+    edit resolved question "Rewritten question"
+    |> fun state -> edit state answer_id "Rewritten answer"
+  in
+  let current = request_record changed in
+  printf
+    "receipt: request=%d thread=%d answer=%d\n"
+    (get receipt "request_revision" |> Json.integer)
+    (get receipt "thread_revision" |> Json.integer)
+    (get pin "revision" |> Json.integer);
+  printf
+    "direct: %s; question revision=%d\n"
+    (get (get current "answer") "body" |> Json.text)
+    (get current "comment_revision" |> Json.integer);
+  let inbox =
+    query
+      changed
+      "inbox.read"
+      (Json.obj
+         [ "consumer_id", Json.string "pins"
+         ; ( "recipient"
+           , Json.obj [ "kind", Json.string "actor"; "id", Id.Actor.jsonaf_of_t alice ] )
+         ])
+  in
+  get inbox "items"
+  |> Json.list
+  |> List.iter ~f:(fun item ->
+    let kind = get item "kind" |> Json.text in
+    if String.equal kind "request_created" || String.equal kind "request_resolved"
+    then
+      printf
+        "%s: %s (%s)\n"
+        kind
+        (get (get item "body_source") "body" |> Json.text)
+        (get item "request_status" |> Json.text));
+  let metadata_only =
+    get inbox "items"
+    |> Json.list
+    |> List.filter ~f:(fun item ->
+      String.equal (get item "kind" |> Json.text) "thread_changed"
+      &&
+      match get item "body_source" with
+      | `Null -> true
+      | _ -> false)
+  in
+  printf "metadata without borrowed body: %d\n" (List.length metadata_only);
+  [%expect
+    {|
+    receipt: request=2 thread=4 answer=1
+    direct: Pinned answer; question revision=1
+    request_created: Which approach? (resolved)
+    request_resolved: Pinned answer (resolved)
+    metadata without borrowed body: 2
+    |}]
+;;
+
+let%expect_test "automatic closure waits for every sibling and manual threads stay open" =
+  let run manual =
+    let asked = prepare (empty ()) (ask ()) |> unwrap |> State.candidate in
+    let original =
+      Communication.get_request (State.communication asked) request |> Option.value_exn
+    in
+    let thread =
+      Communication.get_thread (State.communication asked) original.thread
+      |> Option.value_exn
+    in
+    let asked =
+      if manual
+      then
+        prepare
+          asked
+          (Communication
+             (Thread_put
+                { id = thread.id
+                ; expected_revision = thread.revision
+                ; board = thread.board
+                ; title = thread.title
+                ; participants = thread.participants
+                ; mentions = thread.mentions
+                ; links = thread.links
+                ; state = thread.state
+                ; closure_policy = Some Manual
+                ; pinned = thread.pinned
+                }))
+        |> unwrap
+        |> State.candidate
+      else asked
+    in
+    let sibling = Communication_id.Request.of_string "sibling" |> unwrap in
+    let asked =
+      prepare
+        asked
+        (Communication
+           (Request_create
+              { id = sibling
+              ; thread = original.thread
+              ; kind = Clarification
+              ; message = original.message
+              ; recipients = [ Actor alice ]
+              ; teams = []
+              ; resolver = alice
+              ; correlation_id = None
+              ; reply_to = None
+              ; deadline_unix_ms = None
+              }))
+      |> unwrap
+      |> State.candidate
+    in
+    let resolve state id =
+      prepare
+        state
+        (Communication (Request_resolve { id; expected_revision = 1; body = None }))
+      |> unwrap
+      |> State.candidate
+    in
+    let first = resolve asked request in
+    let state state =
+      (Communication.get_thread (State.communication state) original.thread
+       |> Option.value_exn)
+        .state
+    in
+    let last = resolve first sibling in
+    print_s
+      [%sexp
+        (state first : Communication.Thread.State.t)
+      , (state last : Communication.Thread.State.t)]
+  in
+  run false;
+  run true;
+  [%expect
+    {|
+    (Awaiting_response Resolved)
+    (Awaiting_response Awaiting_response)
+    |}]
+;;
+
+let%expect_test "replay rejects forged answer pins and missing automatic closure" =
+  let asked = prepare (empty ()) (ask ()) |> unwrap |> State.candidate in
+  let request_record =
+    Communication.get_request (State.communication asked) request |> Option.value_exn
+  in
+  let answer =
+    prepare
+      asked
+      (Communication
+         (Request_resolve { id = request; expected_revision = 1; body = Some "Answer" }))
+    |> unwrap
+  in
+  let payload = State.events answer in
+  let events =
+    get payload "changes" |> Json.list |> List.map ~f:Planning_state.Event.t_of_jsonaf
+  in
+  let replace events =
+    match payload with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           ( key
+           , if String.equal key "changes"
+             then `Array (List.map events ~f:Planning_state.Event.jsonaf_of_t)
+             else value )))
+    | _ -> assert false
+  in
+  let forged =
+    List.map events ~f:(function
+      | Planning_state.Event.Communication_changed
+          ({ update =
+               Request_put ({ request = resolved; kind = Request_resolved } as update)
+           ; _
+           } as change) ->
+        let pin =
+          { Communication_event.Comment_ref.comment_id = request_record.message
+          ; revision = 1
+          }
+        in
+        let status =
+          match resolved.status with
+          | Resolved resolution ->
+            Communication.Request.Status.Resolved { resolution with answer = Some pin }
+          | Open | Cancelled _ -> assert false
+        in
+        Planning_state.Event.Communication_changed
+          { change with
+            update = Request_put { update with request = { resolved with status } }
+          ; notifications =
+              List.map change.notifications ~f:(fun n ->
+                { n with causal_body = Some pin })
+          }
+      | event -> event)
+  in
+  report (State.replay asked (replace forged));
+  report (State.replay asked (replace (List.drop_last_exn events)));
+  let zero_pin =
+    List.find_map events ~f:(function
+      | Planning_state.Event.Communication_changed
+          ({ notifications = n :: _; _ } as change)
+        when Option.is_some n.causal_body ->
+        Some
+          { change with
+            notifications =
+              [ { n with
+                  causal_body =
+                    Option.map n.causal_body ~f:(fun p -> { p with revision = 0 })
+                }
+              ]
+          }
+      | _ -> None)
+    |> Option.value_exn
+  in
+  report (Communication_event.decode (Communication_event.jsonaf_of_t zero_pin));
+  [%expect
+    {|
+    Corrupt_store
+    Corrupt_store
+    Corrupt_store
+    |}]
 ;;

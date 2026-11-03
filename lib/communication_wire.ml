@@ -315,6 +315,14 @@ let related_thread =
     ]
 ;;
 
+let comment_ref =
+  Api_codec.object_
+    (Fields.map
+       (Fields.required "comment_id" comment_id ++ Fields.required "revision" positive)
+       ~decode:(fun (comment_id, revision) -> { Event.Comment_ref.comment_id; revision })
+       ~encode:(fun pin -> pin.Event.Comment_ref.comment_id, pin.revision))
+;;
+
 let source_reference =
   let current =
     Api_codec.map
@@ -332,6 +340,14 @@ let source_reference =
          pinned revision."
   in
   record [ field "comment_id" comment_id; field "revision" current ]
+;;
+
+let closure_policy =
+  Api_codec.enum
+    [ "manual", Event.Thread.Closure_policy.Manual
+    ; "when_all_requests_terminal", When_all_requests_terminal
+    ]
+    ~equal:Event.Thread.Closure_policy.equal
 ;;
 
 let related_request =
@@ -356,6 +372,7 @@ let thread_fields =
   ; field "mentions" (Api_codec.list actor_id ~max_items:1000)
   ; field "links" (Api_codec.list target ~max_items:100)
   ; field "state" thread_state
+  ; field "closure_policy" closure_policy
   ; field "pinned" Api_codec.boolean
   ; field "comment_ids" (Api_codec.list comment_id ~max_items:100000)
   ; field "pinned_comment_ids" (Api_codec.list comment_id ~max_items:100000)
@@ -402,8 +419,10 @@ let status =
     [ "open", record [ field "kind" (Api_codec.literal "open") ]
     ; ( "resolved"
       , record
-          [ field "kind" (Api_codec.literal "resolved"); field "attribution" attribution ]
-      )
+          [ field "kind" (Api_codec.literal "resolved")
+          ; field "attribution" attribution
+          ; field "answer" (Api_codec.nullable comment_ref)
+          ] )
     ; ( "cancelled"
       , record
           [ field "kind" (Api_codec.literal "cancelled")
@@ -425,6 +444,7 @@ let request_fields =
   ; field "thread_id" thread_id
   ; field "kind" request_kind
   ; field "comment_id" comment_id
+  ; field "comment_revision" positive
   ; field "correlation_id" (Api_codec.nullable correlation)
   ; field "reply_to_request_id" (Api_codec.nullable request_id)
   ; field "deadline_unix_ms" (Api_codec.nullable unix_ms)
@@ -441,7 +461,21 @@ let request = record (request_fields @ [ optional "related" related_request ])
 let request_current =
   record
     (request_fields
-     @ [ field "thread_revision" positive; optional "related" related_request ])
+     @ [ field "thread_revision" positive
+       ; field "answer" (Api_codec.nullable Discussion_wire.comment)
+       ; optional "related" related_request
+       ])
+;;
+
+let resolve_receipt =
+  record
+    [ field "request_id" request_id
+    ; field "request_revision" positive
+    ; field "thread_id" thread_id
+    ; field "thread_revision" positive
+    ; field "status" status
+    ; field "answer" (Api_codec.nullable comment_ref)
+    ]
 ;;
 
 let ask_receipt =
@@ -501,6 +535,7 @@ let thread_json (value : Event.Thread.t) =
           (List.map value.links ~f:(fun value -> unwrap (Api_codec.encode target value)))
       )
     ; "state", unwrap (Api_codec.encode thread_state value.state)
+    ; "closure_policy", unwrap (Api_codec.encode closure_policy value.closure_policy)
     ; ("pinned", if value.pinned then `True else `False)
     ; "comment_ids", `Array (List.map value.messages ~f:Id.Comment.jsonaf_of_t)
     ; ( "pinned_comment_ids"
@@ -521,9 +556,14 @@ let responsibility_json = function
 
 let status_json = function
   | Event.Request.Status.Open -> Json.obj [ "kind", Json.string "open" ]
-  | Resolved attribution ->
+  | Resolved { attribution; answer } ->
     Json.obj
-      [ "kind", Json.string "resolved"; "attribution", attribution_json attribution ]
+      [ "kind", Json.string "resolved"
+      ; "attribution", attribution_json attribution
+      ; ( "answer"
+        , Option.value_map answer ~default:`Null ~f:(fun pin ->
+            unwrap (Api_codec.encode comment_ref pin)) )
+      ]
   | Cancelled attribution ->
     Json.obj
       [ "kind", Json.string "cancelled"; "attribution", attribution_json attribution ]
@@ -536,6 +576,7 @@ let request_json (value : Event.Request.t) =
     ; "thread_id", Communication_id.Thread.jsonaf_of_t value.thread
     ; "kind", unwrap (Api_codec.encode request_kind value.kind)
     ; "comment_id", Id.Comment.jsonaf_of_t value.message
+    ; "comment_revision", Json.int value.message_revision
     ; ( "correlation_id"
       , Option.value_map value.correlation_id ~default:`Null ~f:Json.string )
     ; ( "reply_to_request_id"
@@ -621,6 +662,7 @@ let thread_snapshot =
     ; mentions = read (Api_codec.list actor_id ~max_items:1000) json "mentions"
     ; links = read (Api_codec.list target ~max_items:100) json "links"
     ; state = read thread_state json "state"
+    ; closure_policy = read closure_policy json "closure_policy"
     ; pinned = read Api_codec.boolean json "pinned"
     ; messages = read (Api_codec.list comment_id ~max_items:100000) json "comment_ids"
     ; pinned_messages =
@@ -634,7 +676,11 @@ let request_snapshot =
     let status =
       match Json.text (Json.field state_json "kind") with
       | "open" -> Event.Request.Status.Open
-      | "resolved" -> Resolved (read attribution state_json "attribution")
+      | "resolved" ->
+        Resolved
+          { attribution = read attribution state_json "attribution"
+          ; answer = read (Api_codec.nullable comment_ref) state_json "answer"
+          }
       | "cancelled" -> Cancelled (read attribution state_json "attribution")
       | _ -> Json.fail Invalid_argument "invalid request status"
     in
@@ -643,6 +689,7 @@ let request_snapshot =
     ; thread = read thread_id json "thread_id"
     ; kind = read request_kind json "kind"
     ; message = read comment_id json "comment_id"
+    ; message_revision = read positive json "comment_revision"
     ; correlation_id = read (Api_codec.nullable correlation) json "correlation_id"
     ; reply_to = read (Api_codec.nullable request_id) json "reply_to_request_id"
     ; deadline_unix_ms = read (Api_codec.nullable unix_ms) json "deadline_unix_ms"
@@ -671,8 +718,8 @@ let validate_result ~method_ result =
     | "request.acknowledge"
     | "request.accept"
     | "request.reassign"
-    | "request.resolve"
     | "request.cancel" -> request
+    | "request.resolve" -> resolve_receipt
     | _ -> invalid_arg "unknown communication publication"
   in
   match Api_codec.decode codec result with

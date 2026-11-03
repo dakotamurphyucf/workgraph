@@ -28,6 +28,7 @@ type t =
       ; mentions : Id.Actor.t list
       ; links : Entity_ref.t list
       ; state : Thread.State.t
+      ; closure_policy : Thread.Closure_policy.t option
       ; pinned : bool
       }
   | Thread_attach of

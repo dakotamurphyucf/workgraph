@@ -34,6 +34,16 @@ module Attribution : sig
   [@@deriving sexp, equal, jsonaf]
 end
 
+(** Exact immutable authored body reference. Positive revision, validated against
+    the paired discussion capture at publication and replay boundaries. *)
+module Comment_ref : sig
+  type t =
+    { comment_id : Id.Comment.t
+    ; revision : Counter.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+end
+
 module Board : sig
   type t =
     { id : Communication_id.Board.t
@@ -45,6 +55,13 @@ module Board : sig
 end
 
 module Thread : sig
+  module Closure_policy : sig
+    type t =
+      | Manual
+      | When_all_requests_terminal
+    [@@deriving sexp, equal, jsonaf]
+  end
+
   module State : sig
     type t =
       | Open
@@ -62,6 +79,7 @@ module Thread : sig
     ; mentions : Id.Actor.t list
     ; links : Entity_ref.t list
     ; state : State.t
+    ; closure_policy : Closure_policy.t
     ; pinned : bool
     ; messages : Id.Comment.t list
     ; pinned_messages : Id.Comment.t list
@@ -111,7 +129,10 @@ module Request : sig
   module Status : sig
     type t =
       | Open
-      | Resolved of Attribution.t
+      | Resolved of
+          { attribution : Attribution.t
+          ; answer : Comment_ref.t option
+          }
       | Cancelled of Attribution.t
     [@@deriving sexp, equal, jsonaf]
   end
@@ -122,6 +143,7 @@ module Request : sig
     ; thread : Communication_id.Thread.t
     ; kind : Kind.t
     ; message : Id.Comment.t
+    ; message_revision : Counter.t
     ; correlation_id : string option
     ; reply_to : Communication_id.Request.t option
     ; deadline_unix_ms : string option
@@ -181,6 +203,7 @@ module Notification : sig
     ; scope : Scope.t
     ; source : Source.t
     ; source_revision : Counter.t
+    ; causal_body : Comment_ref.t option
     ; kind : Kind.t
     ; attribution : Attribution.t
     ; recipients : Recipient.t list

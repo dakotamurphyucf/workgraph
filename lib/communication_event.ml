@@ -68,6 +68,14 @@ module Attribution = struct
   [@@deriving sexp, equal, jsonaf]
 end
 
+module Comment_ref = struct
+  type t =
+    { comment_id : Id.Comment.t
+    ; revision : Counter.t
+    }
+  [@@deriving sexp, equal, jsonaf]
+end
+
 module Board = struct
   type t =
     { id : Communication_id.Board.t
@@ -79,6 +87,25 @@ module Board = struct
 end
 
 module Thread = struct
+  module Closure_policy = struct
+    type t =
+      | Manual
+      | When_all_requests_terminal
+    [@@deriving sexp, equal]
+
+    let jsonaf_of_t = function
+      | Manual -> Json.string "manual"
+      | When_all_requests_terminal -> Json.string "when_all_requests_terminal"
+    ;;
+
+    let t_of_jsonaf json =
+      match Json.text json with
+      | "manual" -> Manual
+      | "when_all_requests_terminal" -> When_all_requests_terminal
+      | _ -> Json.fail Invalid_argument "unknown thread closure policy"
+    ;;
+  end
+
   module State = struct
     type t =
       | Open
@@ -110,6 +137,7 @@ module Thread = struct
     ; mentions : Id.Actor.t list
     ; links : Entity_ref.t list
     ; state : State.t
+    ; closure_policy : Closure_policy.t
     ; pinned : bool
     ; messages : Id.Comment.t list
     ; pinned_messages : Id.Comment.t list
@@ -177,7 +205,10 @@ module Request = struct
   module Status = struct
     type t =
       | Open
-      | Resolved of Attribution.t
+      | Resolved of
+          { attribution : Attribution.t
+          ; answer : Comment_ref.t option
+          }
       | Cancelled of Attribution.t
     [@@deriving sexp, equal, jsonaf]
   end
@@ -188,6 +219,7 @@ module Request = struct
     ; thread : Communication_id.Thread.t
     ; kind : Kind.t
     ; message : Id.Comment.t
+    ; message_revision : Counter.t
     ; correlation_id : string option
     ; reply_to : Communication_id.Request.t option
     ; deadline_unix_ms : string option
@@ -247,6 +279,7 @@ module Notification = struct
     ; scope : Scope.t
     ; source : Source.t
     ; source_revision : Counter.t
+    ; causal_body : Comment_ref.t option
     ; kind : Kind.t
     ; attribution : Attribution.t
     ; recipients : Recipient.t list
@@ -327,7 +360,24 @@ let t_of_jsonaf json =
   in
   if entity_revision <= 0
   then Json.fail Corrupt_store "invalid communication entity revision";
+  let valid_pin (pin : Comment_ref.t) =
+    if pin.revision <= 0 then Json.fail Corrupt_store "invalid pinned comment revision"
+  in
+  (match event.update with
+   | Update.Request_put { request; _ } ->
+     if request.message_revision <= 0
+     then Json.fail Corrupt_store "invalid question revision";
+     (match request.status with
+      | Resolved { answer; _ } -> Option.iter answer ~f:valid_pin
+      | Open | Cancelled _ -> ())
+   | Board_put _
+   | Thread_put _
+   | Team_put _
+   | Message_put _
+   | Subscription_put _
+   | Inbox_ack _ -> ());
   List.iter event.notifications ~f:(fun n ->
+    Option.iter n.Notification.causal_body ~f:valid_pin;
     if
       n.Notification.serial <= 0
       || n.source_revision <= 0

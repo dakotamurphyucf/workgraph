@@ -109,7 +109,7 @@ let apply_event t = function
      | Ok evidence -> { t with evidence }
      | Error error -> raise (Json.Decode_error error))
   | Event.Communication_changed change ->
-    (match Communication.apply t.communication change with
+    (match Communication.apply t.communication ~discussion:t.discussion change with
      | Ok communication -> { t with communication }
      | Error error -> raise (Json.Decode_error error))
   | Event.Settings_changed change ->

@@ -41,8 +41,10 @@ module Ack : sig
 end
 
 (** Canonical public notification packets. Message bodies name the pinned
-    initial discussion version; request/thread bodies explicitly name the
-    current version. Original and current source revisions remain distinct. *)
+    initial discussion version. Requests and thread attachments name exact causal
+    versions; metadata-only changes have no body. [request_status] is a labelled
+    current observation, independent of inbox acknowledgement. Original and current
+    source revisions remain distinct. *)
 val item_codec : Jsonaf.t Api_codec.t
 
 val result_codec : Jsonaf.t Api_codec.t

@@ -28,6 +28,7 @@ type t =
       ; mentions : Id.Actor.t list
       ; links : Entity_ref.t list
       ; state : Thread.State.t
+      ; closure_policy : Thread.Closure_policy.t option
       ; pinned : bool
       }
   | Thread_attach of
@@ -340,13 +341,15 @@ let entries =
                  "links"
                  (Api_codec.list target ~max_items:100)
             ++ Fields.required "state" Communication_wire.thread_state
-            ++ Fields.optional "pinned" Api_codec.boolean))
+            ++ Fields.optional "pinned" Api_codec.boolean
+            ++ Fields.optional "closure_policy" Communication_wire.closure_policy))
         ~decode:
           (fun
-            ( ( ( (((((id, expected_revision), board), title), participants), mentions)
-                , links )
-              , state )
-            , pinned ) ->
+            ( ( ( ( (((((id, expected_revision), board), title), participants), mentions)
+                  , links )
+                , state )
+              , pinned )
+            , closure_policy ) ->
           let participants = Option.value participants ~default:[] in
           let mentions = Option.value mentions ~default:[] in
           let links = Option.value links ~default:[] in
@@ -361,6 +364,7 @@ let entries =
                ; mentions
                ; links
                ; state
+               ; closure_policy
                ; pinned
                }))
         ~encode:(function
@@ -373,13 +377,15 @@ let entries =
               ; mentions
               ; links
               ; state
+              ; closure_policy
               ; pinned
               } ->
-            ( ( ( ( ((((id, expected_revision), board), title), Some participants)
-                  , Some mentions )
-                , Some links )
-              , state )
-            , Some pinned )
+            ( ( ( ( ( ((((id, expected_revision), board), title), Some participants)
+                    , Some mentions )
+                  , Some links )
+                , state )
+              , Some pinned )
+            , closure_policy )
           | Board_put _
           | Thread_attach _
           | Thread_pin_message _

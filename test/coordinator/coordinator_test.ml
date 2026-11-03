@@ -289,11 +289,33 @@ let%expect_test
          ; requests = [ { Reservation.name; mode = Exclusive; lease_duration_ms = None } ]
          })
   in
+  let discussion =
+    Discussion.apply
+      Discussion.empty
+      (Discussion.Change.Create
+         { id = ok (Id.Comment.of_string "message")
+         ; target = Entity_ref.Workspace
+         ; reply_to = None
+         ; kind = Comment
+         ; origin = Authored
+         ; version =
+             { revision = 1
+             ; serial = 1
+             ; sequence = 1
+             ; actor
+             ; timestamp = "now"
+             ; body = "Review"
+             ; tombstone = false
+             }
+         })
+      ~sequence:1
+  in
   let comm_step t command =
     Communication.candidate
       (ok
          (Communication.prepare
             t
+            ~discussion
             command
             ~actor
             ~run:(Some run)
@@ -320,6 +342,7 @@ let%expect_test
          ; mentions = []
          ; links = [ Entity_ref.Ticket (ticket_id "work") ]
          ; state = Open
+         ; closure_policy = None
          ; pinned = false
          })
   in

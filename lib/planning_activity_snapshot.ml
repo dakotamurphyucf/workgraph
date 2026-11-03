@@ -799,28 +799,32 @@ let notification =
         ++ F.required "source_revision" positive
         ++ F.required "kind" Communication_wire.kind
         ++ F.required "attribution" communication_attribution
-        ++ F.required "recipients" (Api_codec.list recipient ~max_items:2048))
+        ++ F.required "recipients" (Api_codec.list recipient ~max_items:2048)
+        ++ F.required "causal_body" (Api_codec.nullable Communication_wire.comment_ref))
        ~decode:
          (fun
-           ( ( (((((notification_id, sequence), scope), source), source_revision), kind)
-             , attribution )
-           , recipients ) ->
+           ( ( ( (((((notification_id, sequence), scope), source), source_revision), kind)
+               , attribution )
+             , recipients )
+           , causal_body ) ->
          ({ serial = notification_id
           ; sequence
           ; scope
           ; source
           ; source_revision
+          ; causal_body
           ; kind
           ; attribution
           ; recipients
           }
           : Communication_event.Notification.t))
        ~encode:(fun (value : Communication_event.Notification.t) ->
-         ( ( ( ( (((value.serial, value.sequence), value.scope), value.source)
-               , value.source_revision )
-             , value.kind )
-           , value.attribution )
-         , value.recipients )))
+         ( ( ( ( ( (((value.serial, value.sequence), value.scope), value.source)
+                 , value.source_revision )
+               , value.kind )
+             , value.attribution )
+           , value.recipients )
+         , value.causal_body )))
 ;;
 
 let communication_update : Communication_event.Update.t Api_codec.t =

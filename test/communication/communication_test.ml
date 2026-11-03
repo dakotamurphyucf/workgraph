@@ -41,10 +41,11 @@ let fixture_discussion =
     ~sequence:1
 ;;
 
-let step ?(actor = resolver) state command =
+let step ?(actor = resolver) ?(discussion = fixture_discussion) state command =
   let p =
     C.prepare
       state
+      ~discussion
       command
       ~actor
       ~run:None
@@ -74,6 +75,7 @@ let fixture () =
          ; mentions = [ bob ]
          ; links = [ Entity_ref.Workspace ]
          ; state = Awaiting_response
+         ; closure_policy = None
          ; pinned = false
          })
   in
@@ -176,7 +178,9 @@ let%expect_test "acknowledgement, reading, acceptance and resolution are indepen
     ((true true) Unaccepted Open)
     Conflict
     (Awaiting_response
-     (Resolved ((actor coordinator) (run ()) (timestamp 2026-10-07))))
+     (Resolved
+      (attribution ((actor coordinator) (run ()) (timestamp 2026-10-07)))
+      (answer ())))
 |}]
 ;;
 
@@ -236,7 +240,7 @@ let%expect_test "resolved deliveries, subscriptions and read cursors survive rep
   let restored =
     List.fold events ~init:C.empty ~f:(fun t event ->
       let decoded = C.Change.decode (C.Change.jsonaf_of_t event) |> unwrap in
-      C.apply t decoded |> unwrap)
+      C.apply t ~discussion:fixture_discussion decoded |> unwrap)
   in
   print_s
     [%sexp
@@ -254,7 +258,8 @@ let%expect_test "resolved deliveries, subscriptions and read cursors survive rep
   let bad = { pin_event with C.Change.notifications = [] } in
   let before_pin =
     List.take events 7
-    |> List.fold ~init:C.empty ~f:(fun t event -> C.apply t event |> unwrap)
+    |> List.fold ~init:C.empty ~f:(fun t event ->
+      C.apply t ~discussion:fixture_discussion event |> unwrap)
   in
   print_error (C.apply before_pin bad);
   [%expect
@@ -278,6 +283,9 @@ let%expect_test
        ~timestamp:"now"
        ~sequence:6);
   let t, _ =
+    step t (Request_resolve { id = request; expected_revision = 1; body = None })
+  in
+  let t, _ =
     step
       t
       (Thread_put
@@ -289,6 +297,7 @@ let%expect_test
          ; mentions = [ bob ]
          ; links = [ Entity_ref.Workspace ]
          ; state = Resolved
+         ; closure_policy = None
          ; pinned = true
          })
   in
@@ -538,7 +547,11 @@ let%expect_test "communication event wire round trips and replay match original 
       in
       let restored =
         List.fold events ~init:C.empty ~f:(fun t event ->
-          C.apply t (C.Change.decode (C.Change.jsonaf_of_t event) |> unwrap) |> unwrap)
+          C.apply
+            t
+            ~discussion:fixture_discussion
+            (C.Change.decode (C.Change.jsonaf_of_t event) |> unwrap)
+          |> unwrap)
       in
       if
         not
@@ -605,6 +618,7 @@ let%expect_test
   let thread_revision = (Option.value_exn (C.get_thread t thread)).revision in
   let t, _ =
     step
+      ~discussion
       t
       (Thread_attach
          { id = thread; expected_revision = thread_revision; message = second })

@@ -42,10 +42,27 @@ val revision : t -> int
 
 (** Single communication publication. Commands composing authored discussion
     ([Request_ask] and resolution with a body) require [State.prepare] and are
-    rejected here rather than partially prepared. *)
+    rejected here rather than partially prepared. Source-bearing publications
+    require [discussion], the exact paired immutable capture. This optional
+    argument is unnecessary only for metadata-only changes. *)
 val prepare
   :  t
+  -> ?discussion:Discussion.t
   -> Command.t
+  -> actor:Id.Actor.t
+  -> run:Id.Run.t option
+  -> timestamp:string
+  -> sequence:int
+  -> (prepared, Problem.t) Result.t
+
+(** Resolve with an already authored exact answer. The resolver, reply/scope and
+    current version are validated; used by State's atomic authored-answer path. *)
+val prepare_resolution
+  :  t
+  -> discussion:Discussion.t
+  -> id:Communication_id.Request.t
+  -> expected_revision:int
+  -> answer:Communication_event.Comment_ref.t
   -> actor:Id.Actor.t
   -> run:Id.Run.t option
   -> timestamp:string
@@ -87,7 +104,7 @@ val prepare_message
 (** Replay validates version, consecutive entity/activity counters, immutable
     references, lifecycle transitions and exact frozen notification deliveries.
     Only expected domain failures are returned. Input state remains immutable. *)
-val apply : t -> Change.t -> (t, Problem.t) Result.t
+val apply : t -> ?discussion:Discussion.t -> Change.t -> (t, Problem.t) Result.t
 
 (** Validate external entity and discussion references against a final staged
     state. Thread messages must target the board scope. *)
@@ -130,6 +147,9 @@ val latest_serial : t -> int
     thread.get/request.get optionally include current message bodies and exact
     source revisions. request.get also exposes the current thread_revision,
     separately from the request record revision and communication revision.
+    Its direct [answer] is the pinned resolved body, while [related] deliberately
+    exposes labelled current conversation versions. Question [comment_revision]
+    and terminal answer references never change after later comment edits.
     request.list ticket_id and resolver_id filters apply before pagination.
     Later offset pages guard both communication revision and
     discussion serial; tombstones remain present and budget omissions are explicit. *)

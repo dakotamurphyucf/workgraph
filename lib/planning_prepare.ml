@@ -685,6 +685,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                      ; mentions = []
                      ; links = [ Ticket ticket ]
                      ; state = Awaiting_response
+                     ; closure_policy = None
                      ; pinned = false
                      })
               ] )
@@ -1165,6 +1166,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         unwrap_domain
           (Communication.prepare
              t.communication
+             ~discussion:(apply_event t comment_event).discussion
              (Thread_attach { id; expected_revision; message })
              ~actor
              ~run
@@ -1233,6 +1235,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                ; mentions = []
                ; links
                ; state = Awaiting_response
+               ; closure_policy = Some When_all_requests_terminal
                ; pinned = false
                })
         ; Thread_reply
@@ -1286,6 +1289,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       let _resolution =
         Communication.prepare
           t.communication
+          ~discussion:t.discussion
           (Request_resolve { id; expected_revision; body = None })
           ~actor
           ~run
@@ -1324,21 +1328,33 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           ~timestamp
           ~now_unix_ms
       in
-      let _, resolution_events, result, _ =
-        stage
-          answered
-          (Communication (Request_resolve { id; expected_revision; body = None }))
+      let resolution =
+        Communication.prepare_resolution
+          answered.communication
+          ~discussion:answered.discussion
+          ~id
+          ~expected_revision
+          ~answer:
+            { comment_id = answer
+            ; revision = Discussion.revision answered.discussion answer
+            }
           ~actor
           ~run
           ~timestamp
-          ~now_unix_ms
+          ~sequence:(t.revision + 1)
+        |> unwrap_domain
       in
-      answer_events @ resolution_events, result, []
+      let resolution_events =
+        List.map (Communication.changes resolution) ~f:(fun change ->
+          Event.Communication_changed change)
+      in
+      answer_events @ resolution_events, Communication.result resolution, []
     | Domain_command.Communication command ->
       let prepared =
         match
           Communication.prepare
             t.communication
+            ~discussion:t.discussion
             command
             ~actor
             ~run

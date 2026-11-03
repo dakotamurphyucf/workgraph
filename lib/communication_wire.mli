@@ -7,6 +7,9 @@ open Core
 val scope : Communication_event.Scope.t Api_codec.t
 
 val kind : Communication_event.Notification.Kind.t Api_codec.t
+val closure_policy : Communication_event.Thread.Closure_policy.t Api_codec.t
+val comment_ref : Communication_event.Comment_ref.t Api_codec.t
+val resolve_receipt : Jsonaf.t Api_codec.t
 val thread_state : Communication_event.Thread.State.t Api_codec.t
 val request_kind : Communication_event.Request.Kind.t Api_codec.t
 val filter_input : Communication_event.Subscription.Filter.t Api_codec.t

@@ -317,14 +317,29 @@ let item_codec =
       (Fields.required "ticket_ids" (Api_codec.list ticket_codec ~max_items:1024))
       (Fields.required "attribution" attribution_codec)
   in
+  let causal_body_codec =
+    Api_codec.as_json
+      (Api_codec.object_
+         (Fields.both
+            (Fields.required "comment_id" comment_codec)
+            (Fields.required "revision" serial_codec)))
+  in
+  let details =
+    Fields.both
+      (Fields.required "body_source" (Api_codec.nullable body_codec))
+      (Fields.both
+         (Fields.required "causal_body" (Api_codec.nullable causal_body_codec))
+         (Fields.required
+            "request_status"
+            (Api_codec.nullable
+               (Api_codec.enum
+                  [ "open", "open"; "resolved", "resolved"; "cancelled", "cancelled" ]
+                  ~equal:String.equal))))
+  in
   let fields =
     Fields.both
       (Fields.both identity classification)
-      (Fields.both
-         source
-         (Fields.both
-            routing
-            (Fields.required "body_source" (Api_codec.nullable body_codec))))
+      (Fields.both source (Fields.both routing details))
   in
   Api_codec.map
     (Api_codec.as_json (Api_codec.object_ fields))

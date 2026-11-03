@@ -180,8 +180,8 @@ let mutation_response = function
   | "request.acknowledge"
   | "request.accept"
   | "request.reassign"
-  | "request.resolve"
   | "request.cancel" -> Communication_wire.request
+  | "request.resolve" -> Communication_wire.resolve_receipt
   | _ -> invalid_arg "unknown communication mutation"
 ;;
 
