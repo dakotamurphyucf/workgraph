@@ -28,7 +28,7 @@ class PackageQualification(unittest.TestCase):
                                     0o755 if name.endswith(".sh") else 0o644)
                              for name in verify.NATIVE_SOURCE_FILES}
         self.source_files["docs/example.md"] = (b"offline documentation", 0o644)
-        self.source_files["examples/example.sh"] = (b"#!/bin/sh\n", 0o755)
+        self.source_files["skills/workgraph/scripts/example.sh"] = (b"#!/bin/sh\n", 0o755)
         self.identity = verify.sha(verify.encode({name: verify.sha(data)
                                                 for name, (data, _) in self.source_files.items()}))
         self.source_metadata = {"version": "0.5.0", "kind": "source", "source_identity": self.identity}
@@ -91,13 +91,13 @@ class PackageQualification(unittest.TestCase):
         # Stage source files explicitly: Dune's build tree can contain compiled
         # outputs and is not itself the source tree the packager should consume.
         project = self.directory / "source"
-        for name in ["README.md", "AGENTS.md", "AGENT_GUIDE.md", "engineering-standards.md",
+        for name in ["README.md", "AGENTS.md", "engineering-standards.md",
                      "LICENSE", ".gitignore", ".gitattributes", ".dockerignore", ".ocamlformat",
                      "dune", "dune-project", "dev", "workgraph.opam", "lib/version.ml"]:
             path = project / name
             path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, path)
-        for directory in ["docs", "examples", "tools", "packaging"]:
+        for directory in ["docs", "skills", "tools", "packaging"]:
             shutil.copytree(ROOT / directory, project / directory,
                             ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         executable = self.directory / "workgraph"
@@ -116,12 +116,12 @@ class PackageQualification(unittest.TestCase):
         native = verify.read_archive(next(output.glob("*-macos-arm64.tar.gz")))
         verify.verify_pair(source, native)
         self.assertEqual(native.files["AGENTS.md"], (ROOT / "AGENTS.md").read_bytes())
-        self.assertEqual(native.files["tools/wgx.sh"], (ROOT / "tools/wgx.sh").read_bytes())
-        self.assertEqual(source.modes["tools/wgx.sh"], 0o755)
-        self.assertEqual(native.modes["tools/wgx.sh"], 0o755)
-        for name in ["examples/ci-worker.sh", "examples/transcript-converter.py"]:
+        self.assertEqual(native.files["skills/workgraph/scripts/wgx.sh"], (ROOT / "skills/workgraph/scripts/wgx.sh").read_bytes())
+        self.assertEqual(source.modes["skills/workgraph/scripts/wgx.sh"], 0o755)
+        self.assertEqual(native.modes["skills/workgraph/scripts/wgx.sh"], 0o755)
+        for name in ["skills/workgraph/scripts/ci-worker.sh", "skills/workgraph/scripts/transcript-converter.py"]:
             self.assertEqual(native.files[name], (ROOT / name).read_bytes())
-        self.assertEqual(native.modes["examples/ci-worker.sh"], 0o755)
+        self.assertEqual(native.modes["skills/workgraph/scripts/ci-worker.sh"], 0o755)
         checked = 0
         for name, data in native.files.items():
             if not name.endswith(".md"):
@@ -147,15 +147,15 @@ class PackageQualification(unittest.TestCase):
         installation.mkdir()
         verify.extract(native, installation)
         installed = installation / native.root
-        (installed / "tools/wgx.sh").chmod(0o644)
+        (installed / "skills/workgraph/scripts/wgx.sh").chmod(0o644)
         with self.assertRaisesRegex(ValueError, "hash mismatch"):
             verify.verify_installation(native, installed)
-        del self.native_files["tools/wgx.sh"]
+        del self.native_files["skills/workgraph/scripts/wgx.sh"]
         self.write_archives()
         with self.assertRaisesRegex(ValueError, "inventory"):
             verify.verify_pair(source, verify.read_archive(self.native_path))
 
-        self.native_files["tools/wgx.sh"] = (source.files["tools/wgx.sh"], 0o644)
+        self.native_files["skills/workgraph/scripts/wgx.sh"] = (source.files["skills/workgraph/scripts/wgx.sh"], 0o644)
         self.write_archives()
         with self.assertRaisesRegex(ValueError, "mode"):
             verify.read_archive(self.native_path)

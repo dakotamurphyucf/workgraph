@@ -1,15 +1,18 @@
 (rule
  (alias runtest)
- (deps evaluation_test.py ../../examples/evaluation.py)
+ (deps evaluation_test.py ../../skills/workgraph/scripts/evaluation.py)
  (action
-  (run python3 %{dep:evaluation_test.py} %{dep:../../examples/evaluation.py})))
+  (run
+   python3
+   %{dep:evaluation_test.py}
+   %{dep:../../skills/workgraph/scripts/evaluation.py})))
 
 (rule
  (alias runtest)
  (deps
   socket_test.py
   ../daemon_ready.py
-  ../../examples/evaluation.py
-  ../../examples/history-adapter.py)
+  ../../skills/workgraph/scripts/evaluation.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

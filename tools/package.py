@@ -65,8 +65,8 @@ def main():
     version = re.search(r'\(version ([0-9.]+)\)', (root / "dune-project").read_text())[1]
     if (root / "lib/version.ml").read_text().strip() != f'let value = "{version}"':
         raise SystemExit("CLI and package versions disagree")
-    names = ["README.md", "AGENTS.md", "AGENT_GUIDE.md", "engineering-standards.md", "LICENSE", ".gitignore", ".gitattributes", ".dockerignore", ".ocamlformat", "dune", "dune-project", "dev", "workgraph.opam"]
-    for directory in ["bin", "lib", "test", "examples", "bench", "docs", "tools", "packaging", ".github"]:
+    names = ["README.md", "AGENTS.md", "engineering-standards.md", "LICENSE", ".gitignore", ".gitattributes", ".dockerignore", ".ocamlformat", "dune", "dune-project", "dev", "workgraph.opam"]
+    for directory in ["bin", "lib", "test", "skills", "bench", "docs", "tools", "packaging", ".github"]:
         for path in sorted((root / directory).rglob("*")):
             if ("__pycache__" in path.parts or path.name.startswith("._")
                     or path.name.endswith((".corrected", ".pyc"))):
@@ -108,7 +108,7 @@ def main():
         name = stem + "-" + args.platform + ".tar.gz"
         native_files = {name: value for name, value in files.items()
                         if name in NATIVE_SOURCE_FILES
-                        or name.startswith(("docs/", "examples/"))}
+                        or name.startswith(("docs/", "skills/"))}
         native_files["bin/workgraph"] = (binary, 0o755)
         native_files.update(notices)
         inspection = json.loads(args.qualification.read_text()) if args.qualification else {}

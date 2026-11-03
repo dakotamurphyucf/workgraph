@@ -1,5 +1,10 @@
 # Install and operate Workgraph
 
+The skill folder layout shown in this checkout is new. Published v0.5.0 packages
+still contain the earlier agent guide layout. For the new skill, copy the complete
+folder from this checkout using [skill installation](agent-skill.md); the existing
+0.5 executable can use it. Newly built packages include the skill.
+
 Workgraph is a standalone early preview. It needs no hosted service, model
 key, or account. The daemon and CLI are the same executable. All paths supplied
 to it are absolute, and workspace/export destination parents must already exist.
@@ -78,11 +83,11 @@ aliases. Only the exact recorded socket inode can be recovered under its exclusi
 guard and peer checks. Unknown, symlinked, replaced, bound and live paths refuse.
 Connection refusal, a PID guess and a registry lock are insufficient. Preserve
 logs and choose a fresh endpoint when ownership is uncertain; never delete locks
-or data to force startup. See [administration](agent/administration.md).
+or data to force startup. See [administration](../skills/workgraph/references/administration.md).
 
 ## Runtime layout
 
-`examples/serve-local.sh` is an editable foreground configuration example. Set
+`skills/workgraph/scripts/serve-local.sh` is an editable foreground configuration example. Set
 `WORKGRAPH_EXE`, `WORKGRAPH_RUNTIME`, and `WORKGRAPH_REGISTRY`, then invoke it with
 `sh`. Use a short private socket directory to fit macOS's Unix socket path limit.
 The socket is mode 0600. Use private local directories owned by the running user.
@@ -170,7 +175,7 @@ independent writers and expect a later Git merge to reconcile their transactions
 An existing registration rejects reopening a head that does not descend from its
 last closed head. A fresh clone has no previous local head to compare against.
 
-See [format and durability](compatibility.md) for the current schema, rejected
+See [format and durability](../skills/workgraph/references/compatibility.md) for the current schema, rejected
 format changes and recovery guarantees, the [API reference](api.md#storage-and-ownership)
 for admission limits, and [validation](validation.md) for executed checks and
 platform coverage. There is no checkpoint/compaction feature or actual hardware

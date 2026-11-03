@@ -4,7 +4,7 @@ Current requests retain exact question/answer comment-version refs. Causal inbox
 bodies remain pinned across later message edits; optional related-message expansions
 show current versions separately. Guarded request.metadata patches priority/deadline.
 Related/superseding links record lineage without implicit cancellation. See the
-[focused communication guide](agent/communication-evidence.md) for amendment
+[focused communication guide](../skills/workgraph/references/communication-evidence.md) for amendment
 publication, ownership-fenced acknowledgement and completion gates.
 
 Communication is shared workspace metadata. Discussion bodies retain the existing
@@ -50,7 +50,7 @@ message order remains publication order.
 
 ## Requests
 
-[request.create](api-reference/request.create.md) names a thread and its attached source comment, request kind
+[request.create](../skills/workgraph/references/api/request.create.md) names a thread and its attached source comment, request kind
 (`clarification`, `review`, `help`, `blocker_resolution`, `handoff`), direct
 actor/run recipients, optional teams, and one designated actor resolver. Team
 members are expanded and deduplicated at creation; later membership edits never
@@ -59,8 +59,8 @@ correlation IDs use 1..128 bytes, reply-to requests must be in the same thread,
 and deadlines use canonical nonnegative Unix-millisecond decimal strings within
 the signed 64-bit range.
 
-[request.acknowledge](api-reference/request.acknowledge.md) changes only the attributed recipient's acknowledgement.
-[request.accept](api-reference/request.accept.md) independently accepts responsibility and requires no existing
+[request.acknowledge](../skills/workgraph/references/api/request.acknowledge.md) changes only the attributed recipient's acknowledgement.
+[request.accept](../skills/workgraph/references/api/request.accept.md) independently accepts responsibility and requires no existing
 responsible recipient. Actor recipients require matching actor attribution; run
 recipients require matching run attribution. `request.reassign` is restricted to
 the resolver and either records the named delivery recipient as responsible or
@@ -126,12 +126,12 @@ increase max_bytes without advancing after.
 
 ## Public contracts
 
-The [generated per-method index](api-reference/index.md) contains the executable
-request and result contracts. Start with [board.put](api-reference/board.put.md),
-[thread.put](api-reference/thread.put.md), [request.create](api-reference/request.create.md),
-[subscription.put](api-reference/subscription.put.md) and
-[comment.add](api-reference/comment.add.md). Use [request.get](api-reference/request.get.md)
-and [thread.get](api-reference/thread.get.md) for their complete public records.
+The [generated per-method index](../skills/workgraph/references/api/index.md) contains the executable
+request and result contracts. Start with [board.put](../skills/workgraph/references/api/board.put.md),
+[thread.put](../skills/workgraph/references/api/thread.put.md), [request.create](../skills/workgraph/references/api/request.create.md),
+[subscription.put](../skills/workgraph/references/api/subscription.put.md) and
+[comment.add](../skills/workgraph/references/api/comment.add.md). Use [request.get](../skills/workgraph/references/api/request.get.md)
+and [thread.get](../skills/workgraph/references/api/thread.get.md) for their complete public records.
 
 These contracts use canonical entity IDs, named tagged alternatives and lowercase
 enums. Input fields and provenance fields can differ: for example, thread replies
@@ -167,7 +167,7 @@ export/restore, CLI/client exposure and atomic direct reply composition. See
 
 ## Shared command composition
 
-[thread.reply](api-reference/thread.reply.md) stages one scoped discussion comment
+[thread.reply](../skills/workgraph/references/api/thread.reply.md) stages one scoped discussion comment
 and attachment atomically using the observed thread revision, and returns the
 complete updated thread record.
 A reply parent must already be attached to that thread. Ticket contexts and project

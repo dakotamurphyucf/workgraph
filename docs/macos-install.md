@@ -1,5 +1,10 @@
 # macOS ARM64 native installation
 
+The skill folder layout shown in this checkout is new. Published v0.5.0 packages
+still contain the earlier agent guide layout. For the new skill, copy the complete
+folder from this checkout using [skill installation](agent-skill.md); the existing
+0.5 executable can use it. Newly built packages include the skill.
+
 Use the [release notes](releases/v0.5.0.md) for features, breaking changes, upgrade
 steps and qualification limits. Use a matching 0.5.0 executable and guide.
 
@@ -47,22 +52,23 @@ The version must print `0.5.0`. Check the release's macOS qualification JSON
 and evidence archive for the source identity and actual macOS version tested.
 
 Keep the extracted directory together so relative guide links remain usable. Add
-its `bin` directory to your PATH if desired. Start with its bundled `AGENT_GUIDE.md`
-and `docs/agent/cli-contract.md`, which match that installed preview. Git is needed
-for Git workflow examples; Python is used by example/qualification drivers, not by
-the executable itself.
+its `bin` directory to your PATH if desired. For this published archive, start with
+its bundled `AGENT_GUIDE.md` and `docs/agent/cli-contract.md`. To use the new skill
+with the same executable, follow [skill installation](agent-skill.md). Git is
+needed for Git workflow examples; Python is used by example and qualification
+drivers, not by the executable itself.
 
 After installation, `workgraph init --help` and `workgraph help request.ask`
-work offline. The bundled [agent CLI contract](agent/cli-contract.md) covers
+work offline. The bundled [agent CLI contract](../skills/workgraph/references/cli-contract.md) covers
 context setup, saved exact retries and the API 0.5 contract. Its
-[communication reference](agent/communication-evidence.md) shows how to ask a
+[communication reference](../skills/workgraph/references/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 
 Startup holds an exclusive socket-path ownership guard. Recovery removes only
 the exact recorded native socket identity after ownership/peer checks; foreign,
 live, replaced or unknown paths refuse. Connection refusal alone grants no cleanup
 authority. Preserve locks and managed data, and choose a fresh private endpoint
-when ownership is uncertain. See [administration](agent/administration.md).
+when ownership is uncertain. See [administration](../skills/workgraph/references/administration.md).
 
 ## Building and qualifying a local archive
 

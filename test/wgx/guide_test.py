@@ -17,7 +17,6 @@ import tempfile
 import termios
 import time
 import unittest
-import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 EXE = str(Path(sys.argv.pop(1)).resolve())
@@ -32,8 +31,8 @@ def load(name, path):
     return module
 
 
-converter = load("converter", ROOT / "examples/transcript-converter.py")
-adapter = load("adapter", ROOT / "examples/history-adapter.py")
+converter = load("converter", ROOT / "skills/workgraph/scripts/transcript-converter.py")
+adapter = load("adapter", ROOT / "skills/workgraph/scripts/history-adapter.py")
 
 
 def read_pty(fd):
@@ -80,21 +79,14 @@ def stop_pty_job(process):
 class Sources(unittest.TestCase):
     def test_complete_inline_sources_and_bash3_syntax(self):
         readme = (ROOT / "README.md").read_text()
-        for path in ["examples/ci-worker.sh", "examples/transcript-converter.py", "tools/wgx.sh"]:
+        for path in ["skills/workgraph/scripts/ci-worker.sh", "skills/workgraph/scripts/transcript-converter.py", "skills/workgraph/scripts/wgx.sh"]:
             match = re.search(r"<!-- source: " + re.escape(path) + r" -->\s*```\w+\n(.*?)```", readme, re.S)
             self.assertIsNotNone(match, path)
             self.assertEqual(match[1], (ROOT / path).read_text(), path)
-        subprocess.run(["/bin/bash", "-n", str(ROOT / "tools/wgx.sh")], check=True)
-        subprocess.run(["/bin/bash", "-n", str(ROOT / "examples/ci-worker.sh")], check=True)
+        subprocess.run(["/bin/bash", "-n", str(ROOT / "skills/workgraph/scripts/wgx.sh")], check=True)
+        subprocess.run(["/bin/bash", "-n", str(ROOT / "skills/workgraph/scripts/ci-worker.sh")], check=True)
         self.assertEqual(readme.count("```mermaid"), 13)
-        guide = (ROOT / "AGENT_GUIDE.md").read_text()
-        self.assertIn("nondurable empty", guide)
-        xml = guide.split("```xml\n",1)[1].rsplit("```",1)[0]
-        document = ET.fromstring(xml)
-        references = {node.attrib["href"] for node in document.findall("./references/reference")}
-        self.assertTrue(references)
-        self.assertTrue(all(node.attrib["reference"] in references for node in document.findall("./capabilities/capability")))
-        self.assertNotIn("--thinking", (ROOT / "examples/transcript-converter.py").read_text())
+        self.assertNotIn("--thinking", (ROOT / "skills/workgraph/scripts/transcript-converter.py").read_text())
 
     def test_visible_unicode_tool_records_no_clipping_or_private_parts(self):
         text = "selected café 🐟 " * 4000
@@ -125,7 +117,7 @@ class Sources(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             source = Path(root) / "source"
             source.write_text('{"type":"user","uuid":"ok","message":{"content":"visible"}}\nBAD\n')
-            result = subprocess.run([sys.executable, str(ROOT / "examples/transcript-converter.py"), str(source)], capture_output=True)
+            result = subprocess.run([sys.executable, str(ROOT / "skills/workgraph/scripts/transcript-converter.py"), str(source)], capture_output=True)
             self.assertEqual(result.returncode, 1)
             self.assertEqual(result.stdout, b"")
 
@@ -285,7 +277,7 @@ class Daemon(unittest.TestCase):
             Path(executable).chmod(0o755)
         count = self.root / "executions"
         child = "from pathlib import Path; import sys; p=Path(sys.argv[1]); p.write_text(p.read_text()+'x' if p.exists() else 'x'); print('captured'); sys.exit(int(sys.argv[2]))"
-        result = subprocess.run(["/bin/bash",str(ROOT / "examples/ci-worker.sh"),sys.executable,"-c",child,str(count),str(code)],
+        result = subprocess.run(["/bin/bash",str(ROOT / "skills/workgraph/scripts/ci-worker.sh"),sys.executable,"-c",child,str(count),str(code)],
             env=dict(os.environ,CTX=str(self.context),RUN="ci-run",PROJECT="p",SRC=str(checkout),STAGES=str(stages),WG=executable),capture_output=True,text=True,timeout=30)
         return result,count,stages
 
@@ -334,7 +326,7 @@ class Daemon(unittest.TestCase):
         before = self.call("workspace.overview")
         inbox = self.call("inbox.read",recipient={"kind":"actor","id":"ci"},consumer_id="ci")
         for command in [["status"],["ticket","t"],["questions"],["agents"],["inbox","ci"],["storage"],["files"],["feed","10"],["history","missing"],["convo","visible"],["output","small-capture"]]:
-            result = subprocess.run(["/bin/bash",str(ROOT / "tools/wgx.sh"),"--context",str(self.context),*command],env=dict(os.environ,HOME=str(home),WG=EXE,NO_COLOR="1"),capture_output=True,text=True,timeout=15)
+            result = subprocess.run(["/bin/bash",str(ROOT / "skills/workgraph/scripts/wgx.sh"),"--context",str(self.context),*command],env=dict(os.environ,HOME=str(home),WG=EXE,NO_COLOR="1"),capture_output=True,text=True,timeout=15)
             self.assertEqual(result.returncode,0,(command,result.stdout,result.stderr))
         self.assertEqual(self.call("workspace.overview"),before)
         self.assertEqual(self.call("inbox.read",recipient={"kind":"actor","id":"ci"},consumer_id="ci"),inbox)
@@ -367,7 +359,7 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
             self.addCleanup(os.close,slave)
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack("HHHH",54,120,0,0))
             before_modes = terminal_modes(master)
-            process = subprocess.Popen(["/bin/bash",str(ROOT / "tools/wgx.sh"),"--context",str(context),"dash"],stdin=slave,stdout=slave,stderr=slave,
+            process = subprocess.Popen(["/bin/bash",str(ROOT / "skills/workgraph/scripts/wgx.sh"),"--context",str(context),"dash"],stdin=slave,stdout=slave,stderr=slave,
                                        env=dict(os.environ,HOME=str(root),WG=str(stub),TERM="xterm",LINES="24",COLUMNS="80"),preexec_fn=foreground_session)
             self.addCleanup(stop_pty_job,process)
             def until(marker, predicate=lambda data: True):

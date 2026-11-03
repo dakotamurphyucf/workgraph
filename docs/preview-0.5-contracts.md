@@ -181,7 +181,7 @@ Correct unsafe socket removal, stale command advice and unsupported historical c
 Keep historical measurements labelled as observations. Export user-visible transcript
 messages/tools only, never private model reasoning. Include the complete maintained
 helper script or a complete inline installation source as appropriate to the README.
-Focused agent/API docs and packaged examples/allowlists stay synchronized.
+Focused agent/API docs and packaged skills/workgraph/scripts/allowlists stay synchronized.
 
 ## Implementation and acceptance
 

@@ -1,18 +1,20 @@
 (rule
  (alias runtest)
- (deps watcher_test.py ../../examples/notification-watcher.py)
+ (deps
+  watcher_test.py
+  ../../skills/workgraph/scripts/notification-watcher.py)
  (action
   (run
    python3
    %{dep:watcher_test.py}
-   %{dep:../../examples/notification-watcher.py})))
+   %{dep:../../skills/workgraph/scripts/notification-watcher.py})))
 
 (rule
  (alias runtest)
  (deps
   socket_test.py
   ../daemon_ready.py
-  ../../examples/notification-watcher.py
-  ../../examples/history-adapter.py)
+  ../../skills/workgraph/scripts/notification-watcher.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

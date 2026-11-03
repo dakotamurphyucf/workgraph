@@ -4,7 +4,7 @@ The twelve executable read contracts are `workspace.overview`, `project.brief`,
 `ticket.list`, `ticket.ready`, `ticket.readiness`, `ticket.blockers`,
 `ticket.resolve`, `ticket.context`, `handoff.get`, `handoff.history`,
 `activity.since`, and `search.query`. Their generated method references in
-`docs/api-reference/` are the exact request/result schemas. The same typed codecs
+`skills/workgraph/references/api/` are the exact request/result schemas. The same typed codecs
 validate runtime requests and results; durable planning records remain separate.
 
 Ticket and handoff identities use named fields, including `ticket_id`,

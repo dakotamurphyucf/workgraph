@@ -5,7 +5,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
+import html
+import re
 
 SCRIPT = Path(sys.argv.pop(1)).resolve()
 BINARY = Path(sys.argv.pop(1)).resolve()
@@ -15,7 +16,7 @@ spec.loader.exec_module(reference)
 
 
 def document(data):
-    return ET.fromstring(data.decode().split('```xml\n', 1)[1].rsplit('```', 1)[0])
+    return [json.loads(body) for _, body in re.findall(r'^(`{3,})json\n(.*?)^\1$', data.decode(), re.M | re.S)]
 
 
 def expand(schema):
@@ -46,10 +47,10 @@ class ReferenceTest(unittest.TestCase):
         catalog = self.catalog()
         files = reference.render(catalog)
         doc = document(files['ticket.demo.md'])
-        self.assertEqual(doc.attrib, {'name': 'ticket.demo', 'mode': 'read'})
-        self.assertEqual(doc.findtext('summary'), catalog['methods'][0]['summary'])
-        self.assertEqual(json.loads(doc.findtext('request_schema')), catalog['methods'][0]['params'])
-        self.assertEqual(json.loads(doc.findtext('result_schema')), catalog['methods'][0]['result'])
+        self.assertIn(catalog['methods'][0]['summary'], html.unescape(files['ticket.demo.md'].decode()))
+        self.assertEqual(len(doc), 2)
+        self.assertEqual(doc[0], catalog['methods'][0]['params'])
+        self.assertEqual(doc[1], catalog['methods'][0]['result'])
         self.assertEqual(files, reference.render(json.loads(json.dumps(catalog))))
 
     def test_read_only_check_and_guarded_regeneration(self):
@@ -78,7 +79,7 @@ class ReferenceTest(unittest.TestCase):
             self.assertEqual((output / 'ticket.renamed.md').read_text(), 'manual correction')
 
     def test_local_definitions_preserve_constraints_and_literal_data(self):
-        shared = {'type': 'object', 'description': 'A complete attributed record. ' * 20,
+        shared = {'type': 'object', 'description': 'A complete attributed record with ```json and ```` fences. ' * 20,
                   'properties': {'id': {'type': 'string'}, 'enabled': {'type': 'boolean'}},
                   'required': ['id', 'enabled'], 'additionalProperties': False}
         literal = {'$ref': '#/$defs/not-a-schema', 'properties': shared}
@@ -124,8 +125,8 @@ class ReferenceTest(unittest.TestCase):
             self.assertEqual(checked['status'], 'checked')
             for method in catalog['methods']:
                 doc = document((Path(root) / (method['name'] + '.md')).read_bytes())
-                self.assertEqual(expand(json.loads(doc.findtext('request_schema'))), expand(method['params']))
-                self.assertEqual(expand(json.loads(doc.findtext('result_schema'))), expand(method['result']))
+                self.assertEqual(expand(doc[0]), expand(method['params']))
+                self.assertEqual(expand(doc[1]), expand(method['result']))
                 text = (Path(root) / (method['name'] + '.md')).read_text()
                 self.assertIn('common.md', text)
                 self.assertIn('| Input | Presence | Type and constraints |', text)

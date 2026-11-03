@@ -21,10 +21,10 @@ python=$(command -v python3)
 installations=("$evidence/installation"/workgraph-*-macos-arm64)
 [ "${#installations[@]}" -eq 1 ]
 installation=${installations[0]}
-"$python" "$installation/tools/check_agent_guide.py" "$installation" \
-  --binary "$installation/bin/workgraph" > "$evidence/agent-guide.json"
+"$python" "$installation/tools/check_skill.py" "$installation" \
+  --binary "$installation/bin/workgraph" > "$evidence/skill.json"
 "$python" "$installation/tools/generate_api_reference.py" \
-  --binary "$installation/bin/workgraph" --output "$installation/docs/api-reference" \
+  --binary "$installation/bin/workgraph" --output "$installation/skills/workgraph/references/api" \
   --check > "$evidence/api-reference.json"
 "$python" "$installation/packaging/macos/inspect.py" "$installation/bin/workgraph" "$evidence/native.json"
 # Python is a qualification driver, not a runtime dependency. Executed Workgraph
@@ -32,7 +32,7 @@ installation=${installations[0]}
 env -i HOME="$evidence/home" PATH=/usr/bin:/bin TMPDIR=/tmp \
   "$python" "$installation/tools/installed_smoke.py" "$installation/bin/workgraph" "$evidence/installed" > "$evidence/installed-smoke.json"
 env -i HOME="$evidence/home" PATH=/usr/bin:/bin TMPDIR=/tmp \
-  "$python" "$installation/examples/history-recovery-demo.py" "$installation/bin/workgraph" \
+  "$python" "$installation/skills/workgraph/scripts/history-recovery-demo.py" "$installation/bin/workgraph" \
   --directory "$evidence/history" > "$evidence/history-smoke.json"
 /usr/bin/sw_vers > "$evidence/os-version.txt"
 "$python" - "$evidence" <<'PYRESULT'
@@ -46,7 +46,7 @@ record.update({
     'native_inspection': json.loads((evidence / 'native.json').read_text()),
     'isolation': 'env -i; PATH=/usr/bin:/bin; no opam or DYLD paths; host toolchain remains installed',
     'signing': 'No Developer ID signing or notarization; downloaded Gatekeeper launch not tested',
-    'checks': ['complete-manifests-source-notices', 'agent-guide-and-references',
+    'checks': ['complete-manifests-source-notices', 'portable-agent-skill',
                'installed-cli-git-export-restore', 'history-adapter-retry-search-payload'],
 })
 (evidence / 'result.json').write_text(json.dumps(record, indent=2, sort_keys=True) + '\n')

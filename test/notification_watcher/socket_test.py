@@ -13,7 +13,7 @@ from daemon_ready import is_listening
 
 EXE = Path(sys.argv.pop(1)).resolve()
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / 'examples/notification-watcher.py'
+SCRIPT = ROOT / 'skills/workgraph/scripts/notification-watcher.py'
 
 def load(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -21,7 +21,7 @@ def load(name, path):
     spec.loader.exec_module(module)
     return module
 
-adapter = load('history_adapter', ROOT / 'examples/history-adapter.py')
+adapter = load('history_adapter', ROOT / 'skills/workgraph/scripts/history-adapter.py')
 watcher = load('watcher', SCRIPT)
 
 

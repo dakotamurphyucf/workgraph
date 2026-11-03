@@ -129,7 +129,7 @@ let%expect_test
     9
     8
     count
-    docs/agent/capacity-rollover.md#temporary-upload-occupancy
+    skills/workgraph/references/capacity-rollover.md#temporary-upload-occupancy
     false
     |}]
 ;;

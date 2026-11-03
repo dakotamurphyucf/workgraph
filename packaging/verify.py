@@ -15,8 +15,8 @@ import tarfile
 
 DIGEST = re.compile(r"[0-9a-f]{64}")
 NATIVE_SOURCE_FILES = frozenset({
-    "README.md", "AGENTS.md", "AGENT_GUIDE.md", "engineering-standards.md", "LICENSE",
-    "tools/check_agent_guide.py", "tools/generate_api_reference.py", "tools/wgx.sh",
+    "README.md", "AGENTS.md", "skills/workgraph/SKILL.md", "engineering-standards.md", "LICENSE",
+    "tools/check_skill.py", "tools/generate_api_reference.py", "skills/workgraph/scripts/wgx.sh",
     "tools/installed_smoke.py", "packaging/macos/inspect.py", "packaging/verify.py",
 })
 
@@ -149,7 +149,7 @@ def verify_pair(source, native):
         if source.manifest[field] != native.manifest[field]:
             raise ValueError("Source/native mismatch: " + field)
     expected = {name for name in source.files
-                if name in NATIVE_SOURCE_FILES or name.startswith(("docs/", "examples/"))}
+                if name in NATIVE_SOURCE_FILES or name.startswith(("docs/", "skills/"))}
     extras = {name for name in native.files
               if name not in expected and name not in {"bin/workgraph", "QUALIFICATION.json"}
               and not name.startswith("THIRD_PARTY_NOTICES/")}

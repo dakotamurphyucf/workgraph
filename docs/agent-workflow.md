@@ -5,11 +5,11 @@ Before selection, inspect current hierarchy/amendments and run-aware readiness
 hierarchy policy can inherit ancestor prerequisite conditions with source-owned
 waivers. A canceled child is permitted only by local child-completion policy.
 After a known empty acquisition, preserve its nondurable distinction and use
-capture-before-check/park [attention](agent/attention.md), rather than writing in a
+capture-before-check/park [attention](../skills/workgraph/references/attention.md), rather than writing in a
 loop. Completion rechecks current amendment and hierarchy gates.
 
 The CLI is the supported integration surface. No project-maintained MCP server,
-model runtime or task executor is required. `examples/agent-workflow.sh` is a
+model runtime or task executor is required. `skills/workgraph/scripts/agent-workflow.sh` is a
 repeatable CLI-only starting fixture; its writes retain stable mutation IDs across
 daemon restarts. User-authored skills can wrap the same commands.
 
@@ -21,13 +21,13 @@ daemon restarts. User-authored skills can wrap the same commands.
    tickets with acceptance criteria, milestones and parent relationships. Add
    execution prerequisites with `dependency add`; parents organize work separately.
    `related add` records nonblocking relationships.
-3. Query [ticket.ready](api-reference/ticket.ready.md) and
-   [ticket.resume](api-reference/ticket.resume.md); use ticket context for further
-   detail. Read the [effective acceptance policy](api-reference/acceptance.policy.effective.md)
+3. Query [ticket.ready](../skills/workgraph/references/api/ticket.ready.md) and
+   [ticket.resume](../skills/workgraph/references/api/ticket.resume.md); use ticket context for further
+   detail. Read the [effective acceptance policy](../skills/workgraph/references/api/acceptance.policy.effective.md)
    before starting. Inspect readiness reasons, resource
    pointers and existing claims before choosing work. Display keys resolve through
    `ticket resolve`; mutations and relationships use the returned opaque ID.
-4. [Start or claim](api-reference/ticket.start.md) using the observed ticket
+4. [Start or claim](../skills/workgraph/references/api/ticket.start.md) using the observed ticket
    revision. Save the returned token plus actor/run identity. Claim conflicts mean another request won; read current context. A
    fresh run cannot reuse another run's token even if the actor name is the same.
 
@@ -90,10 +90,10 @@ an incomplete page is not proof that no more context exists. Pagination must use
 the observed workspace revision, and stale pages restart from a current snapshot.
 
 To transfer ownership after the active attempt is finished, record a reason with
-[ticket.reassign](api-reference/ticket.reassign.md), the observed ticket revision
+[ticket.reassign](../skills/workgraph/references/api/ticket.reassign.md), the observed ticket revision
 and the next actor/run. The new fencing token invalidates the old owner.
 If a worker crashed, confirm it is stopped or isolated, then use exact guarded
-[ticket.recover](api-reference/ticket.recover.md) and reservation recovery before
+[ticket.recover](../skills/workgraph/references/api/ticket.recover.md) and reservation recovery before
 launching replacement work. Expiry alone is insufficient.
 To keep working after daemon restart, retain the same actor/run/token. To release,
 use the current claim identity; do not delete history or rely on claim expiry.
@@ -102,7 +102,7 @@ use the current claim identity; do not delete history or rely on claim expiry.
 
 Run the acceptance checks and attach concrete evidence. Read the effective policy
 and current attempt/output bindings; required criteria need exact assertions and
-configured reviews need current acceptance. [ticket.finish](api-reference/ticket.finish.md)
+configured reviews need current acceptance. [ticket.finish](../skills/workgraph/references/api/ticket.finish.md)
 can publish the final handoff, active attempt completion and ticket completion
 atomically. Completion requires the current claim identity and nonempty evidence,
 and rejects unresolved blockers or children. An atomic batch can include final progress, handoff and completion
@@ -115,6 +115,6 @@ verify its completed destination. For a Git handoff, close before committing or
 pulling and explicitly transfer writer ownership. Keep request retry files and
 machine-local registry data outside the portable workspace's committed tree.
 
-Exact parameters and result records are in the [generated method reference](api-reference/index.md).
+Exact parameters and result records are in the [generated method reference](../skills/workgraph/references/api/index.md).
 The workflow above explains when to call them; public codecs remain the source
 for tagged alternatives, optional fields and canonical ID names.

@@ -21,8 +21,14 @@ restore of older exports into 0.5. Read the [release and upgrade notes](docs/rel
 before replacing an installation.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
-Give an agent the concise [AGENT_GUIDE.md](AGENT_GUIDE.md), its own context, and
-access to the focused references. [Guide coverage](docs/guide-coverage.md) maps the
+Install the self-contained [Workgraph skill](skills/workgraph/SKILL.md), then give
+the agent its executable and context-file paths. The skill introduces the concepts
+and links to focused instructions, API schemas and runnable helpers. The bundled
+[orchestrator overview](skills/workgraph/README.md) retains this complete team
+guide, including worker prompts and independent review workflows.
+See [skill installation](docs/agent-skill.md) for copying the full folder into a
+harness. Published v0.5.0 packages still use the older guide layout; the new skill
+is available from this checkout and future packages. [Guide coverage](docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
 
@@ -60,15 +66,15 @@ belong to this checkout's matching executable and current schema.
 
 | Need | Methods and focused guidance | State and lifecycle caveats |
 | --- | --- | --- |
-| Plan a bounded change | `transaction.preflight`, `transaction.apply`; [planning](docs/agent/planning.md) | Preflight commits and reserves nothing. Apply atomically commits supported operations; external tools remain harness work. |
-| Organize inherited prerequisites | `ticket.hierarchy.get`, `ticket.hierarchy.put`; [planning](docs/agent/planning.md) | Containment alone adds no scheduling gate. Explicit policy can inherit ancestor prerequisites; ownership and child-completion gates never inherit. |
-| Route eligible work | `ticket.ready`, `ticket.readiness`, `allocation.ticket_policy_put`; [coordination](docs/agent/coordination.md) | Capabilities, pools and optional `allowed_actor_ids` cooperatively restrict registered-run eligibility; actor names are not authentication. |
-| Change instructions accountably | `ticket.amendment.publish`, `ticket.amendment.get`, `ticket.amendment.list`, `ticket.amendment.acknowledge`, `ticket.amendment.withdraw`; [evidence and review](docs/agent/communication-evidence.md) | Immutable attributed versions retain exact text/resource pins. Required current-version acknowledgement binds actor/run/claim; a replacement claim must acknowledge again before finishing. |
-| Discover small linked memory | `fact.keys`, `fact.list`, `fact.references`; [memory and resume](docs/agent/resume-digest.md) | Prefixes and scalar-equality JSON-pointer predicates select explicit scopes; missing differs from null. Reverse references are editable navigation links, not evidence pins. |
-| Read only the needed context | `ticket.brief`, `resource.brief`, `ticket.context`; [CLI contracts](docs/agent/cli-contract.md) | Compact views and bounded full context disclose omissions. Expand exact records rather than assuming an entire graph or body was returned. |
-| Observe work and consume notices | `attention.read`, `attention.wait`, `inbox.read`, `inbox.ack`, `changes.read`, `changes.wait`; [communication](docs/agent/communication-evidence.md) | A read does not acknowledge. Advance consumed delivery cursors, preserve current captures, and page nested readiness separately. |
-| Inspect usage and capacity | `usage.aggregate`, `actor.overview`, `workspace.metrics`; [metrics](docs/agent/metrics.md) | These are recorded/caller-supplied counters and explicit captures, not provider quota enforcement or process-liveness proof. |
-| Complete a project deliberately | `project.readiness`, `project.finish`; [planning](docs/agent/planning.md) | Readiness aggregates current blockers and completion gates. Finish uses an exact project revision and structured handoff; it does not finish tickets or resolve questions for you. |
+| Plan a bounded change | `transaction.preflight`, `transaction.apply`; [planning](skills/workgraph/references/planning.md) | Preflight commits and reserves nothing. Apply atomically commits supported operations; external tools remain harness work. |
+| Organize inherited prerequisites | `ticket.hierarchy.get`, `ticket.hierarchy.put`; [planning](skills/workgraph/references/planning.md) | Containment alone adds no scheduling gate. Explicit policy can inherit ancestor prerequisites; ownership and child-completion gates never inherit. |
+| Route eligible work | `ticket.ready`, `ticket.readiness`, `allocation.ticket_policy_put`; [coordination](skills/workgraph/references/coordination.md) | Capabilities, pools and optional `allowed_actor_ids` cooperatively restrict registered-run eligibility; actor names are not authentication. |
+| Change instructions accountably | `ticket.amendment.publish`, `ticket.amendment.get`, `ticket.amendment.list`, `ticket.amendment.acknowledge`, `ticket.amendment.withdraw`; [evidence and review](skills/workgraph/references/communication-evidence.md) | Immutable attributed versions retain exact text/resource pins. Required current-version acknowledgement binds actor/run/claim; a replacement claim must acknowledge again before finishing. |
+| Discover small linked memory | `fact.keys`, `fact.list`, `fact.references`; [memory and resume](skills/workgraph/references/resume-digest.md) | Prefixes and scalar-equality JSON-pointer predicates select explicit scopes; missing differs from null. Reverse references are editable navigation links, not evidence pins. |
+| Read only the needed context | `ticket.brief`, `resource.brief`, `ticket.context`; [CLI contracts](skills/workgraph/references/cli-contract.md) | Compact views and bounded full context disclose omissions. Expand exact records rather than assuming an entire graph or body was returned. |
+| Observe work and consume notices | `attention.read`, `attention.wait`, `inbox.read`, `inbox.ack`, `changes.read`, `changes.wait`; [communication](skills/workgraph/references/communication-evidence.md) | A read does not acknowledge. Advance consumed delivery cursors, preserve current captures, and page nested readiness separately. |
+| Inspect usage and capacity | `usage.aggregate`, `actor.overview`, `workspace.metrics`; [metrics](skills/workgraph/references/metrics.md) | These are recorded/caller-supplied counters and explicit captures, not provider quota enforcement or process-liveness proof. |
+| Complete a project deliberately | `project.readiness`, `project.finish`; [planning](skills/workgraph/references/planning.md) | Readiness aggregates current blockers and completion gates. Finish uses an exact project revision and structured handoff; it does not finish tickets or resolve questions for you. |
 
 ## Concepts and choosing a record
 
@@ -310,7 +316,7 @@ not a hidden filter on every read. A context default `run_id` is attribution;
 `target_run_id` and `attempt_id` are separate identities.
 
 After a reboot, rerun the matching init command to start the daemon, or follow
-[administration](docs/agent/administration.md). Stop with
+[administration](skills/workgraph/references/administration.md). Stop with
 `wg daemon shutdown`. There is no assumed system service. Preserve logs and data
 when startup fails. A connection refusal, process-name search or expired lease
 is not proof that a socket belongs to a stopped process. **Do not use
@@ -325,7 +331,7 @@ Installation/setup prompt (adapt paths and privileges deliberately):
 
 ```text
 Install or locate the matching Workgraph executable and its packaged documentation.
-Read AGENT_GUIDE.md and the setup/lifecycle reference before using it. Reuse the
+Read skills/workgraph/SKILL.md and the setup/lifecycle reference before using it. Reuse the
 supplied daemon/workspace. If none exists, choose private absolute state paths and
 bootstrap one. Use your own actor/context and private saved-request directory.
 Do not delete occupied sockets, locks or managed data. Ask before privileged
@@ -339,8 +345,8 @@ unless I or the harness explicitly authorizes them.
 Connection prompt:
 
 ```text
-Use Workgraph at EXECUTABLE with context ABS_CONTEXT. Read ABS_AGENT_GUIDE and the
-focused references beside it. Your actor is ACTOR; your private request directory
+Use Workgraph at EXECUTABLE with context ABS_CONTEXT. Read ABS_SKILL_DIRECTORY/SKILL.md and the
+focused references inside that skill directory. Your actor is ACTOR; your private request directory
 is REQUESTS. Reuse this workspace. Inspect assigned work, ownership and open
 requests; record meaningful progress, decisions, evidence and handoff. Keep actual
 tokens, revision guards and exact retry paths. The harness owns tools and processes.
@@ -521,7 +527,7 @@ sequenceDiagram
   O->>D: Read question, accept responsibility if appropriate
   O->>D: Resolve at exact request revision with answer body
   D-->>W: Resolution notification + pinned answer reference
-  W->>D: Read current question and expanded answer; acknowledge selected delivery
+  W->>D: Read current question and expanded answer, then acknowledge selected delivery
 ```
 
 ```bash
@@ -567,7 +573,7 @@ flowchart TD
   Publish -->|failure / uncertainty| Inspect
 ```
 
-[examples/ci-worker.sh](examples/ci-worker.sh), reproduced completely below, runs
+[skills/workgraph/scripts/ci-worker.sh](skills/workgraph/scripts/ci-worker.sh), reproduced completely below, runs
 one job per invocation. It has a bounded idle policy, fresh stage leaf under an
 existing parent, literal argv, durable capture, independent publication/link
 checks, and separate success/red/infrastructure handling. It does not hide stderr
@@ -577,7 +583,7 @@ For a shell pipeline pass an explicit `bash -o pipefail -c '…'` argv.
 ```bash
 CTX="$WG_HOME/agents/ci.json" RUN=ci-invocation-1 PROJECT=demo-build \
 SRC=/absolute/git/checkout STAGES=/absolute/existing/private/stages WG="$WG" \
-  bash examples/ci-worker.sh ./dev build @runtest
+  bash skills/workgraph/scripts/ci-worker.sh ./dev build @runtest
 ```
 
 Captured output has observed/retained byte counts and truncation indicators. A
@@ -656,7 +662,7 @@ sequenceDiagram
   A->>A: Publish outputs and exact version/digest manifest
   A->>R: Submit round 1
   R-->>A: request_changes on exact submission
-  A->>A: Publish corrected output; new manifest
+  A->>A: Publish corrected output and a new manifest
   A->>R: Submit round 2
   R-->>A: approve exact round 2
   A->>A: Accept with required validations, then finish
@@ -664,8 +670,8 @@ sequenceDiagram
 
 Configure reviewer/separate-actor policy, capture exact input/output pins, submit,
 record approve/request_changes, accept and finish. The runnable
-[gated review workflow](docs/gated-review-workflow.md) and
-[Python recipe](examples/gated-review-workflow.py) show two actors and two rounds.
+[gated review workflow](skills/workgraph/references/gated-review-workflow.md) and
+[Python recipe](skills/workgraph/scripts/gated-review-workflow.py) show two actors and two rounds.
 An approval binds the exact submitted resource version/digest; later publication
 is different evidence. Tests passing do not automatically accept work. The system
 records gates; it does not make filesystem edits impossible. The original two-round
@@ -839,7 +845,7 @@ flowchart LR
 ```
 
 Workgraph does not discover or extract model reasoning. The maintained
-[transcript-converter.py](examples/transcript-converter.py), included completely
+[transcript-converter.py](skills/workgraph/scripts/transcript-converter.py), included completely
 below, selects visible user/assistant text, tool names/inputs and visible tool
 results from Claude JSONL. Private reasoning types are always excluded, with no
 opt-in extraction switch. Unknown parts are counted. Missing/duplicate source
@@ -853,13 +859,13 @@ No mixed-harness transcript compatibility is implied by the historical example.
 
 ```bash
 mkdir -p "$HOME/.local/bin" /absolute/private/import
-install -m 755 examples/transcript-converter.py "$HOME/.local/bin/transcript-converter"
+install -m 755 skills/workgraph/scripts/transcript-converter.py "$HOME/.local/bin/transcript-converter"
 # Only replace the converter output after a complete successful conversion.
 transcript-converter /absolute/visible-session.jsonl > /absolute/private/import/events.new
 mv /absolute/private/import/events.new /absolute/private/import/events.jsonl
-python3 examples/history-adapter.py --help
+python3 skills/workgraph/scripts/history-adapter.py --help
 # Use the adapter's explicit connection/session/source/cursor options below.
-python3 examples/history-adapter.py /absolute/daemon.sock /absolute/private/import/events.jsonl \
+python3 skills/workgraph/scripts/history-adapter.py /absolute/daemon.sock /absolute/private/import/events.jsonl \
   /absolute/private/import/cursor.json --workspace demo --actor worker-1 --session visible-session
 ```
 
@@ -893,7 +899,7 @@ The complete same source is included below. Requirements: Bash, `jq`, matching
 
 ```bash
 mkdir -p "$HOME/.local/bin"
-install -m 755 tools/wgx.sh "$HOME/.local/bin/wgx"
+install -m 755 skills/workgraph/scripts/wgx.sh "$HOME/.local/bin/wgx"
 export PATH="$HOME/.local/bin:$PATH"
 wgx --context "$WG_CONTEXT" status
 wgx --context "$WG_CONTEXT" status --run "$RUN"
@@ -919,7 +925,7 @@ verified large-resource download and the existing strict capture inspector, with
 bounded safe decoded stdout/stderr previews and retention/provenance metadata.
 Explicit `output RESOURCE --raw stdout > FILE` yields exact retained bytes; it
 cannot recover discarded process output. Temporary inspection copies never launch
-or publish execution. [Detailed semantics](docs/agent/wgx.md) include paging bounds,
+or publish execution. [Detailed semantics](skills/workgraph/references/wgx.md) include paging bounds,
 coverage, text replacement, signal/error cleanup and current platform evidence.
 See the [review and qualification record](docs/acceptance/v0.5-feedback.md) for
 observed checks and platform limits. Actual WSL execution is a separate check.
@@ -1100,14 +1106,14 @@ rollover, not silent pruning or an automatic migration.
 
 ## References
 
-- [Agent overview](AGENT_GUIDE.md), [team checkpoints](docs/agent/team-workflows.md), [wgx limits](docs/agent/wgx.md)
-- [CLI/context](docs/agent/cli-contract.md), [planning](docs/agent/planning.md), [resume/digest](docs/agent/resume-digest.md)
-- [Coordination](docs/agent/coordination.md), [paths and recovery](docs/agent/path-conditions-recovery.md), [communication/evidence](docs/agent/communication-evidence.md)
-- [Resources](docs/agent/resources.md), [execution](docs/agent/execution.md), [history](docs/agent/history.md), [harness hooks](docs/agent/harness-hooks.md)
-- [Administration](docs/agent/administration.md), [capacity rollover](docs/agent/capacity-rollover.md), [metrics](docs/agent/metrics.md)
-- [macOS](docs/macos-install.md), [AlmaLinux/WSL](docs/wsl-quickstart.md), [gated review](docs/gated-review-workflow.md)
-- [Coordination runner](examples/coordination-runner.py), [coordination shell](examples/coordination-workflow.sh), [notifications](examples/notification-watcher.py), [history adapter](examples/history-adapter.py), [Codex hooks](examples/codex-hooks/)
-- [Generated API reference](docs/api-reference/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
+- [Agent overview](skills/workgraph/SKILL.md), [team checkpoints](skills/workgraph/references/team-workflows.md), [wgx limits](skills/workgraph/references/wgx.md)
+- [CLI/context](skills/workgraph/references/cli-contract.md), [planning](skills/workgraph/references/planning.md), [resume/digest](skills/workgraph/references/resume-digest.md)
+- [Coordination](skills/workgraph/references/coordination.md), [paths and recovery](skills/workgraph/references/path-conditions-recovery.md), [communication/evidence](skills/workgraph/references/communication-evidence.md)
+- [Resources](skills/workgraph/references/resources.md), [execution](skills/workgraph/references/execution.md), [history](skills/workgraph/references/history.md), [harness hooks](skills/workgraph/references/harness-hooks.md)
+- [Administration](skills/workgraph/references/administration.md), [capacity rollover](skills/workgraph/references/capacity-rollover.md), [metrics](skills/workgraph/references/metrics.md)
+- [macOS](docs/macos-install.md), [AlmaLinux/WSL](docs/wsl-quickstart.md), [gated review](skills/workgraph/references/gated-review-workflow.md)
+- [Coordination runner](skills/workgraph/scripts/coordination-runner.py), [coordination shell](skills/workgraph/scripts/coordination-workflow.sh), [notifications](skills/workgraph/scripts/notification-watcher.py), [history adapter](skills/workgraph/scripts/history-adapter.py), [Codex hooks](skills/workgraph/scripts/codex-hooks)
+- [Generated API reference](skills/workgraph/references/api/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
 - [v0.5.0 release and upgrade notes](docs/releases/v0.5.0.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](docs/guide-coverage.md)
 
 ## Complete maintained scripts
@@ -1119,9 +1125,9 @@ Read the qualification limits above before using the preview helper.
 <!-- MAINTAINED_SCRIPT_SOURCES -->
 
 <details>
-<summary>CI worker: examples/ci-worker.sh</summary>
+<summary>CI worker: skills/workgraph/scripts/ci-worker.sh</summary>
 
-<!-- source: examples/ci-worker.sh -->
+<!-- source: skills/workgraph/scripts/ci-worker.sh -->
 
 ```bash
 #!/usr/bin/env bash
@@ -1214,9 +1220,9 @@ exit 3
 </details>
 
 <details>
-<summary>Visible transcript converter: examples/transcript-converter.py</summary>
+<summary>Visible transcript converter: skills/workgraph/scripts/transcript-converter.py</summary>
 
-<!-- source: examples/transcript-converter.py -->
+<!-- source: skills/workgraph/scripts/transcript-converter.py -->
 
 ```python
 #!/usr/bin/env python3
@@ -1349,9 +1355,9 @@ if __name__ == "__main__":
 </details>
 
 <details>
-<summary>Read-only terminal helper: tools/wgx.sh</summary>
+<summary>Read-only terminal helper: skills/workgraph/scripts/wgx.sh</summary>
 
-<!-- source: tools/wgx.sh -->
+<!-- source: skills/workgraph/scripts/wgx.sh -->
 
 ```bash
 #!/usr/bin/env bash
@@ -1699,7 +1705,7 @@ cmd_output() (
 cmd_storage() {
   local value; value=$(wg workspace.metrics) || return 1
   render '(.data.planning_admission + .data.storage_admission)[] | "\(.name): used=\(.used) limit=\(.limit) remaining=\(.remaining // "unknown") severity=\(.severity) lifetime=\(.lifetime)"' <<<"$value" || return 1
-  echo 'Advisory: at 80% of a cumulative meter, plan a successor workspace; retained data is not silently freed. See docs/agent/capacity-rollover.md.'
+  echo 'Advisory: at 80% of a cumulative meter, plan a successor workspace; retained data is not silently freed. See skills/workgraph/references/capacity-rollover.md.'
 }
 cmd_files() {
   local value; value=$(pages reservation.path.list) || return 1

@@ -18,13 +18,13 @@
 (rule
  (alias runtest)
  (deps
-  ../tools/check_agent_guide.py
-  ../AGENT_GUIDE.md
-  (source_tree ../docs/agent))
+  ../tools/check_skill.py
+  ../skills/workgraph/SKILL.md
+  (source_tree ../skills/workgraph))
  (action
   (run
    python3
-   %{dep:../tools/check_agent_guide.py}
+   %{dep:../tools/check_skill.py}
    ..
    --binary
    %{exe:../bin/main.exe})))
@@ -33,7 +33,7 @@
  (alias runtest)
  (deps
   ../tools/generate_api_reference.py
-  (source_tree ../docs/api-reference))
+  (source_tree ../skills/workgraph/references/api))
  (action
   (run
    python3
@@ -41,7 +41,7 @@
    --binary
    %{exe:../bin/main.exe}
    --output
-   ../docs/api-reference
+   ../skills/workgraph/references/api
    --check)))
 
 (rule
@@ -53,8 +53,8 @@
   client_workflow.exe
   platform_fixture.exe
   store_fixture.exe
-  ../examples/agent-workflow.sh
-  ../examples/coordination-workflow.sh)
+  ../skills/workgraph/scripts/agent-workflow.sh
+  ../skills/workgraph/scripts/coordination-workflow.sh)
  (action
   (run
    python3

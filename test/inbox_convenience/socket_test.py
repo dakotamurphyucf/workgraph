@@ -9,7 +9,6 @@ import time
 import unittest
 
 EXE = Path(sys.argv.pop(1)).resolve()
-GUIDE = Path(__file__).resolve().parents[2] / "docs" / "agent" / "communication-evidence.md"
 
 
 class InboxConvenienceTests(unittest.TestCase):
@@ -242,25 +241,52 @@ class InboxConvenienceTests(unittest.TestCase):
         pending.communicate(timeout=5)
         self.assertLess(time.monotonic() - started, 5)
 
-    def test_published_receive_loop_processes_then_acks_only_visible_ids(self):
+    def test_cli_receive_process_then_ack_only_visible_ids(self):
         self.message("example-hidden", actor="alice")
         self.message("example-visible")
-        guide = GUIDE.read_text()
-        code = guide[guide.index("import json, subprocess, time\n"):guide.index("\nThe loop acknowledges")]
-        namespace = {}
-        exec(compile(code, str(GUIDE), "exec"), namespace)
-        namespace.update(WG=str(EXE), CONTEXT=str(self.context), CONSUMER="consumer")
+        original = self.inbox()
+        original_ids = [item["notification_id"] for item in original["items"]]
+        self.assertEqual([item["source"]["id"] for item in original["items"]],
+                         ["example-hidden", "example-visible"])
+
+        received = self.cli("--context", self.context, "request", "inbox.wait", "--self",
+                            "--consumer-id", "consumer", "--exclude-self", "true",
+                            "--timeout-ms", "1", expected=0)
+        visible = json.loads(received.stdout)["result"]["data"]
+        self.assertTrue(visible["exclude_self"])
+        self.assertEqual([item["source"]["id"] for item in visible["items"]],
+                         ["example-visible"])
         processed = []
-        namespace["receive_loop"](lambda identity, item: processed.append((identity, item["source"]["id"])),
-                                  max_waits=1)
+
+        def process_once(item):
+            # Neither receiving nor callback work acknowledges delivery. A harness
+            # must complete its own durable processing before constructing the ack.
+            self.assertEqual([entry["notification_id"] for entry in self.inbox()["items"]],
+                             original_ids)
+            self.assertEqual(list(self.requests.glob("*.json")), [])
+            processed.append((item["notification_id"], item["source"]["id"]))
+
+        for item in visible["items"]:
+            process_once(item)
         self.assertEqual([source for _, source in processed], ["example-visible"])
+        processed_ids = [identity for identity, _ in processed]
+        acknowledged = self.cli("--context", self.context, "request", "inbox.ack", "--self",
+                                "--consumer-id", "consumer", "--json-field", "notification_ids",
+                                json.dumps(processed_ids), expected=0)
+        self.assertTrue(json.loads(acknowledged.stdout)["result"]["meta"]["durable"])
         remaining = self.inbox()
         self.assertEqual([item["source"]["id"] for item in remaining["items"]], ["example-hidden"])
+        independent = self.rpc("inbox.read", consumer_id="independent",
+                               recipient={"kind": "actor", "id": "alice"})["data"]
+        self.assertEqual([item["notification_id"] for item in independent["items"]], original_ids)
         saved = list(self.requests.glob("*.json"))
         self.assertEqual(len(saved), 1)
         request = json.loads(saved[0].read_text())
         self.assertEqual(request["method"], "inbox.ack")
-        self.assertEqual(request["params"]["notification_ids"], [processed[0][0]])
+        self.assertEqual(request["params"]["notification_ids"], processed_ids)
+        self.assertEqual(request["params"]["recipient"], {"kind": "actor", "id": "alice"})
+        self.assertEqual(request["params"]["consumer_id"], "consumer")
+        self.assertNotIn("self", request["params"])
 
 
 if __name__ == "__main__":

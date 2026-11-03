@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from daemon_ready import is_listening
 
 EXE = Path(sys.argv.pop(1)).resolve()
-SPEC = importlib.util.spec_from_file_location("adapter", Path(__file__).resolve().parents[2] / "examples/history-adapter.py")
+SPEC = importlib.util.spec_from_file_location("adapter", Path(__file__).resolve().parents[2] / "skills/workgraph/scripts/history-adapter.py")
 adapter = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(adapter)
 

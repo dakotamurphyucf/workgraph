@@ -2,22 +2,22 @@
  (alias runtest)
  (deps
   hook_test.py
-  ../../examples/codex-hooks/workgraph-hook.py
-  ../../examples/notification-watcher.py
-  ../../examples/history-adapter.py)
+  ../../skills/workgraph/scripts/codex-hooks/workgraph-hook.py
+  ../../skills/workgraph/scripts/notification-watcher.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run
    python3
    %{dep:hook_test.py}
-   %{dep:../../examples/codex-hooks/workgraph-hook.py})))
+   %{dep:../../skills/workgraph/scripts/codex-hooks/workgraph-hook.py})))
 
 (rule
  (alias runtest)
  (deps
   socket_test.py
   ../daemon_ready.py
-  ../../examples/codex-hooks/workgraph-hook.py
-  ../../examples/notification-watcher.py
-  ../../examples/history-adapter.py)
+  ../../skills/workgraph/scripts/codex-hooks/workgraph-hook.py
+  ../../skills/workgraph/scripts/notification-watcher.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

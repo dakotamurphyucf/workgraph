@@ -25,7 +25,7 @@ retry conflict; retrieves 9004 opaque bytes across multiple envelopes bounded to
 and checks exact create/append/archive receipts and old captures after a daemon
 restart. The planning change feed remains identical across the history writes.
 
-`python3 examples/history-recovery-demo.py _build/default/bin/main.exe` also
+`python3 skills/workgraph/scripts/history-recovery-demo.py _build/default/bin/main.exe` also
 passed against the real daemon. Its external adapter terminated after an
 acknowledged append and resumed without a duplicate. After two context resets,
 the driver recovered BLUE and then the recorded AMBER correction, including a

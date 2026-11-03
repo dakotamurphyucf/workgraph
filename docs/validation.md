@@ -40,7 +40,7 @@ a separate check on the intended Windows host.
 
 Test counts are not performance or capacity guarantees. Current bounds are
 documented in the [API reference](api.md#storage-and-ownership) and
-[format contract](compatibility.md). There is no history pruning, blob garbage
+[format contract](../skills/workgraph/references/compatibility.md). There is no history pruning, blob garbage
 collection, distributed writer reconciliation or prototype-schema migration.
 Actor/run names provide local attribution, not authentication. The harness must
 honor ownership before external writes and enforce provider token/time spending.

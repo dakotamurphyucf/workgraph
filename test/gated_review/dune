@@ -10,10 +10,10 @@
  (deps
   socket_test.py
   ../daemon_ready.py
-  ../../examples/gated-review-workflow.py)
+  ../../skills/workgraph/scripts/gated-review-workflow.py)
  (action
   (run
    python3
    %{dep:socket_test.py}
    %{exe:../../bin/main.exe}
-   %{dep:../../examples/gated-review-workflow.py})))
+   %{dep:../../skills/workgraph/scripts/gated-review-workflow.py})))

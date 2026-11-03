@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-ADAPTER = Path(__file__).resolve().parents[2] / "examples/history-adapter.py"
+ADAPTER = Path(__file__).resolve().parents[2] / "skills/workgraph/scripts/history-adapter.py"
 spec = importlib.util.spec_from_file_location("history_adapter", ADAPTER)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)

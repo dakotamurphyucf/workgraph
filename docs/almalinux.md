@@ -1,5 +1,10 @@
 # AlmaLinux 10 on x86_64, including WSL
 
+The skill folder layout shown in this checkout is new. Published v0.5.0 packages
+still contain the earlier agent guide layout. For the new skill, copy the complete
+folder from this checkout using [skill installation](agent-skill.md); the existing
+0.5 executable can use it. Newly built packages include the skill.
+
 Use the [release notes](releases/v0.5.0.md) for features, breaking changes, upgrade
 steps and qualification limits. Use a matching 0.5.0 executable and guide.
 
@@ -62,16 +67,16 @@ Third-party license texts and an exact dependency inventory are retained under
 `/usr/share/licenses/workgraph/THIRD_PARTY_NOTICES/` in the RPM installation.
 
 After installation, `workgraph init --help` and `workgraph help request.ask`
-work offline. The bundled [agent CLI contract](agent/cli-contract.md) covers
+work offline. The bundled [agent CLI contract](../skills/workgraph/references/cli-contract.md) covers
 context setup, saved exact retries and the API 0.5 contract. Its
-[communication reference](agent/communication-evidence.md) shows how to ask a
+[communication reference](../skills/workgraph/references/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 
 Startup holds an exclusive socket-path ownership guard. Recovery removes only
 the exact recorded native socket identity after ownership/peer checks; foreign,
 live, replaced or unknown paths refuse. Connection refusal alone grants no cleanup
 authority. Preserve locks and managed data, and choose a fresh private endpoint
-when ownership is uncertain. See [administration](agent/administration.md).
+when ownership is uncertain. See [administration](../skills/workgraph/references/administration.md).
 
 ## Run inside AlmaLinux WSL
 
@@ -109,7 +114,7 @@ sudo dnf install git python3
 tar -xzf workgraph-0.5.0-source.tar.gz
 python3 workgraph-0.5.0/tools/installed_smoke.py "$(command -v workgraph)" \
   "$HOME/.local/state/workgraph-0.5/wsl-qualification"
-python3 workgraph-0.5.0/examples/history-recovery-demo.py "$(command -v workgraph)" \
+python3 workgraph-0.5.0/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
   --directory "$HOME/.local/state/workgraph-0.5/wsl-history-qualification"
 ```
 

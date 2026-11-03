@@ -3,10 +3,10 @@
 A standalone empty ticket.claim_next is strictly nondurable: no receipt, head,
 attempt, feed event or persisted bytes. Its exact identity may reevaluate until a
 selection commits, when successful retry freezes the original receipt. An explicit
-transaction batch remains durable. Capture filtered [attention](agent/attention.md)
+transaction batch remains durable. Capture filtered [attention](../skills/workgraph/references/attention.md)
 before checking/parking, and retain consumed cursors. Automatic required path holds
 track exact borrowers and clean up only when the last borrower exits; Manual holds
-survive. See [ownership](agent/path-conditions-recovery.md) for bounded reservation
+survive. See [ownership](../skills/workgraph/references/path-conditions-recovery.md) for bounded reservation
 wait and exact release/recovery rules.
 
 Workgraph is a standalone local coordination service with a JSON CLI. The
@@ -17,7 +17,7 @@ ticket claim, attempt, review, evidence, comments, reported usage and durable
 history that the harness supplies. It does not launch agents or enforce external
 side effects.
 
-The example in [`examples/coordination-workflow.sh`](../examples/coordination-workflow.sh)
+The example in [`skills/workgraph/scripts/coordination-workflow.sh`](../skills/workgraph/scripts/coordination-workflow.sh)
 shows an orchestrator registering worker/reviewer runs, a worker claiming ready
 work, and both agents recording comments. It requires an already-open workspace
 and a ready ticket. It uses saved CLI request files so the same workflow can be
@@ -27,9 +27,9 @@ retried after an uncertain response.
 
 Use a stable, distinct `run_id` for each invocation. A run record is an
 attribution and lifecycle record; the harness owns the process that it describes.
-[run.register](api-reference/run.register.md) stores its actor, objective,
+[run.register](../skills/workgraph/references/api/run.register.md) stores its actor, objective,
 capabilities and optional process/worktree references. Use
-[ticket.claim_next](api-reference/ticket.claim_next.md) with a fresh stable attempt
+[ticket.claim_next](../skills/workgraph/references/api/ticket.claim_next.md) with a fresh stable attempt
 ID and the registered worker's `target_run_id` to atomically choose eligible ready
 work, claim it and start its attempt. The result's named alternative tells you
 whether work was selected; use its complete claim and attempt records.
@@ -51,8 +51,8 @@ shutdown flushes the latest value. A repeated heartbeat is a new server-time
 observation rather than an exact-once retry. An expired lease means the fencing
 token is no longer valid; it does not show that a process stopped or that its
 checkout is safe to reuse. Before replacing work, confirm the old process is
-stopped or isolated and use an exact guarded [ticket recovery](api-reference/ticket.recover.md)
-or [reservation recovery](api-reference/reservation.recover.md). Required checkout
+stopped or isolated and use an exact guarded [ticket recovery](../skills/workgraph/references/api/ticket.recover.md)
+or [reservation recovery](../skills/workgraph/references/api/reservation.recover.md). Required checkout
 paths and external conditions participate in start readiness; their records do
 not fence filesystem writes. Workgraph cannot prevent a process from writing
 directly to external files.
@@ -63,8 +63,8 @@ evidence. Completing a ticket also needs its current claim token and nonempty
 evidence. A completed attempt/ticket is durable planning state, not proof that
 the harness's external worktree or provider state was committed.
 
-Templates are [registered](api-reference/template.register.md) against a versioned
-resource and [instantiated](api-reference/template.instance_register.md) with a
+Templates are [registered](../skills/workgraph/references/api/template.register.md) against a versioned
+resource and [instantiated](../skills/workgraph/references/api/template.instance_register.md) with a
 stable instance ID plus string parameters. Instantiation
 validates dependency aliases and cycles, then stages the planned tickets and
 instance record together. `allocation.pool_put` and
@@ -81,15 +81,15 @@ Use `comment.add` for discussion on a ticket (or a typed `target`), and
 `ticket.progress` for token-fenced progress while holding a claim. A reviewer
 can add a `kind: "evidence"` comment with its own actor and run; comments remain
 ordinary discussion records. For a formal approval gate, configure the scoped
-[acceptance policy](api-reference/acceptance.policy.put.md) or its narrow
-[review-policy operation](api-reference/review.policy.put.md). Read the
-[effective policy](api-reference/acceptance.policy.effective.md) before starting.
-Publish an exact [manifest](api-reference/manifest.publish.md), then
-[submit it](api-reference/review.submit.md). Eligible reviewers record a
-[verdict](api-reference/review.record.md), named validators add
-[results](api-reference/validation.add.md), and [review.accept](api-reference/review.accept.md)
+[acceptance policy](../skills/workgraph/references/api/acceptance.policy.put.md) or its narrow
+[review-policy operation](../skills/workgraph/references/api/review.policy.put.md). Read the
+[effective policy](../skills/workgraph/references/api/acceptance.policy.effective.md) before starting.
+Publish an exact [manifest](../skills/workgraph/references/api/manifest.publish.md), then
+[submit it](../skills/workgraph/references/api/review.submit.md). Eligible reviewers record a
+[verdict](../skills/workgraph/references/api/review.record.md), named validators add
+[results](../skills/workgraph/references/api/validation.add.md), and [review.accept](../skills/workgraph/references/api/review.accept.md)
 checks the current requirements. Required criteria additionally need exact
-[acceptance assertions](api-reference/acceptance.assert.md).
+[acceptance assertions](../skills/workgraph/references/api/acceptance.assert.md).
 
 Manifests and reviews pin exact versions. A contract pins a published resource
 version by resource ID, revision and digest. A manifest names its attempt,
@@ -99,7 +99,7 @@ those makes old approval insufficient for the new submission. `evidence.context`
 and `review.gate` explain current evidence state and blockers. See
 [`docs/evidence.md`](evidence.md) for the evidence model and pin forms.
 
-Communication threads are separate typed records. [thread.reply](api-reference/thread.reply.md)
+Communication threads are separate typed records. [thread.reply](../skills/workgraph/references/api/thread.reply.md)
 creates a discussion comment and attaches it atomically using the observed thread
 revision. A reply parent must already be attached to that thread. Use the generated
 contract for canonical input names, including `reply_to_id`; output comment
@@ -118,7 +118,7 @@ changed parameters fails with `Idempotency_conflict`. The CLI does not retry
 automatically. `--json-field FIELD JSON` sets an object, array or null field;
 `--field-file FIELD FILE` reads a UTF-8 string. Mutations require an explicit
 `mutation_id`, or `--save-request` can generate one when absent. See
-[`examples/coordination-workflow.sh`](../examples/coordination-workflow.sh) for
+[`skills/workgraph/scripts/coordination-workflow.sh`](../skills/workgraph/scripts/coordination-workflow.sh) for
 a small saved-request helper.
 
 Use `workspace.receipt` or `registry.receipt` to inspect a receipt when a retry
@@ -141,11 +141,11 @@ against a captured history head when assembling context. The Python reference
 adapter demonstrates a durable input cursor and exact append retries:
 [`docs/history-integration.md`](history-integration.md).
 
-[run.budget_put](api-reference/run.budget_put.md) may set maximum total and active attempts plus reported token
+[run.budget_put](../skills/workgraph/references/api/run.budget_put.md) may set maximum total and active attempts plus reported token
 and elapsed-time limits. Attempt limits are enforced by allocation. Token and
 elapsed-time values are externally reported observations; Workgraph does not
-measure provider spending or stop inference. [usage.report](api-reference/usage.report.md) stores nonnegative
-attributed totals with stable IDs, and [run.budget_attention](api-reference/run.budget_attention.md) reports when those
+measure provider spending or stop inference. [usage.report](../skills/workgraph/references/api/usage.report.md) stores nonnegative
+attributed totals with stable IDs, and [run.budget_attention](../skills/workgraph/references/api/run.budget_attention.md) reports when those
 reported limits are reached. The harness must decide whether to stop or continue.
 
 ## Scope and recovery limits
@@ -165,7 +165,7 @@ workspace with data from another build.
 
 ## Deterministic external runner
 
-`python3 examples/coordination-runner.py SOCKET --root /fresh/workspace --state-dir /fresh/request-files`
+`python3 skills/workgraph/scripts/coordination-runner.py SOCKET --root /fresh/workspace --state-dir /fresh/request-files`
 creates a fresh `fork-join-demo` workspace. Use `--workspace` to choose its ID.
 The scripted runner instantiates a pinned template, claims two independent child
 tickets, injects a failed worker, replaces it with a fenced claim, publishes exact

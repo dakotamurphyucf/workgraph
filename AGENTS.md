@@ -1,6 +1,6 @@
 # Workgraph agent guidance
 
-Read `engineering-standards.md` before changing code. Read `AGENT_GUIDE.md` when
+Read `engineering-standards.md` before changing code. Read `skills/workgraph/SKILL.md` when
 using Workgraph as a tool; it describes the runtime API rather than development
 policy.
 

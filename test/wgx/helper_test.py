@@ -25,7 +25,7 @@ class Helper(unittest.TestCase):
     setUp, stop, call, write = guide.Daemon.setUp, guide.Daemon.stop, guide.Daemon.call, guide.Daemon.write
 
     def helper(self, *args, expected=0, env=None, executable=None, timeout=30):
-        result = subprocess.run(['/bin/bash',str(ROOT/'tools/wgx.sh'),'--context',str(self.context),*map(str,args)],
+        result = subprocess.run(['/bin/bash',str(ROOT/'skills/workgraph/scripts/wgx.sh'),'--context',str(self.context),*map(str,args)],
             env=dict(os.environ,WG=executable or EXE,NO_COLOR='1',**(env or {})),capture_output=True,timeout=timeout)
         if expected is not None:
             self.assertEqual(result.returncode,expected,(args,result.stdout,result.stderr))
@@ -171,7 +171,7 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
         before=self.call('workspace.overview')
         inbox=self.call('inbox.read',recipient={'kind':'actor','id':'ci'},consumer_id='watch-observer')
         journals=sorted((self.root/'requests').iterdir())
-        process=subprocess.Popen(['/bin/bash',str(ROOT/'tools/wgx.sh'),'--context',str(self.context),'watch'],env=dict(os.environ,WG=str(proxy)),stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+        process=subprocess.Popen(['/bin/bash',str(ROOT/'skills/workgraph/scripts/wgx.sh'),'--context',str(self.context),'watch'],env=dict(os.environ,WG=str(proxy)),stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
         try:
             deadline=time.monotonic()+5
             while not log.exists() or 'changes.wait' not in log.read_text():
@@ -242,7 +242,7 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
             try:
                 fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',32,100,0,0))
                 before_modes=guide.terminal_modes(master)
-                process=subprocess.Popen(['/bin/bash',str(ROOT/'tools/wgx.sh'),'--context',str(self.context),'dash'],stdin=slave,stdout=slave,stderr=slave,preexec_fn=guide.foreground_session,env=dict(os.environ,WG=str(proxy) if action=='error' else EXE,TERM='xterm'))
+                process=subprocess.Popen(['/bin/bash',str(ROOT/'skills/workgraph/scripts/wgx.sh'),'--context',str(self.context),'dash'],stdin=slave,stdout=slave,stderr=slave,preexec_fn=guide.foreground_session,env=dict(os.environ,WG=str(proxy) if action=='error' else EXE,TERM='xterm'))
                 data=b'';deadline=time.monotonic()+10;sent=False
                 while process.poll() is None:
                     self.assertLess(time.monotonic(),deadline,(action,data[-1000:]))
@@ -277,7 +277,7 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
             self.assertEqual(result.stdout,b'',args)
         plain=self.helper('dash',env={'TERM':'dumb'})
         self.assertNotIn(b'\x1b',plain.stdout)
-        help_result=subprocess.run(['/bin/bash',str(ROOT/'tools/wgx.sh'),'help'],env=dict(os.environ,WG='/does/not/exist',WG_CONTEXT='/missing'),capture_output=True)
+        help_result=subprocess.run(['/bin/bash',str(ROOT/'skills/workgraph/scripts/wgx.sh'),'help'],env=dict(os.environ,WG='/does/not/exist',WG_CONTEXT='/missing'),capture_output=True)
         self.assertEqual(help_result.returncode,0)
 
 

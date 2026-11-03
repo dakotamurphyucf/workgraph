@@ -1,9 +1,12 @@
 (rule
  (alias runtest)
- (deps socket_test.py ../daemon_ready.py ../../examples/capacity-rollover.py)
+ (deps
+  socket_test.py
+  ../daemon_ready.py
+  ../../skills/workgraph/scripts/capacity-rollover.py)
  (action
   (run
    python3
    %{dep:socket_test.py}
    %{exe:../../bin/main.exe}
-   %{dep:../../examples/capacity-rollover.py})))
+   %{dep:../../skills/workgraph/scripts/capacity-rollover.py})))

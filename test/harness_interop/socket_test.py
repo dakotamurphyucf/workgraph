@@ -13,9 +13,9 @@ from daemon_ready import is_listening
 
 EXE = Path(sys.argv.pop(1)).resolve()
 ROOT = Path(__file__).resolve().parents[2]
-HOOK = ROOT / "examples/codex-hooks/workgraph-hook.py"
-WATCHER = ROOT / "examples/notification-watcher.py"
-ADAPTER = ROOT / "examples/history-adapter.py"
+HOOK = ROOT / "skills/workgraph/scripts/codex-hooks/workgraph-hook.py"
+WATCHER = ROOT / "skills/workgraph/scripts/notification-watcher.py"
+ADAPTER = ROOT / "skills/workgraph/scripts/history-adapter.py"
 SPEC = importlib.util.spec_from_file_location("adapter", ADAPTER)
 adapter = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(adapter)

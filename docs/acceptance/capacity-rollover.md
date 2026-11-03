@@ -32,5 +32,5 @@ qualification is claimed by these focused checks; the final integration gate run
 the repository-wide suites.
 
 Operator procedure and executable invocation are in
-[capacity and rollover](../agent/capacity-rollover.md). Only the current API/export
+[capacity and rollover](../../skills/workgraph/references/capacity-rollover.md). Only the current API/export
 format is used; no historical-format compatibility path is introduced.

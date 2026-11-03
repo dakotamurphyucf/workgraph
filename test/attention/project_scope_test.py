@@ -12,7 +12,7 @@ from daemon_ready import is_listening
 
 EXE = Path(sys.argv.pop(1)).resolve()
 spec = importlib.util.spec_from_file_location(
-    'adapter', Path(__file__).resolve().parents[2] / 'examples/history-adapter.py')
+    'adapter', Path(__file__).resolve().parents[2] / 'skills/workgraph/scripts/history-adapter.py')
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
 BOB = {'kind': 'actor', 'id': 'bob'}

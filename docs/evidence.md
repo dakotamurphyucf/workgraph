@@ -3,7 +3,7 @@
 Instruction amendments are separate immutable records, not editable replacement
 evidence or informal approval. Required amendment acknowledgement binds the exact
 version to current actor/run/claim ownership and participates in completion gates.
-Inbox acknowledgement is separate. See [amendments](agent/communication-evidence.md).
+Inbox acknowledgement is separate. See [amendments](../skills/workgraph/references/communication-evidence.md).
 Activity digests preserve whole amendment audit records and exact provenance.
 
 `Evidence` is an immutable pure planning-domain state machine. Its current tagged
@@ -30,14 +30,14 @@ or external filesystem validation for them. Later resource publication cannot al
 older pinned manifests. Manifest revisions preserve exact historical provenance.
 
 Acceptance policies are revisioned at project and ticket scope. The
-[effective policy](api-reference/acceptance.policy.effective.md) composes both for
+[effective policy](../skills/workgraph/references/api/acceptance.policy.effective.md) composes both for
 current work and explains inherited overrides, including stale ones. Policies can
 require named reviewers or roles with frozen member IDs, submitter/reviewer
 separation, named validators and identified acceptance criteria. Role membership
 is declared local coordination data, not authentication or proof of independence.
 
-Use [acceptance.policy.put](api-reference/acceptance.policy.put.md) for the complete
-scoped policy. [review.policy.put](api-reference/review.policy.put.md) updates the
+Use [acceptance.policy.put](../skills/workgraph/references/api/acceptance.policy.put.md) for the complete
+scoped policy. [review.policy.put](../skills/workgraph/references/api/review.policy.put.md) updates the
 ticket's review fields while preserving its criteria and inherited override.
 Weakening requires an attributed reason. An inherited override binds the observed
 project policy version and ticket membership revision; moving away and back or
@@ -45,7 +45,7 @@ changing the project policy cannot silently reactivate it. Stale overrides are
 disclosed and current inherited requirements apply. Read the effective policy
 before starting or completing work.
 
-A required criterion needs a passing [acceptance assertion](api-reference/acceptance.assert.md)
+A required criterion needs a passing [acceptance assertion](../skills/workgraph/references/api/acceptance.assert.md)
 with exact evidence pins. Assertions bind the current effective policy, ownership,
 reopen fence and, when present, the current attempt and manifest/artifacts. Ordinary
 work without a manifest can still supply exact pinned evidence. New ownership,
@@ -100,10 +100,10 @@ remain restricted to live consumers with current ownership.
 
 Exact public inputs and outputs are generated from the executable:
 
-- [Contract publication](api-reference/contract.put.md) and [manifest publication](api-reference/manifest.publish.md), including named tagged pin objects.
-- [Submission](api-reference/review.submit.md), [review verdicts](api-reference/review.record.md), [validator results](api-reference/validation.add.md) and [acceptance](api-reference/review.accept.md).
-- [Decisions](api-reference/decision.put.md), [input changes](api-reference/input.changed.md) and [reconciliation](api-reference/reconciliation.record.md).
-- [Evidence context](api-reference/evidence.context.md), [gate explanation](api-reference/review.gate.md), [policy](api-reference/acceptance.policy.get.md) and [assertions](api-reference/acceptance.assertions.md).
+- [Contract publication](../skills/workgraph/references/api/contract.put.md) and [manifest publication](../skills/workgraph/references/api/manifest.publish.md), including named tagged pin objects.
+- [Submission](../skills/workgraph/references/api/review.submit.md), [review verdicts](../skills/workgraph/references/api/review.record.md), [validator results](../skills/workgraph/references/api/validation.add.md) and [acceptance](../skills/workgraph/references/api/review.accept.md).
+- [Decisions](../skills/workgraph/references/api/decision.put.md), [input changes](../skills/workgraph/references/api/input.changed.md) and [reconciliation](../skills/workgraph/references/api/reconciliation.record.md).
+- [Evidence context](../skills/workgraph/references/api/evidence.context.md), [gate explanation](../skills/workgraph/references/api/review.gate.md), [policy](../skills/workgraph/references/api/acceptance.policy.get.md) and [assertions](../skills/workgraph/references/api/acceptance.assertions.md).
 
 Public alternatives use named `kind` objects and lowercase enum values. Durable
 event encodings are separate and must not be copied into requests. Unknown or

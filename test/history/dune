@@ -7,12 +7,15 @@
 
 (rule
  (alias runtest)
- (deps adapter_test.py ../../examples/history-adapter.py)
+ (deps adapter_test.py ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:adapter_test.py})))
 
 (rule
  (alias runtest)
- (deps socket_test.py ../daemon_ready.py ../../examples/history-adapter.py)
+ (deps
+  socket_test.py
+  ../daemon_ready.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

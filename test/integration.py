@@ -1317,7 +1317,7 @@ class Integration(unittest.TestCase):
     def test_complete_shell_workflow_replays_after_restart(self):
         source = self.root / "research.txt"
         source.write_text("Persistent research")
-        args = ["sh", str(Path("../examples/agent-workflow.sh").resolve()), str(EXE), str(self.daemon.address), str(self.root / "workflow"), str(self.root / "local-notes"), str(source)]
+        args = ["sh", str(Path("../skills/workgraph/scripts/agent-workflow.sh").resolve()), str(EXE), str(self.daemon.address), str(self.root / "workflow"), str(self.root / "local-notes"), str(source)]
         first = subprocess.run(args, capture_output=True, text=True, timeout=15)
         self.assertEqual(0, first.returncode, first.stderr)
         before = request(self.daemon.address, "ticket.context", {"workspace_id": "workflow-demo", "ticket_id": "research"})
@@ -1333,7 +1333,7 @@ class Integration(unittest.TestCase):
         self.assertIn("result", self.mutation("project.create", {"project_id": "project", "title": "Project"}))
         self.ticket("work", project_id="project")
         notes = self.root / "coordination-notes"
-        args = ["sh", str(Path("../examples/coordination-workflow.sh").resolve()),
+        args = ["sh", str(Path("../skills/workgraph/scripts/coordination-workflow.sh").resolve()),
                 str(EXE), str(self.daemon.address), "demo", "project", "worker", "reviewer", str(notes)]
         first = subprocess.run(args, capture_output=True, text=True, timeout=15)
         self.assertEqual(0, first.returncode, first.stderr)

@@ -148,7 +148,7 @@ let purpose name mode original =
       , "Publish a structured ownership-guarded handoff with explicit coverage." )
     ; "handoff.get", "Read the current structured handoff and its revision."
     ; "fact.keys", "Discover scoped fact keys without loading their values."
-    ; "fact.put", "Write one bounded scoped JSON fact with an optional revision guard."
+    ; "fact.put", "Write one bounded scoped JSON fact with its required revision guard."
     ; ( "inbox.read"
       , "Read bounded recipient notifications with resumable visible-row pagination." )
     ; "inbox.wait", "Wait up to 25 seconds for recipient notifications."

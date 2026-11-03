@@ -1,5 +1,10 @@
 # Workgraph on AlmaLinux 10 in WSL: install and quick start
 
+The skill folder layout shown in this checkout is new. Published v0.5.0 packages
+still contain the earlier agent guide layout. For the new skill, copy the complete
+folder from this checkout using [skill installation](agent-skill.md); the existing
+0.5 executable can use it. Newly built packages include the skill.
+
 This walkthrough installs **Workgraph v0.5.0 preview** on **x86_64/AMD64 AlmaLinux
 10** userspace inside WSL. It uses API **0.5** and affected stored roots **4**.
 Run commands in your AlmaLinux terminal as your normal user; use `sudo` only where
@@ -183,7 +188,7 @@ workgraph ticket context --context "$WG_CONTEXT" \
 With context, `request list/get/ask/resolve/...` selects request-domain methods;
 `ticket get` also reads the canonical ticket context. For an atomic question and
 answer example, read the installed
-[`communication reference`](agent/communication-evidence.md). Reading or filtering
+[`communication reference`](../skills/workgraph/references/communication-evidence.md). Reading or filtering
 requests never acknowledges delivery or inbox processing.
 
 Omit `--output text` to receive JSON. In a new terminal, restore the context
@@ -195,13 +200,15 @@ export WG_CONTEXT="$HOME/.local/state/workgraph-0.5/agent.json"
 
 ## Give an agent access
 
-The RPM installs the capability guide and its detailed references together:
+Install the complete skill folder using [skill installation](agent-skill.md).
+For example, after copying it to your harness's configured skills directory, its
+entry point might be `$HOME/.agents/skills/workgraph/SKILL.md`. The folder includes
+its own references, API schemas and scripts.
 
-```text
-/usr/share/doc/workgraph/AGENT_GUIDE.md
-/usr/share/doc/workgraph/docs/agent/
-/usr/share/doc/workgraph/docs/api-reference/
-```
+The published v0.5.0 RPM still uses `/usr/share/doc/workgraph/AGENT_GUIDE.md` for
+its older guide. Obtain the new skill from this checkout; do not expect its folder
+inside that old RPM. RPMs built from the current checkout include the new folder
+at `/usr/share/doc/workgraph/skills/workgraph/`.
 
 Give your agent the introduction below, replacing `<your-linux-user>` with your
 actual Linux username. It must have shell access inside this WSL distribution
@@ -209,7 +216,7 @@ and permission to use your Workgraph socket.
 
 > Workgraph is our local task tracker and persistent memory store. Use it to
 > break work into tickets, record progress and decisions, and recover context
-> between sessions. Read `/usr/share/doc/workgraph/AGENT_GUIDE.md` and follow its
+> between sessions. Read `/home/<your-linux-user>/.agents/skills/workgraph/SKILL.md` and follow its
 > references when needed. Use `/usr/bin/workgraph` with
 > `--context /home/<your-linux-user>/.local/state/workgraph-0.5/agent.json`.
 > The workspace is `demo`; the project is `demo-project`.
@@ -220,12 +227,12 @@ To print the actual connection values for this setup:
 printf 'Executable: %s\nContext: %s\nGuide: %s\n' \
   "$(command -v workgraph)" \
   "$HOME/.local/state/workgraph-0.5/agent.json" \
-  '/usr/share/doc/workgraph/AGENT_GUIDE.md'
+  "$HOME/.agents/skills/workgraph/SKILL.md"
 ```
 
 This context identifies one actor, `agent-1`. For multiple cooperating agents,
 give each its own actor/context and request directory while sharing the daemon
-and workspace. The agent guide explains optional runs and coordination. After
+and workspace. The skill explains optional runs and coordination. After
 an upgrade or deliberate reset, give agents the new context and matching guide;
 do not reuse old saved requests or old prototype workspace roots.
 
@@ -260,4 +267,4 @@ target requires an x86-64-v3-capable CPU.
 The [AlmaLinux guide](almalinux.md) includes optional installed-runtime checks
 you can run on your WSL instance. See the [operator guide](operator-guide.md)
 for backups, exports, Git handoffs, and recovery, and the
-[agent guide](../AGENT_GUIDE.md) for the full capability overview.
+[agent guide](../skills/workgraph/SKILL.md) for the full capability overview.

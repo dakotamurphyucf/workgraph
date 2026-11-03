@@ -1,6 +1,6 @@
 # External evaluation measurements
 
-`examples/evaluation.py` implements the external instrumentation portion of WG09.
+`skills/workgraph/scripts/evaluation.py` implements the external instrumentation portion of WG09.
 It does not establish completion of the workspace metrics, admission-capacity,
 resume/digest, harness-hook or packaging requirements.
 
@@ -21,7 +21,7 @@ The focused Python tests establish:
 Executed on the development macOS ARM64 host:
 
 ```
-python3 test/evaluation/evaluation_test.py examples/evaluation.py
+python3 test/evaluation/evaluation_test.py skills/workgraph/scripts/evaluation.py
 # 4 tests passed
 python3 test/evaluation/socket_test.py _build/default/bin/main.exe
 # 1 test passed

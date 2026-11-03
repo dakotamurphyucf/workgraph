@@ -30,14 +30,17 @@
  (alias runtest)
  (deps
   driver_test.py
-  ../../examples/history-adapter.py
-  ../../examples/history-recovery-demo.py
-  ../../examples/coordination-runner.py)
+  ../../skills/workgraph/scripts/history-adapter.py
+  ../../skills/workgraph/scripts/history-recovery-demo.py
+  ../../skills/workgraph/scripts/coordination-runner.py)
  (action
   (run python3 %{dep:driver_test.py} %{exe:service_driver.exe})))
 
 (rule
  (alias runtest)
- (deps socket_test.py ../daemon_ready.py ../../examples/history-adapter.py)
+ (deps
+  socket_test.py
+  ../daemon_ready.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

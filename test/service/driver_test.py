@@ -13,7 +13,7 @@ import tempfile
 import unittest
 
 DRIVER = Path(sys.argv.pop(1)).resolve()
-EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
+EXAMPLES = Path(__file__).resolve().parents[2] / "skills/workgraph/scripts"
 
 
 def load(name):

@@ -141,7 +141,8 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
        Partial provenance is not whole-tree proof. A capture is not approval.\n\
        Example: workgraph evidence-run --stage /absolute/stages/check-1 --cwd \
        /absolute/checkout -- python3 -m unittest\n\
-       Read docs/agent/execution.md for output, provenance and publication contracts."
+       Read skills/workgraph/references/execution.md for output, provenance and \
+       publication contracts."
   | "evidence-publish" ->
     Some
       "evidence-publish [local helper]\n\
@@ -161,7 +162,7 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
        .result.data.publication (exact committed receipt), ticket_link_error,\n\
        retry_request and saved_request. Retry the saved plan without fresh guards.\n\
        Success adds .result.data.ticket_link (exact link receipt). Read \
-       docs/agent/execution.md."
+       skills/workgraph/references/execution.md."
   | "resource.upload" ->
     Some
       "resource.upload [local helper]\n\
@@ -176,7 +177,7 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
        Retry only the saved plan with workgraph retry; changed source bytes reject.\n\
        Result paths: .result.data.resource_id; .revision is the entity guard,\n\
        .version.{revision,digest} is the immutable evidence identity.\n\
-       This helper is not a daemon method. Read docs/agent/resources.md."
+       This helper is not a daemon method. Read skills/workgraph/references/resources.md."
   | "resource.download" ->
     Some
       "resource.download [local helper]\n\
@@ -191,7 +192,8 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
        Result paths: .result.data.resource_id, .version, .digest, .size_bytes, \
        .destination.\n\
        A post-publication directory-sync error is Outcome_unknown; inspect the retained\n\
-       destination rather than deleting it blindly. Read docs/agent/resources.md."
+       destination rather than deleting it blindly. Read \
+       skills/workgraph/references/resources.md."
   | "retry" ->
     Some
       "retry [local helper]\n\
@@ -206,14 +208,16 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
        Usage: workgraph serve ABS_REGISTRY_DIRECTORY ABS_SOCKET\n\
        Run in a separate process. Preserve managed data and ownership guards; never\n\
        remove an occupied socket based only on connection refusal. SIGTERM, Ctrl-C\n\
-       or daemon.shutdown drains admitted work. Read docs/agent/administration.md."
+       or daemon.shutdown drains admitted work. Read \
+       skills/workgraph/references/administration.md."
   | "call" ->
     Some
       "call [local helper]\n\
        Usage: workgraph call [ABS_SOCKET] METHOD PARAMS_JSON\n\
        PARAMS_JSON is one object. Use --context/--socket for transport defaults.\n\
        Named parameter flags cannot be merged into the raw object. Read help METHOD\n\
-       for the exact schema and docs/agent/cli-contract.md for retry rules."
+       for the exact schema and skills/workgraph/references/cli-contract.md for retry \
+       rules."
   | _ -> None
 ;;
 

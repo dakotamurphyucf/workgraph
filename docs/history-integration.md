@@ -5,7 +5,7 @@ Workgraph preserves observable session events and retrieves complete retained se
 Run the Python standard-library reference adapter against an existing daemon:
 
 ```sh
-python3 examples/history-adapter.py /absolute/daemon.sock \
+python3 skills/workgraph/scripts/history-adapter.py /absolute/daemon.sock \
   /absolute/observable.jsonl /absolute/ingest-cursor.json \
   --workspace workspace-id --session conversation --ticket ticket-id
 ```
@@ -20,9 +20,9 @@ The adapter syncs an exact pending append request before sending it and advances
 
 The adapter publishes a small ordinary `recovery-index` resource containing workspace, session, ticket, note and retrieval instructions. Retain these references and active harness instructions after a reset. The index is a bootstrap record; it does not reconstruct context automatically.
 
-[session.create](api-reference/session.create.md),
-[session.archive](api-reference/session.archive.md) and
-[session.append](api-reference/session.append.md) are separate from planning
+[session.create](../skills/workgraph/references/api/session.create.md),
+[session.archive](../skills/workgraph/references/api/session.archive.md) and
+[session.append](../skills/workgraph/references/api/session.append.md) are separate from planning
 transactions. A session can link local scopes and an already committed parent/fork
 event. An archived session remains readable and searchable. Appending acknowledges
 its own journal commit; publishing a note/reference afterward is a separate planning
@@ -30,13 +30,13 @@ transaction. Failure between commits leaves recoverable history without cross-st
 atomicity. Generated method references describe canonical event references, content
 alternatives and scope fields; durable event encodings are not public requests.
 
-Retrieve metadata with [session.get](api-reference/session.get.md),
-[session.list](api-reference/session.list.md), [history.get](api-reference/history.get.md)
-or [history.read](api-reference/history.read.md).
-[history.search](api-reference/history.search.md) returns stable event references,
+Retrieve metadata with [session.get](../skills/workgraph/references/api/session.get.md),
+[session.list](../skills/workgraph/references/api/session.list.md), [history.get](../skills/workgraph/references/api/history.get.md)
+or [history.read](../skills/workgraph/references/api/history.read.md).
+[history.search](../skills/workgraph/references/api/history.search.md) returns stable event references,
 snippets and UTF-8 byte offsets, with event-kind filtering. Search includes the
 entire supported text blob, including text beyond the resource search prefix.
-[history.payload](api-reference/history.payload.md) expands the selected payload,
+[history.payload](../skills/workgraph/references/api/history.payload.md) expands the selected payload,
 searchable text or attachment into bounded base64 chunks. Metadata retrieval does
 not silently truncate retained bytes. Use the generated selector and continuation
 contracts rather than rebuilding them from storage records.
@@ -51,7 +51,7 @@ Run the external deterministic reset demonstration after building the executable
 
 ```sh
 ./dev build bin/main.exe
-python3 examples/history-recovery-demo.py _build/default/bin/main.exe
+python3 skills/workgraph/scripts/history-recovery-demo.py _build/default/bin/main.exe
 ```
 
 The driver starts a local daemon, records a requirement, a 300KiB tool result and a later correction, deliberately terminates the adapter after a durable acknowledgement, resumes it, and clears its simulated active context twice, recording a correction between resets. It expands a matching tool call and result using their shared correlation. It compares a saved agent note with selective history recovery, reports retrieval calls/response bytes, verifies the correction and retrieves a fact beyond 64KiB. This is a correctness fixture, not a live-model efficiency result. No model credentials, remote index, embeddings or first-party MCP are required.

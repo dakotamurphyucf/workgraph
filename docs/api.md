@@ -3,22 +3,22 @@
 This guide describes the 0.5.0 preview release (API 0.5, affected stored roots 4).
 Use matching packaged docs and fresh registry/workspace roots, socket, contexts and
 request journals when upgrading from older previews. Older exports are not a
-migration path; preserve the matching old binary and data. See [compatibility](compatibility.md) for independent format identifiers.
+migration path; preserve the matching old binary and data. See [compatibility](../skills/workgraph/references/compatibility.md) for independent format identifiers.
 
 | Capability | Focused operating contract |
 | --- | --- |
-| Hierarchy policies, source-owned waivers, project finish, preflight, fact predicates/references | [Planning](agent/planning.md) |
-| Actor restrictions, attempt budgets, pool occupancy, nondurable empty acquisition | [Coordination](agent/coordination.md) |
-| Automatic borrowers, Manual holds, exact recovery and bounded reservation wait | [Ownership](agent/path-conditions-recovery.md) |
-| Pinned questions/answers, metadata/lineage and instruction amendments | [Communication/evidence](agent/communication-evidence.md) |
-| Filtered activity/current readiness and actor work/inbox views | [Attention](agent/attention.md) |
-| Immutable caller-reported measures and captured rollups | [Metrics](agent/metrics.md) |
-| Byte inputs, bounded paging, exact retries and safe startup | [CLI](agent/cli-contract.md) |
-| Captured execution, decoded inspection and exact-byte provenance | [Execution](agent/execution.md) |
+| Hierarchy policies, source-owned waivers, project finish, preflight, fact predicates/references | [Planning](../skills/workgraph/references/planning.md) |
+| Actor restrictions, attempt budgets, pool occupancy, nondurable empty acquisition | [Coordination](../skills/workgraph/references/coordination.md) |
+| Automatic borrowers, Manual holds, exact recovery and bounded reservation wait | [Ownership](../skills/workgraph/references/path-conditions-recovery.md) |
+| Pinned questions/answers, metadata/lineage and instruction amendments | [Communication/evidence](../skills/workgraph/references/communication-evidence.md) |
+| Filtered activity/current readiness and actor work/inbox views | [Attention](../skills/workgraph/references/attention.md) |
+| Immutable caller-reported measures and captured rollups | [Metrics](../skills/workgraph/references/metrics.md) |
+| Byte inputs, bounded paging, exact retries and safe startup | [CLI](../skills/workgraph/references/cli-contract.md) |
+| Captured execution, decoded inspection and exact-byte provenance | [Execution](../skills/workgraph/references/execution.md) |
 
 This reference documents the current CLI, planning API, client, resource transfers,
 exports and storage contracts. Start with the [README](../README.md) for installation
-and a quickstart or the [agent context guide](../AGENT_GUIDE.md) for concise operating
+and a quickstart or the [agent context guide](../skills/workgraph/SKILL.md) for concise operating
 instructions. Coordination, communication, evidence and history have their own
 linked guides below.
 
@@ -26,9 +26,9 @@ Every successful JSON-RPC response has `result.data` (the operation output) and
 `result.meta` (applicable durability, query revision, capture and budget metadata).
 Planning writes report `meta.durable` and `meta.workspace_revision`; domain query
 revisions and history positions remain distinct. See the exact
-[shared contract](agent/cli-contract.md) and [capability index](../AGENT_GUIDE.md)
+[shared contract](../skills/workgraph/references/cli-contract.md) and [capability index](../skills/workgraph/SKILL.md)
 for discovery. Exact parameters, defaults, tagged alternatives and complete results
-are generated from the executable in the [per-method reference](api-reference/index.md).
+are generated from the executable in the [per-method reference](../skills/workgraph/references/api/index.md).
 This guide explains operating rules and workflows rather than maintaining another
 copy of those schemas.
 
@@ -143,14 +143,14 @@ claim tokens, pagination offsets and limits are decimal strings in JSON.
 
 Use the generated method contracts for request fields and result shapes:
 
-- [Workspace creation](api-reference/workspace.create.md), [registry receipts](api-reference/registry.receipt.md) and [health](api-reference/daemon.health.md).
-- [Ticket creation](api-reference/ticket.create.md), [claim](api-reference/ticket.claim.md), [start](api-reference/ticket.start.md), [finish](api-reference/ticket.finish.md) and [reopen](api-reference/ticket.reopen.md).
-- [Atomic transactions](api-reference/transaction.apply.md), including declared alias fields.
-- [Comments](api-reference/comment.add.md), [handoffs](api-reference/handoff.set.md) and [ticket context](api-reference/ticket.context.md).
-- [Resources](api-reference/resource.put_text.md), [upload admission](api-reference/upload.begin.md) and [publication](api-reference/resource.finish_upload.md).
-- [Export admission](api-reference/workspace.export.md), [job listing](api-reference/export.list.md), [verification](api-reference/export.verify.md) and [restore](api-reference/workspace.restore.md).
+- [Workspace creation](../skills/workgraph/references/api/workspace.create.md), [registry receipts](../skills/workgraph/references/api/registry.receipt.md) and [health](../skills/workgraph/references/api/daemon.health.md).
+- [Ticket creation](../skills/workgraph/references/api/ticket.create.md), [claim](../skills/workgraph/references/api/ticket.claim.md), [start](../skills/workgraph/references/api/ticket.start.md), [finish](../skills/workgraph/references/api/ticket.finish.md) and [reopen](../skills/workgraph/references/api/ticket.reopen.md).
+- [Atomic transactions](../skills/workgraph/references/api/transaction.apply.md), including declared alias fields.
+- [Comments](../skills/workgraph/references/api/comment.add.md), [handoffs](../skills/workgraph/references/api/handoff.set.md) and [ticket context](../skills/workgraph/references/api/ticket.context.md).
+- [Resources](../skills/workgraph/references/api/resource.put_text.md), [upload admission](../skills/workgraph/references/api/upload.begin.md) and [publication](../skills/workgraph/references/api/resource.finish_upload.md).
+- [Export admission](../skills/workgraph/references/api/workspace.export.md), [job listing](../skills/workgraph/references/api/export.list.md), [verification](../skills/workgraph/references/api/export.verify.md) and [restore](../skills/workgraph/references/api/workspace.restore.md).
 
-The [full index](api-reference/index.md) covers the remaining planning, coordination,
+The [full index](../skills/workgraph/references/api/index.md) covers the remaining planning, coordination,
 communication, evidence, history and administration methods. Tagged objects and
 ID field names are specific to each contract; use its schema rather than guessing
 from an internal or durable representation.
@@ -226,13 +226,13 @@ For offset pages, retain the observed revision or snapshot fence and the returne
 next offset; an intervening change rejects the stale page. Cursors count returned
 items so byte fitting does not skip records. An explicitly empty, nonadvancing
 partial page requires a larger budget. Defaults and maximums are declared in each
-[query schema](api-reference/index.md).
+[query schema](../skills/workgraph/references/api/index.md).
 
 Ready work sorts by priority, creation order (including within a batch), then ID. Workspace
 overview shows status counts, active projects, held/blocked work and recent
 changes. Project brief groups ready/in-progress/blocked tickets. Ticket context
-includes activity since handoff coverage. Use [ticket.resume](api-reference/ticket.resume.md)
-for a captured resume packet and [ticket.blockers](api-reference/ticket.blockers.md)
+includes activity since handoff coverage. Use [ticket.resume](../skills/workgraph/references/api/ticket.resume.md)
+for a captured resume packet and [ticket.blockers](../skills/workgraph/references/api/ticket.blockers.md)
 for further prerequisite details.
 
 Search is an ASCII case-insensitive substring match over current workspace,
@@ -310,7 +310,7 @@ orphan blobs are retained; the referenced-byte limit is not a total disk quota.
 Streaming verification, export and downloads use buffers no larger than 256 KiB.
 Empty files and arbitrary non-UTF-8 bytes are supported. Multiple resources may
 reference identical bytes while retaining independent metadata. The generated
-[resource contracts](api-reference/resource.get.md) describe canonical public
+[resource contracts](../skills/workgraph/references/api/resource.get.md) describe canonical public
 metadata and version records.
 
 Workspace metadata is portable transaction history. `workspace.update` applies a
@@ -393,7 +393,7 @@ Errors before publication remove private partial files when possible; a killed c
 may leave `.downloading-*` files. A directory-sync failure after publication reports
 `Outcome_unknown` and leaves the complete destination available for inspection.
 
-`examples/agent-workflow.sh` creates a workspace/project/dependency graph, discussion,
+`skills/workgraph/scripts/agent-workflow.sh` creates a workspace/project/dependency graph, discussion,
 attachment and handoff using only CLI commands. The integration suite reruns it after
 a daemon restart and checks that receipts preserve the same state. No external skill,
 model account, or first-party MCP server is required.
@@ -466,7 +466,7 @@ replays the transaction chain and validates every referenced blob and the exact
 canonical inventory. Only then does it publish the fresh root and register it
 **closed**. The result is the named `kind: installed` alternative with
 `open: false`; cancellation uses `kind: canceled`. See the
-[restore result](api-reference/workspace.restore.md). Open it explicitly with
+[restore result](../skills/workgraph/references/api/workspace.restore.md). Open it explicitly with
 `workspace open`. No source `.local/` files
 are copied. Restoring preserves history, resource versions and workspace receipts.
 
@@ -566,5 +566,5 @@ Heartbeats record liveness observations and never extend ownership; reported
 token and elapsed-time limits require the harness to enforce provider spending.
 
 See the [coordination guide](coordination-guide.md) and its
-[CLI workflow example](../examples/coordination-workflow.sh). For durable transcript
+[CLI workflow example](../skills/workgraph/scripts/coordination-workflow.sh). For durable transcript
 ingestion and retrieval, see the [history integration guide](history-integration.md).

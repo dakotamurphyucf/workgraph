@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from daemon_ready import is_listening
 
 EXE = Path(sys.argv.pop(1)).resolve()
-ADAPTER = Path(__file__).resolve().parents[2] / "examples/history-adapter.py"
+ADAPTER = Path(__file__).resolve().parents[2] / "skills/workgraph/scripts/history-adapter.py"
 spec = importlib.util.spec_from_file_location("history_adapter", ADAPTER)
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)

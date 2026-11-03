@@ -159,7 +159,7 @@ let refusal limit ~used ~attempted ~kind =
   let operator_action =
     match limit with
     | Active_uploads | Reserved_upload_bytes ->
-      "docs/agent/capacity-rollover.md#temporary-upload-occupancy"
+      "skills/workgraph/references/capacity-rollover.md#temporary-upload-occupancy"
     | Planning_commits
     | Planning_transaction_bytes
     | Planning_payload_bytes
@@ -171,7 +171,8 @@ let refusal limit ~used ~attempted ~kind =
     | Resources
     | Referenced_resource_bytes
     | Fact_keys
-    | Fact_version_bytes -> "docs/agent/capacity-rollover.md#roll-over-before-saturation"
+    | Fact_version_bytes ->
+      "skills/workgraph/references/capacity-rollover.md#roll-over-before-saturation"
   in
   Problem.create kind ("Admission limit " ^ meter ^ " exceeded; see " ^ operator_action)
   |> fun problem ->

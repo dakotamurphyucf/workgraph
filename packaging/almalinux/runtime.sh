@@ -46,10 +46,10 @@ case "$kind" in
     ;;
   *) echo 'Expected tar or rpm' >&2; exit 2 ;;
 esac
-python3 "$installation/tools/check_agent_guide.py" "$installation" \
-  --binary "$executable" > "$evidence/agent-guide.json"
+python3 "$installation/tools/check_skill.py" "$installation" \
+  --binary "$executable" > "$evidence/skill.json"
 python3 "$installation/tools/generate_api_reference.py" \
-  --binary "$executable" --output "$installation/docs/api-reference" \
+  --binary "$executable" --output "$installation/skills/workgraph/references/api" \
   --check > "$evidence/api-reference.json"
 python3 - "$installation" "$evidence" <<'PY'
 import hashlib
@@ -59,14 +59,14 @@ import sys
 import tarfile
 
 installation, evidence = map(Path, sys.argv[1:])
-report = json.loads((evidence / 'agent-guide.json').read_text())
+report = json.loads((evidence / 'skill.json').read_text())
 with tarfile.open('/artifacts/archives/workgraph-0.5.0-source.tar.gz') as source:
     for name, digest in report['files'].items():
         content = (installation / name).read_bytes()
         assert content == source.extractfile('workgraph-0.5.0/' + name).read()
         assert hashlib.sha256(content).hexdigest() == digest
 report['matches_source_archive'] = True
-(evidence / 'agent-guide.json').write_text(json.dumps(report, indent=2) + '\n')
+(evidence / 'skill.json').write_text(json.dumps(report, indent=2) + '\n')
 PY
 ldd "$executable" > "$evidence/linked-libraries.txt"
 sha256sum "$executable" > "$evidence/executable.sha256"
@@ -82,7 +82,7 @@ runuser -u workgraph -- env -i HOME=/home/workgraph PATH=/usr/bin:/bin \
   python3 "$installation/tools/installed_smoke.py" "$executable" "$evidence/installed" \
   > "$evidence/installed-smoke.json"
 runuser -u workgraph -- env -i HOME=/home/workgraph PATH=/usr/bin:/bin \
-  python3 "$installation/examples/history-recovery-demo.py" "$executable" \
+  python3 "$installation/skills/workgraph/scripts/history-recovery-demo.py" "$executable" \
   --directory "$evidence/history" > "$evidence/history-smoke.json"
-printf '{"status":"passed","kind":"%s","checks":["no-toolchain","agent-guide-and-references","installed-cli-git-export-restore","history-adapter-retry-search-payload"]}\n' \
+printf '{"status":"passed","kind":"%s","checks":["no-toolchain","portable-agent-skill","installed-cli-git-export-restore","history-adapter-retry-search-payload"]}\n' \
   "$kind" > "$evidence/result.json"

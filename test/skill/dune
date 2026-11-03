@@ -1,0 +1,17 @@
+(rule
+ (alias runtest)
+ (deps
+  bundle_test.py
+  ../../tools/check_skill.py
+  (source_tree ../../skills/workgraph))
+ (action
+  (run python3 %{dep:bundle_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps
+  ../../README.md
+  ../../tools/sync_skill_readme.py
+  (source_tree ../../skills/workgraph))
+ (action
+  (run python3 %{dep:../../tools/sync_skill_readme.py} --check)))

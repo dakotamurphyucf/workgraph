@@ -14,7 +14,7 @@ from daemon_ready import is_listening
 
 EXE = Path(sys.argv.pop(1)).resolve()
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("adapter", ROOT / "examples/history-adapter.py")
+spec = importlib.util.spec_from_file_location("adapter", ROOT / "skills/workgraph/scripts/history-adapter.py")
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
 

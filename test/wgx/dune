@@ -4,13 +4,13 @@
   guide_test.py
   ../daemon_ready.py
   ../../README.md
-  ../../AGENT_GUIDE.md
+  ../../skills/workgraph/SKILL.md
   ../../docs/guide-coverage.md
-  ../../docs/agent/wgx.md
-  ../../tools/wgx.sh
-  ../../examples/ci-worker.sh
-  ../../examples/transcript-converter.py
-  ../../examples/history-adapter.py)
+  ../../skills/workgraph/references/wgx.md
+  ../../skills/workgraph/scripts/wgx.sh
+  ../../skills/workgraph/scripts/ci-worker.sh
+  ../../skills/workgraph/scripts/transcript-converter.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:guide_test.py} %{exe:../../bin/main.exe})))
 
@@ -21,9 +21,9 @@
   guide_test.py
   ../daemon_ready.py
   ../../README.md
-  ../../AGENT_GUIDE.md
-  ../../tools/wgx.sh
-  ../../examples/transcript-converter.py
-  ../../examples/history-adapter.py)
+  ../../skills/workgraph/SKILL.md
+  ../../skills/workgraph/scripts/wgx.sh
+  ../../skills/workgraph/scripts/transcript-converter.py
+  ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:helper_test.py} %{exe:../../bin/main.exe})))
