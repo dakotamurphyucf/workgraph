@@ -56,6 +56,10 @@ type t =
       ; resolver : Id.Actor.t
       ; ticket : Id.Ticket.t option
       ; kind : Request.Kind.t
+      ; priority : int
+      ; deadline_unix_ms : string option
+      ; related : Communication_id.Request.t list
+      ; supersedes : Communication_id.Request.t list
       }
   | Request_create of
       { id : Communication_id.Request.t
@@ -68,6 +72,21 @@ type t =
       ; correlation_id : string option
       ; reply_to : Communication_id.Request.t option
       ; deadline_unix_ms : string option
+      ; priority : int
+      ; related : Communication_id.Request.t list
+      ; supersedes : Communication_id.Request.t list
+      }
+  (** Creator/resolver-owned metadata patch on an open request. Omitted fields
+      preserve; an explicit null deadline clears it; empty link lists clear.
+      Priority is 0 unspecified, 1 urgent through 4 low. Each link list is <=32
+      unique IDs. Supersedes is acyclic and never implicitly cancels work. *)
+  | Request_metadata of
+      { id : Communication_id.Request.t
+      ; expected_revision : int
+      ; priority : int option
+      ; deadline_unix_ms : string option option
+      ; related : Communication_id.Request.t list option
+      ; supersedes : Communication_id.Request.t list option
       }
   | Request_acknowledge of
       { id : Communication_id.Request.t
@@ -298,6 +317,34 @@ let validate_request_recipients params =
   else Error (Problem.create Invalid_argument "request requires recipients or teams")
 ;;
 
+let link_list =
+  Api_codec.map
+    (Api_codec.list request_id ~max_items:32)
+    ~decode:(fun values ->
+      if
+        List.length values
+        = List.length
+            (List.dedup_and_sort values ~compare:Communication_id.Request.compare)
+      then Ok values
+      else Error (Problem.create Invalid_argument "request links must be distinct"))
+    ~encode:Fn.id
+    ~description:"At most 32 distinct request references."
+;;
+
+let raw_links =
+  Api_codec.as_json (Api_codec.list (Api_codec.reference request_id) ~max_items:32)
+;;
+
+let request_options =
+  Fields.both
+    (Fields.both
+       (Fields.optional "priority" Communication_wire.priority)
+       (Fields.optional "deadline_unix_ms" unix_ms))
+    (Fields.both
+       (Fields.optional ~raw:raw_links "related_request_ids" link_list)
+       (Fields.optional ~raw:raw_links "supersedes_request_ids" link_list))
+;;
+
 let entries =
   [ ( "board.put"
     , Request_codec.map
@@ -317,6 +364,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -392,6 +440,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -419,6 +468,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -447,6 +497,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -479,6 +530,7 @@ let entries =
           | Thread_pin_message _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -502,8 +554,12 @@ let entries =
                  (Api_codec.list Communication_recipient.codec ~max_items:1000)
             ++ Fields.required "resolver_id" actor_id
             ++ Fields.optional ~raw:(reference ticket_id) "ticket_id" ticket_id
-            ++ Fields.optional "kind" Communication_wire.request_kind))
-        ~decode:(fun ((((((id, title), body), recipients), resolver), ticket), kind) ->
+            ++ Fields.optional "kind" Communication_wire.request_kind
+            ++ request_options))
+        ~decode:
+          (fun
+            ( ((((((id, title), body), recipients), resolver), ticket), kind)
+            , ((priority, deadline_unix_ms), (related, supersedes)) ) ->
           if List.is_empty recipients
           then Error (Problem.create Invalid_argument "request requires recipients")
           else
@@ -516,16 +572,34 @@ let entries =
                  ; resolver
                  ; ticket
                  ; kind = Option.value kind ~default:Clarification
+                 ; priority = Option.value priority ~default:0
+                 ; deadline_unix_ms
+                 ; related = Option.value related ~default:[]
+                 ; supersedes = Option.value supersedes ~default:[]
                  }))
         ~encode:(function
-          | Request_ask { id; title; body; recipients; resolver; ticket; kind } ->
-            (((((id, title), body), recipients), resolver), ticket), Some kind
+          | Request_ask
+              { id
+              ; title
+              ; body
+              ; recipients
+              ; resolver
+              ; ticket
+              ; kind
+              ; priority
+              ; deadline_unix_ms
+              ; related
+              ; supersedes
+              } ->
+            ( ((((((id, title), body), recipients), resolver), ticket), Some kind)
+            , ((Some priority, deadline_unix_ms), (Some related, Some supersedes)) )
           | Board_put _
           | Thread_put _
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -534,8 +608,7 @@ let entries =
           | Subscription_put _
           | Inbox_ack _ -> Json.fail Invalid_argument "wrong communication command")
         ~description:
-          "Atomically create a scoped thread, authored question and accountable request."
-    )
+          "Atomically create a question, request and explicit scheduling metadata." )
   ; ( "request.create"
     , Request_codec.map
         ~validate_raw:validate_request_recipients
@@ -560,13 +633,13 @@ let entries =
                  ~raw:(reference request_id)
                  "reply_to_request_id"
                  request_id
-            ++ Fields.optional "deadline_unix_ms" unix_ms))
+            ++ request_options))
         ~decode:
           (fun
             ( ( ( ((((((id, thread), kind), message), recipients), teams), resolver)
                 , correlation_id )
               , reply_to )
-            , deadline_unix_ms ) ->
+            , ((priority, deadline_unix_ms), (related, supersedes)) ) ->
           let recipients = Option.value recipients ~default:[] in
           let teams = Option.value teams ~default:[] in
           if List.is_empty recipients && List.is_empty teams
@@ -585,6 +658,9 @@ let entries =
                  ; correlation_id
                  ; reply_to
                  ; deadline_unix_ms
+                 ; priority = Option.value priority ~default:0
+                 ; related = Option.value related ~default:[]
+                 ; supersedes = Option.value supersedes ~default:[]
                  }))
         ~encode:(function
           | Request_create
@@ -598,18 +674,22 @@ let entries =
               ; correlation_id
               ; reply_to
               ; deadline_unix_ms
+              ; priority
+              ; related
+              ; supersedes
               } ->
             ( ( ( ( (((((id, thread), kind), message), Some recipients), Some teams)
                   , resolver )
                 , correlation_id )
               , reply_to )
-            , deadline_unix_ms )
+            , ((Some priority, deadline_unix_ms), (Some related, Some supersedes)) )
           | Board_put _
           | Thread_put _
           | Thread_attach _
           | Thread_pin_message _
           | Team_put _
           | Request_ask _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -618,8 +698,64 @@ let entries =
           | Subscription_put _
           | Inbox_ack _ -> Json.fail Invalid_argument "wrong communication command")
         ~description:
-          "Validated request.create arguments; domain preparation validates live \
-           references and transitions." )
+          "Create an accountable request with captured question and scheduling metadata."
+    )
+  ; ( "request.metadata"
+    , Request_codec.map
+        (Request_codec.object_
+           (Fields.required ~raw:(reference request_id) "request_id" request_id
+            ++ Fields.required "expected_revision" decimal
+            ++ Fields.optional "priority" Communication_wire.priority
+            ++ Fields.optional "deadline_unix_ms" (Api_codec.nullable unix_ms)
+            ++ Fields.optional ~raw:raw_links "related_request_ids" link_list
+            ++ Fields.optional ~raw:raw_links "supersedes_request_ids" link_list))
+        ~decode:
+          (fun
+            ( ((((id, expected_revision), priority), deadline_unix_ms), related)
+            , supersedes ) ->
+          if
+            List.for_all
+              [ Option.is_none priority
+              ; Option.is_none deadline_unix_ms
+              ; Option.is_none related
+              ; Option.is_none supersedes
+              ]
+              ~f:Fn.id
+          then
+            Error
+              (Problem.create Invalid_argument "request metadata patch must name a field")
+          else
+            Ok
+              (Request_metadata
+                 { id
+                 ; expected_revision
+                 ; priority
+                 ; deadline_unix_ms
+                 ; related
+                 ; supersedes
+                 }))
+        ~encode:(function
+          | Request_metadata
+              { id; expected_revision; priority; deadline_unix_ms; related; supersedes }
+            ->
+            ((((id, expected_revision), priority), deadline_unix_ms), related), supersedes
+          | Board_put _
+          | Thread_put _
+          | Thread_attach _
+          | Thread_pin_message _
+          | Team_put _
+          | Request_ask _
+          | Request_create _
+          | Request_acknowledge _
+          | Request_accept _
+          | Request_reassign _
+          | Request_resolve _
+          | Request_cancel _
+          | Subscription_put _
+          | Inbox_ack _ -> Json.fail Invalid_argument "wrong communication command")
+        ~description:
+          "Creator/resolver guarded open-request priority, deadline and relationship \
+           patch." )
   ; ( "request.acknowledge"
     , Request_codec.map
         (Request_codec.object_
@@ -641,6 +777,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_accept _
           | Request_reassign _
           | Request_resolve _
@@ -671,6 +808,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_reassign _
           | Request_resolve _
@@ -702,6 +840,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_resolve _
@@ -729,6 +868,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -754,6 +894,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -789,6 +930,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -811,6 +953,7 @@ let entries =
           | Team_put _
           | Request_ask _
           | Request_create _
+          | Request_metadata _
           | Request_acknowledge _
           | Request_accept _
           | Request_reassign _
@@ -844,6 +987,7 @@ let encode command =
     | Team_put _ -> "team.put"
     | Request_ask _ -> "request.ask"
     | Request_create _ -> "request.create"
+    | Request_metadata _ -> "request.metadata"
     | Request_acknowledge _ -> "request.acknowledge"
     | Request_accept _ -> "request.accept"
     | Request_reassign _ -> "request.reassign"

@@ -74,6 +74,14 @@ module Comment_ref = struct
     ; revision : Counter.t
     }
   [@@deriving sexp, equal, jsonaf]
+
+  let unchecked_of_jsonaf = t_of_jsonaf
+
+  let t_of_jsonaf json =
+    let pin = unchecked_of_jsonaf json in
+    if pin.revision <= 0 then Json.fail Corrupt_store "invalid pinned comment revision";
+    pin
+  ;;
 end
 
 module Board = struct
@@ -223,6 +231,9 @@ module Request = struct
     ; correlation_id : string option
     ; reply_to : Communication_id.Request.t option
     ; deadline_unix_ms : string option
+    ; priority : int
+    ; related : Communication_id.Request.t list
+    ; supersedes : Communication_id.Request.t list
     ; resolver : Id.Actor.t
     ; created : Attribution.t
     ; deliveries : Delivery.t list
@@ -262,6 +273,7 @@ module Notification = struct
       | Request_reassigned
       | Request_resolved
       | Request_cancelled
+      | Request_updated
     [@@deriving sexp, equal, jsonaf]
   end
 
@@ -367,6 +379,18 @@ let t_of_jsonaf json =
    | Update.Request_put { request; _ } ->
      if request.message_revision <= 0
      then Json.fail Corrupt_store "invalid question revision";
+     if request.priority < 0 || request.priority > 4
+     then Json.fail Corrupt_store "invalid request priority";
+     List.iter [ request.related; request.supersedes ] ~f:(fun links ->
+       if
+         List.length links > 32
+         || (not
+               (List.equal
+                  Communication_id.Request.equal
+                  links
+                  (List.dedup_and_sort links ~compare:Communication_id.Request.compare)))
+         || List.mem links request.id ~equal:Communication_id.Request.equal
+       then Json.fail Corrupt_store "invalid request relationship list");
      (match request.status with
       | Resolved { answer; _ } -> Option.iter answer ~f:valid_pin
       | Open | Cancelled _ -> ())

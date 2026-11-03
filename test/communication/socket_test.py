@@ -84,6 +84,7 @@ class CommunicationSocketTest(unittest.TestCase):
                     cleared = mutate("request.reassign", "request-clear", request_id="request", expected_revision="3", recipient=None)
                     self.assertEqual(cleared["data"]["responsibility"], {"kind": "unaccepted"})
                     resolved = mutate("request.resolve", "request-resolve", request_id="request", expected_revision="4")
+                    self.assertIsNone(resolved["data"]["answer"])
                     self.assertEqual(resolved["data"]["status"]["kind"], "resolved")
                     mutate("request.create", "followup", request_id="followup", thread_id="thread", kind="help", comment_id="comment", resolver_id="alice", recipients=[bob], reply_to_request_id="request")
                     mutate("request.cancel", "cancel", request_id="followup", expected_revision="1")
@@ -140,7 +141,7 @@ class CommunicationSocketTest(unittest.TestCase):
                     inbox = read("inbox.read", consumer_id="consumer-a", recipient=bob)
                     message_packet = next(item for item in inbox["data"]["items"] if item["source"]["kind"] == "message")
                     self.assertEqual(message_packet["body_source"]["body"], "Initial delivery")
-                    self.assertEqual(message_packet["body_source"]["version_kind"], "initial")
+                    self.assertEqual(message_packet["body_source"]["version_kind"], "captured")
                     selected = message_packet["notification_id"]
                     mutate("inbox.ack", "delivery-ack", actor="bob", consumer_id="consumer-a", recipient=bob, notification_ids=[selected])
                     self.assertNotIn(selected, [item["notification_id"] for item in read("inbox.read", consumer_id="consumer-a", recipient=bob)["data"]["items"]])
@@ -211,6 +212,40 @@ class CommunicationSocketTest(unittest.TestCase):
                     self.assertEqual([item["request_id"] for item in filtered["data"]["items"]], ["ticket-ask"])
                     self.assertIsNone(filtered["data"]["next_offset"])
                     self.assertEqual(read("request.list", ticket_id="task", resolver_id="alice")["data"]["items"], [])
+                    scheduled = mutate("request.ask", "scheduled", request_id="scheduled",
+                                       title="Urgent follow-up", body="Please decide", recipients=[bob],
+                                       resolver_id="bob", priority="1", deadline_unix_ms="90",
+                                       related_request_ids=["request"], supersedes_request_ids=["ticket-ask"])
+                    scheduled_view = read("request.get", request_id="scheduled")["data"]
+                    self.assertEqual((scheduled_view["priority"], scheduled_view["deadline_unix_ms"]), ("1", "90"))
+                    self.assertEqual(read("request.get", request_id="ticket-ask")["data"]["superseded_by_request_ids"], ["scheduled"])
+                    self.assertEqual(read("request.get", request_id="ticket-ask")["data"]["status"]["kind"], "open")
+                    self.assertEqual([item["request_id"] for item in read("request.list", priority="1", overdue_at_unix_ms="100")["data"]["items"]], ["scheduled"])
+                    self.assertEqual([item["request_id"] for item in read("request.list", related_to_request_id="scheduled")["data"]["items"]], ["request"])
+                    self.assertEqual([item["request_id"] for item in read("request.list", supersedes_request_id="ticket-ask")["data"]["items"]], ["scheduled"])
+                    self.assertEqual([item["request_id"] for item in read("request.list", superseded_by_request_id="scheduled")["data"]["items"]], ["ticket-ask"])
+                    before_metadata_failure = call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576")
+                    reject("request.metadata", expected_kind="Conflict", actor_id="intruder", mutation_id="wrong-metadata-owner",
+                           request_id="scheduled", expected_revision="1", priority="2")
+                    reject("request.metadata", expected_kind="Conflict", actor_id="alice", mutation_id="supersedes-cycle",
+                           request_id="ticket-ask", expected_revision="1", supersedes_request_ids=["scheduled"])
+                    reject("request.metadata", expected_kind="Conflict", actor_id="alice", mutation_id="self-link",
+                           request_id="scheduled", expected_revision="1", related_request_ids=["scheduled"])
+                    reject("request.metadata", actor_id="alice", mutation_id="bad-priority",
+                           request_id="scheduled", expected_revision="1", priority="5")
+                    reject("request.metadata", actor_id="alice", mutation_id="empty-patch",
+                           request_id="scheduled", expected_revision="1")
+                    self.assertEqual(call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576"), before_metadata_failure)
+                    metadata = mutate("request.metadata", "scheduled-metadata", actor="bob", request_id="scheduled",
+                                      expected_revision="1", priority="3", deadline_unix_ms=None, related_request_ids=[])
+                    self.assertEqual(metadata["data"]["revision"], "2")
+                    self.assertIsNone(metadata["data"]["deadline_unix_ms"])
+                    self.assertEqual(metadata["data"]["related_request_ids"], [])
+                    self.assertEqual(metadata["data"]["supersedes_request_ids"], ["ticket-ask"])
+                    self.assertEqual(mutate("request.metadata", "scheduled-metadata", actor="bob", request_id="scheduled",
+                                           expected_revision="1", priority="3", deadline_unix_ms=None, related_request_ids=[]), metadata)
+                    reject("request.metadata", expected_kind="Conflict", actor_id="alice", mutation_id="stale-metadata",
+                           request_id="scheduled", expected_revision="1", priority="2")
                     retry_inbox = read("inbox.read", consumer_id="ask-consumer", recipient=bob)
                     for path, original in [(ask_path, asked), (answer_path, answered)]:
                         self.assertEqual(json.loads(subprocess.check_output([str(EXE), "retry", str(address), str(path)]))["result"], original)
@@ -237,6 +272,10 @@ class CommunicationSocketTest(unittest.TestCase):
                     self.assertEqual(read("inbox.read", consumer_id="ask-consumer", recipient=bob), retry_inbox)
                     self.assertEqual(call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576"), audit)
                     self.assertEqual(read("request.get", request_id="request")["data"]["status"]["kind"], "resolved")
+                    self.assertEqual(read("request.get", request_id="scheduled")["data"]["priority"], "3")
+                    self.assertEqual(read("request.get", request_id="asked")["data"]["answer"]["body"], "Use existing events.")
+                    self.assertEqual(mutate("request.metadata", "scheduled-metadata", actor="bob", request_id="scheduled",
+                                           expected_revision="1", priority="3", deadline_unix_ms=None, related_request_ids=[]), metadata)
                     expected = {name for name in methods if name.split('.')[0] in {"board", "team", "subscription", "thread", "request"}}
                     self.assertTrue(expected <= covered, expected - covered)
                 finally:

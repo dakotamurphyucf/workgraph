@@ -120,7 +120,11 @@ let thread_filters =
 ;;
 
 let request_filters =
-  [ optional "ticket_id" ticket_id
+  [ optional "priority" Communication_wire.priority
+  ; optional "related_to_request_id" request_id
+  ; optional "supersedes_request_id" request_id
+  ; optional "superseded_by_request_id" request_id
+  ; optional "ticket_id" ticket_id
   ; optional "resolver_id" actor_id
   ; optional "scope" Communication_wire.scope
   ; optional "thread_id" thread_id
@@ -177,6 +181,7 @@ let mutation_response = function
   | "subscription.put" -> Communication_wire.subscription
   | "thread.put" | "thread.attach" | "thread.pin_message" -> Communication_wire.thread
   | "request.create"
+  | "request.metadata"
   | "request.acknowledge"
   | "request.accept"
   | "request.reassign"

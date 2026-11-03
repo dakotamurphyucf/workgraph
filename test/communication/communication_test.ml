@@ -106,6 +106,9 @@ let fixture () =
          ; correlation_id = Some "review-1"
          ; reply_to = None
          ; deadline_unix_ms = Some "100"
+         ; priority = 0
+         ; related = []
+         ; supersedes = []
          })
   in
   t, [ board_event; thread_event; attach_event; team_event; request_event ]
@@ -497,6 +500,9 @@ let%expect_test "run recipients require run attribution and cancellation stays t
          ; correlation_id = None
          ; reply_to = Some request
          ; deadline_unix_ms = None
+         ; priority = 0
+         ; related = []
+         ; supersedes = []
          })
   in
   let ack =
@@ -892,7 +898,7 @@ let%expect_test "direct messages pin bodies and consumer acknowledgements select
   print_s [%sexp (C.latest_serial replay : int)];
   [%expect
     {|
-    (2 "initial body" initial)
+    (2 "initial body" captured)
     (0 1)
     Invalid_argument
     Conflict
@@ -1044,5 +1050,114 @@ let%expect_test
     (((Actor alice)) ((Actor bob)))
     ok
     (2 true true)
+    |}]
+;;
+
+let%expect_test "requests capture edited questions and policy changes explicitly close" =
+  let state, _ = fixture () in
+  let revise discussion revision body =
+    Discussion.apply
+      discussion
+      (Discussion.Change.Revise
+         { id = message
+         ; version =
+             { revision
+             ; serial = revision
+             ; sequence = revision
+             ; actor = alice
+             ; timestamp = "2026-10-07"
+             ; body
+             ; tombstone = false
+             }
+         })
+      ~sequence:revision
+  in
+  let discussion = revise fixture_discussion 2 "Captured revision two" in
+  let other = Communication_id.Request.of_string "edited-question" |> unwrap in
+  let state, _ =
+    step
+      state
+      ~discussion
+      (Request_create
+         { id = other
+         ; thread
+         ; kind = Review
+         ; message
+         ; recipients = [ recipient alice ]
+         ; teams = []
+         ; resolver
+         ; correlation_id = None
+         ; reply_to = None
+         ; deadline_unix_ms = None
+         ; priority = 0
+         ; related = []
+         ; supersedes = []
+         })
+  in
+  let discussion = revise discussion 3 "Later revision three" in
+  let inbox =
+    C.query
+      state
+      ~discussion
+      ~method_:"inbox.read"
+      ~params:
+        (Json.obj
+           [ "consumer_id", Communication_id.Consumer.jsonaf_of_t consumer
+           ; "recipient", C.Recipient.jsonaf_of_t (recipient alice)
+           ])
+    |> unwrap
+  in
+  let packet =
+    Json.field inbox "items"
+    |> Json.list
+    |> List.find_exn ~f:(fun packet ->
+      String.equal (Json.field packet "kind" |> Json.text) "request_created"
+      && String.equal
+           (Json.field (Json.field packet "source") "id" |> Json.text)
+           (Communication_id.Request.to_string other))
+  in
+  let body = Json.field packet "body_source" in
+  printf
+    "%s: revision=%d (%s)\n"
+    (Json.field body "body" |> Json.text)
+    (Json.field body "revision" |> Json.integer)
+    (Json.field body "version_kind" |> Json.text);
+  let terminal id state =
+    step state ~discussion (Request_cancel { id; expected_revision = 1 }) |> fst
+  in
+  let state = terminal request state |> terminal other in
+  let before = C.get_thread state thread |> Option.value_exn in
+  let prepared =
+    C.prepare
+      state
+      ~discussion
+      (Thread_put
+         { id = thread
+         ; expected_revision = before.revision
+         ; board = before.board
+         ; title = before.title
+         ; participants = before.participants
+         ; mentions = before.mentions
+         ; links = before.links
+         ; state = before.state
+         ; closure_policy = Some When_all_requests_terminal
+         ; pinned = before.pinned
+         })
+      ~actor:resolver
+      ~run:None
+      ~timestamp:"2026-10-07"
+      ~sequence:20
+    |> unwrap
+  in
+  let after = C.get_thread (C.candidate prepared) thread |> Option.value_exn in
+  printf
+    "changes=%d receipt=%d state=%s\n"
+    (List.length (C.changes prepared))
+    (Json.field (C.result prepared) "revision" |> Json.integer)
+    (Sexp.to_string (C.Thread.State.sexp_of_t after.state));
+  [%expect
+    {|
+    Captured revision two: revision=2 (captured)
+    changes=2 receipt=4 state=Resolved
     |}]
 ;;

@@ -369,6 +369,9 @@ let%expect_test
          ; correlation_id = None
          ; reply_to = None
          ; deadline_unix_ms = None
+         ; priority = 0
+         ; related = []
+         ; supersedes = []
          })
   in
   let contract = ok (Evidence_id.Contract.of_string "contract") in

@@ -11,7 +11,9 @@ module Subscription = Communication_event.Subscription
     communication changes through [State.prepare]. Ask threads list the author
     and resolver as participants; recipients receive accountable request
     deliveries independently of that participant list. [Communication.prepare]
-    accepts only commands requiring a communication snapshot. *)
+    accepts only commands requiring a communication snapshot. Switching a thread
+    to [When_all_requests_terminal] with existing terminal requests explicitly
+    stages closure in the same transaction; the receipt reports its final revision. *)
 type t =
   | Board_put of
       { id : Communication_id.Board.t
@@ -56,6 +58,10 @@ type t =
       ; resolver : Id.Actor.t
       ; ticket : Id.Ticket.t option
       ; kind : Request.Kind.t
+      ; priority : int
+      ; deadline_unix_ms : string option
+      ; related : Communication_id.Request.t list
+      ; supersedes : Communication_id.Request.t list
       }
   | Request_create of
       { id : Communication_id.Request.t
@@ -68,6 +74,21 @@ type t =
       ; correlation_id : string option
       ; reply_to : Communication_id.Request.t option
       ; deadline_unix_ms : string option
+      ; priority : int
+      ; related : Communication_id.Request.t list
+      ; supersedes : Communication_id.Request.t list
+      }
+  (** Creator/resolver-owned metadata patch on an open request. Omitted fields
+      preserve; an explicit null deadline clears it; empty link lists clear.
+      Priority is 0 unspecified, 1 urgent through 4 low. Each link list is <=32
+      unique IDs. Supersedes is acyclic and never implicitly cancels work. *)
+  | Request_metadata of
+      { id : Communication_id.Request.t
+      ; expected_revision : int
+      ; priority : int option
+      ; deadline_unix_ms : string option option
+      ; related : Communication_id.Request.t list option
+      ; supersedes : Communication_id.Request.t list option
       }
   | Request_acknowledge of
       { id : Communication_id.Request.t

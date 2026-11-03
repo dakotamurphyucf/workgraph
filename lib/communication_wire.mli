@@ -11,6 +11,7 @@ val closure_policy : Communication_event.Thread.Closure_policy.t Api_codec.t
 val comment_ref : Communication_event.Comment_ref.t Api_codec.t
 val resolve_receipt : Jsonaf.t Api_codec.t
 val thread_state : Communication_event.Thread.State.t Api_codec.t
+val priority : int Api_codec.t
 val request_kind : Communication_event.Request.Kind.t Api_codec.t
 val filter_input : Communication_event.Subscription.Filter.t Api_codec.t
 val board : Jsonaf.t Api_codec.t

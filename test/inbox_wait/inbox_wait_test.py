@@ -112,7 +112,7 @@ class InboxWaitTest(unittest.TestCase):
                     self.assertIn("result", waited, waited)
                     delivered = waited["result"]["data"]
                 self.assertEqual(["welcome"], [item["source"]["id"] for item in delivered["items"]])
-                self.assertEqual("initial", delivered["items"][0]["body_source"]["version_kind"])
+                self.assertEqual("captured", delivered["items"][0]["body_source"]["version_kind"])
                 self.assertEqual("Original delivered body", delivered["items"][0]["body_source"]["body"])
                 first_id = delivered["items"][0]["notification_id"]
                 self.assertEqual(["unrelated", "welcome"], [item["source"]["id"] for item in read()["items"]])

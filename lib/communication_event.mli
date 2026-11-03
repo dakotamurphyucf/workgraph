@@ -147,6 +147,9 @@ module Request : sig
     ; correlation_id : string option
     ; reply_to : Communication_id.Request.t option
     ; deadline_unix_ms : string option
+    ; priority : int
+    ; related : Communication_id.Request.t list
+    ; supersedes : Communication_id.Request.t list
     ; resolver : Id.Actor.t
     ; created : Attribution.t
     ; deliveries : Delivery.t list
@@ -186,6 +189,7 @@ module Notification : sig
       | Request_reassigned
       | Request_resolved
       | Request_cancelled
+      | Request_updated
     [@@deriving sexp, equal, jsonaf]
   end
 

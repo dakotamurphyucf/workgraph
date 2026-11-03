@@ -44,6 +44,7 @@ let kind_codec =
     ; "request_reassigned", Request_reassigned
     ; "request_resolved", Request_resolved
     ; "request_cancelled", Request_cancelled
+    ; "request_updated", Request_updated
     ]
     ~equal:Notification.Kind.equal
 ;;
@@ -95,7 +96,7 @@ module Query = struct
     let filters =
       Fields.both
         (Fields.both
-           (Fields.optional "kinds" (Api_codec.list kind_codec ~max_items:8))
+           (Fields.optional "kinds" (Api_codec.list kind_codec ~max_items:9))
            (Fields.optional "ticket_id" ticket_codec))
         (Fields.optional "exclude_self" Api_codec.boolean)
     in
@@ -287,9 +288,7 @@ let body_codec =
   let metadata =
     Fields.both
       (Fields.required "tombstone" Api_codec.boolean)
-      (Fields.required
-         "version_kind"
-         (Api_codec.enum [ "initial", true; "current", false ] ~equal:Bool.equal))
+      (Fields.required "version_kind" (Api_codec.literal "captured"))
   in
   Api_codec.as_json
     (Api_codec.object_

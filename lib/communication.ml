@@ -468,8 +468,63 @@ let cancel request attribution =
   { request with Request.revision = request.revision + 1; status = Cancelled attribution }
 ;;
 
+let metadata request attribution ~priority ~deadline_unix_ms ~related ~supersedes =
+  open_request request;
+  require
+    (Id.Actor.equal request.Request.created.actor attribution.Attribution.actor
+     || Id.Actor.equal request.resolver attribution.actor)
+    Conflict
+    "only creator or resolver may edit request metadata";
+  { request with
+    revision = request.revision + 1
+  ; priority = Option.value priority ~default:request.priority
+  ; deadline_unix_ms = Option.value deadline_unix_ms ~default:request.deadline_unix_ms
+  ; related =
+      Option.value related ~default:request.related
+      |> unique ~compare:Communication_id.Request.compare
+  ; supersedes =
+      Option.value supersedes ~default:request.supersedes
+      |> unique ~compare:Communication_id.Request.compare
+  }
+;;
+
+let request_links_valid t (request : Request.t) =
+  require
+    (request.priority >= 0 && request.priority <= 4)
+    Invalid_argument
+    "request priority must be 0..4";
+  List.iter [ request.related; request.supersedes ] ~f:(fun links ->
+    limit links 32;
+    canonical
+      links
+      ~compare:Communication_id.Request.compare
+      ~equal:Communication_id.Request.equal;
+    List.iter links ~f:(fun id ->
+      require
+        (not (Communication_id.Request.equal request.id id))
+        Conflict
+        "request cannot link to itself";
+      ignore (find t.requests id : Request.t)));
+  let rec visit pending seen =
+    match pending with
+    | [] -> ()
+    | id :: rest ->
+      require
+        (not (Communication_id.Request.equal id request.id))
+        Conflict
+        "request supersedes cycle";
+      if Set.mem seen id
+      then visit rest seen
+      else (
+        let previous = find t.requests id in
+        visit (previous.Request.supersedes @ rest) (Set.add seen id))
+  in
+  visit request.supersedes Communication_id.Request.Set.empty
+;;
+
 let request_valid t attribution (request : Request.t) kind =
   let thread = find t.threads request.thread in
+  request_links_valid t request;
   require
     (List.mem thread.messages request.message ~equal:Id.Comment.equal)
     Conflict
@@ -555,6 +610,14 @@ let request_valid t attribution (request : Request.t) kind =
         in
         resolve old attribution answer
       | Request_cancelled -> cancel old attribution
+      | Request_updated ->
+        metadata
+          old
+          attribution
+          ~priority:(Some request.priority)
+          ~deadline_unix_ms:(Some request.deadline_unix_ms)
+          ~related:(Some request.related)
+          ~supersedes:(Some request.supersedes)
       | Thread_changed | Message_received | Request_created ->
         Json.fail Corrupt_store "invalid request transition kind"
     in
@@ -1055,6 +1118,9 @@ let command_update t ?discussion command attribution =
       ; correlation_id
       ; reply_to
       ; deadline_unix_ms
+      ; priority
+      ; related
+      ; supersedes
       } ->
     require (not (Map.mem t.requests id)) Conflict "request already exists";
     let recipients =
@@ -1076,6 +1142,9 @@ let command_update t ?discussion command attribution =
       ; correlation_id
       ; reply_to
       ; deadline_unix_ms
+      ; priority
+      ; related = unique related ~compare:Communication_id.Request.compare
+      ; supersedes = unique supersedes ~compare:Communication_id.Request.compare
       ; resolver
       ; created = attribution
       ; deliveries =
@@ -1086,6 +1155,15 @@ let command_update t ?discussion command attribution =
       }
     in
     Update.Request_put { request; kind = Request_created }
+  | Request_metadata
+      { id; expected_revision; priority; deadline_unix_ms; related; supersedes } ->
+    let old = find t.requests id in
+    expected old.revision expected_revision;
+    Update.Request_put
+      { request =
+          metadata old attribution ~priority ~deadline_unix_ms ~related ~supersedes
+      ; kind = Request_updated
+      }
   | Request_acknowledge { id; expected_revision; recipient } ->
     let old = find t.requests id in
     expected old.revision expected_revision;
@@ -1168,16 +1246,32 @@ let prepare_update t ?discussion event_update ~attribution ~sequence =
   in
   let candidate, change = make t event_update in
   let candidate, changes =
-    match event_update with
-    | Update.Request_put { request; kind = Request_resolved | Request_cancelled } ->
-      let thread = find candidate.threads request.thread in
+    let affected_thread =
+      match event_update with
+      | Update.Request_put { request; kind = Request_resolved | Request_cancelled } ->
+        Some (find candidate.threads request.thread)
+      | Thread_put thread -> Some thread
+      | Board_put _
+      | Team_put _
+      | Request_put _
+      | Subscription_put _
+      | Inbox_ack _
+      | Message_put _ -> None
+    in
+    match affected_thread with
+    | None -> candidate, [ change ]
+    | Some thread ->
+      let requests =
+        Map.data candidate.requests
+        |> List.filter ~f:(fun request ->
+          Communication_id.Thread.equal request.Request.thread thread.id)
+      in
       let has_open =
-        Map.exists candidate.requests ~f:(fun sibling ->
-          Communication_id.Thread.equal sibling.Request.thread thread.id
-          && Request.Status.equal sibling.status Open)
+        List.exists requests ~f:(fun request -> Request.Status.equal request.status Open)
       in
       if
         Thread.Closure_policy.equal thread.closure_policy When_all_requests_terminal
+        && (not (List.is_empty requests))
         && (not has_open)
         && not (Thread.State.equal thread.state Resolved)
       then (
@@ -1188,13 +1282,6 @@ let prepare_update t ?discussion event_update ~attribution ~sequence =
         in
         candidate, [ change; close ])
       else candidate, [ change ]
-    | Board_put _
-    | Thread_put _
-    | Team_put _
-    | Request_put _
-    | Subscription_put _
-    | Inbox_ack _
-    | Message_put _ -> candidate, [ change ]
   in
   let result =
     match event_update with
@@ -1214,8 +1301,9 @@ let prepare_update t ?discussion event_update ~attribution ~sequence =
           , Option.value_map answer ~default:`Null ~f:(fun pin ->
               unwrap (Api_codec.encode Communication_wire.comment_ref pin)) )
         ]
+    | Thread_put thread ->
+      Communication_wire.thread_json (find candidate.threads thread.id)
     | Board_put _
-    | Thread_put _
     | Team_put _
     | Request_put _
     | Subscription_put _
@@ -1253,13 +1341,17 @@ let prepare_resolution
     expected old.revision expected_revision;
     let attribution = { Attribution.actor; run; timestamp } in
     attribution_valid attribution;
-    prepare_update
-      t
-      ~discussion
-      (Update.Request_put
-         { request = resolve old attribution (Some answer); kind = Request_resolved })
-      ~attribution
-      ~sequence)
+    let prepared =
+      prepare_update
+        t
+        ~discussion
+        (Update.Request_put
+           { request = resolve old attribution (Some answer); kind = Request_resolved })
+        ~attribution
+        ~sequence
+    in
+    Communication_wire.validate_result ~method_:"request.resolve" prepared.result;
+    prepared)
 ;;
 
 module Message_prepared = struct
@@ -1428,60 +1520,57 @@ let validate_references t ~entity_exists ~discussion =
            message.created.timestamp)
         Corrupt_store
         "message timestamp differs from pinned comment");
-    List.iter t.history ~f:(fun change ->
-      match change.Change.update with
-      | Update.Request_put { request; _ } ->
-        let thread = find t.threads request.thread in
-        let check_pin pin =
-          ignore (pinned_version discussion pin : Jsonaf.t);
-          require
-            (Entity_ref.equal
-               (Discussion.target
-                  discussion
-                  pin.Communication_event.Comment_ref.comment_id)
-               (Scope.target (scope t thread)))
-            Corrupt_store
-            "request pin targets another scope";
-          require
-            (List.mem thread.messages pin.comment_id ~equal:Id.Comment.equal)
-            Corrupt_store
-            "request pin is not attached to thread"
-        in
-        check_pin { comment_id = request.message; revision = request.message_revision };
-        (match request.status with
-         | Resolved { attribution; answer = Some pin } ->
-           check_pin pin;
-           let version = pinned_version discussion pin in
-           require
-             (Id.Actor.equal
-                (Id.Actor.t_of_jsonaf (Json.field version "actor"))
-                attribution.actor)
-             Corrupt_store
-             "answer pin author differs";
-           require
-             (match Json.field version "reply_to" with
-              | `Null -> false
-              | json -> Id.Comment.equal (Id.Comment.t_of_jsonaf json) request.message)
-             Corrupt_store
-             "answer pin does not reply to question"
-         | Resolved { answer = None; _ } | Open | Cancelled _ -> ())
-      | Board_put _
-      | Thread_put _
-      | Team_put _
-      | Message_put _
-      | Subscription_put _
-      | Inbox_ack _ -> ());
+    Map.iter t.requests ~f:(fun request ->
+      let thread = find t.threads request.thread in
+      let check_pin pin =
+        ignore (pinned_version discussion pin : Jsonaf.t);
+        require
+          (Entity_ref.equal
+             (Discussion.target discussion pin.Communication_event.Comment_ref.comment_id)
+             (Scope.target (scope t thread)))
+          Corrupt_store
+          "request pin targets another scope";
+        require
+          (List.mem thread.messages pin.comment_id ~equal:Id.Comment.equal)
+          Corrupt_store
+          "request pin is not attached to thread"
+      in
+      check_pin { comment_id = request.message; revision = request.message_revision };
+      match request.status with
+      | Resolved { attribution; answer = Some pin } ->
+        check_pin pin;
+        let version = pinned_version discussion pin in
+        require
+          (Id.Actor.equal
+             (Id.Actor.t_of_jsonaf (Json.field version "actor"))
+             attribution.actor)
+          Corrupt_store
+          "answer pin author differs";
+        require
+          (match Json.field version "reply_to" with
+           | `Null -> false
+           | json -> Id.Comment.equal (Id.Comment.t_of_jsonaf json) request.message)
+          Corrupt_store
+          "answer pin does not reply to question"
+      | Resolved { answer = None; _ } | Open | Cancelled _ -> ());
+    let request_counts =
+      Map.fold
+        t.requests
+        ~init:Communication_id.Thread.Map.empty
+        ~f:(fun ~key:_ ~data:request counts ->
+          Map.update counts request.Request.thread ~f:(fun previous ->
+            let total, open_count = Option.value previous ~default:(0, 0) in
+            ( total + 1
+            , open_count + if Request.Status.equal request.status Open then 1 else 0 )))
+    in
     Map.iter t.threads ~f:(fun thread ->
-      let siblings =
-        Map.data t.requests
-        |> List.filter ~f:(fun request ->
-          Communication_id.Thread.equal request.Request.thread thread.Thread.id)
+      let total, open_count =
+        Option.value (Map.find request_counts thread.Thread.id) ~default:(0, 0)
       in
       if
         Thread.Closure_policy.equal thread.closure_policy When_all_requests_terminal
-        && (not (List.is_empty siblings))
-        && List.for_all siblings ~f:(fun r ->
-          not (Request.Status.equal r.Request.status Open))
+        && total > 0
+        && open_count = 0
       then
         require
           (Thread.State.equal thread.state Resolved)
@@ -1579,7 +1668,7 @@ let notification_packet t ~discussion (notification : Notification.t) =
   in
   let body =
     Option.map notification.causal_body ~f:(fun pin ->
-      pinned_version discussion pin, "initial")
+      pinned_version discussion pin, "captured")
   in
   let id =
     match notification.source with
@@ -1597,6 +1686,7 @@ let notification_packet t ~discussion (notification : Notification.t) =
     | Request_reassigned -> "request_reassigned"
     | Request_resolved -> "request_resolved"
     | Request_cancelled -> "request_cancelled"
+    | Request_updated -> "request_updated"
   in
   let scope =
     match notification.scope with
@@ -1825,6 +1915,16 @@ let query t ~discussion ~method_ ~params =
             Json.obj
               (fields
                @ [ "thread_revision", Json.int (find t.threads request.thread).revision
+                 ; ( "superseded_by_request_ids"
+                   , `Array
+                       (Map.data t.requests
+                        |> List.filter ~f:(fun other ->
+                          List.mem
+                            other.Request.supersedes
+                            request.id
+                            ~equal:Communication_id.Request.equal)
+                        |> List.map ~f:(fun other ->
+                          Communication_id.Request.jsonaf_of_t other.Request.id)) )
                  ; ( "answer"
                    , match request.status with
                      | Resolved { answer = Some pin; _ } ->
@@ -1856,6 +1956,19 @@ let query t ~discussion ~method_ ~params =
         ignore (find t.requests id : Request.t);
         page (List.map (request_history t id) ~f:Communication_wire.request_json)
       | "request.list" ->
+        let priority = optional params "priority" Json.integer in
+        let related_to =
+          optional params "related_to_request_id" Communication_id.Request.t_of_jsonaf
+        in
+        let supersedes =
+          optional params "supersedes_request_id" Communication_id.Request.t_of_jsonaf
+        in
+        let superseded_by =
+          optional params "superseded_by_request_id" Communication_id.Request.t_of_jsonaf
+        in
+        Option.iter related_to ~f:(fun id -> ignore (find t.requests id : Request.t));
+        Option.iter supersedes ~f:(fun id -> ignore (find t.requests id : Request.t));
+        Option.iter superseded_by ~f:(fun id -> ignore (find t.requests id : Request.t));
         let ticket = optional params "ticket_id" Id.Ticket.t_of_jsonaf in
         let resolver = optional params "resolver_id" Id.Actor.t_of_jsonaf in
         let thread = optional params "thread_id" Communication_id.Thread.t_of_jsonaf in
@@ -1871,6 +1984,20 @@ let query t ~discussion ~method_ ~params =
         Map.data t.requests
         |> List.filter ~f:(fun request ->
           scope_matches (scope t (find t.threads request.thread))
+          && Option.value_map priority ~default:true ~f:(Int.equal request.priority)
+          && Option.value_map related_to ~default:true ~f:(fun id ->
+            List.mem request.related id ~equal:Communication_id.Request.equal
+            || List.mem
+                 (find t.requests id).related
+                 request.id
+                 ~equal:Communication_id.Request.equal)
+          && Option.value_map supersedes ~default:true ~f:(fun id ->
+            List.mem request.supersedes id ~equal:Communication_id.Request.equal)
+          && Option.value_map superseded_by ~default:true ~f:(fun id ->
+            List.mem
+              (find t.requests id).supersedes
+              request.id
+              ~equal:Communication_id.Request.equal)
           && Option.value_map ticket ~default:true ~f:(fun ticket ->
             List.mem
               (find t.threads request.thread).links

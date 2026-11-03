@@ -148,9 +148,14 @@ val latest_serial : t -> int
     source revisions. request.get also exposes the current thread_revision,
     separately from the request record revision and communication revision.
     Its direct [answer] is the pinned resolved body, while [related] deliberately
-    exposes labelled current conversation versions. Question [comment_revision]
+    exposes labelled current conversation versions. Inbox causal bodies are labelled
+    [captured] and can pin any positive comment revision. Question [comment_revision]
     and terminal answer references never change after later comment edits.
-    request.list ticket_id and resolver_id filters apply before pagination.
+    request.list ticket_id, resolver_id, priority and relationship filters apply
+    before pagination. Related links are queried in either direction;
+    supersedes/superseded_by selectors preserve directed replacement links.
+    Links never cancel or resolve their referenced requests. Deadlines are
+    caller-declared nonnegative Unix milliseconds, without automatic transition.
     Later offset pages guard both communication revision and
     discussion serial; tombstones remain present and budget omissions are explicit. *)
 val query

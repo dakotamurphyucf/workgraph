@@ -146,6 +146,7 @@ let kind =
     ; "request_reassigned", Request_reassigned
     ; "request_resolved", Request_resolved
     ; "request_cancelled", Request_cancelled
+    ; "request_updated", Request_updated
     ]
     ~equal:Event.Notification.Kind.equal
 ;;
@@ -157,6 +158,14 @@ let thread_state =
     ; "resolved", Resolved
     ]
     ~equal:Event.Thread.State.equal
+;;
+
+let priority =
+  Api_codec.map
+    (Api_codec.decimal ~max:4)
+    ~decode:(fun value -> Ok value)
+    ~encode:Fn.id
+    ~description:"Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
 ;;
 
 let request_kind =
@@ -207,7 +216,7 @@ let filter_input =
     (Api_codec.object_
        (Fields.optional "scope" scope
         ++ Fields.optional "thread_id" thread_id
-        ++ Fields.optional "kinds" (Api_codec.list kind ~max_items:8)))
+        ++ Fields.optional "kinds" (Api_codec.list kind ~max_items:9)))
     ~decode:(fun ((scope, thread), kinds) ->
       Ok
         { Event.Subscription.Filter.scope
@@ -224,7 +233,7 @@ let filter =
   record
     [ field "scope" (Api_codec.nullable scope)
     ; field "thread_id" (Api_codec.nullable thread_id)
-    ; field "kinds" (Api_codec.list kind ~max_items:8)
+    ; field "kinds" (Api_codec.list kind ~max_items:9)
     ]
 ;;
 
@@ -448,6 +457,9 @@ let request_fields =
   ; field "correlation_id" (Api_codec.nullable correlation)
   ; field "reply_to_request_id" (Api_codec.nullable request_id)
   ; field "deadline_unix_ms" (Api_codec.nullable unix_ms)
+  ; field "priority" priority
+  ; field "related_request_ids" (Api_codec.list request_id ~max_items:32)
+  ; field "supersedes_request_ids" (Api_codec.list request_id ~max_items:32)
   ; field "resolver_id" actor_id
   ; field "created" attribution
   ; field "deliveries" (Api_codec.list delivery ~max_items:1000)
@@ -458,24 +470,74 @@ let request_fields =
 
 let request = record (request_fields @ [ optional "related" related_request ])
 
+let answer_matches_record json ~body =
+  let status = Json.field json "status" in
+  let expected =
+    if String.equal (Json.field status "kind" |> Json.text) "resolved"
+    then Json.field status "answer"
+    else `Null
+  in
+  let actual = Json.field json "answer" in
+  let same =
+    match expected, actual with
+    | `Null, `Null -> true
+    | `Object _, `Object _ ->
+      let actual =
+        if body
+        then
+          Json.obj
+            [ "comment_id", Json.field actual "comment_id"
+            ; "revision", Json.field actual "revision"
+            ]
+        else actual
+      in
+      String.equal (Json.canonical expected) (Json.canonical actual)
+    | _ -> false
+  in
+  if same
+  then Ok json
+  else
+    Error
+      (Problem.create
+         Invalid_argument
+         "answer body/reference differs from resolved status")
+;;
+
 let request_current =
-  record
-    (request_fields
-     @ [ field "thread_revision" positive
-       ; field "answer" (Api_codec.nullable Discussion_wire.comment)
-       ; optional "related" related_request
-       ])
+  Api_codec.map
+    (record
+       (request_fields
+        @ [ field "thread_revision" positive
+          ; field "answer" (Api_codec.nullable Discussion_wire.comment)
+          ; field
+              "superseded_by_request_ids"
+              (Api_codec.list request_id ~max_items:100000)
+          ; optional "related" related_request
+          ]))
+    ~decode:(fun json -> answer_matches_record json ~body:true)
+    ~encode:Fn.id
+    ~description:"Current request and pinned answer with matching exact reference."
 ;;
 
 let resolve_receipt =
-  record
-    [ field "request_id" request_id
-    ; field "request_revision" positive
-    ; field "thread_id" thread_id
-    ; field "thread_revision" positive
-    ; field "status" status
-    ; field "answer" (Api_codec.nullable comment_ref)
-    ]
+  Api_codec.map
+    (record
+       [ field "request_id" request_id
+       ; field "request_revision" positive
+       ; field "thread_id" thread_id
+       ; field "thread_revision" positive
+       ; field "status" status
+       ; field "answer" (Api_codec.nullable comment_ref)
+       ])
+    ~decode:(fun json ->
+      if
+        String.equal
+          (Json.field (Json.field json "status") "kind" |> Json.text)
+          "resolved"
+      then answer_matches_record json ~body:false
+      else Error (Problem.create Invalid_argument "resolve receipt must be resolved"))
+    ~encode:Fn.id
+    ~description:"Exact committed resolution and current thread revision."
 ;;
 
 let ask_receipt =
@@ -586,6 +648,11 @@ let request_json (value : Event.Request.t) =
           ~f:Communication_id.Request.jsonaf_of_t )
     ; ( "deadline_unix_ms"
       , Option.value_map value.deadline_unix_ms ~default:`Null ~f:Json.string )
+    ; "priority", Json.int value.priority
+    ; ( "related_request_ids"
+      , `Array (List.map value.related ~f:Communication_id.Request.jsonaf_of_t) )
+    ; ( "supersedes_request_ids"
+      , `Array (List.map value.supersedes ~f:Communication_id.Request.jsonaf_of_t) )
     ; "resolver_id", Id.Actor.jsonaf_of_t value.resolver
     ; "created", attribution_json value.created
     ; ( "deliveries"
@@ -646,7 +713,7 @@ let subscription_snapshot =
     ; filter =
         { scope = read (Api_codec.nullable scope) filter_json "scope"
         ; thread = read (Api_codec.nullable thread_id) filter_json "thread_id"
-        ; kinds = read (Api_codec.list kind ~max_items:8) filter_json "kinds"
+        ; kinds = read (Api_codec.list kind ~max_items:9) filter_json "kinds"
         }
     ; active = read Api_codec.boolean json "active"
     })
@@ -693,6 +760,10 @@ let request_snapshot =
     ; correlation_id = read (Api_codec.nullable correlation) json "correlation_id"
     ; reply_to = read (Api_codec.nullable request_id) json "reply_to_request_id"
     ; deadline_unix_ms = read (Api_codec.nullable unix_ms) json "deadline_unix_ms"
+    ; priority = read priority json "priority"
+    ; related = read (Api_codec.list request_id ~max_items:32) json "related_request_ids"
+    ; supersedes =
+        read (Api_codec.list request_id ~max_items:32) json "supersedes_request_ids"
     ; resolver = read actor_id json "resolver_id"
     ; created = read attribution json "created"
     ; deliveries =
@@ -715,6 +786,7 @@ let validate_result ~method_ result =
     | "subscription.put" -> subscription
     | "thread.put" | "thread.attach" | "thread.pin_message" -> thread
     | "request.create"
+    | "request.metadata"
     | "request.acknowledge"
     | "request.accept"
     | "request.reassign"

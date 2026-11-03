@@ -712,6 +712,9 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                    ; correlation_id = Some correlation_id
                    ; reply_to
                    ; deadline_unix_ms = None
+                   ; priority = 0
+                   ; related = []
+                   ; supersedes = []
                    })
             ]
         in
@@ -1199,8 +1202,19 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
       , Communication.Message_prepared.result prepared
       , [] )
     | Domain_command.Communication
-        (Request_ask { id; title; body; recipients; resolver; ticket; kind } as command)
-      ->
+        (Request_ask
+           { id
+           ; title
+           ; body
+           ; recipients
+           ; resolver
+           ; ticket
+           ; kind
+           ; priority
+           ; deadline_unix_ms
+           ; related
+           ; supersedes
+           } as command) ->
       ignore (Communication.encode command |> unwrap_domain : string * Jsonaf.t);
       let prefix = "ask-" ^ Json.hash (Communication_id.Request.to_string id) in
       let board = Communication_id.Board.of_string (prefix ^ "-board") |> unwrap_domain in
@@ -1257,7 +1271,10 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                ; resolver
                ; correlation_id = None
                ; reply_to = None
-               ; deadline_unix_ms = None
+               ; deadline_unix_ms
+               ; priority
+               ; related
+               ; supersedes
                })
         ]
       in

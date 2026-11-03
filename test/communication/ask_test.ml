@@ -25,6 +25,10 @@ let ask ?ticket ?(id = request) ?(resolver = alice) ?(body = "Which approach?") 
        ; resolver
        ; ticket
        ; kind = Clarification
+       ; priority = 0
+       ; deadline_unix_ms = None
+       ; related = []
+       ; supersedes = []
        })
 ;;
 
@@ -373,6 +377,10 @@ let%expect_test "ask accepts the full declared recipient and UTF-8 body bounds" 
          ; resolver = alice
          ; ticket = None
          ; kind = Clarification
+         ; priority = 0
+         ; deadline_unix_ms = None
+         ; related = []
+         ; supersedes = []
          })
   in
   let prepared = prepare (empty ()) command |> unwrap in
@@ -520,6 +528,9 @@ let%expect_test "automatic closure waits for every sibling and manual threads st
               ; correlation_id = None
               ; reply_to = None
               ; deadline_unix_ms = None
+              ; priority = 0
+              ; related = []
+              ; supersedes = []
               }))
       |> unwrap
       |> State.candidate
@@ -631,5 +642,168 @@ let%expect_test "replay rejects forged answer pins and missing automatic closure
     Corrupt_store
     Corrupt_store
     Corrupt_store
+    |}]
+;;
+
+let%expect_test "request scheduling links resolve typed aliases and reject cyclic replay" =
+  let command =
+    Domain_command.decode
+      ~method_:"transaction.apply"
+      ~params:
+        (Jsonaf.of_string
+           {|{"operations":[{"method":"request.ask","as":"old","params":{"request_id":"old","title":"Old","body":"Old question","recipients":[{"kind":"actor","id":"bob"}],"resolver_id":"alice"}},{"method":"request.ask","as":"new","params":{"request_id":"new","title":"New","body":"Literal $old","recipients":[{"kind":"actor","id":"bob"}],"resolver_id":"alice","priority":"1","deadline_unix_ms":"42","related_request_ids":["$old"],"supersedes_request_ids":["$old"]}},{"method":"request.metadata","params":{"request_id":"$new","expected_revision":"1","priority":"2","deadline_unix_ms":null}}]}|})
+    |> unwrap
+  in
+  let initial = empty () in
+  let prepared = prepare initial command |> unwrap in
+  let state = State.candidate prepared in
+  let id = Communication_id.Request.of_string "new" |> unwrap in
+  let current =
+    Communication.get_request (State.communication state) id |> Option.value_exn
+  in
+  printf
+    "priority=%d deadline=%b links=%s supersedes=%s\n"
+    current.priority
+    (Option.is_some current.deadline_unix_ms)
+    (Communication_id.Request.to_string (List.hd_exn current.related))
+    (Communication_id.Request.to_string (List.hd_exn current.supersedes));
+  let replayed = State.replay initial (State.events prepared) |> unwrap in
+  printf "replay equal=%b\n" (same (State.to_json state) (State.to_json replayed));
+  let old = Communication_id.Request.of_string "old" |> unwrap in
+  let cyclic =
+    Domain_command.Communication
+      (Request_metadata
+         { id = old
+         ; expected_revision = 1
+         ; priority = None
+         ; deadline_unix_ms = None
+         ; related = None
+         ; supersedes = Some [ id ]
+         })
+  in
+  report (prepare state cyclic);
+  let old_record =
+    Communication.get_request (State.communication state) old |> Option.value_exn
+  in
+  let mutation =
+    prepare
+      state
+      (Communication
+         (Request_metadata
+            { id
+            ; expected_revision = 2
+            ; priority = Some 4
+            ; deadline_unix_ms = None
+            ; related = None
+            ; supersedes = None
+            }))
+    |> unwrap
+  in
+  let payload = State.events mutation in
+  let events =
+    get payload "changes" |> Json.list |> List.map ~f:Planning_state.Event.t_of_jsonaf
+  in
+  let forged =
+    List.map events ~f:(function
+      | Planning_state.Event.Communication_changed
+          ({ update = Request_put update; _ } as change) ->
+        Planning_state.Event.Communication_changed
+          { change with
+            update =
+              Request_put
+                { update with
+                  request =
+                    { old_record with revision = 2; priority = 4; supersedes = [ id ] }
+                }
+          ; notifications =
+              List.map change.notifications ~f:(fun n ->
+                { n with source = Request old; source_revision = 2 })
+          }
+      | event -> event)
+  in
+  let payload =
+    match payload with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           ( key
+           , if String.equal key "changes"
+             then `Array (List.map forged ~f:Planning_state.Event.jsonaf_of_t)
+             else value )))
+    | _ -> assert false
+  in
+  report (State.replay state payload);
+  List.iter
+    [ {|{"request_id":"new","expected_revision":"2","priority":"5"}|}
+    ; {|{"request_id":"new","expected_revision":"2","related_request_ids":["old","old"]}|}
+    ; {|{"request_id":"new","expected_revision":"2"}|}
+    ]
+    ~f:(fun json ->
+      report
+        (Communication.decode ~method_:"request.metadata" ~params:(Jsonaf.of_string json)));
+  [%expect
+    {|
+    priority=2 deadline=false links=old supersedes=old
+    replay equal=true
+    Conflict
+    Conflict
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test
+    "bounded answer expansion keeps exact refs and rejects inconsistent public bodies"
+  =
+  let asked = prepare (empty ()) (ask ()) |> unwrap |> State.candidate in
+  let resolved =
+    prepare
+      asked
+      (Communication
+         (Request_resolve
+            { id = request; expected_revision = 1; body = Some (String.make 60000 'x') }))
+    |> unwrap
+    |> State.candidate
+  in
+  let bounded =
+    query
+      resolved
+      "request.get"
+      (Json.obj
+         [ "request_id", Communication_id.Request.jsonaf_of_t request
+         ; "max_bytes", Json.int 4096
+         ])
+  in
+  let record = get bounded "record" in
+  let answer = get record "answer" in
+  printf
+    "bounded=%b answer_revision=%d clipped=%b\n"
+    (match get (get bounded "budget") "truncated" with
+     | `True -> true
+     | _ -> false)
+    (get answer "revision" |> Json.integer)
+    (String.length (get answer "body" |> Json.text) < 60000);
+  let broken_answer =
+    match answer with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           key, if String.equal key "revision" then Json.int 2 else value))
+    | _ -> assert false
+  in
+  let broken =
+    match record with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           key, if String.equal key "answer" then broken_answer else value))
+    | _ -> assert false
+  in
+  report (Api_codec.decode Communication_wire.request_current broken);
+  [%expect
+    {|
+    bounded=true answer_revision=1 clipped=true
+    Invalid_argument
     |}]
 ;;
