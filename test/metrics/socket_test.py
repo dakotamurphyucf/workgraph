@@ -123,11 +123,12 @@ class MetricsTest(unittest.TestCase):
                     self.assertEqual(preview['omitted_metric_series'], '7')
                     small_preview = metrics()[0]['reported_usage']
                     self.assertEqual(int(small_preview['metric_series']), len(small_preview['metrics']) + int(small_preview['omitted_metric_series']))
+                    before_history, _ = metrics()
                     history_args = dict(actor_id='agent', mutation_id='session', session_id='session', title='Session')
                     call('session.create', **history_args)
                     call('session.create', **history_args)
                     with_history, history = metrics()
-                    self.assertEqual(with_history['planning_commits'], metrics()[0]['planning_commits'])
+                    self.assertEqual(with_history['planning_commits'], before_history['planning_commits'])
                     self.assertEqual(with_history['history_commits'], '1')
                     self.assertEqual(len(with_history['history_head']), 64)
                     self.assertGreater(history['history_batch_bytes'], 0)

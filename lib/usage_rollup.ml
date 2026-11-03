@@ -124,7 +124,7 @@ let read ~workspace ~revision ~activity ~reports ~runs ~tickets ~params =
                 ~default:(unassigned "ticket_has_no_milestone")
                 ~f:(fun id ->
                   key "milestone" "milestone_id" (Id.Milestone.jsonaf_of_t id))
-            | _ -> assert false))
+            | Workspace | Ticket | Run | Attempt -> assert false))
     in
     let groups =
       List.fold selected_reports ~init:String.Map.empty ~f:(fun map report ->
