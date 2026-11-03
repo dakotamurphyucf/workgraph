@@ -50,10 +50,11 @@ existing `evidence-show` decoder can validate all fields before any stream outpu
 It never launches, publishes, rewrites or asserts ownership of an execution.
 Cleanup removes only known files in its own fresh private temporary directory.
 
-The preparatory checks cover the current candidate on macOS ARM64/Bash 3.2:
+Checks on macOS ARM64/Bash 3.2 cover:
 large collections, byte/body omissions, failure/no-progress, run-aware policy and
 cross-project prerequisites, verified captures over 64KiB, malformed/binary/control
 streams, source/README consistency, read-only planning/inbox equality, and real PTY
-height/resize/scroll/quit/signal/error cleanup. Final parent qualification still
-requires root review, the stable integrated full gate, native/source package
-allowlists/executable modes and actual Bash 5/AlmaLinux 10/WSL platform evidence.
+height/resize/scroll/quit/signal/error cleanup. The
+[review and qualification record](../acceptance/v0.5-feedback.md) distinguishes
+source tests, installed-package checks and native platform results. Passing on
+macOS does not establish Bash 5, AlmaLinux or WSL behavior.

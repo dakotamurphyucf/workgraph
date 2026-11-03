@@ -3,7 +3,11 @@
 Authority: `workgraph-team-guide.html` supplied by the user, 1990 source lines, SHA256
 `d15b5c6fd602758c67a38de416f4eb1be7faefaedb92d0286c4b0c2ee540f02c`. The original was read in full; a structured inventory records 50 headings, 40 preformatted blocks and 13 instructional diagrams (the fourteenth SVG only defines markers). CSS, font styling, copy-button JavaScript and decorative layout are represented by Markdown headings, copyable fences, tables, Mermaid and collapsible source blocks. No substantive workflow was replaced by a link alone.
 
-This is the **docs-prep draft coverage audit**, not final API/package/helper qualification. The README contains complete corrected script sources; focused tests keep those bytes equal to maintained files. Final parent README, agent-docs and helper gates remain subject to integrated API review, source/native allowlists, install modes and platform qualification. The helper uses bounded typed pagination, daemon-derived graph/run eligibility and
+The README contains complete corrected script sources; focused tests keep those
+bytes equal to maintained files. This audit maps the supplied material to its
+current documentation. The [review and qualification record](acceptance/v0.5-feedback.md)
+tracks implementation checks, package verification and platform limits separately.
+The helper uses bounded typed pagination, daemon-derived graph/run eligibility and
 explicit retention/provenance limits; incomplete traversal remains a nonzero result.
 
 ## Every section and how-to
@@ -134,4 +138,4 @@ explicit retention/provenance limits; incomplete traversal remains a nonzero res
 - Readiness is daemon-derived/run-aware. Parent links are independent by default; explicit hierarchy policy inherits source-owned prerequisite conditions only. All collection/cursor families retain their own capture and omission semantics; attention nested readiness stays manual.
 - Original measured results remain explicitly historical. The topology/timeline does not invent Codex measurements; the CI restart bar is distinguished from the 45ms test execution.
 - Socket recovery never relies on `pgrep || rm`; export polling is bounded and handles terminal failure/cancellation/interruption; restored roots and independent writers cannot merge.
-- Full matching source code remains inline for CI, converter and wgx. Native/source packaging, helper large-page/readiness/binary rendering and cross-platform qualification remain final gates, not assumed future release facts.
+- Full matching source code remains inline for CI, converter and wgx. Helper tests cover large pages, readiness and binary rendering; package and platform results are recorded separately from this content audit.

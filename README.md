@@ -908,8 +908,8 @@ Explicit `output RESOURCE --raw stdout > FILE` yields exact retained bytes; it
 cannot recover discarded process output. Temporary inspection copies never launch
 or publish execution. [Detailed semantics](docs/agent/wgx.md) include paging bounds,
 coverage, text replacement, signal/error cleanup and current platform evidence.
-Final root review, integrated package/full-gate checks and Linux/WSL execution
-qualification remain required before final helper acceptance.
+See the [review and qualification record](docs/acceptance/v0.5-feedback.md) for
+observed checks and platform limits. Actual WSL execution is a separate check.
 
 | Command | View |
 | --- | --- |
