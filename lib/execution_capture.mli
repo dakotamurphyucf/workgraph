@@ -18,7 +18,9 @@ module Command : sig
   val cwd : t -> string
   val output_limit : t -> int
   val source_root : t -> string option
+  val source_scope : t -> Source_provenance.Scope.t
   val with_source_root : t -> string -> (t, Problem.t) Result.t
+  val with_source_paths : t -> string list -> (t, Problem.t) Result.t
   val codec : t Api_codec.t
 end
 
@@ -52,6 +54,7 @@ module Output : sig
 
   val bytes : t -> string
   val observed_bytes : t -> int64
+  val observed_sha256 : t -> string
   val eof : t -> bool
   val truncated : t -> bool
   val codec : t Api_codec.t

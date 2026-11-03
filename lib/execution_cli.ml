@@ -7,21 +7,22 @@ type t =
 
 let of_arguments arguments =
   Json.decode (fun () ->
-    let rec parse fields = function
-      | "--" :: argv -> fields, argv
+    let rec parse fields paths = function
+      | "--" :: argv -> fields, List.rev paths, argv
+      | "--hash-path" :: path :: rest -> parse fields (path :: paths) rest
       | (("--stage" | "--cwd" | "--source-root" | "--output-limit") as flag)
         :: value
         :: rest ->
         if Map.mem fields flag
         then Json.fail Invalid_argument ("duplicate evidence-run option: " ^ flag);
-        parse (Map.set fields ~key:flag ~data:value) rest
+        parse (Map.set fields ~key:flag ~data:value) paths rest
       | _ ->
         Json.fail
           Invalid_argument
           "evidence-run requires --stage ABS --cwd ABS [--source-root ABS] \
            [--output-limit BYTES] -- COMMAND ARG..."
     in
-    let fields, argv = parse String.Map.empty arguments in
+    let fields, paths, argv = parse String.Map.empty [] arguments in
     let required field =
       match Map.find fields field with
       | Some value -> value
@@ -43,6 +44,11 @@ let of_arguments arguments =
       | None -> command
       | Some root ->
         Execution_capture.Command.with_source_root command root |> Disk.unwrap
+    in
+    let command =
+      if List.is_empty paths
+      then command
+      else Execution_capture.Command.with_source_paths command paths |> Disk.unwrap
     in
     { directory; command })
 ;;
@@ -83,6 +89,30 @@ let run t ~env =
           | None -> `Null
           | Some true -> `True
           | Some false -> `False )
+      ; ( "source_before"
+        , Source_provenance.coverage (Execution_capture.source_before capture) )
+      ; ( "source_after"
+        , Source_provenance.coverage (Execution_capture.source_after capture) )
+      ; ( "owner_token"
+        , match Execution_stage.owner_token stage with
+          | Some token -> Json.string token
+          | None -> `Null )
+      ; ( "stdout_preview"
+        , Execution_inspect.(
+            create
+              capture
+              ~stream:Stream.Stdout
+              ~selection:(Selection.tail ~length:2048 |> Disk.unwrap)
+            |> Disk.unwrap
+            |> to_json) )
+      ; ( "stderr_preview"
+        , Execution_inspect.(
+            create
+              capture
+              ~stream:Stream.Stderr
+              ~selection:(Selection.tail ~length:2048 |> Disk.unwrap)
+            |> Disk.unwrap
+            |> to_json) )
       ; "publication", Json.string "not_attempted"
       ]
   in

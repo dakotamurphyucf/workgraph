@@ -14,6 +14,9 @@ let usage =
   workgraph retry [ABS_SOCKET] REQUEST_FILE [--timeout SECONDS] [--output text]
   workgraph evidence-run --stage ABS_DIR --cwd ABS_DIR [--source-root ABS_GIT_ROOT]
     [--output-limit BYTES] -- COMMAND ARG...
+  workgraph evidence-show --stage ABS_DIR [--stream stdout|stderr] [--tail BYTES]
+    [--offset BYTES --length BYTES] [--output json|text|bytes]
+  workgraph evidence-clean --stage ABS_DIR --owner-token TOKEN
   workgraph evidence-publish [ABS_SOCKET] --stage ABS_DIR --workspace-id ID
     --actor-id ID --mutation-id ID --resource-id ID --expected-revision N --title TEXT
   workgraph evidence-publish [ABS_SOCKET] --stage ABS_DIR [--timeout SECONDS]
@@ -190,7 +193,8 @@ let normalize_help arguments =
     | [] | "--" :: _ -> false
     | "--help" :: _ -> true
     | ("--json-field" | "--field-file") :: _ :: _ :: rest -> help_flag rest
-    | ("--self" | "--json" | "--brief" | "--full") :: rest -> help_flag rest
+    | ("--self" | "--json" | "--brief" | "--full" | "--stdout" | "--stderr") :: rest ->
+      help_flag rest
     | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> help_flag rest
     | _ :: rest -> help_flag rest
   in
@@ -210,7 +214,8 @@ let normalize_help arguments =
     | (("--full" | "--brief") as flag) :: rest -> flag :: reference_options rest
     | "--output" :: value :: rest -> "--output" :: value :: reference_options rest
     | ("--json-field" | "--field-file") :: _ :: _ :: rest -> reference_options rest
-    | ("--self" | "--json" | "--help") :: rest -> reference_options rest
+    | ("--self" | "--json" | "--help" | "--stdout" | "--stderr") :: rest ->
+      reference_options rest
     | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> reference_options rest
     | _ :: rest -> reference_options rest
   in
@@ -328,9 +333,16 @@ let run ~env arguments =
            (Json.optional (Protocol.Request.params request) "destination")
            ~f:(fun value -> String.equal (Json.text value) "-")
     in
+    let incomplete_upload = ref false in
     let response =
       match upload with
-      | Some plan -> Protocol.Success (Transfer.upload plan ~client ~fs |> Disk.unwrap)
+      | Some plan ->
+        let result = Transfer.upload_with_link plan ~client ~fs |> Disk.unwrap in
+        (match result with
+         | Transfer.Upload_result.Complete _ -> ()
+         | Link_failed _ -> incomplete_upload := true);
+        Protocol.Success
+          (Transfer.Upload_result.envelope result ~request ~saved_request:save_request)
       | None when String.equal (Protocol.Request.method_ request) "resource.download" ->
         let plan = Option.value_exn download in
         let receipt =
@@ -365,7 +377,7 @@ let run ~env arguments =
       | None -> Client.execute client request |> Disk.unwrap
     in
     (match response with
-     | Success value when needs_mutation_id request ->
+     | Success value when needs_mutation_id request && not !incomplete_upload ->
        let envelope = Api_response.of_json value |> Disk.unwrap in
        Api_response.require_durable envelope |> Disk.unwrap
      | Success _ | Failure _ -> ());
@@ -382,7 +394,7 @@ let run ~env arguments =
       | Failure error -> diagnostic (Json.canonical (Problem.to_json error)))
     else output (Json.canonical (Protocol.response_json request response));
     match response with
-    | Success _ -> 0
+    | Success _ -> if !incomplete_upload then 1 else 0
     | Failure _ -> 1
   in
   let context = ref None in
@@ -445,8 +457,9 @@ let run ~env arguments =
           select context_file (Some path) reversed rest
         | (("--json-field" | "--field-file") as flag) :: key :: value :: rest ->
           select context_file socket (value :: key :: flag :: reversed) rest
-        | (("--json" | "--help" | "--version" | "--self") as flag) :: rest ->
-          select context_file socket (flag :: reversed) rest
+        | (("--json" | "--help" | "--version" | "--self" | "--stdout" | "--stderr") as
+           flag)
+          :: rest -> select context_file socket (flag :: reversed) rest
         | flag :: value :: rest when String.is_prefix flag ~prefix:"--" ->
           select context_file socket (value :: flag :: reversed) rest
         | value :: rest -> select context_file socket (value :: reversed) rest
@@ -463,7 +476,9 @@ let run ~env arguments =
         | "help" :: _
         | "methods" :: _
         | "schema" :: _
-        | [ ("init" | "bootstrap"); "--help" ] -> true
+        | [ ("init" | "bootstrap"); "--help" ]
+        | ("evidence-show" | "evidence.show" | "evidence-clean" | "evidence.clean") :: _
+        | "evidence" :: ("show" | "clean") :: _ -> true
         | _ -> false
       in
       context
@@ -498,6 +513,91 @@ let run ~env arguments =
              Json.fail Invalid_argument "supply an absolute socket or --context/--socket")
       in
       match arguments with
+      | ("evidence-show" | "evidence.show") :: rest | "evidence" :: "show" :: rest ->
+        let rec parse fields = function
+          | [] -> fields
+          | "--stdout" :: rest -> parse (add fields "--stream" "stdout") rest
+          | "--stderr" :: rest -> parse (add fields "--stream" "stderr") rest
+          | (("--stage" | "--stream" | "--offset" | "--length" | "--tail" | "--output") as
+             key)
+            :: value
+            :: rest -> parse (add fields key value) rest
+          | _ ->
+            Json.fail
+              Invalid_argument
+              "evidence-show options: --stage ABS, --stream stdout|stderr, --offset \
+               BYTES, --length BYTES or --tail BYTES, --output json|text|bytes"
+        and add fields key value =
+          if Map.mem fields key
+          then Json.fail Invalid_argument ("duplicate inspection option: " ^ key);
+          Map.set fields ~key ~data:value
+        in
+        let fields = parse String.Map.empty rest in
+        let value key default = Option.value (Map.find fields key) ~default in
+        let directory = value "--stage" "" in
+        Disk.absolute directory;
+        let stream =
+          match value "--stream" "stdout" with
+          | "stdout" -> Execution_inspect.Stream.Stdout
+          | "stderr" -> Stderr
+          | _ -> Json.fail Invalid_argument "inspection stream must be stdout or stderr"
+        in
+        let number key default = Json.integer (Json.string (value key default)) in
+        let selection =
+          match Map.find fields "--tail" with
+          | Some length ->
+            if Map.mem fields "--offset" || Map.mem fields "--length"
+            then
+              Json.fail Invalid_argument "--tail cannot combine with --offset or --length";
+            Execution_inspect.Selection.tail ~length:(Json.integer (Json.string length))
+            |> Disk.unwrap
+          | None ->
+            Execution_inspect.Selection.range
+              ~offset:(number "--offset" "0")
+              ~length:(number "--length" "4096")
+            |> Disk.unwrap
+        in
+        let stage = Execution_stage.load ~fs ~directory |> Disk.unwrap in
+        let capture =
+          match Execution_stage.state stage with
+          | Finished capture -> capture
+          | Unfinished _ ->
+            Json.fail Conflict "execution is unfinished; no output capture available"
+        in
+        let view = Execution_inspect.create capture ~stream ~selection |> Disk.unwrap in
+        (match value "--output" "text" with
+         | "text" -> output (Execution_inspect.to_text view)
+         | "json" -> output (Json.canonical (Execution_inspect.to_json view))
+         | "bytes" ->
+           Platform.write_string (Eio.Stdenv.stdout env) (Execution_inspect.bytes view);
+           diagnostic (Json.canonical (Execution_inspect.to_json view))
+         | _ -> Json.fail Invalid_argument "inspection output must be json, text or bytes");
+        0
+      | ("evidence-clean" | "evidence.clean") :: rest | "evidence" :: "clean" :: rest ->
+        let rec parse directory token = function
+          | [] -> directory, token
+          | "--stage" :: path :: rest when Option.is_none directory ->
+            parse (Some path) token rest
+          | "--owner-token" :: value :: rest when Option.is_none token ->
+            parse directory (Some value) rest
+          | _ ->
+            Json.fail
+              Invalid_argument
+              "evidence-clean requires only --stage ABS and --owner-token TOKEN"
+        in
+        let directory, token = parse None None rest in
+        let directory, owner_token =
+          match directory, token with
+          | Some path, Some token -> path, token
+          | _ ->
+            Json.fail
+              Invalid_argument
+              "evidence-clean requires --stage ABS and --owner-token TOKEN"
+        in
+        Execution_stage.cleanup ~fs ~directory ~owner_token |> Disk.unwrap;
+        output
+          (Json.canonical (Json.obj [ "stage", Json.string directory; "cleaned", `True ]));
+        0
       | "evidence-run" :: rest ->
         let plan = Execution_cli.of_arguments rest |> Disk.unwrap in
         let summary, code = Execution_cli.run plan ~env |> Disk.unwrap in
@@ -569,8 +669,14 @@ let run ~env arguments =
             ~timeout_seconds:options.timeout_seconds
           |> Disk.unwrap
         in
+        let result =
+          Execution_publication.publish_with_link publication ~client ~fs |> Disk.unwrap
+        in
         let receipt =
-          Execution_publication.publish publication ~client ~fs |> Disk.unwrap
+          Transfer.Upload_result.envelope
+            result
+            ~request:(Execution_publication.request publication)
+            ~saved_request:(Some (Execution_publication.saved_request publication))
         in
         output
           (if options.text
@@ -580,7 +686,9 @@ let run ~env arguments =
                (Execution_publication.request publication)
                (Protocol.Success receipt)
              |> Json.canonical);
-        0
+        (match result with
+         | Transfer.Upload_result.Complete _ -> 0
+         | Link_failed _ -> 1)
       | [] | [ "--help" ] | [ "help" ] ->
         output usage;
         0

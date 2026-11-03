@@ -7,7 +7,8 @@ type t
 (** Validate a finished stage and publish its exact upload request atomically to
     [publication.json] inside that stage, before any network access. Parameters
     specify workspace/actor/optional run, resource ID, expected resource revision
-    and title. A missing mutation ID uses the shared CLI identity generator;
+    and title, plus an optional ticket_id frozen for a separately acknowledged link.
+    Publication and linking are not atomic. A missing mutation ID uses the shared CLI identity generator;
     the complete request is synced before return. Filename/MIME/source are fixed
     by the capture. Existing publication intents reject before generation; use
     [load] for exact retries. Local input/I/O errors use Invalid_argument/Local_io. *)
@@ -44,3 +45,12 @@ val journal : t -> fs:_ Eio.Path.t -> destination:string -> (unit, Problem.t) Re
     Failure/retry never reruns execution. Network timeouts follow Client semantics;
     external cancellation and unexpected exceptions propagate. *)
 val publish : t -> client:Client.t -> fs:_ Eio.Path.t -> (Jsonaf.t, Problem.t) Result.t
+
+(** As [publish], exposing a possible independently failed ticket link alongside
+    the exact committed publication receipt. Optional ticket_id is frozen in the
+    same upload plan; retries never change it or execute the captured command. *)
+val publish_with_link
+  :  t
+  -> client:Client.t
+  -> fs:_ Eio.Path.t
+  -> (Transfer.Upload_result.t, Problem.t) Result.t

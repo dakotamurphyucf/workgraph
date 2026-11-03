@@ -11,3 +11,9 @@
  (deps cli_test.py ../daemon_ready.py ../../examples/history-adapter.py)
  (action
   (run python3 %{dep:cli_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps inspection_test.py)
+ (action
+  (run python3 %{dep:inspection_test.py} %{exe:../../bin/main.exe})))

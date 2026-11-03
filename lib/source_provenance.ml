@@ -1,7 +1,81 @@
 open Core
 
+module Scope = struct
+  type t =
+    | Worktree
+    | Paths of string list
+  [@@deriving equal]
+
+  let worktree = Worktree
+
+  let selected_paths = function
+    | Worktree -> None
+    | Paths paths -> Some paths
+  ;;
+
+  let paths paths =
+    Json.decode (fun () ->
+      if List.is_empty paths || List.length paths > 256
+      then Json.fail Invalid_argument "source selection requires 1..256 file paths";
+      if List.sum (module Int) paths ~f:String.length > 65536
+      then Json.fail Invalid_argument "source selection exceeds 65536 bytes";
+      List.iter paths ~f:(fun path ->
+        Api_codec.decode (Api_codec.text ~max_bytes:4096) (Json.string path)
+        |> Disk.unwrap
+        |> ignore;
+        if
+          Filename.is_absolute path
+          || String.mem path '\000'
+          || List.exists (String.split path ~on:'/') ~f:(fun part ->
+            List.mem [ ""; "."; ".."; ".git" ] part ~equal:String.equal)
+        then
+          Json.fail
+            Invalid_argument
+            "source paths must be canonical root-relative files outside Git metadata");
+      let sorted = List.dedup_and_sort paths ~compare:String.compare in
+      if List.length sorted <> List.length paths
+      then Json.fail Invalid_argument "duplicate selected source path";
+      Paths sorted)
+  ;;
+
+  let codec =
+    let open Api_codec in
+    let whole =
+      object_ Fields.(required "kind" (literal "worktree"))
+      |> map
+           ~decode:(fun () -> Ok Worktree)
+           ~encode:(function
+             | Worktree -> ()
+             | Paths _ -> Json.fail Invalid_argument "incorrect source scope")
+           ~description:"Git tracked and nonignored untracked working-tree scope."
+    in
+    let selected =
+      object_
+        Fields.(
+          both
+            (required "kind" (literal "paths"))
+            (required "paths" (list (text ~max_bytes:4096) ~max_items:256)))
+      |> map
+           ~decode:(fun ((), selected) -> paths selected)
+           ~encode:(function
+             | Paths paths -> (), paths
+             | Worktree -> Json.fail Invalid_argument "incorrect source scope")
+           ~description:
+             "Exact selected root-relative files, including explicit ignored files; no \
+              recursive directory coverage."
+    in
+    tagged
+      ~discriminator:"kind"
+      ~cases:[ "worktree", whole; "paths", selected ]
+      ~select:(function
+        | Worktree -> "worktree"
+        | Paths _ -> "paths")
+  ;;
+end
+
 type observation =
   { root : string
+  ; scope : Scope.t
   ; head : string option
   ; paths_sha256 : string
   ; contents_sha256 : string
@@ -15,6 +89,7 @@ type t =
   | Not_requested
   | Unavailable of
       { root : string
+      ; scope : Scope.t
       ; reason : string
       }
   | Git of observation
@@ -43,13 +118,21 @@ let root_codec =
     ~description:"Explicit absolute Git working-tree root."
 ;;
 
-let unavailable ~root ~reason =
+let unavailable_for_scope scope ~root ~reason =
   Json.decode (fun () ->
     Api_codec.encode root_codec root |> unwrap |> ignore;
     Api_codec.encode (Api_codec.text ~max_bytes:4096) reason |> unwrap |> ignore;
     if String.is_empty (String.strip reason)
     then Json.fail Invalid_argument "source unavailability requires a reason";
-    Unavailable { root; reason })
+    Api_codec.encode Scope.codec scope |> unwrap |> ignore;
+    Unavailable { root; scope; reason })
+;;
+
+let unavailable ~root ~reason = unavailable_for_scope Scope.worktree ~root ~reason
+
+let scope = function
+  | Not_requested -> None
+  | Unavailable { scope; _ } | Git { scope; _ } -> Some scope
 ;;
 
 let digest_codec =
@@ -89,7 +172,9 @@ let observation_codec =
   object_
     Fields.(
       both
-        (both (required "root" root_codec) (required "head" (nullable head_codec)))
+        (both
+           (required "scope" Scope.codec)
+           (both (required "root" root_codec) (required "head" (nullable head_codec))))
         (both
            (both
               (required "paths_sha256" digest_codec)
@@ -106,10 +191,25 @@ let observation_codec =
   |> map
        ~decode:
          (fun
-           ( (root, head)
+           ( (scope, (root, head))
            , ( (paths_sha256, contents_sha256)
              , ((listed_paths, hashed_paths), (hashed_bytes, omissions)) ) ) ->
          Json.decode (fun () ->
+           Option.iter (Scope.selected_paths scope) ~f:(fun paths ->
+             if List.length paths <> listed_paths
+             then
+               Json.fail
+                 Invalid_argument
+                 "selected source count differs from declared paths";
+             if
+               not
+                 (String.equal
+                    paths_sha256
+                    (Json.hash (String.concat ~sep:"\000" paths ^ "\000")))
+             then
+               Json.fail
+                 Invalid_argument
+                 "selected source manifest differs from declared paths");
            if
              hashed_paths > listed_paths
              || List.exists omissions ~f:(fun (_, count) -> count <= 0)
@@ -117,6 +217,7 @@ let observation_codec =
            if List.is_empty omissions && hashed_paths <> listed_paths
            then Json.fail Invalid_argument "source observation silently omits paths";
            { root
+           ; scope
            ; head
            ; paths_sha256
            ; contents_sha256
@@ -129,6 +230,7 @@ let observation_codec =
        ~encode:
          (fun
            { root
+           ; scope
            ; head
            ; paths_sha256
            ; contents_sha256
@@ -137,7 +239,7 @@ let observation_codec =
            ; hashed_bytes
            ; omissions
            } ->
-         ( (root, head)
+         ( (scope, (root, head))
          , ( (paths_sha256, contents_sha256)
            , ((listed_paths, hashed_paths), (hashed_bytes, omissions)) ) ))
        ~description:
@@ -161,11 +263,16 @@ let codec =
       Fields.(
         both
           (required "kind" (literal "unavailable"))
-          (both (required "root" root_codec) (required "reason" (text ~max_bytes:4096))))
+          (both
+             (required "scope" Scope.codec)
+             (both
+                (required "root" root_codec)
+                (required "reason" (text ~max_bytes:4096)))))
     |> map
-         ~decode:(fun ((), (root, reason)) -> unavailable ~root ~reason)
+         ~decode:(fun ((), (scope, (root, reason))) ->
+           unavailable_for_scope scope ~root ~reason)
          ~encode:(function
-           | Unavailable { root; reason } -> (), (root, reason)
+           | Unavailable { root; scope; reason } -> (), (scope, (root, reason))
            | Not_requested | Git _ -> Json.fail Invalid_argument "unavailable branch")
          ~description:"Requested source provenance could not be observed."
   in
@@ -177,8 +284,9 @@ let codec =
            | Git observation -> (), observation
            | Not_requested | Unavailable _ -> Json.fail Invalid_argument "Git branch")
          ~description:
-           "Bounded non-atomic Git working-tree observation, excluding ignored files and \
-            submodule contents."
+           "Bounded non-atomic Git observation of the declared scope. Worktree scope \
+            excludes ignored files; explicit paths include them. Submodule contents are \
+            not recursively observed."
   in
   tagged
     ~discriminator:"kind"
@@ -195,23 +303,32 @@ let identity = function
     if List.is_empty observation.omissions
     then
       Some
-        (Api_codec.encode observation_codec observation
-         |> unwrap
-         |> Json.canonical
-         |> Json.hash)
+        (let value = Api_codec.encode observation_codec observation |> unwrap in
+         let value =
+           match Scope.selected_paths observation.scope, value with
+           | Some _, `Object fields ->
+             Json.obj (List.Assoc.remove fields "head" ~equal:String.equal)
+           | None, _ | Some _, _ -> value
+         in
+         Json.canonical value |> Json.hash)
     else None
 ;;
 
 let drift ~before ~after =
   match identity before, identity after with
-  | Some before, Some after -> Some (not (String.equal before after))
+  | Some before_id, Some after_id ->
+    if
+      Option.equal Scope.equal (scope before) (scope after)
+      && Option.equal String.equal (root before) (root after)
+    then Some (not (String.equal before_id after_id))
+    else None
   | None, _ | _, None -> None
 ;;
 
-let capture ~env ~root =
+let capture_scope scope ~env ~root =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
   let path = Eio.Path.(fs / root) in
-  let unavailable reason = unavailable ~root ~reason |> unwrap in
+  let unavailable reason = unavailable_for_scope scope ~root ~reason |> unwrap in
   Api_codec.encode root_codec root |> unwrap |> ignore;
   let observe () =
     Disk.require_directory path;
@@ -262,7 +379,9 @@ let capture ~env ~root =
       else Some (Api_codec.decode head_codec (Json.string text) |> unwrap)
     in
     let enumerate () =
-      git [ "ls-files"; "-z"; "--cached"; "--others"; "--exclude-standard" ]
+      match Scope.selected_paths scope with
+      | None -> git [ "ls-files"; "-z"; "--cached"; "--others"; "--exclude-standard" ]
+      | Some paths -> String.concat ~sep:"\000" paths ^ "\000"
     in
     let head = get_head () in
     let listing = enumerate () in
@@ -378,10 +497,12 @@ let capture ~env ~root =
         | Error _ -> omit "file_read_failed" 1));
     if
       (not (String.equal listing (enumerate ())))
-      || not (Option.equal String.equal head (get_head ()))
+      || (Option.is_none (Scope.selected_paths scope)
+          && not (Option.equal String.equal head (get_head ())))
     then omit "git_state_changed_during_scan" 1;
     Git
       { root
+      ; scope
       ; head
       ; paths_sha256 = Json.hash listing
       ; contents_sha256 = Digestif.SHA256.(get !ctx |> to_hex)
@@ -402,4 +523,19 @@ let capture ~env ~root =
     | Error problem -> unavailable (String.prefix problem.message 4096)
   with
   | Eio.Time.Timeout -> unavailable "source observation exceeded 10 seconds"
+;;
+
+let capture ~env ~root = capture_scope Scope.worktree ~env ~root
+
+let coverage t =
+  let fields =
+    match Api_codec.encode codec t |> unwrap with
+    | `Object fields -> fields
+    | _ -> assert false
+  in
+  let excluded = [ "paths_sha256"; "contents_sha256"; "head" ] in
+  Json.obj
+    (("identity_complete", if Option.is_some (identity t) then `True else `False)
+     :: List.filter fields ~f:(fun (key, _) ->
+       not (List.mem excluded key ~equal:String.equal)))
 ;;

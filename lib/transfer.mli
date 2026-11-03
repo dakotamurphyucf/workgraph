@@ -13,6 +13,34 @@ module Upload_plan : sig
   val params : t -> Jsonaf.t
 end
 
+module Upload_result : sig
+  type t =
+    | Complete of Jsonaf.t
+    | Link_failed of
+        { publication : Jsonaf.t
+        ; error : Problem.t
+        }
+
+  (** Complete retains exact receipt fields. A partial local workflow explicitly
+      exposes the committed publication, unchanged link error and exact saved-plan
+      retry identity. Publication and ticket linking are separate transactions. *)
+  val envelope
+    :  t
+    -> request:Protocol.Request.t
+    -> saved_request:string option
+    -> Jsonaf.t
+end
+
+(** Optional ticket_id is frozen in the saved upload plan. After durable finish,
+    link using a deterministic separate mutation and the finish entity guard.
+    Lost replies/retries reuse both original receipts; conflicts never refresh
+    their guard. A link error preserves the exact committed publication. *)
+val upload_with_link
+  :  Upload_plan.t
+  -> client:Client.t
+  -> fs:_ Eio.Path.t
+  -> (Upload_result.t, Problem.t) Result.t
+
 (** Checks the durable finish receipt first, then verifies source bytes and resumes
     the ephemeral upload. A restart starts the same upload again using the original
     mutation ID. Each network operation uses the client's timeout; no operation is

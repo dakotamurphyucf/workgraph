@@ -31,9 +31,12 @@ def frame(flow):
 
 class FinishProxy:
     """Forward real calls; commit finish, then lose or delay its acknowledgement."""
-    def __init__(self, path, upstream, delay):
+    def __init__(self, path, upstream, delay, method="resource.finish_upload", after_finish=None):
         self.upstream = str(upstream)
         self.delay = delay
+        self.method = method
+        self.after_finish = after_finish
+        self.publication = None
         self.receipt = None
         self.error = None
         self.listener = socket.socket(socket.AF_UNIX)
@@ -55,7 +58,14 @@ class FinishProxy:
                     upstream.sendall(encoded)
                     encoded, response = frame(upstream)
                     if request["method"] == "resource.finish_upload":
-                        self.receipt = response["result"]
+                        self.publication = response.get("result")
+                        if self.after_finish is not None:
+                            self.after_finish()
+                    if request["method"] == self.method:
+                        self.receipt = response.get("result")
+                        if "error" in response:
+                            incoming.sendall(encoded)
+                            return
                         if self.delay:
                             time.sleep(self.delay)
                             try:
@@ -324,6 +334,59 @@ class PublicationTests(unittest.TestCase):
         self.assert_error(failed, "Conflict")
         self.assertFalse((unfinished / "publication.json").exists())
         self.assertEqual(unfinished_counter.read_text(), "x")
+        self.assertEqual(counter.read_text(), "x")
+
+
+    def test_ticket_link_lost_reply_recovers_both_exact_receipts(self):
+        self.cli("--context", self.context, "ticket.create", "--ticket-id", "task", "--title", "Task", expected=0)
+        stage, counter = self.stage("linked")
+        proxy_path = self.root / "link-proxy"
+        proxy = FinishProxy(proxy_path, self.socket, 0, method="resource.link")
+        failed = self.first(stage, "--socket", proxy_path, "--ticket-id", "task", expected=1)
+        proxy.thread.join(timeout=5)
+        self.assertFalse(proxy.thread.is_alive())
+        self.assertIsNone(proxy.error)
+        partial = json.loads(failed.stdout)["result"]
+        self.assertEqual(partial["data"]["publication_status"], "committed")
+        self.assertEqual(partial["data"]["publication"], proxy.publication)
+        self.assertEqual(partial["data"]["ticket_link_error"]["kind"], "Outcome_unknown")
+        self.assertFalse(partial["data"]["atomic"])
+        self.assertEqual(partial["data"]["saved_request"], str(stage / "publication.json"))
+        saved = (stage / "publication.json").read_bytes()
+        self.assertEqual(json.loads(saved)["params"]["ticket_id"], "task")
+        recovered = json.loads(self.cli("--context", self.context, "evidence-publish", "--stage", stage, expected=0).stdout)
+        self.assertEqual(recovered["result"]["data"]["ticket_link"], proxy.receipt)
+        self.assertEqual(recovered["result"]["data"]["revision"], proxy.publication["data"]["revision"])
+        self.assertFalse(recovered["result"]["data"]["atomic"])
+        # Later metadata does not rewrite either saved receipt or its retry guard.
+        self.cli("--context", self.context, "resource.update", "--resource-id", "linked", "--expected-revision", "2", "--title", "Later metadata", expected=0)
+        repeated = json.loads(self.cli("retry", self.socket, stage / "publication.json", expected=0).stdout)
+        self.assertEqual(repeated, recovered)
+        self.assertEqual((stage / "publication.json").read_bytes(), saved)
+        self.assertEqual(counter.read_text(), "x")
+
+    def test_link_conflict_retains_committed_receipt_and_never_refreshes_guard(self):
+        self.cli("--context", self.context, "ticket.create", "--ticket-id", "task", "--title", "Task", expected=0)
+        stage, counter = self.stage("link-conflict")
+        def change_metadata():
+            self.cli("--context", self.context, "resource.update", "--resource-id", "link-conflict", "--expected-revision", "1", "--title", "Concurrent metadata", expected=0)
+        proxy = FinishProxy(self.root / "conflict-proxy", self.socket, 0, method="resource.link", after_finish=change_metadata)
+        failed = self.first(stage, "--socket", self.root / "conflict-proxy", "--ticket-id", "task", expected=1)
+        proxy.thread.join(timeout=5)
+        self.assertFalse(proxy.thread.is_alive())
+        self.assertIsNone(proxy.error)
+        partial = json.loads(failed.stdout)["result"]["data"]
+        self.assertEqual(partial["publication"], proxy.publication)
+        self.assertEqual(partial["ticket_link_error"]["kind"], "Conflict")
+        self.assertEqual(partial["publication_status"], "committed")
+        saved = (stage / "publication.json").read_bytes()
+        repeated = json.loads(self.cli("--context", self.context, "evidence-publish", "--stage", stage, expected=1).stdout)["result"]["data"]
+        self.assertEqual(repeated, partial)
+        current = json.loads(self.cli("--context", self.context, "resource.get", "--resource-id", "link-conflict", expected=0).stdout)["result"]["data"]
+        self.assertEqual(current["revision"], "2")
+        self.assertEqual(current["current_version"]["revision"], "1")
+        self.assertEqual(current["metadata"]["targets"], [])
+        self.assertEqual((stage / "publication.json").read_bytes(), saved)
         self.assertEqual(counter.read_text(), "x")
 
 

@@ -137,3 +137,87 @@ let%expect_test "partial and unavailable provenance never imply unchanged inputs
     (true)
   |}]
 ;;
+
+let%expect_test "declared source scopes validate independently and cannot widen on replay"
+  =
+  List.iter
+    [ {|{"kind":"paths","paths":[]}|}
+    ; {|{"kind":"paths","paths":["../escape"]}|}
+    ; {|{"kind":"paths","paths":["a","a"]}|}
+    ; {|{"kind":"paths","paths":[".git/config"]}|}
+    ]
+    ~f:(fun json ->
+      match Api_codec.decode Source_provenance.Scope.codec (Jsonaf.of_string json) with
+      | Ok _ -> print_endline "incorrect scope"
+      | Error error -> print_endline error.message);
+  with_repository (fun env _fs _directory root _git ->
+    let selected = Source_provenance.Scope.paths [ "tracked" ] |> unwrap in
+    let observation = Source_provenance.capture_scope selected ~env ~root in
+    let encoded = Api_codec.encode Source_provenance.codec observation |> unwrap in
+    let fields =
+      match encoded with
+      | `Object fields -> fields
+      | _ -> assert false
+    in
+    let malformed =
+      Json.obj (List.Assoc.add fields ~equal:String.equal "listed_paths" (Json.int 2))
+    in
+    (match Api_codec.decode Source_provenance.codec malformed with
+     | Ok _ -> print_endline "incorrect count"
+     | Error error -> print_endline error.message);
+    let malformed_manifest =
+      Json.obj
+        (List.Assoc.add
+           fields
+           ~equal:String.equal
+           "paths_sha256"
+           (Json.string (Json.hash "wrong")))
+    in
+    (match Api_codec.decode Source_provenance.codec malformed_manifest with
+     | Ok _ -> print_endline "incorrect manifest"
+     | Error error -> print_endline error.message);
+    print_s
+      [%sexp
+        (Source_provenance.drift
+           ~before:observation
+           ~after:(Source_provenance.capture ~env ~root)
+         : bool option)];
+    let command =
+      Execution_capture.Command.create ~argv:[ "true" ] ~cwd:root ~output_limit:8
+      |> unwrap
+      |> fun command -> Execution_capture.Command.with_source_root command root |> unwrap
+    in
+    let output =
+      Execution_capture.Output.create
+        ~bytes:""
+        ~observed_bytes:0L
+        ~observed_sha256:(Json.hash "")
+        ~eof:true
+      |> unwrap
+    in
+    match
+      Execution_capture.create
+        ~command
+        ~outcome:(Exited 0)
+        ~started_unix_ms:0L
+        ~finished_unix_ms:0L
+        ~elapsed_ms:0L
+        ~stdout:output
+        ~stderr:output
+        ~source_before:observation
+        ~source_after:observation
+    with
+    | Ok _ -> print_endline "incorrect capture scope"
+    | Error error -> print_endline error.message);
+  [%expect
+    {|
+    source selection requires 1..256 file paths
+    source paths must be canonical root-relative files outside Git metadata
+    duplicate selected source path
+    source paths must be canonical root-relative files outside Git metadata
+    selected source count differs from declared paths
+    selected source manifest differs from declared paths
+    ()
+    source provenance differs from requested scope
+    |}]
+;;

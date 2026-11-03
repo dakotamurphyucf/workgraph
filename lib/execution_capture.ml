@@ -11,6 +11,7 @@ module Command = struct
     ; cwd : string
     ; output_limit : int
     ; source_root : string option
+    ; source_scope : Source_provenance.Scope.t
     }
 
   let validate t =
@@ -31,19 +32,37 @@ module Command = struct
       then Json.fail Invalid_argument "capture cwd must be an absolute path <=4096 bytes";
       if t.output_limit < 1 || t.output_limit > 1048576
       then Json.fail Invalid_argument "capture output_limit must be 1..1048576 bytes";
+      if
+        Option.is_none t.source_root
+        && Option.is_some (Source_provenance.Scope.selected_paths t.source_scope)
+      then Json.fail Invalid_argument "selected source paths require source_root";
+      Api_codec.encode Source_provenance.Scope.codec t.source_scope |> unwrap |> ignore;
       Option.iter t.source_root ~f:(fun root ->
         Source_provenance.unavailable ~root ~reason:"not observed" |> unwrap |> ignore);
       t)
   ;;
 
   let create ~argv ~cwd ~output_limit =
-    validate { argv; cwd; output_limit; source_root = None }
+    validate
+      { argv
+      ; cwd
+      ; output_limit
+      ; source_root = None
+      ; source_scope = Source_provenance.Scope.worktree
+      }
   ;;
 
   let argv t = t.argv
   let cwd t = t.cwd
   let output_limit t = t.output_limit
   let source_root t = t.source_root
+  let source_scope t = t.source_scope
+
+  let with_source_paths t paths =
+    Result.bind (Source_provenance.Scope.paths paths) ~f:(fun source_scope ->
+      validate { t with source_scope })
+  ;;
+
   let with_source_root t root = validate { t with source_root = Some root }
 
   let codec =
@@ -56,12 +75,22 @@ module Command = struct
              (required "cwd" (text ~max_bytes:4096)))
           (both
              (required "output_limit" (decimal ~max:1048576))
-             (optional "source_root" (text ~max_bytes:4096))))
+             (both
+                (optional "source_root" (text ~max_bytes:4096))
+                (optional "source_paths" (list (text ~max_bytes:4096) ~max_items:256)))))
     |> map
-         ~decode:(fun ((argv, cwd), (output_limit, source_root)) ->
-           validate { argv; cwd; output_limit; source_root })
-         ~encode:(fun { argv; cwd; output_limit; source_root } ->
-           (argv, cwd), (output_limit, source_root))
+         ~decode:(fun ((argv, cwd), (output_limit, (source_root, source_paths))) ->
+           let open Result.Let_syntax in
+           let%bind source_scope =
+             match source_paths with
+             | None -> Ok Source_provenance.Scope.worktree
+             | Some paths -> Source_provenance.Scope.paths paths
+           in
+           validate { argv; cwd; output_limit; source_root; source_scope })
+         ~encode:(fun { argv; cwd; output_limit; source_root; source_scope } ->
+           ( (argv, cwd)
+           , ( output_limit
+             , (source_root, Source_provenance.Scope.selected_paths source_scope) ) ))
          ~description:
            "Absolute cwd; nonempty executable/argv; no NUL; total argv <=64KiB; positive \
             per-stream output limit."
@@ -170,6 +199,7 @@ module Output = struct
 
   let bytes t = t.bytes
   let observed_bytes t = t.observed_bytes
+  let observed_sha256 t = t.observed_sha256
   let eof t = t.eof
   let truncated t = Int64.(t.observed_bytes > of_int (String.length t.bytes))
 
@@ -232,7 +262,10 @@ let create
              String.equal
              (Command.source_root command)
              (Source_provenance.root source))
-      then Json.fail Invalid_argument "source provenance differs from requested root");
+      then Json.fail Invalid_argument "source provenance differs from requested root";
+      Option.iter (Source_provenance.scope source) ~f:(fun scope ->
+        if not (Source_provenance.Scope.equal scope (Command.source_scope command))
+        then Json.fail Invalid_argument "source provenance differs from requested scope"));
     if Int64.(started_unix_ms < zero || finished_unix_ms < zero || elapsed_ms < zero)
     then Json.fail Invalid_argument "capture times must be nonnegative";
     List.iter [ stdout; stderr ] ~f:(fun output ->

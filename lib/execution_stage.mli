@@ -34,6 +34,29 @@ val load : fs:_ Eio.Path.t -> directory:string -> (t, Problem.t) Result.t
 
 val directory : t -> string
 val state : t -> State.t
+val owner_token : t -> string option
+
+(** Hold the stage's stable command-file lock while preparing publication or
+    cleanup. Refuses live/concurrent owners and nonregular launch records. The
+    callback receives an opened directory capability. This is cooperative local
+    coordination, not authentication or process-isolation enforcement. *)
+val with_lock
+  :  fs:_ Eio.Path.t
+  -> directory:string
+  -> f:(Eio.Fs.dir_ty Eio.Path.t -> 'a)
+  -> ('a, Problem.t) Result.t
+
+(** Explicit cleanup of one finished stage created with an ownership marker.
+    Requires its exact token and validated command/capture bytes, acquires the
+    live-operation lock, and refuses every publication intent or unknown entry.
+    Removes only the three known regular files and the empty stage directory;
+    never recursively prunes, follows symlinks or deletes published evidence.
+    Partial cleanup after I/O failure is reported and never claimed successful. *)
+val cleanup
+  :  fs:_ Eio.Path.t
+  -> directory:string
+  -> owner_token:string
+  -> (unit, Problem.t) Result.t
 
 (** Absolute path of the final bounded JSON capture resource. [None] for an
     unfinished stage. Bytes include exact base64 stdout/stderr and provenance

@@ -12,15 +12,44 @@ let canonical_method_name = function
   | name -> name
 ;;
 
-let local_methods = [ "resource.upload"; "resource.download" ]
+let local_methods =
+  [ "resource.upload"; "resource.download"; "evidence.show"; "evidence.clean" ]
+;;
 
 let helper_help = function
   | "init" | "bootstrap" -> Some Cli_bootstrap.help
+  | "evidence" ->
+    Some
+      "Evidence helpers: evidence-run, evidence-publish, evidence show, evidence clean.\n\
+       Use each helper's --help for local capture, bounded inspection, exact publication\n\
+       retry and explicit owned-stage cleanup contracts."
+  | "evidence-show" | "evidence.show" ->
+    Some
+      "evidence-show [local helper]\n\
+       Usage: workgraph evidence show --stage ABS_DIR [--stdout|--stderr]\n\
+       [--offset BYTE --length BYTES | --tail BYTES] [--output json|text|bytes]\n\
+       Lengths 1..65536. Offsets count retained prefix bytes. A retained tail is NOT the \
+       final\n\
+       process tail when truncation discarded bytes. Counts/EOF/truncation and provenance\n\
+       coverage remain visible. Text labels malformed UTF8 replacement; bytes is exact \
+       binary\n\
+       stdout with JSON metadata on stderr. No execution, publication or daemon access."
+  | "evidence-clean" | "evidence.clean" ->
+    Some
+      "evidence-clean [local helper]\n\
+       Usage: workgraph evidence clean --stage ABS_DIR --owner-token TOKEN\n\
+       Explicitly clean one finished, validated owned stage using evidence-run's \
+       owner_token.\n\
+       Refuses live locks, unfinished/foreign stages, publication intents and unknown \
+       files.\n\
+       No recursive pruning, overwrite or cleanup of published evidence. No daemon \
+       access."
   | "evidence-run" ->
     Some
       "evidence-run [local helper]\n\
        Usage: workgraph evidence-run --stage ABS_NEW_DIR --cwd ABS_DIR\n\
-       [--source-root ABS_GIT_ROOT] [--output-limit BYTES] -- COMMAND ARG...\n\
+       [--source-root ABS_GIT_ROOT] [--hash-path ROOT_RELATIVE_FILE]...\n\
+       [--output-limit BYTES] -- COMMAND ARG...\n\
        Create only the stage parent; the stage itself must be fresh. Everything after\n\
        -- is literal child argv, including --help and --context. No daemon is used.\n\
        Each stream retains its first BYTES (default 65536, range 1..1048576), drains\n\
@@ -28,6 +57,9 @@ let helper_help = function
        JSON stdout: stage, capture_file, outcome, stdout/stderr counts and truncation,\n\
        source_drift, publication:not_attempted. Exit 0: observed command success;\n\
        2: captured nonzero/signal/launch failure; 1: infrastructure/argument error.\n\
+       JSON includes decoded bounded retained-tail previews and prominent source coverage.\n\
+       --hash-path selects at most 256 exact files (no recursive directory expansion).\n\
+       Its identity covers only those files, including explicitly selected ignored files.\n\
        Partial provenance is not whole-tree proof. A capture is not approval.\n\
        Example: workgraph evidence-run --stage /absolute/stages/check-1 --cwd \
        /absolute/checkout -- python3 -m unittest\n\
@@ -46,13 +78,21 @@ let helper_help = function
        JSON stdout is the normal JSON-RPC receipt: .result.data.resource_id, .revision\n\
        and .version.{revision,digest}. Journal paths are diagnostics on stderr.\n\
        --output json|text and --timeout SECONDS are local options. Publication does not\n\
-       automatically link or approve a ticket. Read docs/agent/execution.md."
+       approve a ticket. Optional --ticket-id ID freezes a separate resource link.\n\
+       Publication and link are not atomic; a failed link exits nonzero with\n\
+       .result.data.publication (exact committed receipt), ticket_link_error,\n\
+       retry_request and saved_request. Retry the saved plan without fresh guards.\n\
+       Success adds .result.data.ticket_link (exact link receipt). Read \
+       docs/agent/execution.md."
   | "resource.upload" ->
     Some
       "resource.upload [local helper]\n\
        Usage: workgraph --context ABS_FILE resource upload --resource-id ID\n\
        --expected-revision REV --title TEXT --file ABS_REGULAR_FILE\n\
-       Optional --filename BASENAME, --mime-type TYPE/SUBTYPE and --run-id ID.\n\
+       Optional --filename BASENAME, --mime-type TYPE/SUBTYPE, --run-id ID and \
+       --ticket-id ID.\n\
+       Ticket linking is separate from publication. A failed link exits nonzero with\n\
+       the exact committed publication receipt and saved retry plan; never reruns input.\n\
        File bytes are bounded to 64MiB. Save the exact upload plan with --save-request\n\
        ABS_NEW_FILE, a configured request directory, or supply a stable --mutation-id.\n\
        Retry only the saved plan with workgraph retry; changed source bytes reject.\n\

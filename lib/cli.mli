@@ -17,6 +17,11 @@
     Resource download to [-] writes raw bytes, with its receipt on stderr. Direct
     streaming may emit a prefix before an integrity error; [--spool ABS_NEW_FILE]
     verifies/publishes a fresh file first, then copies it to stdout and retains it.
+    Evidence inspection is local, bounded and explicit about prefix retention and
+    incomplete source coverage. Cleanup requires the exact owned stage token and
+    refuses live, unknown or publication-intent stages. Optional upload ticket
+    linking is independently acknowledged: a committed publication with failed
+    link returns its exact receipt and saved retry path even on a nonzero exit.
     Init/bootstrap are the only workspace-creating setup operations and may start
     a detached daemon with an explicit registry/log; ordinary calls never do so. *)
 val run : env:Eio_unix.Stdenv.base -> string list -> int

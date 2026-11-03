@@ -58,6 +58,7 @@ module Upload_plan = struct
     { workspace : Id.Workspace.t
     ; actor : Id.Actor.t
     ; run : Id.Run.t option
+    ; ticket : Id.Ticket.t option
     ; mutation : Id.Mutation.t
     ; resource : Id.Resource.t
     ; expected_revision : int
@@ -85,7 +86,10 @@ module Upload_plan = struct
        ; "size_bytes", Json.int t.size_bytes
        ]
        @ Option.to_list
-           (Option.map t.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run)))
+           (Option.map t.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run))
+       @ Option.to_list
+           (Option.map t.ticket ~f:(fun ticket ->
+              "ticket_id", Id.Ticket.jsonaf_of_t ticket)))
   ;;
 
   let prepare ~fs ~params =
@@ -99,6 +103,7 @@ module Upload_plan = struct
           ; "workspace_id"
           ; "actor_id"
           ; "run_id"
+          ; "ticket_id"
           ; "mutation_id"
           ; "resource_id"
           ; "expected_revision"
@@ -113,6 +118,9 @@ module Upload_plan = struct
       let workspace = Id.Workspace.t_of_jsonaf (get "workspace_id") in
       let actor = Id.Actor.t_of_jsonaf (get "actor_id") in
       let run = Option.map (Json.optional params "run_id") ~f:Id.Run.t_of_jsonaf in
+      let ticket =
+        Option.map (Json.optional params "ticket_id") ~f:Id.Ticket.t_of_jsonaf
+      in
       let mutation = Id.Mutation.t_of_jsonaf (get "mutation_id") in
       let resource = Id.Resource.t_of_jsonaf (get "resource_id") in
       let expected_revision = Json.integer (get "expected_revision") in
@@ -153,6 +161,7 @@ module Upload_plan = struct
       { workspace
       ; actor
       ; run
+      ; ticket
       ; mutation
       ; resource
       ; expected_revision
@@ -166,7 +175,7 @@ module Upload_plan = struct
   ;;
 end
 
-let upload (plan : Upload_plan.t) ~client ~fs =
+let upload_publication (plan : Upload_plan.t) ~client ~fs =
   Disk.protect (fun () ->
     let identity =
       [ "workspace_id", Id.Workspace.jsonaf_of_t plan.workspace
@@ -273,6 +282,120 @@ let upload (plan : Upload_plan.t) ~client ~fs =
     let decoded = Api_response.of_json response |> Disk.unwrap in
     Api_response.require_durable decoded |> Disk.unwrap;
     response)
+;;
+
+module Upload_result = struct
+  type t =
+    | Complete of Jsonaf.t
+    | Link_failed of
+        { publication : Jsonaf.t
+        ; error : Problem.t
+        }
+
+  let envelope t ~request ~saved_request =
+    match t with
+    | Complete receipt -> receipt
+    | Link_failed { publication; error } ->
+      Json.obj
+        [ ( "data"
+          , Json.obj
+              [ "publication_status", Json.string "committed"
+              ; "publication", publication
+              ; "ticket_link_status", Json.string "failed"
+              ; "ticket_link_error", Problem.to_json error
+              ; "atomic", `False
+              ; "retry_request", Protocol.Request.to_json request
+              ; ( "saved_request"
+                , match saved_request with
+                  | Some path -> Json.string path
+                  | None -> `Null )
+              ] )
+        ; "meta", Json.obj []
+        ]
+  ;;
+end
+
+let upload_with_link (plan : Upload_plan.t) ~client ~fs =
+  let open Result.Let_syntax in
+  let%bind publication = upload_publication plan ~client ~fs in
+  match plan.ticket with
+  | None -> Ok (Upload_result.Complete publication)
+  | Some ticket ->
+    let result = Api_response.of_json publication |> Disk.unwrap in
+    let link_mutation =
+      "link_"
+      ^ Json.hash
+          (Json.canonical
+             (Json.obj
+                [ "mutation_id", Id.Mutation.jsonaf_of_t plan.mutation
+                ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
+                ; "ticket_id", Id.Ticket.jsonaf_of_t ticket
+                ]))
+    in
+    let params =
+      Json.obj
+        ([ "workspace_id", Id.Workspace.jsonaf_of_t plan.workspace
+         ; "actor_id", Id.Actor.jsonaf_of_t plan.actor
+         ; "mutation_id", Json.string link_mutation
+         ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
+         ; "expected_revision", Json.field (Api_response.data result) "revision"
+         ; "target", Entity_ref.jsonaf_of_t (Ticket ticket)
+         ]
+         @ Option.to_list
+             (Option.map plan.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run)))
+    in
+    let request =
+      Protocol.Request.create ~id:"upload-ticket-link" ~method_:"resource.link" ~params
+      |> Disk.unwrap
+    in
+    let link =
+      Result.bind (Client.invoke client request) ~f:(fun response ->
+        match
+          Json.decode (fun () ->
+            let envelope = Api_response.of_json response |> Disk.unwrap in
+            Api_response.require_durable envelope |> Disk.unwrap;
+            (match Api_catalog.find "resource.link" with
+             | Some (Api_method.Packed.Pack definition) ->
+               Api_codec.decode
+                 (Api_method.response_codec definition)
+                 (Api_response.data envelope)
+               |> Disk.unwrap
+               |> ignore
+             | None -> assert false);
+            response)
+        with
+        | Ok receipt -> Ok receipt
+        | Error error ->
+          Error
+            (Problem.create
+               Outcome_unknown
+               ("invalid ticket link acknowledgement: " ^ error.message)))
+    in
+    (match link with
+     | Error error -> Ok (Upload_result.Link_failed { publication; error })
+     | Ok ticket_link ->
+       let data =
+         match Api_response.data result with
+         | `Object fields ->
+           Json.obj (fields @ [ "ticket_link", ticket_link; "atomic", `False ])
+         | _ -> assert false
+       in
+       Ok (Complete (Json.obj [ "data", data; "meta", Api_response.meta result ])))
+;;
+
+let upload plan ~client ~fs =
+  Result.bind (upload_with_link plan ~client ~fs) ~f:(function
+    | Upload_result.Complete receipt -> Ok receipt
+    | Link_failed { publication; error } ->
+      Error
+        { error with
+          message =
+            "publication committed; ticket link failed; retry the same saved upload \
+             plan. Publication receipt: "
+            ^ Json.canonical publication
+            ^ "; link error: "
+            ^ error.message
+        })
 ;;
 
 module Download = struct
