@@ -257,6 +257,21 @@ class AttentionTest(unittest.TestCase):
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     future = pool.submit(read, "attention.wait", filter=cross_filter, cursor=blocked["cursor"], timeout_ms="2000")
                     time.sleep(.04)
+                    # The same transaction also removes the old demand. Event-time
+                    # occupancy must still invalidate the capacity it just freed.
+                    write("transaction.apply", run_id="holder", operations=[
+                        {"method": "ticket.release", "params": {"ticket_id": "pool-outside", "token": claim["token"]}},
+                        {"method": "allocation.ticket_policy_put", "params": {"ticket_id": "pool-outside", "expected_revision": "1", "required_capabilities": [], "pools": []}}])
+                    available = future.result(timeout=4)
+                    self.assertEqual(available["readiness"]["items"][0]["source"]["ticket_id"], "pool-selected")
+                # Preserve independent coverage of a release without any policy edit.
+                write("allocation.ticket_policy_put", ticket_id="pool-outside", expected_revision="2", required_capabilities=[], pools=["cross-project"])
+                claim = write("ticket.claim", ticket_id="pool-outside", run_id="holder")["data"]
+                blocked = read(filter=cross_filter, initial_readiness=True)
+                self.assertEqual(blocked["readiness"]["items"], [])
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(read, "attention.wait", filter=cross_filter, cursor=blocked["cursor"], timeout_ms="2000")
+                    time.sleep(.04)
                     write("ticket.release", ticket_id="pool-outside", run_id="holder", token=claim["token"])
                     available = future.result(timeout=4)
                     self.assertEqual(available["readiness"]["items"][0]["source"]["ticket_id"], "pool-selected")

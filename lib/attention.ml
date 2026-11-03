@@ -211,6 +211,7 @@ let read t ~now_unix_ms ~params =
     let threads = ref Communication_id.Thread.Map.empty in
     let requests = ref Communication_id.Request.Map.empty in
     let messages = ref Communication_id.Message.Map.empty in
+    let ticket_pools = ref Id.Ticket.Map.empty in
     let acknowledgements = ref Int.Set.empty in
     let rows = ref [] in
     let row revision index kind fields =
@@ -296,7 +297,9 @@ let read t ~now_unix_ms ~params =
     in
     let pool_relevant name = Set.mem scoped_pools name in
     let ticket_pool_relevant id =
-      Option.exists (Map.find routing.pools id) ~f:(List.exists ~f:pool_relevant)
+      (* Occupancy belongs to the policy at this event, not the final policy.
+         A later policy removal must not hide a preceding capacity release. *)
+      Option.exists (Map.find !ticket_pools id) ~f:(List.exists ~f:pool_relevant)
     in
     let attempt_relevant (attempt : Attempt.t) =
       Option.exists filter.run ~f:(Id.Run.equal attempt.run)
@@ -498,6 +501,10 @@ let read t ~now_unix_ms ~params =
                      | None -> index, [ n ]
                      | Some (first, items) -> first, n :: items)))
         | Agent_run_changed change ->
+          (match change.update with
+           | Ticket_policy_put policy ->
+             ticket_pools := Map.set !ticket_pools ~key:policy.ticket ~data:policy.pools
+           | _ -> ());
           if emit
           then (
             let relevant =
