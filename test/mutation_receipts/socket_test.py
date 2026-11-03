@@ -179,7 +179,7 @@ class Receipts(unittest.TestCase):
         receipt=json.loads(output.stdout)["result"]
         ticket=receipt["data"]["instance"]["tickets"][0]["ticket_id"]
         policies=[row["data"] for row in receipt["data"]["results"] if row["kind"]=="ticket_policy_put"]
-        self.assertEqual(policies,[{"ticket_id":ticket,"revision":"1","required_capabilities":["ocaml"],"pools":[]}])
+        self.assertEqual(policies,[{"ticket_id":ticket,"revision":"1","required_capabilities":["ocaml"],"pools":[],"allowed_actor_ids":None}])
         self.write("allocation.ticket_policy_put","later-policy",ticket_id=ticket,expected_revision="1",required_capabilities=["later"],pools=[])
         self.stop();self.start()
         self.assertEqual(self.retry(path),receipt)
@@ -192,7 +192,7 @@ class Receipts(unittest.TestCase):
         self.write("ticket.create","ticket",ticket_id="task",title="Task")
         policy_file,policy_output=self.saved_write("allocation.ticket_policy_put","policy",ticket_id="task",expected_revision="0",required_capabilities=["ocaml"],pools=["build"])
         policy=json.loads(policy_output.stdout)["result"]
-        self.assertEqual(policy["data"],{"ticket_id":"task","revision":"1","required_capabilities":["ocaml"],"pools":["build"]})
+        self.assertEqual(policy["data"],{"ticket_id":"task","revision":"1","required_capabilities":["ocaml"],"pools":["build"],"allowed_actor_ids":None})
         named_file,named_output=self.saved_write("reservation.acquire","named",run_id="run",target_run_id="run",requests=[{"reservation_id":"build","mode":"exclusive"}])
         named=json.loads(named_output.stdout)["result"]
         hold=named["data"]["holds"][0]
