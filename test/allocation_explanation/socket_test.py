@@ -1,4 +1,4 @@
-"""Empty allocation diagnosis uses captured selection state and durable retry receipts."""
+"""Empty allocation observations reevaluate while selected receipts remain exact."""
 import json
 from pathlib import Path
 import subprocess
@@ -56,7 +56,8 @@ class AllocationExplanation(unittest.TestCase):
                     empty = allocate("empty")
                     self.assertEqual("0", empty["data"]["explanation"]["candidate_count"])
                     self.assertEqual([], empty["data"]["explanation"]["reasons"])
-                    self.assertEqual(int(empty["meta"]["workspace_revision"])-1, int(empty["data"]["explanation"]["captured_workspace_revision"]))
+                    self.assertFalse(empty["meta"]["durable"])
+                    self.assertEqual(empty["meta"]["workspace_revision"], empty["data"]["explanation"]["captured_workspace_revision"])
                     write("allocation.pool_put", "pool", name="build", expected_revision="0", limit="1")
                     for ticket in ("a", "b"):
                         write("ticket.create", ticket, ticket_id=ticket, title=ticket)
@@ -65,7 +66,7 @@ class AllocationExplanation(unittest.TestCase):
                     self.assertEqual("a", selected["data"]["claim"]["ticket_id"])
                     pooled = allocate("pool-empty")
                     reasons = {row["kind"]: row for row in pooled["data"]["explanation"]["reasons"]}
-                    self.assertEqual("2", reasons["pool_full"]["count"])
+                    self.assertEqual("1", reasons["pool_full"]["count"])
                     self.assertEqual(["a"], reasons["claimed"]["example_ticket_ids"])
                     write("run.budget_put", "budget", target_run_id="run", expected_revision="0", max_attempts="1", max_active_attempts="1", reported_token_limit=None, reported_elapsed_ms_limit=None)
                     budgeted = allocate("budget-empty")
@@ -81,18 +82,20 @@ class AllocationExplanation(unittest.TestCase):
                     write("ticket.create", "child", ticket_id="child", project_id="p", parent_ticket_id="parent", title="Child")
                     write("ticket.hold", "hold-child", ticket_id="child", expected_revision="1", reason="Waiting")
                     parent = allocate("parent-empty", project_id="p", leaf_only=True)
-                    self.assertEqual([{"kind":"not_ready","count":"1","example_ticket_ids":["child"],"omitted_examples":"0"}, {"kind":"parent_filtered","count":"1","example_ticket_ids":["parent"],"omitted_examples":"0"}], parent["data"]["explanation"]["reasons"])
+                    self.assertEqual([{"kind":"blocked","count":"1","example_ticket_ids":["child"],"omitted_examples":"0"}, {"kind":"parent_filtered","count":"1","example_ticket_ids":["parent"],"omitted_examples":"0"}], parent["data"]["explanation"]["reasons"])
                     chosen = allocate("parent-selected", project_id="p", leaf_only=False)
                     self.assertEqual("parent", chosen["data"]["claim"]["ticket_id"])
-                    self.assertEqual(empty, allocate("empty"))
-                    self.assertEqual(pooled, allocate("pool-empty"))
-                    self.assertEqual(budgeted, allocate("budget-empty"))
-                    self.assertEqual(parent, allocate("parent-empty", project_id="p", leaf_only=True))
+                    # Empty identities were never receipts: current exclusions/capture
+                    # change after the new selection, while successful identities freeze.
+                    self.assertNotEqual(empty, allocate("empty"))
+                    self.assertNotEqual(pooled, allocate("pool-empty"))
+                    self.assertEqual(selected, allocate("first"))
+                    self.assertEqual(chosen, allocate("parent-selected", project_id="p", leaf_only=False))
                     stop()
                     start()
-                    self.assertEqual(pooled, allocate("pool-empty"))
-                    self.assertEqual(budgeted, allocate("budget-empty"))
-                    self.assertEqual(parent, allocate("parent-empty", project_id="p", leaf_only=True))
+                    self.assertEqual(selected, allocate("first"))
+                    self.assertEqual(chosen, allocate("parent-selected", project_id="p", leaf_only=False))
+                    self.assertFalse(allocate("pool-empty")["meta"]["durable"])
                 finally:
                     if daemon is not None and daemon.poll() is None:
                         stop()

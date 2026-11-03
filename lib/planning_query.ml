@@ -676,18 +676,36 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
               |> List.map ~f:event_summary
               |> page
           }
-      | Ticket_list filter | Ticket_ready filter ->
+      | Ticket_list filter | Ticket_ready { filter; _ } ->
         let only_ready =
           match Q.query request with
           | Ticket_ready _ -> true
           | _ -> false
         in
+        let selected_tickets =
+          match Q.query request with
+          | Ticket_ready { target_run_id = Some run; leaf_only; _ } ->
+            Allocation_capture.create
+              t
+              ~run
+              ~project:filter.project_id
+              ~leaf_only
+              ~now_unix_ms
+            |> unwrap_domain
+            |> Allocation_capture.eligible_tickets
+          | Ticket_ready { target_run_id = None; leaf_only; _ } ->
+            Map.data t.tickets
+            |> List.filter ~f:(fun ticket ->
+              ready ?now_unix_ms t ticket
+              && ((not leaf_only) || List.is_empty (unfinished_children t ticket)))
+          | Ticket_list _ -> Map.data t.tickets
+          | _ -> assert false
+        in
         let search = Option.value filter.text ~default:"" |> String.lowercase in
         let tickets =
-          Map.data t.tickets
+          selected_tickets
           |> List.filter ~f:(fun (ticket : Ticket.t) ->
             (include_archived || active_scope t ticket)
-            && ((not only_ready) || ready ?now_unix_ms t ticket)
             && Option.for_all filter.project_id ~f:(fun id ->
               Option.exists ticket.project ~f:(Id.Project.equal id))
             && Option.for_all filter.milestone_id ~f:(fun id ->
@@ -704,8 +722,9 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
         in
         let tickets = if only_ready then sort_ready tickets else tickets in
         Tickets (List.map tickets ~f:ticket_view |> page)
-      | Ticket_readiness id ->
-        Readiness (readiness_view ?now_unix_ms t (find_ticket t id))
+      | Ticket_readiness { ticket_id; target_run_id } ->
+        Readiness
+          (readiness_view ?run:target_run_id ?now_unix_ms t (find_ticket t ticket_id))
       | Ticket_blockers id ->
         let ticket = find_ticket t id in
         Blockers

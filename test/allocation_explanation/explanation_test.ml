@@ -9,25 +9,15 @@ let ok = function
 let json = Fn.compose ok Json.parse
 
 let candidate id =
-  { Allocation.Candidate.ticket = Id.Ticket.of_string id |> ok
-  ; priority = 0
-  ; creation_sequence = 1
-  ; ready = true
-  ; available = true
-  ; required_capabilities = [ "ocaml"; "eio" ]
-  ; pools = [ { name = "build"; limit = 1; active = 1 } ]
+  { Allocation.Explanation.Candidate.ticket = Id.Ticket.of_string id |> ok
+  ; exclusions = [ Missing_capability; Missing_capability; Pool_full; Parent_filtered ]
   }
 ;;
 
 let%expect_test "overlapping reasons are bounded, deterministic and count tickets once" =
   let candidates = List.init 9 ~f:(fun i -> candidate ("t" ^ Int.to_string i)) in
   let explain candidates =
-    Allocation.Explanation.create
-      ~captured_workspace_revision:12
-      ~candidates
-      ~capabilities:[]
-      ~parent_filtered:(fun _ -> true)
-      ~limits:[]
+    Allocation.Explanation.create ~captured_workspace_revision:12 ~candidates ~limits:[]
     |> ok
     |> Allocation.Explanation.to_json
   in
@@ -64,14 +54,9 @@ let%expect_test "overlapping reasons are bounded, deterministic and count ticket
 let%expect_test "empty scope and budget-bound eligible candidates have distinct diagnoses"
   =
   let explain candidates limits =
-    Allocation.Explanation.create
-      ~captured_workspace_revision:3
-      ~candidates
-      ~capabilities:[ "ocaml"; "eio" ]
-      ~parent_filtered:(fun _ -> false)
-      ~limits
+    Allocation.Explanation.create ~captured_workspace_revision:3 ~candidates ~limits
   in
-  let eligible = { (candidate "t") with pools = [] } in
+  let eligible = { (candidate "t") with exclusions = [] } in
   print_s [%sexp (Result.is_error (explain [ eligible ] []) : bool)];
   List.iter
     [ explain [] []

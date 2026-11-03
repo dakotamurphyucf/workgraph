@@ -793,6 +793,132 @@ let completion_view t (ticket : Ticket.t) : Planning_ticket_wire.Completion.t =
   }
 ;;
 
+module Allocation_capture = struct
+  type state = t
+
+  module Entry = struct
+    type t =
+      { ticket : Ticket.t
+      ; graph_reasons : Eligibility_reason.t list
+      ; allocation_reasons : Allocation_admission_reason.t list
+      ; parent_filtered : bool
+      }
+
+    let eligible t =
+      List.is_empty t.graph_reasons
+      && List.is_empty t.allocation_reasons
+      && not t.parent_filtered
+    ;;
+  end
+
+  type t =
+    { revision : int
+    ; entries : Entry.t list
+    ; limits : Allocation.Budget_limit.t list
+    }
+
+  let entries t = t.entries
+
+  let eligible_tickets t =
+    List.filter_map t.entries ~f:(fun e ->
+      if Entry.eligible e then Some e.ticket else None)
+    |> sort_ready
+  ;;
+
+  let selected t = List.hd (eligible_tickets t)
+
+  let registered state run =
+    match Agent_run.get_run state.agent_runs run with
+    | Some record -> record
+    | None -> Json.fail Not_found "run is not registered"
+  ;;
+
+  let assess_entry state ~registered ~leaf_only ~now_unix_ms ticket =
+    let allocation_reasons =
+      List.concat_map [ Acquisition.Intent.Claim; Attempt ] ~f:(fun intent ->
+        Acquisition.assess
+          state
+          ~ticket
+          ~actor:registered.Agent_run.Record.actor
+          ~run:(Some registered.id)
+          ~intent)
+      |> List.fold ~init:[] ~f:(fun retained reason ->
+        if List.mem retained reason ~equal:Allocation_admission_reason.equal
+        then retained
+        else retained @ [ reason ])
+    in
+    { Entry.ticket
+    ; graph_reasons = eligibility_reasons ~run:registered.id ?now_unix_ms state ticket
+    ; allocation_reasons
+    ; parent_filtered =
+        leaf_only && not (List.is_empty (unfinished_children state ticket))
+    }
+  ;;
+
+  let assess_ticket state ~run ~now_unix_ms ticket =
+    Json.decode (fun () ->
+      assess_entry
+        state
+        ~registered:(registered state run)
+        ~leaf_only:false
+        ~now_unix_ms
+        ticket)
+  ;;
+
+  let create state ~run ~project ~leaf_only ~now_unix_ms =
+    Json.decode (fun () ->
+      let registered = registered state run in
+      Option.iter project ~f:(fun id -> ignore (find_project state id : Project.t));
+      let entries =
+        Map.data state.tickets
+        |> List.filter ~f:(fun ticket ->
+          Option.for_all project ~f:(fun id ->
+            Option.exists ticket.Ticket.project ~f:(Id.Project.equal id)))
+        |> List.map ~f:(assess_entry state ~registered ~leaf_only ~now_unix_ms)
+      in
+      { revision = state.revision
+      ; entries
+      ; limits =
+          Agent_run_policy.allocation_limits state.policies run ~runs:state.agent_runs
+      })
+  ;;
+
+  let explanation t =
+    let candidates =
+      List.map t.entries ~f:(fun entry ->
+        let open Allocation.Explanation.Exclusion in
+        let graph =
+          List.map entry.Entry.graph_reasons ~f:(function
+            | Eligibility_reason.Archived_scope -> Archived
+            | Status Done -> Completed
+            | Status Canceled -> Canceled
+            | Claimed _ -> Claimed
+            | Status (Backlog | Todo | In_progress)
+            | Held _ | Prerequisite _ | Coordination _ | Coordination_clock_required _ ->
+              Blocked)
+        in
+        let allocation =
+          List.filter_map entry.allocation_reasons ~f:(function
+            | Allocation_admission_reason.Terminal_run _ -> Some Run_terminal
+            | Missing_capability _ -> Some Missing_capability
+            | Pool_full _ -> Some Pool_full
+            | Budget_exhausted _ -> None
+            | Run_required | Unregistered_run _ | Run_actor_mismatch _ -> Some Blocked)
+        in
+        { Allocation.Explanation.Candidate.ticket = entry.ticket.id
+        ; exclusions =
+            (graph
+             @ allocation
+             @ if entry.parent_filtered then [ Parent_filtered ] else [])
+        })
+    in
+    Allocation.Explanation.create
+      ~captured_workspace_revision:t.revision
+      ~candidates
+      ~limits:t.limits
+  ;;
+end
+
 let completion_readiness t ticket =
   public_view_json
     "planning completion readiness"
@@ -852,6 +978,17 @@ let readiness_view ?run ?now_unix_ms t (ticket : Ticket.t)
     | Coordination_clock_required value -> Observation_time_required value
   in
   let reasons = List.map (eligibility_reasons ?run ?now_unix_ms t ticket) ~f:reason in
+  let allocation_reasons =
+    Option.value_map run ~default:[] ~f:(fun run ->
+      let entry =
+        match Allocation_capture.assess_ticket t ~run ~now_unix_ms ticket with
+        | Ok entry -> entry
+        | Error problem -> raise (Json.Decode_error problem)
+      in
+      List.map entry.allocation_reasons ~f:(fun reason ->
+        Planning_ticket_wire.Readiness.Reason.Allocation reason))
+  in
+  let reasons = reasons @ allocation_reasons in
   { ready = List.is_empty reasons
   ; reasons
   ; reason_count = List.length reasons

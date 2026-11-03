@@ -674,6 +674,7 @@ module Readiness = struct
       | Prerequisite of Id.Ticket.t
       | Coordination of Agent_run.Start_blocker.t
       | Observation_time_required of Path_scope.t
+      | Allocation of Allocation_admission_reason.t
 
     let wrong () = Json.fail Invalid_argument "wrong readiness reason constructor"
 
@@ -820,6 +821,16 @@ module Readiness = struct
           | _ -> wrong ())
     ;;
 
+    let allocation =
+      branch
+        "allocation"
+        (Fields.required "reason" Problem_wire.allocation_reason)
+        ~decode:(fun reason -> Allocation reason)
+        ~encode:(function
+          | Allocation reason -> reason
+          | _ -> wrong ())
+    ;;
+
     let codec =
       Api_codec.tagged
         ~discriminator:"kind"
@@ -835,6 +846,7 @@ module Readiness = struct
           ; "ownership_mode", ownership_mode
           ; "external_condition", external_condition
           ; "observation_time_required", observation
+          ; "allocation", allocation
           ]
         ~select:(function
           | Archived_scope -> "archived_scope"
@@ -843,6 +855,7 @@ module Readiness = struct
           | Claimed _ -> "claimed"
           | Prerequisite _ -> "prerequisite"
           | Observation_time_required _ -> "observation_time_required"
+          | Allocation _ -> "allocation"
           | Coordination (Run_required _) -> "run_required"
           | Coordination (Path_conflict _) -> "path_conflict"
           | Coordination (Expired_required_ownership _) -> "expired_required_ownership"

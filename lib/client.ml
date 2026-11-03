@@ -59,12 +59,7 @@ let create ~net ~clock ~socket ~timeout_seconds =
 let execute t request = t.execute request
 let invoke t request = Result.bind (execute t request) ~f:Protocol.result
 
-module Commit = struct
-  type t =
-    { workspace_revision : Api_position.Workspace_revision.t
-    ; result : Jsonaf.t
-    }
-end
+module Commit = Mutation_acknowledgement.Commit
 
 let mutate t ?run ~workspace ~actor ~mutation_id command =
   Json.decode (fun () ->
@@ -79,20 +74,9 @@ let mutate t ?run ~workspace ~actor ~mutation_id command =
       Protocol.Request.create ~id:"client-mutation" ~method_ ~params |> Disk.unwrap
     in
     let response = invoke t request |> Disk.unwrap in
-    match
-      Json.decode (fun () ->
-        let response = Api_response.of_json response |> Disk.unwrap in
-        let meta = Api_response.meta response in
-        Api_response.require_durable response |> Disk.unwrap;
-        { Commit.workspace_revision =
-            Api_codec.decode
-              Api_position.Workspace_revision.codec
-              (Json.field meta "workspace_revision")
-            |> Disk.unwrap
-        ; result = Api_response.data response
-        })
-    with
-    | Ok value -> value
+    let decoded = Json.decode (fun () -> Api_response.of_json response |> Disk.unwrap) in
+    match decoded with
+    | Ok response -> Mutation_acknowledgement.of_response response ~method_ |> Disk.unwrap
     | Error error ->
       Json.fail Outcome_unknown ("invalid mutation acknowledgement: " ^ error.message))
 ;;

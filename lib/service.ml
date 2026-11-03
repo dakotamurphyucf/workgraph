@@ -1524,8 +1524,8 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  (Time_ns.Span.of_sec (Eio.Time.now (Eio.Stdenv.clock env)))
                |> Time_ns.to_string_utc
              in
-             let prepared =
-               State.prepare
+             let outcome =
+               State.prepare_submission
                  value.state
                  ?run
                  ~now_unix_ms:
@@ -1535,19 +1535,30 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  ~timestamp
                |> Disk.unwrap
              in
-             let response =
-               worker (fun () -> Store.commit value.store ~prepared ~key ~request_hash)
-               |> Disk.unwrap
-             in
-             loaded
-             := Map.set
-                  !loaded
-                  ~key:id
-                  ~data:
-                    (loaded_capture ~store:value.store ~state:(State.candidate prepared));
-             Option.iter upload ~f:(fun id ->
-               worker (fun () -> Store.forget_upload value.store ~id));
-             response))
+             (match outcome with
+              | State.Submission.Observed observation ->
+                Json.obj
+                  [ ( "workspace_revision"
+                    , Json.int (State.Observation.workspace_revision observation) )
+                  ; "durable", `False
+                  ; "result", State.Observation.result observation
+                  ]
+              | Prepared prepared ->
+                let response =
+                  worker (fun () -> Store.commit value.store ~prepared ~key ~request_hash)
+                  |> Disk.unwrap
+                in
+                loaded
+                := Map.set
+                     !loaded
+                     ~key:id
+                     ~data:
+                       (loaded_capture
+                          ~store:value.store
+                          ~state:(State.candidate prepared));
+                Option.iter upload ~f:(fun id ->
+                  worker (fun () -> Store.forget_upload value.store ~id));
+                response)))
     in
     Eio.Fiber.fork_daemon ~sw (fun () ->
       let rec loop () =

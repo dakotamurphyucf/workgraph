@@ -26,6 +26,11 @@ module Query : sig
       | Fact
   end
 
+  (** Ready/readiness run selectors are explicit, never context defaults. A
+      selected registered run supplies its recorded actor and full claim plus
+      new-attempt admission; unknown runs reject and terminal runs have no work.
+      Omission preserves the graph view. [leaf_only] excludes parents with
+      unfinished children, and never claims or reserves anything. *)
   type t =
     | Activity_since of
         { after : int
@@ -45,8 +50,15 @@ module Query : sig
     | Project_brief of Id.Project.t
     | Ticket_context of Id.Ticket.t
     | Ticket_list of Filter.t
-    | Ticket_ready of Filter.t
-    | Ticket_readiness of Id.Ticket.t
+    | Ticket_ready of
+        { filter : Filter.t
+        ; target_run_id : Id.Run.t option
+        ; leaf_only : bool
+        }
+    | Ticket_readiness of
+        { ticket_id : Id.Ticket.t
+        ; target_run_id : Id.Run.t option
+        }
     | Ticket_blockers of Id.Ticket.t
     | Ticket_resolve of string
     | Handoff_get of Id.Ticket.t

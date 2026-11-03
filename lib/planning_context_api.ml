@@ -128,8 +128,15 @@ module Query = struct
     | Project_brief of Id.Project.t
     | Ticket_context of Id.Ticket.t
     | Ticket_list of Filter.t
-    | Ticket_ready of Filter.t
-    | Ticket_readiness of Id.Ticket.t
+    | Ticket_ready of
+        { filter : Filter.t
+        ; target_run_id : Id.Run.t option
+        ; leaf_only : bool
+        }
+    | Ticket_readiness of
+        { ticket_id : Id.Ticket.t
+        ; target_run_id : Id.Run.t option
+        }
     | Ticket_blockers of Id.Ticket.t
     | Ticket_resolve of string
     | Handoff_get of Id.Ticket.t
@@ -237,18 +244,28 @@ module Query = struct
     ; ( "ticket.ready"
       , make
           ~options:Options.fields
-          Filter.fields
-          (fun value -> Ticket_ready value)
+          (Filter.fields
+           ++ Fields.optional "target_run_id" (id Id.Run.of_string Id.Run.to_string)
+           ++ Fields.optional "leaf_only" Api_codec.boolean)
+          (fun ((filter, target_run_id), leaf_only) ->
+             Ticket_ready
+               { filter
+               ; target_run_id
+               ; leaf_only = Option.value leaf_only ~default:false
+               })
           (function
-            | Ticket_ready value -> value
+            | Ticket_ready { filter; target_run_id; leaf_only } ->
+              (filter, target_run_id), Some leaf_only
             | _ -> wrong ())
       , Api_codec.as_json (Planning_wire.Page.codec Planning_ticket_wire.Ticket.codec) )
     ; ( "ticket.readiness"
       , make
-          ticket_field
-          (fun value -> Ticket_readiness value)
+          (ticket_field
+           ++ Fields.optional "target_run_id" (id Id.Run.of_string Id.Run.to_string))
+          (fun (ticket_id, target_run_id) ->
+             Ticket_readiness { ticket_id; target_run_id })
           (function
-            | Ticket_readiness value -> value
+            | Ticket_readiness { ticket_id; target_run_id } -> ticket_id, target_run_id
             | _ -> wrong ())
       , Api_codec.as_json Planning_ticket_wire.Readiness.codec )
     ; ( "ticket.blockers"

@@ -121,32 +121,58 @@ module Budget_limit = struct
 end
 
 module Explanation = struct
-  module Kind = struct
+  module Exclusion = struct
     type t =
-      | Not_ready
+      | Completed
+      | Canceled
+      | Archived
+      | Blocked
       | Claimed
       | Missing_capability
       | Pool_full
       | Parent_filtered
+      | Run_terminal
     [@@deriving equal]
 
-    let all = [ Not_ready; Claimed; Missing_capability; Pool_full; Parent_filtered ]
+    let all =
+      [ Completed
+      ; Canceled
+      ; Archived
+      ; Blocked
+      ; Claimed
+      ; Missing_capability
+      ; Pool_full
+      ; Parent_filtered
+      ; Run_terminal
+      ]
+    ;;
 
     let codec =
       Api_codec.enum
-        [ "not_ready", Not_ready
+        [ "completed", Completed
+        ; "canceled", Canceled
+        ; "archived", Archived
+        ; "blocked", Blocked
         ; "claimed", Claimed
         ; "missing_capability", Missing_capability
         ; "pool_full", Pool_full
         ; "parent_filtered", Parent_filtered
+        ; "run_terminal", Run_terminal
         ]
         ~equal
     ;;
   end
 
+  module Candidate = struct
+    type t =
+      { ticket : Id.Ticket.t
+      ; exclusions : Exclusion.t list
+      }
+  end
+
   module Reason_count = struct
     type t =
-      { kind : Kind.t
+      { kind : Exclusion.t
       ; count : int
       ; example_ticket_ids : Id.Ticket.t list
       ; omitted_examples : int
@@ -165,7 +191,7 @@ module Explanation = struct
       in
       Api_codec.map
         (Api_codec.object_
-           (F.required "kind" Kind.codec
+           (F.required "kind" Exclusion.codec
             ++ F.required "count" counter
             ++ F.required "example_ticket_ids" (Api_codec.list id ~max_items:5)
             ++ F.required "omitted_examples" counter))
@@ -174,7 +200,7 @@ module Explanation = struct
             count < 1
             || List.length example_ticket_ids > count
             || omitted_examples <> count - List.length example_ticket_ids
-            || List.contains_dup example_ticket_ids ~compare:Id.Ticket.compare
+            || not (List.is_sorted_strictly example_ticket_ids ~compare:Id.Ticket.compare)
           then
             Error
               (Problem.create Invalid_argument "inconsistent allocation reason counts")
@@ -199,7 +225,7 @@ module Explanation = struct
       (Api_codec.object_
          (F.required "captured_workspace_revision" counter
           ++ F.required "candidate_count" counter
-          ++ F.required "reasons" (Api_codec.list Reason_count.codec ~max_items:5)
+          ++ F.required "reasons" (Api_codec.list Reason_count.codec ~max_items:9)
           ++ F.required "run_limits" (Api_codec.list Budget_limit.codec ~max_items:2)))
       ~decode:
         (fun
@@ -207,8 +233,8 @@ module Explanation = struct
         if
           List.exists reasons ~f:(fun r -> r.Reason_count.count > candidate_count)
           || (candidate_count > 0 && List.is_empty reasons && List.is_empty run_limits)
-          || List.exists Kind.all ~f:(fun k ->
-            List.count reasons ~f:(fun r -> Kind.equal k r.Reason_count.kind) > 1)
+          || List.exists Exclusion.all ~f:(fun k ->
+            List.count reasons ~f:(fun r -> Exclusion.equal k r.Reason_count.kind) > 1)
           || List.exists [ Budget_limit.Attempts; Active_attempts ] ~f:(fun k ->
             List.count run_limits ~f:(fun r ->
               Budget_limit.equal_kind k r.Budget_limit.kind)
@@ -222,65 +248,53 @@ module Explanation = struct
          requested project."
   ;;
 
-  let create
-        ~captured_workspace_revision
-        ~candidates
-        ~capabilities
-        ~parent_filtered
-        ~limits
-    =
-    Result.bind
-      (Json.decode (fun () -> validate_candidates_exn candidates))
-      ~f:(fun () ->
-        let assessed =
-          List.map candidates ~f:(fun candidate ->
-            let reasons =
-              List.map (eligibility candidate ~capabilities) ~f:(function
-                | Reason.Not_ready -> Kind.Not_ready
-                | Claimed -> Claimed
-                | Missing_capability _ -> Missing_capability
-                | Pool_full _ -> Pool_full)
-            in
-            ( candidate.Candidate.ticket
-            , if parent_filtered candidate.ticket
-              then Kind.Parent_filtered :: reasons
-              else reasons ))
-        in
-        if
-          List.is_empty limits
-          && List.exists assessed ~f:(fun (_, reasons) -> List.is_empty reasons)
-        then
-          Error
-            (Problem.create
-               Invalid_argument
-               "allocation explanation contains eligible work")
-        else (
-          let reasons =
-            List.filter_map Kind.all ~f:(fun kind ->
-              let ids =
-                List.filter_map assessed ~f:(fun (id, kinds) ->
-                  if List.mem kinds kind ~equal:Kind.equal then Some id else None)
-                |> List.sort ~compare:Id.Ticket.compare
-              in
-              match ids with
-              | [] -> None
-              | _ ->
-                Some
-                  { Reason_count.kind
-                  ; count = List.length ids
-                  ; example_ticket_ids = List.take ids 5
-                  ; omitted_examples = Int.max 0 (List.length ids - 5)
-                  })
+  let create ~captured_workspace_revision ~candidates ~limits =
+    Json.decode (fun () ->
+      if
+        List.contains_dup
+          (List.map candidates ~f:(fun c -> c.Candidate.ticket))
+          ~compare:Id.Ticket.compare
+      then Json.fail Invalid_argument "duplicate allocation explanation candidate";
+      if
+        List.is_empty limits
+        && List.exists candidates ~f:(fun c -> List.is_empty c.Candidate.exclusions)
+      then Json.fail Invalid_argument "allocation explanation contains eligible work";
+      let reasons =
+        List.filter_map Exclusion.all ~f:(fun kind ->
+          let ids =
+            List.filter_map candidates ~f:(fun c ->
+              if List.mem c.Candidate.exclusions kind ~equal:Exclusion.equal
+              then Some c.ticket
+              else None)
+            |> List.sort ~compare:Id.Ticket.compare
           in
-          let t =
-            { captured_workspace_revision
-            ; candidate_count = List.length candidates
-            ; reasons
-            ; run_limits = limits
-            }
-          in
-          Result.map (Api_codec.encode codec t) ~f:(fun _ -> t)))
+          match ids with
+          | [] -> None
+          | _ ->
+            Some
+              { Reason_count.kind
+              ; count = List.length ids
+              ; example_ticket_ids = List.take ids 5
+              ; omitted_examples = Int.max 0 (List.length ids - 5)
+              })
+      in
+      let t =
+        { captured_workspace_revision
+        ; candidate_count = List.length candidates
+        ; reasons
+        ; run_limits = limits
+        }
+      in
+      ignore
+        (Api_codec.encode codec t
+         |> function
+         | Ok x -> x
+         | Error p -> raise (Json.Decode_error p)
+         : Jsonaf.t);
+      t)
   ;;
+
+  let captured_workspace_revision t = t.captured_workspace_revision
 
   let to_json t =
     match Api_codec.encode codec t with

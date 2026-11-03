@@ -292,6 +292,49 @@ val ready : ?run:Id.Run.t -> ?now_unix_ms:int64 -> t -> Ticket.t -> bool
 val readiness : ?run:Id.Run.t -> ?now_unix_ms:int64 -> t -> Ticket.t -> Jsonaf.t
 val sort_ready : Ticket.t list -> Ticket.t list
 val unfinished_children : t -> Ticket.t -> Ticket.t list
+
+module Allocation_capture : sig
+  type state = t
+
+  module Entry : sig
+    type t =
+      { ticket : Ticket.t
+      ; graph_reasons : Eligibility_reason.t list
+      ; allocation_reasons : Allocation_admission_reason.t list
+      ; parent_filtered : bool
+      }
+
+    val eligible : t -> bool
+  end
+
+  type t
+
+  (** Registered run actor and immutable graph/coordination ownership are captured
+      together. Both claim and new-attempt admission must pass. Terminal runs
+      produce typed exclusion reasons; unknown runs/scopes return [Not_found]. *)
+  val create
+    :  state
+    -> run:Id.Run.t
+    -> project:Id.Project.t option
+    -> leaf_only:bool
+    -> now_unix_ms:int64 option
+    -> (t, Problem.t) Result.t
+
+  val assess_ticket
+    :  state
+    -> run:Id.Run.t
+    -> now_unix_ms:int64 option
+    -> Ticket.t
+    -> (Entry.t, Problem.t) Result.t
+
+  val entries : t -> Entry.t list
+  val eligible_tickets : t -> Ticket.t list
+  val selected : t -> Ticket.t option
+
+  (** Only valid for an empty capture; counts and examples are exact/bounded. *)
+  val explanation : t -> (Allocation.Explanation.t, Problem.t) Result.t
+end
+
 val completion_readiness : t -> Ticket.t -> Jsonaf.t
 
 (** Check completion conditions against this immutable state. A [Blocked] failure

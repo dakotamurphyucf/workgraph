@@ -9,6 +9,24 @@ type t =
   ; blobs : (string * string) list
   }
 
+module Observation = struct
+  type t =
+    { workspace_revision : int
+    ; result : Jsonaf.t
+    }
+
+  let workspace_revision t = t.workspace_revision
+  let result t = t.result
+end
+
+module Submission = struct
+  type prepared = t
+
+  type t =
+    | Prepared of prepared
+    | Observed of Observation.t
+end
+
 let candidate t = t.candidate
 let events t = t.events
 let result t = t.result
@@ -1094,65 +1112,27 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
         | None -> Json.fail Not_found "run is not registered"
       in
       require
-        (Id.Actor.equal registered.actor actor
-         && not (Agent_run.Status.terminal registered.status))
+        (Id.Actor.equal registered.actor actor)
         Conflict
-        "claim-next run actor differs or run is terminal";
-      Option.iter project ~f:(fun id -> ignore (find_project t id : Project.t));
+        "claim-next run actor differs";
       require
         (Option.is_none (Agent_run.get_attempt t.agent_runs attempt))
         Conflict
         "attempt ID already exists";
-      let limits =
-        Agent_run_policy.allocation_limits t.policies target_run ~runs:t.agent_runs
+      let capture =
+        Allocation_capture.create t ~run:target_run ~project ~leaf_only ~now_unix_ms
+        |> unwrap_domain
       in
-      let parent_filtered id =
-        leaf_only && not (List.is_empty (unfinished_children t (find_ticket t id)))
-      in
-      let allocated_tickets = Acquisition.allocated_tickets t in
-      let candidates =
-        Map.data t.tickets
-        |> List.filter ~f:(fun ticket ->
-          Option.value_map project ~default:true ~f:(fun id ->
-            Option.value_map ticket.Ticket.project ~default:false ~f:(Id.Project.equal id)))
-        |> List.map ~f:(fun ticket ->
-          Agent_run.allocation_candidate
-            t.agent_runs
-            ~allocated_tickets
-            ~ticket:ticket.Ticket.id
-            ~priority:ticket.priority
-            ~creation_sequence:ticket.created_order
-            ~ready:(ready ?now_unix_ms ~run:target_run t ticket)
-            ~available:(Option.is_none ticket.claim))
-      in
-      (match
-         unwrap_domain
-           (Allocation.choose
-              (List.map candidates ~f:(fun c ->
-                 { c with
-                   Allocation.Candidate.ready = c.ready && not (parent_filtered c.ticket)
-                 }))
-              ~capabilities:registered.capabilities)
-         |> fun choice -> if List.is_empty limits then choice else Allocation.Empty
-       with
-       | Empty ->
-         let explanation =
-           Allocation.Explanation.create
-             ~captured_workspace_revision:t.revision
-             ~candidates
-             ~capabilities:registered.capabilities
-             ~parent_filtered
-             ~limits
-           |> unwrap_domain
-         in
+      (match Allocation_capture.selected capture with
+       | None ->
+         let explanation = Allocation_capture.explanation capture |> unwrap_domain in
          ( [ Event.Allocation_empty { run = target_run; attempt } ]
          , Json.obj
              [ "kind", Json.string "empty"
              ; "explanation", Allocation.Explanation.to_json explanation
              ]
          , [] )
-       | Selected selected ->
-         let ticket = find_ticket t selected.ticket in
+       | Some ticket ->
          let claimed, claim_events, claim_result, _ =
            stage
              t
@@ -2289,9 +2269,8 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
   staged, List.rev resolved, result, blobs
 ;;
 
-let prepare t ?run ?now_unix_ms command ~actor ~timestamp =
+let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty =
   Json.decode (fun () ->
-    require (t.revision < 100_000) Invalid_argument "MVP transaction limit is 100000";
     let commands, is_batch =
       match command with
       | Domain_command.Batch commands -> commands, true
@@ -2371,111 +2350,138 @@ let prepare t ?run ?now_unix_ms command ~actor ~timestamp =
           , List.rev_append new_blobs blobs
           , operations + count ))
     in
-    validate ~previous:t staged;
-    List.iter changes ~f:(function
-      | Event.Agent_run_changed { update = Agent_run_event.Update.Attempt_put attempt; _ }
-        when Attempt.State.equal attempt.state Completed ->
-        check_complete staged (find_ticket staged attempt.ticket);
-        unwrap_domain
-          (Evidence.ensure_attempt_can_complete
-             staged.evidence
-             ~ticket_context:(evidence_ticket_context staged)
-             ~attempt:attempt.id
-             ~ticket:attempt.ticket)
-      | _ -> ());
-    (* Later operations must not invalidate a completion performed in this batch. *)
-    List.iter commands ~f:(function
-      | Domain_command.Lifecycle (Ticket_lifecycle.Command.Finish { ticket_id = id; _ })
-      | Domain_command.Ticket_complete { id; _ }
-      | Ticket_update { id; status = Some Done; _ }
-      | Ticket_metadata { id; status_id = Some (Some _); _ } ->
-        let ticket = find_ticket staged id in
-        if Domain_command.Status.equal ticket.status Done
-        then check_complete staged ticket
-      | Agent_run
-          (Agent_run.Command.Attempt_finish { id; state = Attempt.State.Completed; _ }) ->
-        let attempt =
-          match Agent_run.get_attempt staged.agent_runs id with
-          | Some a -> a
-          | None -> Json.fail Not_found "completed attempt not found"
-        in
-        unwrap_domain
-          (Evidence.ensure_attempt_can_complete
-             staged.evidence
-             ~ticket_context:(evidence_ticket_context staged)
-             ~attempt:attempt.id
-             ~ticket:attempt.ticket)
-      | Batch _
-      | Message_send _
-      | Communication _
-      | Agent_run _
-      | Evidence _
-      | Policy _
-      | Template_instantiate _
-      | Claim_next _
-      | Thread_reply _
-      | Facts _
-      | Lifecycle _
-      | Settings_put _
-      | Workspace_update _
-      | Project_create _
-      | Project_update _
-      | Milestone_create _
-      | Milestone_update _
-      | Milestone_schedule _
-      | Ticket_hold _
-      | Ticket_reassign _
-      | Dependency_waive _
-      | Ticket_move _
-      | Ticket_archive _
-      | Ticket_create _
-      | Ticket_update _
-      | Ticket_metadata _
-      | Dependency_add _
-      | Dependency_remove _
-      | Ticket_claim _
-      | Ticket_claim_with_lease _
-      | Ticket_renew_lease _
-      | Ticket_release _
-      | Comment_edit _
-      | Ticket_progress _
-      | Comment_add _
-      | Handoff_set _
-      | Resource_publish _
-      | Resource_metadata _
-      | Resource_link _
-      | Related_link _
-      | Resource_put _ -> ());
-    let events =
-      Json.obj
-        [ "version", Current_format.value Planning_events
-        ; "revision", Json.int (t.revision + 1)
-        ; "actor", Id.Actor.jsonaf_of_t actor
-        ; "timestamp", Json.string timestamp
-        ; "changes", `Array (List.map (List.rev changes) ~f:Event.jsonaf_of_t)
-        ]
-    in
-    let events =
-      match events, run with
-      | `Object fields, Some run -> Json.obj (("run_id", Id.Run.jsonaf_of_t run) :: fields)
-      | _, None -> events
-      | _, Some _ -> assert false
-    in
-    let candidate =
-      match replay t events with
-      | Ok state -> state
-      | Error error -> raise (Json.Decode_error error)
-    in
-    let result =
-      if is_batch
-      then
-        Transaction_api.result
-          (List.map2_exn commands (List.rev results) ~f:(fun command data ->
-             let method_, _ = unwrap_domain (Wire_command.encode command) in
-             { Transaction_api.Result_item.method_; data }))
-      else List.hd_exn results
-    in
-    { candidate; events; result; blobs = List.rev blobs })
+    if
+      observe_empty
+      && (not is_batch)
+      &&
+      match changes with
+      | [ Event.Allocation_empty _ ] -> true
+      | _ -> false
+    then
+      Submission.Observed
+        { Observation.workspace_revision = t.revision; result = List.hd_exn results }
+    else (
+      require (t.revision < 100_000) Invalid_argument "MVP transaction limit is 100000";
+      validate ~previous:t staged;
+      List.iter changes ~f:(function
+        | Event.Agent_run_changed
+            { update = Agent_run_event.Update.Attempt_put attempt; _ }
+          when Attempt.State.equal attempt.state Completed ->
+          check_complete staged (find_ticket staged attempt.ticket);
+          unwrap_domain
+            (Evidence.ensure_attempt_can_complete
+               staged.evidence
+               ~ticket_context:(evidence_ticket_context staged)
+               ~attempt:attempt.id
+               ~ticket:attempt.ticket)
+        | _ -> ());
+      (* Later operations must not invalidate a completion performed in this batch. *)
+      List.iter commands ~f:(function
+        | Domain_command.Lifecycle (Ticket_lifecycle.Command.Finish { ticket_id = id; _ })
+        | Domain_command.Ticket_complete { id; _ }
+        | Ticket_update { id; status = Some Done; _ }
+        | Ticket_metadata { id; status_id = Some (Some _); _ } ->
+          let ticket = find_ticket staged id in
+          if Domain_command.Status.equal ticket.status Done
+          then check_complete staged ticket
+        | Agent_run
+            (Agent_run.Command.Attempt_finish { id; state = Attempt.State.Completed; _ })
+          ->
+          let attempt =
+            match Agent_run.get_attempt staged.agent_runs id with
+            | Some a -> a
+            | None -> Json.fail Not_found "completed attempt not found"
+          in
+          unwrap_domain
+            (Evidence.ensure_attempt_can_complete
+               staged.evidence
+               ~ticket_context:(evidence_ticket_context staged)
+               ~attempt:attempt.id
+               ~ticket:attempt.ticket)
+        | Batch _
+        | Message_send _
+        | Communication _
+        | Agent_run _
+        | Evidence _
+        | Policy _
+        | Template_instantiate _
+        | Claim_next _
+        | Thread_reply _
+        | Facts _
+        | Lifecycle _
+        | Settings_put _
+        | Workspace_update _
+        | Project_create _
+        | Project_update _
+        | Milestone_create _
+        | Milestone_update _
+        | Milestone_schedule _
+        | Ticket_hold _
+        | Ticket_reassign _
+        | Dependency_waive _
+        | Ticket_move _
+        | Ticket_archive _
+        | Ticket_create _
+        | Ticket_update _
+        | Ticket_metadata _
+        | Dependency_add _
+        | Dependency_remove _
+        | Ticket_claim _
+        | Ticket_claim_with_lease _
+        | Ticket_renew_lease _
+        | Ticket_release _
+        | Comment_edit _
+        | Ticket_progress _
+        | Comment_add _
+        | Handoff_set _
+        | Resource_publish _
+        | Resource_metadata _
+        | Resource_link _
+        | Related_link _
+        | Resource_put _ -> ());
+      let events =
+        Json.obj
+          [ "version", Current_format.value Planning_events
+          ; "revision", Json.int (t.revision + 1)
+          ; "actor", Id.Actor.jsonaf_of_t actor
+          ; "timestamp", Json.string timestamp
+          ; "changes", `Array (List.map (List.rev changes) ~f:Event.jsonaf_of_t)
+          ]
+      in
+      let events =
+        match events, run with
+        | `Object fields, Some run ->
+          Json.obj (("run_id", Id.Run.jsonaf_of_t run) :: fields)
+        | _, None -> events
+        | _, Some _ -> assert false
+      in
+      let candidate =
+        match replay t events with
+        | Ok state -> state
+        | Error error -> raise (Json.Decode_error error)
+      in
+      let result =
+        if is_batch
+        then
+          Transaction_api.result
+            (List.map2_exn commands (List.rev results) ~f:(fun command data ->
+               let method_, _ = unwrap_domain (Wire_command.encode command) in
+               { Transaction_api.Result_item.method_; data }))
+        else List.hd_exn results
+      in
+      Submission.Prepared { candidate; events; result; blobs = List.rev blobs }))
+;;
+
+let prepare t ?run ?now_unix_ms command ~actor ~timestamp =
+  Result.map
+    (prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty:false)
+    ~f:(function
+    | Submission.Prepared prepared -> prepared
+    | Observed _ -> assert false)
+;;
+
+let prepare_submission t ?run ?now_unix_ms command ~actor ~timestamp =
+  prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty:true
 ;;
 
 let required_blobs prepared =

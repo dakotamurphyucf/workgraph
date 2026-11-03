@@ -157,6 +157,7 @@ module Readiness : sig
       | Prerequisite of Id.Ticket.t
       | Coordination of Agent_run.Start_blocker.t
       | Observation_time_required of Path_scope.t
+      | Allocation of Allocation_admission_reason.t
 
     val codec : t Api_codec.t
   end

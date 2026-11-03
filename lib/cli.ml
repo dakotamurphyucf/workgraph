@@ -426,7 +426,13 @@ let run ~env arguments =
     (match response with
      | Success value when needs_mutation_id request && not !incomplete_upload ->
        let envelope = Api_response.of_json value |> Disk.unwrap in
-       Api_response.require_durable envelope |> Disk.unwrap
+       if String.equal (Protocol.Request.method_ request) "ticket.claim_next"
+       then
+         ignore
+           (Mutation_acknowledgement.of_response envelope ~method_:"ticket.claim_next"
+            |> Disk.unwrap
+            : Mutation_acknowledgement.t)
+       else Api_response.require_durable envelope |> Disk.unwrap
      | Success _ | Failure _ -> ());
     if raw_download
     then (

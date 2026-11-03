@@ -1,6 +1,9 @@
 type t = Planning_state.t
 type prepared = Planning_prepare.t
 
+module Observation = Planning_prepare.Observation
+module Submission = Planning_prepare.Submission
+
 let empty = Planning_state.empty
 let revision = Planning_state.revision
 let workspace = Planning_state.workspace
@@ -21,6 +24,7 @@ let validate_targets = Planning_state.validate_targets
 let validate_history = Planning_state.validate_history
 let validate_run_actor = Planning_state.validate_run_actor
 let prepare = Planning_prepare.prepare
+let prepare_submission = Planning_prepare.prepare_submission
 let candidate = Planning_prepare.candidate
 let events = Planning_prepare.events
 let result = Planning_prepare.result

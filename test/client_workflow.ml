@@ -49,6 +49,10 @@ let () =
         ]
     in
     let run = Id.Run.of_string "sdk-run" |> Disk.unwrap in
+    let committed = function
+      | Mutation_acknowledgement.Committed commit -> commit
+      | Observed_empty _ -> failwith "expected a committed write"
+    in
     let commit =
       Client.mutate
         client
@@ -58,6 +62,7 @@ let () =
         ~mutation_id:(mutation_id "batch")
         commands
       |> Disk.unwrap
+      |> committed
     in
     let duplicate =
       Client.mutate
@@ -68,6 +73,7 @@ let () =
         ~mutation_id:(mutation_id "batch")
         commands
       |> Disk.unwrap
+      |> committed
     in
     if
       not
@@ -94,6 +100,49 @@ let () =
       Json.field (Json.field context.data "ticket") "ticket_id" |> Id.Ticket.t_of_jsonaf
     in
     if not (Id.Ticket.equal id ticket) then failwith "query selected wrong ticket";
+    let mutate id method_ params =
+      let command =
+        Domain_command.decode ~method_ ~params:(Json.parse params |> Disk.unwrap)
+        |> Disk.unwrap
+      in
+      Client.mutate client ~run ~workspace ~actor ~mutation_id:(mutation_id id) command
+      |> Disk.unwrap
+    in
+    ignore
+      (mutate
+         "register-run"
+         "run.register"
+         {|{"target_run_id":"sdk-run","objective":"Typed work"}|}
+       |> committed
+       : Client.Commit.t);
+    ignore
+      (mutate
+         "empty-project"
+         "project.create"
+         {|{"project_id":"empty","title":"Empty scope"}|}
+       |> committed
+       : Client.Commit.t);
+    List.iter [ "observe"; "observe" ] ~f:(fun id ->
+      match
+        mutate
+          id
+          "ticket.claim_next"
+          {|{"target_run_id":"sdk-run","attempt_id":"empty","project_id":"empty"}|}
+      with
+      | Mutation_acknowledgement.Observed_empty observation ->
+        let capture =
+          Client.query client ~workspace ~parameters:[] Workspace_get |> Disk.unwrap
+        in
+        if
+          not
+            (Api_position.Workspace_revision.equal
+               capture.workspace_revision
+               observation.workspace_revision)
+        then failwith "typed observation advanced planning revision"
+      | Committed _ -> failwith "typed empty allocation was committed");
+    let context =
+      Client.query client ~workspace ~parameters:[] (Ticket_context ticket) |> Disk.unwrap
+    in
     let administer id command =
       Client.administrate client ~actor ~mutation_id:(mutation_id id) command
       |> Disk.unwrap

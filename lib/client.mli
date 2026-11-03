@@ -21,15 +21,13 @@ val execute : t -> Protocol.Request.t -> (Protocol.response, Problem.t) result
     contracts are enforced by typed helpers; generic callers inspect metadata. *)
 val invoke : t -> Protocol.Request.t -> (Jsonaf.t, Problem.t) result
 
-module Commit : sig
-  type t =
-    { workspace_revision : Api_position.Workspace_revision.t
-    ; result : Jsonaf.t
-    }
-end
+module Commit = Mutation_acknowledgement.Commit
 
 (** Encodes and validates every public domain command. The caller owns the stable
-    mutation ID; [Ok] requires a response explicitly marked durable. *)
+    mutation ID. A strictly acknowledged standalone empty claim-next is an
+    [Observed_empty] capture and may be reevaluated with identical bytes. All
+    selected allocations and other mutations require [Committed] publication.
+    Transport loss and malformed acknowledgements retain [Outcome_unknown]. *)
 val mutate
   :  t
   -> ?run:Id.Run.t
@@ -37,7 +35,7 @@ val mutate
   -> actor:Id.Actor.t
   -> mutation_id:Id.Mutation.t
   -> Domain_command.t
-  -> (Commit.t, Problem.t) result
+  -> (Mutation_acknowledgement.t, Problem.t) result
 
 module Administration : sig
   type t =

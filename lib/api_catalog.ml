@@ -121,11 +121,12 @@ let purpose name mode original =
     ; "ticket.context", "Read captured ticket context, ownership, links and handoff."
     ; "ticket.resolve", "Resolve a human display key to its canonical ticket ID."
     ; ( "ticket.claim_next"
-      , "Allocate eligible work and start an attempt under pool policy." )
+      , "Select eligible work atomically; standalone empty observations write nothing." )
     ; ( "ticket.ready"
-      , "List eligible ready tickets with optional parent and capability filters." )
+      , "List graph-ready tickets, or allocatable work for target_run_id under current \
+         admission." )
     ; ( "ticket.readiness"
-      , "Explain whether a ticket can start and identify unmet prerequisites." )
+      , "Explain graph readiness and optional target_run_id allocation admission." )
     ; "ticket.blockers", "Read the captured reasons blocking a ticket."
     ; ( "ticket.resume"
       , "Recover bounded recorded task context with exact historical sources." )

@@ -61,6 +61,30 @@ module Budget_limit : sig
 end
 
 module Explanation : sig
+  module Exclusion : sig
+    type t =
+      | Completed
+      | Canceled
+      | Archived
+      | Blocked
+      | Claimed
+      | Missing_capability
+      | Pool_full
+      | Parent_filtered
+      | Run_terminal
+    [@@deriving equal]
+  end
+
+  module Candidate : sig
+    (** Exact per-ticket assessment from the authoritative staged capture.
+        Empty exclusions are allowed only when an exhausted run limit explains
+        the empty allocation. Duplicate tickets reject; categories may overlap. *)
+    type t =
+      { ticket : Id.Ticket.t
+      ; exclusions : Exclusion.t list
+      }
+  end
+
   (** Bounded diagnosis of an empty allocation from the same immutable capture.
       Candidate reason counts may overlap; examples are at most five ticket IDs
       per reason, sorted by ID, with explicit omitted counts. No candidate values,
@@ -70,16 +94,17 @@ module Explanation : sig
   val create
     :  captured_workspace_revision:int
     -> candidates:Candidate.t list
-    -> capabilities:string list
-    -> parent_filtered:(Id.Ticket.t -> bool)
     -> limits:Budget_limit.t list
     -> (t, Problem.t) Result.t
 
   (** Includes scoped candidate count, captured revision, reason counts/examples,
       and exhausted run limits. An empty candidate set is explicitly count zero.
-      The enclosing durable receipt carries the later committed revision. *)
+      A standalone observation uses that same revision; an explicit transaction
+      receipt carries its later committed revision. Completed/canceled scopes
+      are distinct from current blocked or claimed work. *)
   val codec : t Api_codec.t
 
+  val captured_workspace_revision : t -> int
   val to_json : t -> Jsonaf.t
 end
 

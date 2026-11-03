@@ -578,9 +578,20 @@ let preconditions name mode request =
          revision. Values are at most 4096 canonical JSON bytes. Scope is explicit."
       ]
     | "ticket.claim_next" ->
-      [ "target_run_id must identify a registered live run owned by actor_id; run_id \
-         attribution must identify that same run."
+      [ "Only a registered live run owned by actor_id can receive work; run_id \
+         attribution must identify target_run_id. Terminal runs have no eligible work."
       ; "Supply a fresh attempt_id; context does not default target_run_id or attempt_id."
+      ; "Standalone empty: meta.durable=false at the unchanged planning revision; no \
+         attempt or receipt is consumed. Identical saved bytes reevaluate until a \
+         selection commits, then exact retries return that immutable receipt."
+      ; "Explicit transaction.apply batches remain durable, including empty allocations."
+      ]
+    | "ticket.ready" | "ticket.readiness" ->
+      [ "Optional target_run_id selects registered-run eligibility, including actor, \
+         capability, pool, attempt-budget and current coordination gates. Without it \
+         these retain graph-readiness semantics. Reads never claim work."
+      ; "ticket.ready leaf_only excludes parents with unfinished children. Inspect \
+         ticket.readiness with the same target_run_id for typed exclusion reasons."
       ]
     | "ticket.finish" ->
       [ "Supply nonblank completion evidence and satisfy configured current acceptance \
@@ -622,8 +633,8 @@ let result_paths = function
     ".result.data.items[].ticket_id; .result.data.next_offset; \
      .result.meta.workspace_revision"
   | "ticket.claim_next" ->
-    ".result.data.kind; when claimed: .result.data.claim.{ticket_id,token}; \
-     .result.data.attempt"
+    ".result.data.kind; when selected: .result.data.claim.{ticket_id,token} and \
+     .result.data.attempt; when empty: .result.data.explanation and meta.durable=false"
   | "resource.get" ->
     ".result.data.metadata.title; .result.data.revision (entity guard); \
      .result.data.current_version.{revision,digest} (content pin)"

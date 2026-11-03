@@ -6,6 +6,19 @@ type t
 
 type prepared
 
+module Observation : sig
+  type t
+
+  val workspace_revision : t -> int
+  val result : t -> Jsonaf.t
+end
+
+module Submission : sig
+  type t =
+    | Prepared of prepared
+    | Observed of Observation.t
+end
+
 (** Validate a nonempty name of at most 512 bytes before creating a state. *)
 val empty : workspace:Id.Workspace.t -> name:string -> (t, Problem.t) Result.t
 
@@ -67,6 +80,21 @@ val prepare
   -> actor:Id.Actor.t
   -> timestamp:string
   -> (prepared, Problem.t) Result.t
+
+(** The serialized service's submission boundary. Standalone empty claim-next
+    returns an observation of the unchanged capture without durable candidate,
+    events, blobs or receipt. Retrying an empty identity reevaluates; a committed
+    selection is thereafter governed by its exact stored receipt. Explicit
+    transactions remain durable, including batches containing only empty claims.
+    [prepare] remains the deliberate pure transaction/preflight API. *)
+val prepare_submission
+  :  t
+  -> ?run:Id.Run.t
+  -> ?now_unix_ms:int64
+  -> Domain_command.t
+  -> actor:Id.Actor.t
+  -> timestamp:string
+  -> (Submission.t, Problem.t) Result.t
 
 val candidate : prepared -> t
 val events : prepared -> Jsonaf.t
