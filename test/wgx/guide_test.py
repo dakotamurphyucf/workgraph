@@ -42,8 +42,6 @@ class Sources(unittest.TestCase):
             match = re.search(r"<!-- source: " + re.escape(path) + r" -->\s*```\w+\n(.*?)```", readme, re.S)
             self.assertIsNotNone(match, path)
             self.assertEqual(match[1], (ROOT / path).read_text(), path)
-        self.assertEqual(hashlib.sha256((ROOT / "tools/wgx.sh").read_bytes()).hexdigest(),
-                         "5a65c60550cc148441966ff97b1595d22be8a7e27701363733e6cd336b39f2f4")
         subprocess.run(["/bin/bash", "-n", str(ROOT / "tools/wgx.sh")], check=True)
         subprocess.run(["/bin/bash", "-n", str(ROOT / "examples/ci-worker.sh")], check=True)
         self.assertEqual(readme.count("```mermaid"), 13)
@@ -155,6 +153,17 @@ class Daemon(unittest.TestCase):
         handoff = self.call("handoff.get",ticket_id="res-task")["data"]
         self.assertIn("class1",json.dumps(handoff))
         self.assertIsNone(self.call("ticket.context",ticket_id="res-task")["data"]["ticket"]["claim"])
+
+    def test_readme_skill_backlog_literal_cli_and_offline_full_help(self):
+        self.write("project.create",project_id="demo-build",title="Backlog")
+        self.write("ticket.create",ticket_id="train",project_id="demo-build",title="GPU work")
+        self.example("wg allocation.ticket_policy_put --ticket-id train")
+        ticket = self.call("ticket.context",ticket_id="train")["data"]["ticket"]
+        self.assertEqual(ticket["claim"]["run_id"],"gpu-next")
+        result = subprocess.run([EXE,"help","ticket.start","--full"],capture_output=True,text=True,timeout=15)
+        self.assertEqual(result.returncode,0,result.stderr)
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn('export WG_CONTEXT="$WG_HOME/agents/worker-1.json"\nRUN=worker-1-invocation-1',readme)
 
     def test_readme_atomic_result_records_and_finish_share_one_commit(self):
         self.write("ticket.create",ticket_id="module-a",title="Result example")
@@ -283,7 +292,7 @@ class Daemon(unittest.TestCase):
         before = self.call("workspace.overview")
         inbox = self.call("inbox.read",recipient={"kind":"actor","id":"ci"},consumer_id="ci")
         for command in [["status"],["ticket","t"],["questions"],["agents"],["inbox","ci"],["storage"],["files"],["feed","10"],["history","missing"],["convo","visible"],["output","small-capture"]]:
-            result = subprocess.run(["/bin/bash",str(ROOT / "tools/wgx.sh"),"--context",str(self.context),*command],env=dict(os.environ,HOME=str(home),NO_COLOR="1"),capture_output=True,text=True,timeout=15)
+            result = subprocess.run(["/bin/bash",str(ROOT / "tools/wgx.sh"),"--context",str(self.context),*command],env=dict(os.environ,HOME=str(home),WG=EXE,NO_COLOR="1"),capture_output=True,text=True,timeout=15)
             self.assertEqual(result.returncode,0,(command,result.stdout,result.stderr))
         self.assertEqual(self.call("workspace.overview"),before)
         self.assertEqual(self.call("inbox.read",recipient={"kind":"actor","id":"ci"},consumer_id="ci"),inbox)
@@ -301,11 +310,14 @@ class Viewport(unittest.TestCase):
             stub.write_text('''#!/usr/bin/env python3
 import json,sys
 args=sys.argv[1:]
+method=args[2] if args[0]=="--context" else args[0]
 data={"items":[]}
-if args[:2]==["workspace","overview"]: data={"workspace":{"name":"Viewport"},"counts":{}}
-if args[:2]==["ticket","list"]: data={"items":[{"ticket_id":"t"+str(n),"title":"long viewport row "+str(n),"status":"in_progress","priority":0,"project_id":"p","prerequisites":[],"label_ids":[],"claim":{"actor_id":"worker","token":"1"}} for n in range(90)]}
-if args[:2]==["workspace","metrics"]: data={"planning":{"limits":{},"admission":{}},"history":{"limits":{},"admission":{}}}
-print(json.dumps({"result":{"data":data,"meta":{"workspace_revision":"1"}}}))
+if method=="workspace.overview": data={"workspace":{"name":"Viewport"},"counts":{}}
+if method=="ticket.list": data={"items":[{"ticket_id":"t"+str(n),"title":"long viewport row "+str(n),"status":"in_progress","priority":0,"project_id":"p","prerequisites":[],"label_ids":[],"claim":{"actor_id":"worker","token":"1"}} for n in range(90)]}
+if method=="workspace.metrics": data={"planning":{"limits":{},"admission":{}},"history":{"limits":{},"admission":{}}}
+meta={"workspace_revision":"1"}
+if "--paginate" in args: data={"pages":[{"data":data,"meta":meta}],"pagination":{"complete":True}}
+print(json.dumps({"result":{"data":data,"meta":meta}}))
 ''')
             stub.chmod(0o755)
             context = root / "context"
@@ -318,7 +330,7 @@ print(json.dumps({"result":{"data":data,"meta":{"workspace_revision":"1"}}}))
                 os.setsid()
                 fcntl.ioctl(0,termios.TIOCSCTTY,0)
             process = subprocess.Popen(["/bin/bash","-c",'saved=$(stty -g); /bin/bash "$1" --context "$2" dash; code=$?; after=$(stty -g); printf "BEFORE=%s AFTER=%s\\n" "$saved" "$after"; exit "$code"',"viewport",str(ROOT / "tools/wgx.sh"),str(context)],stdin=slave,stdout=slave,stderr=slave,
-                                       env=dict(os.environ,HOME=str(root),TERM="xterm",LINES="24",COLUMNS="80"),preexec_fn=session)
+                                       env=dict(os.environ,HOME=str(root),WG=str(stub),TERM="xterm",LINES="24",COLUMNS="80"),preexec_fn=session)
             self.addCleanup(lambda: process.poll() is None and process.kill())
             def until(marker):
                 data = b""
@@ -330,7 +342,7 @@ print(json.dumps({"result":{"data":data,"meta":{"workspace_revision":"1"}}}))
                 return data
             first = until(b"\x1b[54;1H")
             screen = first.rsplit(b"\x1b[H",1)[-1].split(b"\x1b[54;1H")[0]
-            self.assertEqual(screen.count(b"\n"),53,first[-1000:])
+            self.assertEqual(screen.count(b"\n"),53,first[:1800]+b" ... "+first[-500:])
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack("HHHH",36,120,0,0))
             process.send_signal(signal.SIGWINCH)
             resized = until(b"\x1b[36;1H")

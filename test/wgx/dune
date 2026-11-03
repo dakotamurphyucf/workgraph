@@ -13,3 +13,17 @@
   ../../examples/history-adapter.py)
  (action
   (run python3 %{dep:guide_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps
+  helper_test.py
+  guide_test.py
+  ../daemon_ready.py
+  ../../README.md
+  ../../AGENT_GUIDE.md
+  ../../tools/wgx.sh
+  ../../examples/transcript-converter.py
+  ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:helper_test.py} %{exe:../../bin/main.exe})))

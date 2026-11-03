@@ -52,6 +52,23 @@ channels. Multiple agents can share one daemon. Actor names are cooperative
 attribution, not authentication. A recorded test result is a submitted claim;
 configured evidence and review checks provide stronger, explicit gates.
 
+## Capabilities at a glance
+
+Use `wg help METHOD` for exact fields and response paths. These capabilities
+belong to this checkout's matching executable and current schema.
+
+| Need | Methods and focused guidance | State and lifecycle caveats |
+| --- | --- | --- |
+| Plan a bounded change | `transaction.preflight`, `transaction.apply`; [planning](docs/agent/planning.md) | Preflight commits and reserves nothing. Apply atomically commits supported operations; external tools remain harness work. |
+| Organize inherited prerequisites | `ticket.hierarchy.get`, `ticket.hierarchy.put`; [planning](docs/agent/planning.md) | Containment alone adds no scheduling gate. Explicit policy can inherit ancestor prerequisites; ownership and child-completion gates never inherit. |
+| Route eligible work | `ticket.ready`, `ticket.readiness`, `allocation.ticket_policy_put`; [coordination](docs/agent/coordination.md) | Capabilities, pools and optional `allowed_actor_ids` cooperatively restrict registered-run eligibility; actor names are not authentication. |
+| Change instructions accountably | `ticket.amendment.publish`, `ticket.amendment.get`, `ticket.amendment.list`, `ticket.amendment.acknowledge`, `ticket.amendment.withdraw`; [evidence and review](docs/agent/communication-evidence.md) | Immutable attributed versions retain exact text/resource pins. Required current-version acknowledgement binds actor/run/claim; a replacement claim must acknowledge again before finishing. |
+| Discover small linked memory | `fact.keys`, `fact.list`, `fact.references`; [memory and resume](docs/agent/resume-digest.md) | Prefixes and scalar-equality JSON-pointer predicates select explicit scopes; missing differs from null. Reverse references are editable navigation links, not evidence pins. |
+| Read only the needed context | `ticket.brief`, `resource.brief`, `ticket.context`; [CLI contracts](docs/agent/cli-contract.md) | Compact views and bounded full context disclose omissions. Expand exact records rather than assuming an entire graph or body was returned. |
+| Observe work and consume notices | `attention.read`, `attention.wait`, `inbox.read`, `inbox.ack`, `changes.read`, `changes.wait`; [communication](docs/agent/communication-evidence.md) | A read does not acknowledge. Advance consumed delivery cursors, preserve current captures, and page nested readiness separately. |
+| Inspect usage and capacity | `usage.aggregate`, `actor.overview`, `workspace.metrics`; [metrics](docs/agent/metrics.md) | These are recorded/caller-supplied counters and explicit captures, not provider quota enforcement or process-liveness proof. |
+| Complete a project deliberately | `project.readiness`, `project.finish`; [planning](docs/agent/planning.md) | Readiness aggregates current blockers and completion gates. Finish uses an exact project revision and structured handoff; it does not finish tickets or resolve questions for you. |
+
 ## Concepts and choosing a record
 
 ```mermaid
@@ -220,6 +237,7 @@ it is not a promise to overwrite arbitrary mismatched directories safely.
 ```bash
 umask 077
 WG=workgraph                       # or absolute matching checkout executable
+export WG
 WG_HOME="$HOME/.local/state/workgraph-demo"
 mkdir -p "$WG_HOME"
 export WG_CONTEXT="$WG_HOME/agent.json"
@@ -425,6 +443,7 @@ A registered worker uses explicit run-aware acquisition. Switch on the result
 kind before reading a token. Handle an empty result without a rapid write loop:
 
 ```bash
+export WG_CONTEXT="$WG_HOME/agents/worker-1.json"
 RUN=worker-1-invocation-1             # fresh invocation identity, not ticket ID
 wg run register --target-run-id "$RUN" --json-field capabilities '["ocaml"]' --objective 'Module work'
 reply=$(wg ticket claim_next --run-id "$RUN" --target-run-id "$RUN" --attempt-id "$RUN-a1" --project-id demo-build)
@@ -725,7 +744,7 @@ recover private model reasoning. Report concerns in the review workspace.
 wg allocation.ticket_policy_put --ticket-id train --expected-revision 0 \
   --json-field required_capabilities '["gpu"]' --json-field pools '[]'
 wg run register --target-run-id gpu-next --json-field capabilities '["gpu"]' --objective 'GPU backlog'
-wg ticket ready --target-run-id gpu-next --attempt-id gpu-next-a1 --project-id demo-build
+wg ticket ready --target-run-id gpu-next --project-id demo-build
 wg ticket claim_next --run-id gpu-next --target-run-id gpu-next --attempt-id gpu-next-a1 --project-id demo-build
 ```
 
@@ -864,6 +883,7 @@ mkdir -p "$HOME/.local/bin"
 install -m 755 tools/wgx.sh "$HOME/.local/bin/wgx"
 export PATH="$HOME/.local/bin:$PATH"
 wgx --context "$WG_CONTEXT" status
+wgx --context "$WG_CONTEXT" status --run "$RUN"
 # In separate tmux panes:
 wgx --context "$WG_CONTEXT" dash
 wgx --context "$WG_CONTEXT" watch --all
@@ -874,30 +894,38 @@ viewport fixes: it reads `stty size </dev/tty`, redraws after resize, uses all
 available content rows above its footer, and restores terminal wrapping/cursor.
 It polls dashboard changes at roughly two seconds; no immediate latency guarantee.
 
-**Preview qualification boundary:** tickets are paged, but several other panels
-use bounded first pages and text previews. Local dashboard readiness is an
-approximation, not run-aware scheduling authority. Project filtering selects
-tickets while auxiliary panels can remain workspace-wide. Some optional-panel
-failures can look empty. Use the CLI for authoritative or complete reads. The
-legacy `output` decoder is for small trusted captures; large/binary-safe output,
-all collection paging, explicit omissions and all platform fixtures remain the
-final helper gate. [Detailed limits](docs/agent/wgx.md) are part of this source.
+Collections now use the CLI's bounded captured pagination. Incomplete traversal
+fails with exact stop/capture/next/retry metadata; omitted bodies are explicitly
+reported. The dashboard's ready set comes from the daemon: without `--run RUN`
+it is labeled graph readiness, and with a run it reflects actual eligibility.
+Project filtering selects tickets; workspace-wide auxiliary panels retain their
+own captures and are labeled accordingly. Failed panels never become empty lists.
+
+Untrusted terminal controls are escaped before styling. Evidence output uses a
+verified large-resource download and the existing strict capture inspector, with
+bounded safe decoded stdout/stderr previews and retention/provenance metadata.
+Explicit `output RESOURCE --raw stdout > FILE` yields exact retained bytes; it
+cannot recover discarded process output. Temporary inspection copies never launch
+or publish execution. [Detailed semantics](docs/agent/wgx.md) include paging bounds,
+coverage, text replacement, signal/error cleanup and current platform evidence.
+Final root review, integrated package/full-gate checks and Linux/WSL execution
+qualification remain required before final helper acceptance.
 
 | Command | View |
 | --- | --- |
-| `status [-p PROJECT]` | Dashboard snapshot and cumulative storage gauges |
-| `dash [-p PROJECT]` | Scrollable dashboard; j/k/arrows/space/b/g/G/q |
-| `watch [--all]` | Live planning activity from a retained consumed position |
-| `feed [N]` | Recent revision range; N is not exactly N events |
-| `ticket TICKET` | Bounded task card, ownership, notes, handoff, resources |
-| `questions` | Bounded tracked request list with resolver/status |
+| `status [-p PROJECT] [--run RUN]` | Captured dashboard, authoritative readiness and named storage meters |
+| `dash [-p PROJECT] [--run RUN]` | Scrollable dashboard; j/k/arrows/space/b/g/G/q |
+| `watch [--all\|--cursor CURSOR]` | Planning metadata; consume returned read/wait cursor before advancing |
+| `feed [N]` | Last N rendered planning events from one guarded capture |
+| `ticket TICKET` | Task/ownership/full handoff, paged notes/resources and explicit preview expansion |
+| `questions` | Captured paged request IDs with resolver/status/responsibility |
 | `agents` | Caller-reported run state and claimed tasks, not process liveness |
 | `inbox ACTOR [CONSUMER]` | That consumer's unacknowledged notifications; no ack |
-| `output RESOURCE` | Legacy raw decoder; trusted small captures only |
+| `output RESOURCE [--limit BYTES]` | Verified capture, safe decoded previews; explicit raw stream mode |
 | `storage` | Named lifetime admission meters and remaining allowances |
 | `files` | Bounded path holders, fences and lease state |
-| `history TEXT` | Bounded indexed search; inspect index coverage |
-| `convo SESSION [SEQ] [N]` | Up to 1200 bytes / 14 lines per event preview |
+| `history TEXT` | Captured paged indexed matches with explicit coverage |
+| `convo SESSION [SEQ] [N]` | Forward captured window; 1200-byte UTF8/base64 previews and exact expansion positions |
 
 Illustrative views, not fixture output or a completeness claim:
 
@@ -979,7 +1007,7 @@ need a socket or context read; `--full` expands the public schema.
 | Recorded conversation | `history.search/read/payload`; preserve captured head/index coverage |
 | Incremental trail | `activity.since/digest`, `changes.read/wait` |
 | Usage and caller-supplied model counts | `usage.aggregate`, `workspace.metrics`; not provider quota enforcement |
-| Method spelling and precise response paths | `help ticket.start`, `ticket --help`, `help --full METHOD` |
+| Method spelling and precise response paths | `help ticket.start`, `ticket --help`, `help METHOD --full` |
 
 ```bash
 # Owned local stage: decoded bounded output, including truthful tail semantics.
@@ -1314,78 +1342,72 @@ if __name__ == "__main__":
 
 ```bash
 #!/usr/bin/env bash
-# wgx: readable terminal views of a Workgraph workspace (read-only).
-#
-#   wgx status [-p PROJECT]      one-screen dashboard: tickets, owners, questions, agents, storage
-#   wgx dash   [-p PROJECT]      the dashboard, redrawn every time something changes (Ctrl-C to quit)
-#   wgx watch  [--all]           live event stream: one plain-English line per change (--all replays history first)
-#   wgx feed   [N]               the last N events (default 30)
-#   wgx ticket TICKET            one ticket: task, owner, prerequisites, handoff, notes, decisions, evidence, files
-#   wgx questions                tracked questions: who asked, who must answer, status
-#   wgx agents                   registered runs and what each one is working on
-#   wgx inbox ACTOR [CONSUMER]   notifications ACTOR has not acknowledged (consumer id defaults to ACTOR)
-#   wgx output RESOURCE          the captured stdout/stderr inside an evidence-run resource
-#   wgx storage                  how much of the workspace's lifetime budget is used
-#   wgx files                    which files/folders are reserved, by whom
-#   wgx history TEXT             search saved agent conversations
-#   wgx convo SESSION [SEQ] [N]  read N saved conversation events around SEQ (default: the start)
-#
-# Needs: workgraph 0.4, jq. Uses $WG_CONTEXT, or pass --context FILE before the command.
-# Nothing here writes to Workgraph.
-
+# wgx: read-only terminal views for the matching current Workgraph executable.
+# Usage: WG=/absolute/workgraph wgx --context ABS_FILE COMMAND [ARGS]
+# status|dash [-p PROJECT] [--run RUN]   graph readiness or explicit run eligibility
+# watch [--all|--cursor CURSOR]          consumed planning metadata, until interrupted
+# feed [N]                             last N rendered planning events (1..1000)
+# ticket T | questions | agents | inbox ACTOR [CONSUMER] | storage | files
+# output RESOURCE [--limit BYTES|--raw stdout|stderr]   verified capture, safe by default
+# history TEXT | convo SESSION [SEQ] [N]              bounded captured history previews
+# Requires Bash 3.2+, jq 1.6+, matching workgraph, standard terminal/filesystem utilities.
+# WGX_MAX_PAGES (1..1000), WGX_TOTAL_BYTES (4096..67108864): bounded read traversal.
 set -o pipefail
-# macOS ships Bash 3.2, where nounset rejects valid empty array expansions.
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
-
-CTX=${WG_CONTEXT:-$HOME/.local/state/workgraph-0.4/agent.json}
-if [ "${1:-}" = "--context" ]; then CTX=$2; shift 2; fi
-case "${1:-}" in -h|--help|help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
-command -v jq >/dev/null || { echo "wgx: jq is required (sudo dnf install -y jq)" >&2; exit 1; }
-[ -f "$CTX" ] || { echo "wgx: no context file at $CTX (set WG_CONTEXT or pass --context FILE)" >&2; exit 1; }
-
-if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
-  B=$'\e[1m' D=$'\e[2m' R=$'\e[0m' G=$'\e[32m' Y=$'\e[33m' C=$'\e[36m' M=$'\e[35m' RED=$'\e[31m'
-else
-  B='' D='' R='' G='' Y='' C='' M='' RED=''
+WG=${WG:-workgraph}
+CTX=${WG_CONTEXT:-}
+if [ "${1:-}" = '--context' ]; then
+  [ "$#" -ge 2 ] && [ -n "$2" ] || { echo 'wgx: --context requires a file' >&2; exit 2; }
+  CTX=$2; shift 2
 fi
+case "${1:-}" in -h|--help|help) sed -n '2,11p' "$0" | sed 's/^# *//'; exit 0 ;; esac
+fail() {
+  if [ -n "${JQLIB:-}" ]; then
+    printf '%s' "$*" | jq -Rrs "${COLORS[@]}" "$JQLIB clean | \"wgx: \" + ." >&2
+  else printf 'wgx: %s\n' "$*" >&2; fi
+  return 1
+}
+uint() { case "$1" in ''|*[!0-9]*|0[0-9]*) return 1 ;; esac; [ "${#1}" -le 9 ] && [ "$1" -ge "$2" ] && [ "$1" -le "$3" ]; }
+identifier() { case "$1" in ''|*[!a-zA-Z0-9_-]*) return 1 ;; esac; [ "${#1}" -le 96 ]; }
+MAX_PAGES=${WGX_MAX_PAGES:-100}; TOTAL_BYTES=${WGX_TOTAL_BYTES:-16777216}
+uint "$MAX_PAGES" 1 1000 && uint "$TOTAL_BYTES" 4096 67108864 || { fail 'invalid traversal bounds'; exit 2; }
+command -v jq >/dev/null && command -v "$WG" >/dev/null || { fail 'jq and the matching WG executable are required'; exit 1; }
+[ -n "$CTX" ] && [ -f "$CTX" ] || { fail 'supply WG_CONTEXT or --context ABS_FILE'; exit 1; }
+if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR:-}" ]; then
+  B=$'\033[1m' D=$'\033[2m' R=$'\033[0m' G=$'\033[32m' Y=$'\033[33m' C=$'\033[36m' M=$'\033[35m' RED=$'\033[31m'
+else B='' D='' R='' G='' Y='' C='' M='' RED=''; fi
 COLORS=(--arg B "$B" --arg D "$D" --arg R "$R" --arg G "$G" --arg Y "$Y" --arg C "$C" --arg M "$M" --arg RED "$RED")
 
-# Read-only call; prints .result as JSON, or a clear error and a non-zero status.
+# One envelope, checked exit before interpretation; a pagination partial result
+# remains available to pages() for its explicit stop/retry diagnostic.
 wg() {
-  local out
-  if ! out=$(workgraph "$@" --context "$CTX"); then
-    echo "wgx: Workgraph command failed: $*" >&2; return 1
+  local out code=0
+  out=$("$WG" --context "$CTX" "$@") || code=$?
+  if ! printf '%s\n' "$out" | jq -se 'length == 1 and (.[0]|type == "object" and has("result") and (has("error")|not) and (.result|type == "object"))' >/dev/null; then
+    printf '%s\n' "$out" | jq -ac '.error // empty' >&2
+    fail "request failed ($code): $*; no valid success envelope"; return 1
   fi
-  if [ -z "$out" ]; then echo "wgx: '$*' failed: is the daemon running? (try: workgraph daemon health --context $CTX)" >&2; return 1; fi
-  if echo "$out" | jq -e 'has("error") or has("kind")' >/dev/null 2>&1; then
-    echo "wgx: '$*': $(echo "$out" | jq -r '.error.data.message // .error.message // .message')" >&2; return 1
+  printf '%s\n' "$out" | jq -c '.result'
+  return "$code"
+}
+
+# Family-specific capture/continuation belongs to the typed CLI helper. Refuse
+# to render an incomplete collection as complete; never erase an optional error.
+pages() {
+  local value code=0
+  value=$(wg "$@" --paginate --page-limit "$MAX_PAGES" --total-bytes "$TOTAL_BYTES" --limit 100 --max-bytes 1048576) || code=$?
+  if [ "$code" -ne 0 ] || ! jq -e '.data.pagination.complete == true' <<<"$value" >/dev/null; then
+    fail "incomplete collection $*"
+    [ -n "$value" ] || value='{}'
+    jq -ac '.data.pagination // {stop:"invalid_or_failed_response"}' <<<"$value" >&2
+    return 1
   fi
-  printf '%s\n' "$out" | jq -ce 'if has("result") and (.result | type == "object") then .result else error("missing result envelope") end'
+  if jq -e 'any(.data.pages[]; .meta.budget.truncated == true or ((.data.omitted_for_budget // "0")|tonumber)>0)' <<<"$value" >/dev/null; then
+    fail "$* has omitted fields/bodies"
+    jq -ac '[.data.pages[] | {budget:.meta.budget,omitted_for_budget:(.data.omitted_for_budget // "0")}]' <<<"$value" >&2
+  fi
+  jq -c '{data:((.data.pages[-1].data // {}) + {items:[.data.pages[].data.items[]?]}),meta:(.data.pages[0].meta // {}),pagination:.data.pagination}' <<<"$value"
 }
-
-# For each request in a request-list result, look up its thread's title and linked ticket.
-# Prints {"REQUEST_ID": {"title": ..., "ticket": ...}, ...}; only open requests unless ALL=1.
-thread_info() {
-  local rq=$1 all=${2:-0}
-  echo "$rq" | jq -r --arg all "$all" '.data.items[] | select($all == "1" or .status.kind != "resolved") | "\(.request_id) \(.thread_id)"' \
-    | while read -r rid th; do
-        wg thread get --thread-id "$th" | jq -c --arg rid "$rid" '{($rid): {title: .data.title, ticket: ([.data.links[]? | select(.kind == "ticket") | .id] | join(","))}}'
-      done | jq -s 'add // {}'
-}
-
-# Every page of ticket.list as one {data:{items}} object (pages pinned to one revision).
-all_tickets() {
-  local off=0 at=() page out=""
-  while :; do
-    page=$(wg ticket list "$@" --limit 100 --max-bytes 1048576 --offset "$off" "${at[@]}") || return 1
-    [ ${#at[@]} -eq 0 ] && at=(--at-revision "$(jq -r .meta.workspace_revision <<<"$page")")
-    out+="$page"$'\n'
-    off=$(jq -r '.data.next_offset // empty' <<<"$page"); [ -z "$off" ] && break
-  done
-  jq -sc '{data: {items: (map(.data.items) | add // [])}}' <<<"$out"
-}
-
-# Shared jq helpers: time formatting and the event formatter.
+all_tickets() { pages ticket.list "$@"; }
 JQLIB='
 def t: if . == null then "        " else .[11:19] end;
 def epoch: if . == null then null else (.[0:10] + "T" + .[11:19] + "Z" | fromdateiso8601) end;
@@ -1447,104 +1469,108 @@ def event:
     else empty end;
 '
 
+# Escape untrusted terminal controls before adding our own optional styles.
+JQLIB+='
+def hex4: . as $n | [4096,256,16,1] | map(. as $d | "0123456789abcdef"[((($n/$d)|floor)%16):(((($n/$d)|floor)%16)+1)]) | join("");
+def clean: walk(if type == "string" then explode | map(if . < 32 or (.>=127 and .<=159) or (.>=8234 and .<=8238) or (.>=8294 and .<=8297) then "\\u" + hex4 else [.]|implode end) | join("") else . end);
+'
+render() { local filter=$1; shift; jq -r "${COLORS[@]}" "$@" "$JQLIB clean | $filter"; }
+
 cmd_feed() {
-  local n=${1:-30} rev from
-  rev=$(wg workspace overview | jq -r .meta.workspace_revision) || return 1
-  from=$(( rev > n ? rev - n : 0 ))
-  wg activity since --after "$from" --limit 100 --max-bytes 1048576 \
-    | jq -r "${COLORS[@]}" "$JQLIB"' .data.items[] | event'
+  local n=${1:-30} ov revision from value
+  uint "$n" 1 1000 && [ "$#" -le 1 ] || { fail 'feed N requires 1..1000'; return 2; }
+  ov=$(wg workspace.overview) || return 1
+  revision=$(jq -er '.meta.workspace_revision' <<<"$ov") || return 1
+  from=$((revision > n ? revision-n : 0))
+  value=$(pages activity.since --after "$from" --at-revision "$revision") || return 1
+  # Every commit contributes at least one line, including unknown event types;
+  # therefore the last N commits contain the last N rendered lines.
+  render '.data.items[] | . as $it | [event] | if length > 0 then .[] else line($it.timestamp;$it|who;"·";"commit " + $it.revision + " (expand activity.since)") end' <<<"$value" | tail -n "$n"
 }
 
 cmd_watch() {
-  local rev
-  rev=$(wg workspace overview | jq -r .meta.workspace_revision) || return 1
-  [ "${1:-}" = "--all" ] && rev=0
-  echo "${B}Watching workspace $(jq -r .workspace_id "$CTX")${R} from revision $rev. Ctrl-C to stop." >&2
-  while true; do
-    local page
-    page=$(wg activity since --after "$rev" --limit 100 --max-bytes 1048576) || { sleep 3; continue; }
-    echo "$page" | jq -r "${COLORS[@]}" "$JQLIB"' .data.items[] | event'
-    local last; last=$(echo "$page" | jq -r '.data.items[-1].revision // empty')
-    [ -n "$last" ] && rev=$last
-    [ "$(echo "$page" | jq -r '.data.remaining')" != "0" ] && continue
-    wg changes wait --after "$rev" --timeout-ms 25000 >/dev/null || sleep 3
-    sleep 1   # coalesce bursts of writes into one redraw
+  local cursor='' after page next count=0 bytes=0 size
+  case "$#:${1:-}" in
+    0:) page=$(wg workspace.overview) || return 1; after=$(jq -er '.meta.workspace_revision' <<<"$page") || return 1 ;;
+    1:--all) after=0 ;;
+    2:--cursor) [ -n "$2" ] || return 2; cursor=$2 ;;
+    *) fail 'watch accepts --all or --cursor CURSOR'; return 2 ;;
+  esac
+  trap 'fail "interrupted; retained cursor: $cursor (initial after: ${after:-not supplied})"; exit 130' INT
+  trap 'fail "interrupted; retained cursor: $cursor (initial after: ${after:-not supplied})"; exit 143' TERM
+  if [ -n "$cursor" ]; then page=$(wg changes.read --source planning --cursor "$cursor" --limit 100 --max-bytes 1048576) || { fail "retained cursor: $cursor"; return 1; }
+  else page=$(wg changes.read --source planning --after "$after" --limit 100 --max-bytes 1048576) || return 1; fi
+  while :; do
+    if ! jq -e '.data.needs_larger_budget == false and (.data.cursor|type == "string" and length > 0) and (.data.items|type == "array")' <<<"$page" >/dev/null; then
+      fail "watch budget/invalid page; retained cursor: $cursor"; return 1
+    fi
+    next=$(jq -er '.data.cursor' <<<"$page") || return 1
+    if jq -e '.data.has_more == true' <<<"$page" >/dev/null && [ "$next" = "$cursor" ]; then fail "watch made no progress; retained cursor: $cursor"; return 1; fi
+    size=$(printf '%s' "$page" | wc -c); bytes=$((bytes+size)); count=$((count+1))
+    if [ "$count" -gt "$MAX_PAGES" ] || [ "$bytes" -gt "$TOTAL_BYTES" ]; then fail "watch drain limit; retained cursor: $cursor"; return 1; fi
+    render '.data.items[] | "revision \(.revision)  \(.actor_id // "?")  \((.targets // [])|map(tgt)|join(", "))  (\(.changes // "?") changes)"' <<<"$page" || return 1
+    cursor=$next                         # only after the returned rows were emitted
+    if jq -e '.data.has_more == true' <<<"$page" >/dev/null; then
+      page=$(wg changes.read --source planning --cursor "$cursor" --limit 100 --max-bytes 1048576) || { fail "retained cursor: $cursor"; return 1; }
+    else
+      count=0; bytes=0
+      page=$(wg changes.wait --source planning --cursor "$cursor" --timeout-ms 25000 --limit 100 --max-bytes 1048576) || { fail "retained cursor: $cursor"; return 1; }
+    fi
   done
 }
 
-cmd_status() {
-  local project=""
-  [ "${1:-}" = "-p" ] && project=$2
-  local pf=(); [ -n "$project" ] && pf=(--project-id "$project")
-  local ov tl rq rn mt fd
-  ov=$(wg workspace overview) || return 1
-  tl=$(all_tickets "${pf[@]}") || return 1
-  rq=$(wg request list --limit 100) || rq='{"data":{"items":[]}}'
-  rn=$(wg run list) || rn='{"data":{"items":[]}}'
-  local pr; pr=$(wg reservation path.list --limit 100 --max-bytes 1048576) || pr='{"data":{"items":[]}}'
-  mt=$(wg workspace metrics) || mt='{"data":{"planning_admission":[],"storage_admission":[]}}'
-  fd=$(cmd_feed 6 2>/dev/null)
-  local ti; ti=$(thread_info "$rq")
-  printf '%s\n' "$ov" "$tl" "$rq" "$rn" "$mt" "$ti" "$pr" | jq -sr "${COLORS[@]}" \
-    --arg ws "$(jq -r .workspace_id "$CTX")" --arg project "$project" --arg feed "$fd" --argjson max "${WGX_MAX:-100000}" "$JQLIB"'
-    . as [$ov, $tl, $rq, $rn, $mt, $ti, $pr] |
-    (now) as $now
-    | $tl.data.items as $T
-    | ($T | map({key: .ticket_id, value: .status}) | from_entries) as $st
-    | def bar($n; $total; $col): if $total == 0 then "" else $col + ("#" * (($n * 40 / $total) | ceil)) + $R end;
-      def hdr($s): "\n\($B)\($s)\($R)";
-      def more($a): if ($a|length) > $max then "  \($D)+ \(($a|length) - $max) more (wgx status -p PROJECT shows all)\($R)" else empty end;
-    ($T | map(select(.status == "todo")) | map(. + {waits: [.prerequisite_ticket_ids[] | select(($st[.] // "done") != "done")]})) as $todo
-    | ($todo | map(select((.waits|length) == 0))) as $ready
-    | ($todo | map(select((.waits|length) > 0))) as $blocked
-    | ($T | map(select(.status == "in_progress"))) as $doing
-    | ($T | map(select(.status == "done")) | length) as $done
-    | ($T | length) as $total
-    | "\($B)Workgraph\($R) · workspace \($B)\($ws)\($R)" + (if $project != "" then " · project \($B)\($project)\($R)" else "" end)
-      + " · revision \($ov.meta.workspace_revision) · \(now | strftime("%H:%M:%S")) UTC",
-      "",
-      "  done        \($done|pad(4)) \(bar($done; $total; $G))",
-      "  working     \($doing|length|pad(4)) \(bar($doing|length; $total; $Y))",
-      "  ready       \($ready|length|pad(4)) \(bar($ready|length; $total; $C))",
-      "  waiting     \($blocked|length|pad(4)) \(bar($blocked|length; $total; $D))",
-      hdr("IN PROGRESS"),
-      (if ($doing|length) == 0 then "  \($D)nobody is working on a ticket right now\($R)" else
-        ($doing[] | "  \($Y)>\($R) \(.ticket_id|pad(36)) \(.title|short(40)|pad(40))  \(.claim|whorun|pad(30)) \($D)\(.updated_at|ago($now))\($R)") end),
-      hdr("READY TO START"),
-      (if ($ready|length) == 0 then "  \($D)none\($R)" else
-        ($ready[:$max][] | "  \($C)o\($R) \(.ticket_id|pad(36)) \(.title|short(40)|pad(40))" + (if (.label_ids|length) > 0 then "  \($D)[\(.label_ids|join(","))]\($R)" else "" end)), more($ready) end),
-      hdr("WAITING ON OTHER TICKETS"),
-      (if ($blocked|length) == 0 then "  \($D)none\($R)" else
-        ($blocked[:$max][] | "  \($D)-\($R) \(.ticket_id|pad(36)) \(.title|short(40)|pad(40))  \($D)after \(.waits|length) tickets: \(.waits|join(", ")|short(50))\($R)"), more($blocked) end),
-      hdr("OPEN QUESTIONS"),
-      ([$rq.data.items[] | select(.status.kind != "resolved" and .status.kind != "cancelled" and .status.kind != "canceled")] as $open
-        | if ($open|length) == 0 then "  \($D)none\($R)" else
-          ($open[] | ($ti[.request_id] // {}) as $x
-            | "  \($M)?\($R) \(.request_id|pad(18)) \(($x.title // "")|short(40)|pad(40)) \(.created.actor_id) -> \($B)\(.resolver_id)\($R)"
-              + (if ($x.ticket // "") != "" then "  \($D)on \($x.ticket)\($R)" else "" end) + "  \($D)\(.created.timestamp|ago($now))\($R)") end),
-      hdr("AGENTS (runs)"),
-      ([$rn.data.items[] | select(.status == "running") | . as $r | select($max > 1000 or ([$T[] | select(.claim.run_id == $r.run_id)] | length) == 0)] as $runs
-        | if ($runs|length) == 0 then "  \($D)\(if $max > 1000 then "no running runs" else "no idle runs (busy runs are listed under IN PROGRESS)" end)\($R)" else
-          ($runs[] | . as $r | ([$T[] | select(.claim.run_id == $r.run_id) | .ticket_id] | join(", ")) as $on
-            | "  \($r.run_id|pad(20)) \($r.actor_id|pad(14)) " + (if $on != "" then "\($Y)on \($on)\($R)" else "\($D)idle\($R)" end)
-              + (if ($r.capabilities|length) > 0 then "  \($D)can: \($r.capabilities|join(","))\($R)" else "" end)) end),
-      ([$pr.data.items[] | select((.holders|length) > 0)] as $held
-        | if ($held|length) == 0 then empty else hdr("FILES RESERVED"),
-          ($held[] | "  \($C)#\($R) \("\(.target.worktree_id):\(.target.path)\(if .target.kind == "subtree" then "/" else "" end)"|pad(34)) \([.holders[] | "\(.actor_id) (\(.mode))"] | join(", "))") end),
-      hdr("RECENT"),
-      ($feed | split("\n") | map(select(length > 0)) | .[] | "  " + .),
-      ($mt.data.planning_admission[]? | select(.name == "planning_payload_bytes")
-        | (.used|tonumber) as $u
-        | "\n\($D)storage: \(if $u < 1048576 then "\($u/1024|floor) KiB" else "\($u/1048576*10|floor/10) MiB" end) of \((.limit|tonumber)/1048576|floor) MiB lifetime budget used (\($u*100/(.limit|tonumber)*100|round/100)%, \(.severity)) · details: wgx storage\($R)")
-  '
+status_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in -p|--run) [ "$#" -ge 2 ] && identifier "$2" || { fail 'missing/invalid status selector'; return 2; }; shift 2 ;; *) fail 'status/dash accepts -p PROJECT and --run RUN'; return 2 ;; esac
+  done
 }
-
+cmd_status() {
+  status_args "$@" || return 2
+  local project='' run='' pf=() rf=() ov tl ready rq rn pr mt revision
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -p) [ "$#" -ge 2 ] && identifier "$2" || return 2; project=$2; pf=(--project-id "$2"); shift 2 ;;
+      --run) [ "$#" -ge 2 ] && identifier "$2" || return 2; run=$2; rf=(--target-run-id "$2"); shift 2 ;;
+      *) fail 'status/dash accepts -p PROJECT and --run RUN'; return 2 ;;
+    esac
+  done
+  ov=$(wg workspace.overview) || return 1
+  revision=$(jq -er '.meta.workspace_revision' <<<"$ov") || return 1
+  tl=$(all_tickets "${pf[@]}" --at-revision "$revision") || return 1
+  ready=$(pages ticket.ready "${pf[@]}" "${rf[@]}" --at-revision "$revision") || return 1
+  rq=$(pages request.list) || return 1; rn=$(pages run.list) || return 1
+  pr=$(pages reservation.path.list) || return 1; mt=$(wg workspace.metrics) || return 1
+  printf '%s\n' "$tl" "$ready" "$rq" "$rn" "$pr" "$mt" | render '
+    . as [$tickets,$ready,$requests,$runs,$paths,$metrics] | $tickets.data.items as $T |
+    "Workgraph · " + $ws + " · planning capture " + $revision + (if $project=="" then "" else " · project " + $project end),
+    "Readiness: " + (if $run=="" then "graph-ready only; select --run RUN for worker eligibility" else "eligible for run " + $run end),
+    "Counts: done=\([$T[]|select(.status=="done")]|length) working=\([$T[]|select(.status=="in_progress")]|length) authoritative-ready=\($ready.data.items|length)",
+    "\nIN PROGRESS",
+    ($T[]|select(.status=="in_progress")|"  \(.ticket_id|pad(32)) \(.title|short(48))  \(.claim|whorun)"),
+    "\n" + (if $run=="" then "GRAPH READY (not run eligibility)" else "ELIGIBLE FOR " + $run end),
+    ($ready.data.items[]|"  \(.ticket_id|pad(32)) \(.title|short(64))"),
+    "\nOTHER TODO (inspect ticket.readiness for exact reasons)",
+    ($T[]|select(.status=="todo")|. as $t|select(all($ready.data.items[];.ticket_id != $t.ticket_id))|"  \(.ticket_id|pad(32)) \(.title|short(64))"),
+    "\nOPEN REQUESTS (workspace-wide)",
+    ($requests.data.items[]|select(.status.kind=="open")|"  \(.request_id|pad(28)) \(.created.actor_id) -> \(.resolver_id) (\(.responsibility.kind))"),
+    "\nRUNS (caller-reported, workspace-wide)",
+    ($runs.data.items[]|"  \(.run_id|pad(24)) \(.actor_id|pad(16)) \(.status) [\(.capabilities|join(","))]"),
+    "\nRESERVED FILES (workspace-wide)",
+    ($paths.data.items[]|. as $p|.holders[]|"  \($p.target.worktree_id):\($p.target.path) \(.actor_id)/\(.run_id) token=\(.token) \(.mode)"),
+    "\nSTORAGE (independent named meters)",
+    (($metrics.data.planning_admission + $metrics.data.storage_admission)[]? | select(.name=="planning_payload_bytes" or .name=="history_batch_bytes") | "  \(.name): \(.used)/\(.limit) bytes, \(.severity)"),
+    "\nPanels have independent captured collection revisions; list text is a preview. No read acknowledges an inbox."
+  ' -s --arg ws "$(jq -er '.workspace_id' "$CTX")" --arg revision "$revision" --arg project "$project" --arg run "$run"
+}
 cmd_dash() {
+  status_args "$@" || return 2
+  if [ ! -t 0 ] || [ ! -t 1 ] || [ "${TERM:-dumb}" = dumb ]; then cmd_status "$@"; return $?; fi
   # Full status, scrollable, redrawn in place when the workspace changes; the scroll position survives redraws.
   local off=0 last="" rev screen="" rows=24 cols=80 total maxoff key rest redraw=1
-  local size next_rows next_cols saved_stty
-  saved_stty=$(stty -g </dev/tty 2>/dev/null)
-  trap 'tput smam 2>/dev/null; tput cnorm 2>/dev/null; [ -z "$saved_stty" ] || stty "$saved_stty" </dev/tty; exit 0' INT TERM
+  local size next_rows next_cols
+  WGX_TTY_STATE=$(stty -g </dev/tty 2>/dev/null)
+  trap 'tput smam 2>/dev/null; tput cnorm 2>/dev/null; [ -z "$WGX_TTY_STATE" ] || stty "$WGX_TTY_STATE" </dev/tty' EXIT
+  trap 'exit 130' INT; trap 'exit 143' TERM
   trap 'redraw=1' WINCH
   tput civis 2>/dev/null; clear
   # Clip long logical rows instead of wrapping them into extra viewport rows.
@@ -1561,14 +1587,14 @@ cmd_dash() {
     if [ "$rows" != "$next_rows" ] || [ "$cols" != "$next_cols" ]; then
       rows=$next_rows; cols=$next_cols; redraw=1
     fi
-    rev=$(wg workspace overview 2>/dev/null | jq -r .meta.workspace_revision)
-    if [ -n "$rev" ] && [ "$rev" != "$last" ]; then screen=$(WGX_MAX=${WGX_MAX:-100000} cmd_status "$@"); last=$rev; redraw=1; fi
+    rev=$(wg workspace.overview | jq -er .meta.workspace_revision) || return 1
+    if [ -n "$rev" ] && [ "$rev" != "$last" ]; then screen=$(cmd_status "$@") || return 1; last=$rev; redraw=1; fi
     if [ -n "$redraw" ]; then
       total=$(printf '%s\n' "$screen" | wc -l)
       maxoff=$((total - rows + 1)); [ "$maxoff" -lt 0 ] && maxoff=0
       [ "$off" -gt "$maxoff" ] && off=$maxoff; [ "$off" -lt 0 ] && off=0
       tput cup 0 0 2>/dev/null
-      printf '%s\n' "$screen" | tail -n +$((off + 1)) | head -n $((rows - 1)) | sed $'s/$/\033[K/'
+      printf '%s\n' "$screen" | awk -v first="$((off+1))" -v count="$((rows-1))" 'NR>=first && NR<first+count {printf "%s\033[K\n",$0}'
       tput ed 2>/dev/null
       tput cup $((rows - 1)) 0 2>/dev/null
       printf '%s' "${D}lines $((off + 1))-$((off + rows - 1 < total ? off + rows - 1 : total)) of $total · live · j/k or arrows scroll · space/b page · g/G top/bottom · q quit${R}"
@@ -1590,173 +1616,112 @@ cmd_dash() {
       redraw=1
     fi
   done
-  trap - WINCH INT TERM
-  tput smam 2>/dev/null; tput cnorm 2>/dev/null
-  [ -z "$saved_stty" ] || stty "$saved_stty" </dev/tty
   echo
 }
 
 cmd_ticket() {
-  local id=${1:?usage: wgx ticket TICKET}
-  local ctx cm
-  ctx=$(wg ticket get --ticket-id "$id" --max-bytes 1048576) || return 1
-  cm=$(wg comment list --json-field target "{\"kind\":\"ticket\",\"id\":\"$id\"}" --limit 100 --max-bytes 1048576) || cm='{"data":{"items":[]}}'
-  rs=$(wg resource list --limit 100) || rs='{"data":{"items":[]}}'
-  printf '%s\n' "$ctx" "$cm" "$rs" | jq -sr "${COLORS[@]}" --arg id "$id" "$JQLIB"'
-    . as [$x, $cm, $rs] |
-    (now) as $now | $x.data.ticket as $k
-    | "\($B)\($k.display_key)  \($k.ticket_id)\($R)  \($k.title)",
-      "  status \($B)\($k.status)\($R) · project \($k.project_id) · priority \($k.priority)"
-        + (if ($k.label_ids|length) > 0 then " · labels \($k.label_ids|join(","))" else "" end),
-      (if $k.claim then "  owner  \($Y)\($k.claim|whorun)\($R) (token \($k.claim.token))" else "  owner  \($D)nobody\($R)" end),
-      (if ($k.prerequisite_ticket_ids|length) > 0 then "  after  \($k.prerequisite_ticket_ids|join(", "))" else empty end),
-      "",
-      "\($B)TASK\($R)", ($k.description // "" | split("\n")[0:12][] | "  " + .),
-      (if ($k.acceptance_criteria // "") != "" then "\n\($B)ACCEPTANCE\($R)", ($k.acceptance_criteria | split("\n")[] | "  " + .) else empty end),
-      (if $x.data.handoff then $x.data.handoff as $h | "\n\($B)HANDOFF\($R) \($D)by \($h.actor_id), \($h.timestamp|ago($now))\($R)",
-        ([["summary",$h.summary],["done",$h.completed],["decided",$h.decisions],["blockers",$h.blockers],["next",$h.next_steps]][]
-          | select((.[1] // "") != "") | "  \(.[0]|pad(9)) \(.[1]|one)") else empty end),
-      "\n\($B)NOTES, DECISIONS, EVIDENCE\($R)",
-      (if ($cm.data.items|length) == 0 then "  \($D)none\($R)" else
-        ($cm.data.items | sort_by(.created_at)[] |
-          (if .kind == "decision" then $C + "decision" elif .kind == "evidence" then $G + "evidence" elif .kind == "blocker" then $RED + "blocker"
-           else $D + .kind end) as $tag
-          | "  \(.created_at|t)  \(.author_id // .actor_id|pad(12)) \($tag)\($R)  \(.body|one)") end),
-      ([$rs.data.items[] | select(any(.metadata.targets[]?; .kind == "ticket" and .id == $id))] as $files
-        | if ($files|length) > 0 then "\n\($B)FILES\($R)", ($files[] | "  \(.resource_id|pad(28)) \(.metadata.title // "")") else empty end)
-  '
+  local id=$1 context comments resources target
+  identifier "$id" || return 2
+  target=$(jq -nc --arg id "$id" '{kind:"ticket",id:$id}')
+  context=$(wg ticket.context --ticket-id "$id" --max-bytes 1048576) || return 1
+  comments=$(pages comment.list --json-field target "$target") || return 1
+  resources=$(pages resource.list --json-field target "$target") || return 1
+  if jq -e '.meta.budget.truncated == true' <<<"$context" >/dev/null; then fail 'ticket context has omissions; inspect its budget/continuation metadata'; return 1; fi
+  printf '%s\n' "$context" "$comments" "$resources" | render '
+    . as [$x,$comments,$resources] | $x.data.ticket as $t |
+    "\($t.ticket_id) — \($t.title)", "status=\($t.status) project=\($t.project_id) owner=\($t.claim|whorun)",
+    "\nTASK", $t.description, "\nACCEPTANCE", $t.acceptance_criteria,
+    (if $x.data.handoff then "\nHANDOFF", ($x.data.handoff | to_entries[] | "\(.key): \(.value|if type=="string" then . else tojson end)") else empty end),
+    "\nNOTES (all captured rows; body previews)", ($comments.data.items[] | "\(.comment_id) \(.kind) \(.body|one)"),
+    "\nLINKED RESOURCES", ($resources.data.items[] | "\(.resource_id) \(.metadata.title)"),
+    "Expand clipped bodies: comment.get --comment-id ID; full bounded context: ticket.context --ticket-id " + $t.ticket_id
+  ' -s
 }
-
 cmd_questions() {
-  local rq ti; rq=$(wg request list --limit 100) || return 1
-  ti=$(thread_info "$rq" 1)
-  printf '%s\n' "$rq" "$ti" | jq -sr "${COLORS[@]}" "$JQLIB"'
-    .[1] as $ti | .[0]
-    | (now) as $now
-    | if (.data.items|length) == 0 then "no questions or requests yet" else
-      "\($B)\("REQUEST"|pad(20)) \("QUESTION"|pad(36)) \("FROM"|pad(10)) \("MUST ANSWER"|pad(12)) \("TICKET"|pad(10)) STATUS\($R)",
-      (.data.items[] | ((.status.kind) as $s | ($ti[.request_id] // {}) as $x
-        | "\(.request_id|pad(20)) \(($x.title // "")|short(36)|pad(36)) \(.created.actor_id|pad(10)) \(.resolver_id|pad(12)) \((if ($x.ticket // "") == "" then "-" else $x.ticket end)|pad(10)) "
-          + (if $s == "resolved" then "\($G)resolved\($R) \($D)\(.status.attribution.timestamp|ago($now))\($R)"
-             else "\($M)\($s)\($R) \($D)(\(.responsibility.kind)) asked \(.created.timestamp|ago($now))\($R)" end))) end
-  '
-  echo "${D}read one: workgraph request get --request-id ID --context \$WG_CONTEXT${R}"
+  local value; value=$(pages request.list) || return 1
+  render '"REQUEST / FROM -> RESOLVER / STATUS / RESPONSIBILITY", (.data.items[] | "\(.request_id)  \(.created.actor_id) -> \(.resolver_id)  \(.status.kind)  \(.responsibility.kind)"), "Expand question/answer: request.get --request-id ID --include-messages true"' <<<"$value"
 }
-
 cmd_agents() {
-  local rn tl; rn=$(wg run list) || return 1; tl=$(all_tickets --status in_progress) || tl='{"data":{"items":[]}}'
-  printf '%s\n' "$rn" "$tl" | jq -sr "${COLORS[@]}" "$JQLIB"'
-    . as [$rn, $tl] |
-    "\($B)\("RUN"|pad(22)) \("ACTOR"|pad(14)) \("STATUS"|pad(10)) \("WORKING ON"|pad(18)) CAN DO / OBJECTIVE\($R)",
-    ($rn.data.items[] | . as $r | ([$tl.data.items[] | select(.claim.run_id == $r.run_id) | .ticket_id] | join(",")) as $on
-      | "\($r.run_id|pad(22)) \($r.actor_id|pad(14)) "
-        + (if $r.status == "running" then "\($G)running\($R)   " else "\($D)\($r.status|pad(10))\($R)" end)
-        + " \((if $on == "" then "-" else $on end)|pad(18)) "
-        + (if ($r.capabilities|length) > 0 then "[\($r.capabilities|join(","))] " else "" end) + ($r.objective|short(40)))
-  '
+  local runs tickets; runs=$(pages run.list) || return 1; tickets=$(all_tickets --status in_progress) || return 1
+  printf '%s\n' "$runs" "$tickets" | render '. as [$runs,$tickets] | "RUN / ACTOR / REPORTED STATE / WORK / CAPABILITIES", ($runs.data.items[] | . as $r | "\(.run_id)  \(.actor_id)  \(.status)  \([$tickets.data.items[]|select(.claim.run_id==$r.run_id)|.ticket_id]|join(","))  [\(.capabilities|join(","))]"), "Reported state is not process liveness."' -s
 }
-
 cmd_inbox() {
-  local who=${1:?usage: wgx inbox ACTOR [CONSUMER_ID]} consumer=${2:-$1}
-  local ib; ib=$(wg inbox read --consumer-id "$consumer" --json-field recipient "{\"kind\":\"actor\",\"id\":\"$who\"}" --limit 100 --max-bytes 1048576) || return 1
-  echo "${D}unacknowledged for $who (consumer id $consumer):${R}"
-  jq -r "${COLORS[@]}" "$JQLIB"'
-    (now) as $now
-    | .data.items as $u
-    | if ($u|length) == 0 then "\($D)nothing unacknowledged\($R)" else
-      ($u[] | "\(.notification_id|pad(5)) \(.kind|pad(18)) from \(.attribution.actor_id|pad(12)) \($D)\(.attribution.timestamp|ago($now))\($R)  \(.body_source.body // "" | one)") end
-  ' <<<"$ib"
+  local actor=$1 consumer=${2:-$1} value recipient
+  identifier "$actor" && identifier "$consumer" || return 2
+  recipient=$(jq -nc --arg id "$actor" '{kind:"actor",id:$id}')
+  value=$(pages inbox.read --consumer-id "$consumer" --json-field recipient "$recipient") || return 1
+  printf 'Unacknowledged for %s / consumer %s (read only)\n' "$actor" "$consumer"
+  render '.data.items[] | "\(.notification_id) \(.kind) from \(.attribution.actor_id) \(.body_source.body // "[no body supplied]"|one)"' <<<"$value"
 }
-
-cmd_output() {
-  local id=${1:?usage: wgx output RESOURCE}
-  local cap; cap=$(wg resource read --resource-id "$id" | jq -r .data.text) || return 1
-  echo "$cap" | jq -r "${COLORS[@]}" '"\($B)$ \(.command.argv | join(" "))\($R)   \($D)(in \(.command.cwd))\($R)",
-    "\($D)outcome: \(.outcome | tojson)\($R)"'
-  for s in stdout stderr; do
-    local bytes; bytes=$(echo "$cap" | jq -r ".$s.observed_bytes // 0")
-    [ "$bytes" = "0" ] && continue
-    echo "${B}--- $s ($bytes bytes) ---${R}"
-    echo "$cap" | jq -r ".$s.base64" | base64 -d
-  done
-}
-
-cmd_storage() {
-  local mt; mt=$(wg workspace metrics) || return 1
-  jq -r "${COLORS[@]}" "$JQLIB"'
-    def pct: ((.used|tonumber) * 100 / (.limit|tonumber));
-    def gauge($n): (if $n >= 95 then $RED elif $n >= 80 then $Y else $G end) as $c
-      | (($n/5)|ceil) as $w | $c + ("#" * $w) + $R + $D + ("." * (20 - $w)) + $R;
-    "\($B)\("METER"|pad(28)) \("USED"|pad(14)) \("LIMIT"|pad(14)) BUDGET\($R)",
-    ((.data.planning_admission + .data.storage_admission)[] | select(.lifetime == "cumulative")
-      | pct as $p | "\(.name|pad(28)) \(.used|pad(14)) \(.limit|pad(14)) \(gauge($p)) \($p*100|round/100)%")
-  ' <<<"$mt"
-  echo "${D}cumulative: nothing is ever freed. At 80% plan a successor workspace (docs/agent/capacity-rollover.md).${R}"
-}
-
-cmd_files() {
-  local pr; pr=$(wg reservation path.list --limit 100 --max-bytes 1048576) || return 1
-  jq -r "${COLORS[@]}" "$JQLIB"'
-    (now) as $now
-    | [.data.items[] | select((.holders|length) > 0)] as $held
-    | if ($held|length) == 0 then "\($D)no files or folders are reserved\($R)" else
-      "\($B)\("WORKTREE:PATH"|pad(36)) \("HOLDER"|pad(24)) \("MODE"|pad(10)) \("TOKEN"|pad(6)) LEASE\($R)",
-      ($held[] | . as $r | .holders[] |
-        "\("\($r.target.worktree_id):\($r.target.path)\(if $r.target.kind == "subtree" then "/" else "" end)"|pad(36)) \("\(.actor_id) (\(.run_id))"|pad(24)) \(.mode|pad(10)) \(.token|pad(6)) "
-        + (if .lease.duration_ms == null then "until released" else "\((.lease.duration_ms|tonumber)/60000|floor) min lease" end)) end
-  ' <<<"$pr"
-}
-
-cmd_history() {
-  local text=${1:?usage: wgx history TEXT}
-  local hs; hs=$(wg history search --text "$text" --limit 20 --max-bytes 1048576) || return 1
-  jq -r "${COLORS[@]}" "$JQLIB"'
-    if (.data.items|length) == 0 then "\($D)no saved conversation mentions that\($R)" else
-      (.data.items[] | "\($B)\(.event_ref.session_id)\($R) #\(.event_ref.sequence|pad(5)) \($D)\(.role)/\(.kind|pad(12))\($R) \(.snippet|one)") end,
-    (if .data.complete == false then "\($Y)search index still catching up; try again in a moment\($R)" else empty end),
-    (if .data.has_more then "\($D)more hits exist; refine the text\($R)" else empty end),
-    "\($D)read around a hit: wgx convo SESSION SEQ\($R)"
-  ' <<<"$hs"
-}
-
-cmd_convo() {
-  local session=${1:?usage: wgx convo SESSION [SEQ] [N]} seq=${2:-0} n=${3:-8}
-  local page head
-  if [ "$seq" = "0" ]; then
-    page=$(wg history read --session-id "$session" --direction after --anchor 0 --limit "$n" --max-bytes 1048576) || return 1
-  else
-    page=$(wg history read --session-id "$session" --direction around --anchor "$seq" --limit "$n" --max-bytes 1048576) || return 1
-  fi
-  head=$(echo "$page" | jq -r .meta.history_capture.head)
-  echo "$page" | jq -c '.data.items[] | {seq: .event_ref.sequence, role: .event.role, kind: .event.kind, actor: .actor_id, has_text: (.event.searchable_text != null)}' |
-  while read -r ev; do
-    local s; s=$(jq -r .seq <<<"$ev")
-    local label; label=$(jq -r '"#\(.seq) \(.actor) \(.role)/\(.kind)"' <<<"$ev")
-    if [ "$s" = "$seq" ]; then echo "${Y}${B}> $label${R}"; else echo "${B}$label${R}"; fi
-    if [ "$(jq -r .has_text <<<"$ev")" = "true" ]; then
-      wg history payload --head "$head" --json-field event_ref "{\"session_id\":\"$session\",\"sequence\":\"$s\"}" \
-        --json-field part '{"kind":"searchable_text"}' --length 1200 | jq -r .data.bytes_base64 | base64 -d | sed 's/^/    /' | head -14
+cmd_output() (
+  local id=$1 limit=4096 raw='' tmp receipt inspection stream offset retained
+  shift; identifier "$id" || return 2
+  case "$#:${1:-}" in 0:) ;; 2:--limit) limit=$2; uint "$limit" 1 65536 || return 2 ;; 2:--raw) raw=$2; case "$raw" in stdout|stderr) ;; *) return 2 ;; esac ;; *) return 2 ;; esac
+  umask 077; tmp=$(mktemp -d "${TMPDIR:-/tmp}/wgx-inspect.XXXXXXXX") || return 1
+  trap 'rm -f "$tmp/command.json" "$tmp/capture.json"; rmdir "$tmp"' EXIT
+  trap 'exit 130' INT; trap 'exit 143' TERM
+  receipt=$(wg resource.download --resource-id "$id" --destination "$tmp/capture.json") || return 1
+  jq -ce '.command' "$tmp/capture.json" > "$tmp/command.json" || return 1
+  # The public typed decoder validates the untouched complete capture before any
+  # stream output. This is a private inspection copy, never a launch/publication.
+  for stream in stdout stderr; do
+    inspection=$("$WG" evidence-show --stage "$tmp" --"$stream" --length "$limit" --output json) || return 1
+    if [ -n "$raw" ]; then
+      [ "$stream" = "$raw" ] || continue
+      jq -c 'del(.text,.data_base64)' <<<"$inspection" >&2
+      retained=$(jq -er '.retained_bytes' <<<"$inspection"); offset=0
+      while [ "$offset" -lt "$retained" ]; do
+        "$WG" evidence-show --stage "$tmp" --"$raw" --offset "$offset" --length 65536 --output bytes || return 1
+        offset=$((offset+65536))
+      done
+    else
+      if [ "$stream" = stdout ]; then
+        render '"$ " + (.command.argv|join(" ")) + " (cwd " + .command.cwd + ")"' < "$tmp/capture.json" || return 1
+        render '"Verified resource: " + (.data|del(.destination)|tojson)' <<<"$receipt" || return 1
+      fi
+      render '"--- " + .stream + " (safe decoded preview) ---", (del(.text,.data_base64)|tojson), .text, "Use output RESOURCE --raw STREAM > FILE for exact retained bytes; discarded bytes cannot be reconstructed."' <<<"$inspection" || return 1
     fi
-    echo
   done
-  echo "${D}more: wgx convo $session $(( seq + n )) $n${R}"
+)
+cmd_storage() {
+  local value; value=$(wg workspace.metrics) || return 1
+  render '(.data.planning_admission + .data.storage_admission)[] | "\(.name): used=\(.used) limit=\(.limit) remaining=\(.remaining // "unknown") severity=\(.severity) lifetime=\(.lifetime)"' <<<"$value" || return 1
+  echo 'Advisory: at 80% of a cumulative meter, plan a successor workspace; retained data is not silently freed. See docs/agent/capacity-rollover.md.'
 }
-
-case "${1:-status}" in
-  status)    [ "$#" -gt 0 ] && shift; cmd_status "$@" ;;
-  dash)      shift; cmd_dash "$@" ;;
-  watch)     shift; cmd_watch "$@" ;;
-  feed)      shift; cmd_feed "$@" ;;
-  ticket)    shift; cmd_ticket "$@" ;;
-  questions) cmd_questions ;;
-  agents)    cmd_agents ;;
-  inbox)     shift; cmd_inbox "$@" ;;
-  output)    shift; cmd_output "$@" ;;
-  storage)   cmd_storage ;;
-  files)     cmd_files ;;
-  history)   shift; cmd_history "$@" ;;
-  convo)     shift; cmd_convo "$@" ;;
-  *) echo "wgx: unknown command '$1' (try: wgx help)" >&2; exit 2 ;;
+cmd_files() {
+  local value; value=$(pages reservation.path.list) || return 1
+  render '.data.items[] | . as $p | .holders[] | "\($p.target.worktree_id):\($p.target.path) \(.actor_id)/\(.run_id) \(.mode) token=\(.token) deadline=\(.lease.deadline_unix_ms // "none") (expiry does not remove ownership)"' <<<"$value"
+}
+cmd_history() {
+  local value; [ -n "$1" ] || return 2; value=$(pages history.search --text "$1") || return 1
+  render '(.data.items[]|"\(.event_ref.session_id)#\(.event_ref.sequence) \(.role)/\(.kind) \(.snippet|one)"), "Index complete=\(.data.complete) unindexed=\(.data.unindexed_events) unsearchable=\(.data.unsearchable_events). A no-hit partial index is not absence. Preview: convo SESSION SEQ."' <<<"$value"
+}
+cmd_convo() {
+  local session=$1 sequence=${2:-0} n=${3:-8} value head event ref payload anchor part
+  identifier "$session" && uint "$sequence" 0 1000000 && uint "$n" 1 100 || return 2
+  # A bounded forward window, not a fabricated around-page continuation.
+  anchor=$((sequence > 0 ? sequence-1 : 0))
+  value=$(wg history.read --session-id "$session" --direction after --anchor "$anchor" --limit "$n" --max-bytes 1048576) || return 1
+  head=$(jq -er '.meta.history_capture.head' <<<"$value") || return 1
+  while IFS= read -r event; do
+    render '"#\(.event_ref.sequence) \(.actor_id) \(.event.role)/\(.event.kind)"' <<<"$event"
+    ref=$(jq -c '.event_ref' <<<"$event")
+    part=payload; [ "$(jq -r '.event.searchable_text != null' <<<"$event")" = true ] && part=searchable_text
+    payload=$(wg history.payload --head "$head" --json-field event_ref "$ref" --json-field part "{\"kind\":\"$part\"}" --length 1200) || return 1
+    # Best-effort UTF8, explicitly a preview; exact base64 and byte continuation
+    # remain available. Sanitize AFTER decoding, including a clipped UTF8 suffix.
+    render '"best-effort UTF8 preview: " + (.data.bytes_base64|@base64d|clean), "exact preview base64: " + .data.bytes_base64, "total=\(.data.total_bytes) next_offset=\(.data.next_offset) has_more=\(.data.has_more)"' <<<"$payload"
+  done < <(jq -c '.data.items[]' <<<"$value")
+  render '"History window has_more=\(.data.has_more) next_anchor=\(.data.next_anchor) omitted_for_budget=\(.data.omitted_for_budget). Preserve head " + $head + "; expand with history.payload."' --arg head "$head" <<<"$value"
+}
+command=${1:-status}; [ "$#" -eq 0 ] || shift
+case "$command" in
+  status) cmd_status "$@" ;; dash) cmd_dash "$@" ;; watch) cmd_watch "$@" ;; feed) cmd_feed "$@" ;;
+  ticket) [ "$#" -eq 1 ] && cmd_ticket "$@" ;; questions) [ "$#" -eq 0 ] && cmd_questions ;;
+  agents) [ "$#" -eq 0 ] && cmd_agents ;; inbox) [ "$#" -ge 1 ] && [ "$#" -le 2 ] && cmd_inbox "$@" ;;
+  output) [ "$#" -ge 1 ] && cmd_output "$@" ;; storage) [ "$#" -eq 0 ] && cmd_storage ;; files) [ "$#" -eq 0 ] && cmd_files ;;
+  history) [ "$#" -eq 1 ] && cmd_history "$@" ;; convo) [ "$#" -ge 1 ] && [ "$#" -le 3 ] && cmd_convo "$@" ;;
+  *) fail "unknown command: $command (try help)"; exit 2 ;;
 esac
 ```
 
