@@ -119,21 +119,21 @@ let%expect_test
   [%expect
     {|
     true
-    {"revision":"1"}
+    {"limit":"2","name":"build","revision":"1"}
     true
-    {"revision":"1"}
+    {"actor_id":"worker","last_observed_unix_ms":null,"revision":"1","run_id":"run","session_ids":[],"status":"running"}
     true
-    {"revision":"2"}
+    {"actor_id":"worker","last_observed_unix_ms":"100","revision":"2","run_id":"run","session_ids":[],"status":"running"}
     true
-    {"revision":"3"}
+    {"actor_id":"worker","last_observed_unix_ms":"100","revision":"3","run_id":"run","session_ids":["session"],"status":"running"}
     true
-    {"revision":"2"}
+    {"limit":"3","name":"build","revision":"2"}
     true
-    {"revision":"1"}
+    {"pools":["build"],"required_capabilities":[],"revision":"1","ticket_id":"task"}
     true
-    {"revision":"2"}
+    {"pools":["build"],"required_capabilities":["ocaml"],"revision":"2","ticket_id":"task"}
     true
-    {"revision":"4"} |}]
+    {"actor_id":"worker","last_observed_unix_ms":"100","revision":"4","run_id":"run","session_ids":["session"],"status":"completed"} |}]
 ;;
 
 let%expect_test "attempt receipts identify current attempt state and entity revision" =
@@ -249,7 +249,7 @@ let%expect_test "reservation aggregate counters are explicitly coordination revi
   [%expect
     {|
     true
-    {"coordination_revision":"2"}
+    {"coordination_revision":"2","holds":[{"holder":{"actor_id":"worker","lease":{"deadline_unix_ms":null,"duration_ms":null,"epoch":"1","last_unix_ms":"0","revision":"1"},"mode":"exclusive","origin":{"kind":"manual"},"run_id":"run","token":"1"},"reservation_id":"build"}]}
     true
     {"coordination_revision":"3"}
     {"revision":"1"} |}]
@@ -383,14 +383,31 @@ let%expect_test "every coordination mutation schema names its guarded revision f
       Api_codec.field_names (Option.value_exn (Agent_run_api.response_codec ~method_))
       |> Option.value_exn
     in
+    let has_fields expected =
+      List.equal
+        String.equal
+        (List.sort fields ~compare:String.compare)
+        (List.sort expected ~compare:String.compare)
+    in
     let entity, attempt, coordination = !counts in
     match method_ with
-    | "run.register"
-    | "run.transition"
-    | "run.observe"
-    | "run.link_session"
-    | "allocation.pool_put"
-    | "allocation.ticket_policy_put"
+    | "run.register" | "run.transition" | "run.observe" | "run.link_session" ->
+      assert (
+        has_fields
+          [ "run_id"
+          ; "revision"
+          ; "status"
+          ; "actor_id"
+          ; "last_observed_unix_ms"
+          ; "session_ids"
+          ]);
+      counts := entity + 1, attempt, coordination
+    | "allocation.pool_put" ->
+      assert (has_fields [ "name"; "revision"; "limit" ]);
+      counts := entity + 1, attempt, coordination
+    | "allocation.ticket_policy_put" ->
+      assert (has_fields [ "ticket_id"; "revision"; "required_capabilities"; "pools" ]);
+      counts := entity + 1, attempt, coordination
     | "ticket.paths.put" ->
       assert (List.equal String.equal fields [ "revision" ]);
       counts := entity + 1, attempt, coordination

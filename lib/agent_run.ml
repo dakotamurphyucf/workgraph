@@ -1366,11 +1366,13 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
       | Register { id; _ }
       | Transition { id; _ }
       | Observe { id; _ }
-      | Link_session { id; _ } -> entity (find !current.runs id).Record.revision
-      | Pool_put { name; _ } ->
-        entity (find !current.pools name).Allocation.Definition.revision
+      | Link_session { id; _ } ->
+        (match Run_receipt.of_record (find !current.runs id) with
+         | Ok receipt -> Run_receipt.to_json receipt
+         | Error problem -> raise (Json.Decode_error problem))
+      | Pool_put { name; _ } -> Agent_run_api.pool_json (find !current.pools name)
       | Ticket_policy_put { ticket; _ } ->
-        entity (find !current.ticket_policies ticket).Allocation.Ticket_policy.revision
+        Agent_run_api.ticket_policy_json (find !current.ticket_policies ticket)
       | Attempt_start { id; _ } | Attempt_checkpoint { id; _ } | Attempt_finish { id; _ }
         ->
         Agent_run_api.Attempt_result.to_json

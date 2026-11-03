@@ -18,6 +18,36 @@ let local_methods =
 
 let helper_help = function
   | "init" | "bootstrap" -> Some Cli_bootstrap.help
+  | "receipts" | "scripting" ->
+    Some
+      {|receipts [local reference]
+Mutation results use .result.data and .result.meta. IDs and state fields are
+method-specific: run_id/status for run mutations, attempt_id/state for attempts,
+ticket_id/token for acquisition, and answer/thread revisions for resolution.
+Run revision guards that run, coordination_revision guards its domain collection,
+workspace_revision identifies the durable transaction, and a resource content
+version/digest is an immutable evidence pin. Never interchange these counters.
+
+Check the process exit status before extracting JSON; a nonzero result can carry
+a JSON-RPC error on stdout or a local Problem on stderr. saved_request diagnostics
+are on stderr. Example (fresh request/output paths and live connection required):
+  if "$WG" --context "$CONTEXT" run register --target-run-id worker-1 \
+       --objective 'Inspect the change' --save-request "$REQUEST" >"$RESULT"; then
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["result"]["data"]; print(d["run_id"],d["revision"],d["status"])' "$RESULT"
+  else
+    exit 1
+  fi
+
+After an uncertain write, explicitly retry the exact saved request:
+  if "$WG" --context "$CONTEXT" retry "$REQUEST" >"$RESULT"; then
+    python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"]["data"])' "$RESULT"
+  else
+    exit 1
+  fi
+Retry never refreshes state, changes attribution or generates another identity.
+A later run transition does not alter the original receipt. Reported lifecycle
+state and observation time do not establish that a harness process is alive.
+Use help METHOD for actual response fields; no universal id/status is invented.|}
   | "pagination" ->
     Some
       ("pagination [local read helper]\n\
@@ -566,6 +596,26 @@ let preconditions name mode request =
 ;;
 
 let result_paths = function
+  | "run.register" | "run.transition" | "run.observe" | "run.link_session" ->
+    ".result.data.{run_id,revision,status,actor_id,last_observed_unix_ms,session_ids}; \
+     .revision guards this run; observation is caller-reported"
+  | "allocation.pool_put" ->
+    ".result.data.{name,revision,limit}; .revision guards this pool"
+  | "allocation.ticket_policy_put" ->
+    ".result.data.{ticket_id,revision,required_capabilities,pools}"
+  | "attempt.start" | "attempt.checkpoint" | "attempt.finish" ->
+    ".result.data.{attempt_id,revision,state}; .revision guards this attempt"
+  | "reservation.acquire" ->
+    ".result.data.coordination_revision; .result.data.holds[].{reservation_id,holder}; \
+     holder carries the actual actor/run/token/mode/lease"
+  | "reservation.paths.acquire" ->
+    ".result.data.coordination_revision; .result.data.holds[].{target,holder}; holder \
+     carries the actual actor/run/token/mode/lease/origin"
+  | "request.ask" ->
+    ".result.data.{request_id,request_revision,thread_id,thread_revision,question}"
+  | "request.resolve" ->
+    ".result.data.{request_id,request_revision,thread_id,thread_revision,status,answer}; \
+     answer is the exact comment/version reference or null"
   | "ticket.context" ->
     ".result.data.ticket.{ticket_id,description,status,claim}; .result.data.handoff"
   | "ticket.list" | "ticket.ready" ->

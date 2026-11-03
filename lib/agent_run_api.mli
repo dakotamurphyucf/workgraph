@@ -26,7 +26,11 @@ val request_codec : method_:string -> Jsonaf.t Api_codec.t option
 
 (** [reservation.acquire] returns [coordination_revision] and [holds], sorted
     [{reservation_id;holder}] rows containing exact granted fencing/lease data.
-    Batches commit all grants and the receipt atomically. *)
+    Batches commit all grants and the receipt atomically.
+
+    Run mutation responses use [Run_receipt.codec]. Pool and ticket-policy
+    mutation responses reuse their complete validated definition codecs. Entity
+    revisions remain distinct from coordination/workspace capture revisions. *)
 val response_codec : method_:string -> Jsonaf.t Api_codec.t option
 
 val descriptor : method_:string -> Api_method.Packed.t option

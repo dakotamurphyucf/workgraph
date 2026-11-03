@@ -19,7 +19,9 @@ val settings : Workflow.Change.t -> (Jsonaf.t, Problem.t) Result.t
 
 (** Canonical public template receipts. Each operation has a closed discriminator
     and validates the actual family receipt; instance storage encodings remain
-    independent. Helpers reject malformed receipt data. *)
+    independent. Ticket-policy operations reuse their full public definition
+    receipt, including the actual ticket identity and guarded policy revision.
+    Helpers reject malformed receipt data. *)
 module Template : sig
   module Kind : sig
     type t =

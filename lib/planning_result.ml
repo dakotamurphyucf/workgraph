@@ -223,7 +223,7 @@ module Template = struct
   let receipts =
     [ Kind.Ticket_create, ticket
     ; Dependency_add, record [ field "ticket_id" identifier ]
-    ; Ticket_policy_put, revision
+    ; Ticket_policy_put, Api_codec.as_json Agent_run_wire.ticket_policy
     ; Review_policy_put, review_policy_codec
     ; Instance_register, registration
     ]

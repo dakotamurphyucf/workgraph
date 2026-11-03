@@ -58,22 +58,22 @@ class RunResultsSocketTest(unittest.TestCase):
                     write("run.register", "first", target_run_id="first", objective="First run")
                     write("ticket.create", "task", ticket_id="task", title="Task")
                     pool = write("allocation.pool_put", "pool", name="build", expected_revision="0", limit="2")
-                    self.assertEqual({"revision": "1"}, pool["data"])
+                    self.assertEqual({"name": "build", "revision": "1", "limit": "2"}, pool["data"])
                     registered = write("run.register", "second", target_run_id="run", objective="Second run")
-                    self.assertEqual({"revision": "1"}, registered["data"])
+                    self.assertEqual({"run_id": "run", "revision": "1", "status": "running", "actor_id": "worker", "last_observed_unix_ms": None, "session_ids": []}, registered["data"])
                     self.assertGreater(int(registered["meta"]["workspace_revision"]), 1)
                     overview = ok("coordinator.overview", run_id="run")["data"]["items"]
                     self.assertIn("unobserved_run", [item["kind"] for item in overview])
                     self.assertNotIn("stale_run", [item["kind"] for item in overview])
                     observed = write("run.observe", "observe", target_run_id="run",
                                      expected_revision=registered["data"]["revision"], observed_unix_ms="0")
-                    self.assertEqual({"revision": "2"}, observed["data"])
+                    self.assertEqual({"run_id": "run", "revision": "2", "status": "running", "actor_id": "worker", "last_observed_unix_ms": "0", "session_ids": []}, observed["data"])
                     overview = ok("coordinator.overview", run_id="run")["data"]["items"]
                     self.assertIn("stale_run", [item["kind"] for item in overview])
                     self.assertNotIn("unobserved_run", [item["kind"] for item in overview])
                     updated_pool = write("allocation.pool_put", "pool-update", name="build",
                                          expected_revision=pool["data"]["revision"], limit="3")
-                    self.assertEqual({"revision": "2"}, updated_pool["data"])
+                    self.assertEqual({"name": "build", "revision": "2", "limit": "3"}, updated_pool["data"])
                     paths = write("ticket.paths.put", "paths", ticket_id="task", expected_revision="0", declarations=[])
                     self.assertEqual({"revision": "1"}, paths["data"])
                     started_params = {"ticket_id": "task", "run_id": "run", "attempt_id": "attempt"}

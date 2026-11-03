@@ -1051,18 +1051,6 @@ let request_codec ~method_ =
      | None -> Agent_coordination_api.request_codec ~method_)
 ;;
 
-let entity_receipt =
-  json_codec
-    (Api_codec.object_
-       (Fields.required
-          "revision"
-          (Api_codec.map
-             Coordination_wire.positive
-             ~decode:Result.return
-             ~encode:Fn.id
-             ~description:"Affected entity revision; use as its next expected_revision.")))
-;;
-
 let coordination_receipt =
   json_codec (Api_codec.object_ (Fields.required "coordination_revision" decimal))
 ;;
@@ -1113,12 +1101,10 @@ let response_codec ~method_ =
   | Some codec -> Some codec
   | None ->
     (match method_ with
-     | "run.register"
-     | "run.transition"
-     | "run.observe"
-     | "run.link_session"
-     | "allocation.pool_put"
-     | "allocation.ticket_policy_put" -> Some entity_receipt
+     | "run.register" | "run.transition" | "run.observe" | "run.link_session" ->
+       Some (json_codec Run_receipt.codec)
+     | "allocation.pool_put" -> Some (json_codec Agent_run_wire.pool)
+     | "allocation.ticket_policy_put" -> Some (json_codec Agent_run_wire.ticket_policy)
      | "attempt.start" ->
        Some
          (json_codec

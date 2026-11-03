@@ -29,7 +29,10 @@ val prepare
 val candidate : prepared -> t
 val changes : prepared -> Change.t list
 
-(** Run, pool and ticket-policy mutations return the affected entity's [revision].
+(** Run mutations return the bounded resulting [Run_receipt] snapshot. Pool and
+    ticket-policy mutations return their actual identity, affected entity's
+    [revision] and resulting policy fields. Durable retries retain the original
+    snapshot even after later writes; observation is caller-reported metadata.
     Attempt mutations return [attempt_id], entity [revision] and current [state].
     Ticket path policy mutations likewise return their own guarded revision.
     Aggregate reservation/action/condition/recovery mutations explicitly return
