@@ -1,0 +1,15 @@
+(rule
+ (alias runtest)
+ (deps
+  guide_test.py
+  ../daemon_ready.py
+  ../../README.md
+  ../../AGENT_GUIDE.md
+  ../../docs/guide-coverage.md
+  ../../docs/agent/wgx.md
+  ../../tools/wgx.sh
+  ../../examples/ci-worker.sh
+  ../../examples/transcript-converter.py
+  ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:guide_test.py} %{exe:../../bin/main.exe})))
