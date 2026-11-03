@@ -18,6 +18,30 @@ let local_methods =
 
 let helper_help = function
   | "init" | "bootstrap" -> Some Cli_bootstrap.help
+  | "pagination" ->
+    Some
+      ("pagination [local read helper]\n\
+        Usage: workgraph --context ABS_FILE ticket list --project-id PROJECT --paginate\n\
+        [--page-limit 100] [--total-bytes 16777216] [--limit 50] [--max-bytes 65536]\n\
+        Opt-in bounded traversal; requests 1..1000, total JSON 4096..67108864 bytes.\n\
+        Keeps exact selectors and per-family captures: at_revision (planning),\n\
+        expected_revision/revision plus query_scope (domain), at_snapshot (exports),\n\
+        opaque cursor, inbox notification through, or immutable history head.\n\
+        Current-revision guards detect changes; they do not retrieve old state.\n\
+        Result paths: .result.data.pages[] retains each exact {data,meta};\n\
+        .result.data.pagination.{complete,stop,capture,next_request,retry_request,problem}.\n\
+        Incomplete exits1 for page/byte limits, no progress, unsafe server omissions,\n\
+        oversized rows or unchanged fetch errors. Never silently refreshes a guard,\n\
+        retries, acknowledges inbox rows or splits an atomic transaction. Waits and\n\
+        nested multi-section views reject. Complete traversal retains each page's\n\
+        source/index coverage; it is not a claim of complete indexing.\n\
+        Resume with the exact next_request; retry_request repeats an unconsumed position.\n\
+        Exact retry is null where a first captured position cannot be reconstructed.\n\
+        Initial opaque reads require room for the first bounded page plus cursor metadata.\n\
+        Continue another bounded collection using next_request.method and .params with\n\
+        --paginate; retry of a saved raw request performs one read.\n\
+        Supported methods: "
+       ^ String.concat ~sep:", " (Query_pagination.supported_methods ()))
   | "evidence" ->
     Some
       "Evidence helpers: evidence-run, evidence-publish, evidence show, evidence clean.\n\

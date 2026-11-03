@@ -22,6 +22,11 @@
     refuses live, unknown or publication-intent stages. Optional upload ticket
     linking is independently acknowledged: a committed publication with failed
     link returns its exact receipt and saved retry path even on a nonzero exit.
+    [--paginate] is opt-in for supported read collections, bounded by --page-limit
+    and --total-bytes. It retains exact page envelopes and family-specific capture
+    guards, selectors and filters; it never restarts a stale capture or paginates
+    writes/atomic batches. Incomplete traversal exits nonzero with explicit stop
+    and exact next/retry requests. Cancellation propagates without retry.
     Init/bootstrap are the only workspace-creating setup operations and may start
     a detached daemon with an explicit registry/log; ordinary calls never do so. *)
 val run : env:Eio_unix.Stdenv.base -> string list -> int

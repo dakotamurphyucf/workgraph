@@ -37,6 +37,9 @@ Request options:
   --json-field FIELD JSON       Typed parameter
   --field-file FIELD FILE|-     Read exact UTF-8 bytes (including newlines)
   --save-request ABS_FILE       Sync a new exact retry file before sending
+  --paginate                   Traverse one supported captured read collection
+  --page-limit COUNT           Bound requests (default 100; range 1..1000)
+  --total-bytes BYTES          Bound collection JSON (default 16MiB; max 64MiB)
 
 Field names use hyphens or underscores. --workspace-id and --actor-id specify
 scope and attribution; --actor and --text are literal payload fields.
@@ -55,6 +58,9 @@ type options =
   ; save_request : string option
   ; request_directory : string option
   ; materialized : bool
+  ; paginate : bool
+  ; page_limit : int option
+  ; total_bytes : int option
   }
 
 let field_name value = String.tr value ~target:'-' ~replacement:'_'
@@ -65,7 +71,7 @@ let parse_options ~fs ~stdin arguments =
     | "--params-file" :: "-" :: rest | "--field-file" :: _ :: "-" :: rest ->
       1 + stdin_consumers rest
     | ("--json-field" | "--field-file") :: _ :: _ :: rest -> stdin_consumers rest
-    | ("--self" | "--json") :: rest -> stdin_consumers rest
+    | ("--self" | "--json" | "--paginate") :: rest -> stdin_consumers rest
     | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> stdin_consumers rest
     | _ :: rest -> stdin_consumers rest
   in
@@ -94,6 +100,9 @@ let parse_options ~fs ~stdin arguments =
     ; save_request = None
     ; request_directory = None
     ; materialized = false
+    ; paginate = false
+    ; page_limit = None
+    ; total_bytes = None
     }
   in
   let add options key value =
@@ -104,6 +113,17 @@ let parse_options ~fs ~stdin arguments =
   in
   let rec loop options = function
     | [] -> options
+    | "--paginate" :: rest ->
+      if options.paginate then Json.fail Invalid_argument "duplicate --paginate option";
+      loop { options with paginate = true } rest
+    | "--page-limit" :: value :: rest ->
+      if Option.is_some options.page_limit
+      then Json.fail Invalid_argument "duplicate --page-limit";
+      loop { options with page_limit = Some (Json.integer (Json.string value)) } rest
+    | "--total-bytes" :: value :: rest ->
+      if Option.is_some options.total_bytes
+      then Json.fail Invalid_argument "duplicate --total-bytes";
+      loop { options with total_bytes = Some (Json.integer (Json.string value)) } rest
     | "--self" :: rest ->
       if options.self then Json.fail Invalid_argument "duplicate --self option";
       loop { options with self = true } rest
@@ -158,7 +178,12 @@ let parse_options ~fs ~stdin arguments =
       loop { options with named_fields = key :: options.named_fields } rest
     | _ -> Json.fail Invalid_argument "malformed CLI options; use --help"
   in
-  loop initial arguments
+  let options = loop initial arguments in
+  if
+    (not options.paginate)
+    && (Option.is_some options.page_limit || Option.is_some options.total_bytes)
+  then Json.fail Invalid_argument "--page-limit/--total-bytes require --paginate";
+  options
 ;;
 
 let render_text value =
@@ -193,8 +218,8 @@ let normalize_help arguments =
     | [] | "--" :: _ -> false
     | "--help" :: _ -> true
     | ("--json-field" | "--field-file") :: _ :: _ :: rest -> help_flag rest
-    | ("--self" | "--json" | "--brief" | "--full" | "--stdout" | "--stderr") :: rest ->
-      help_flag rest
+    | ("--self" | "--json" | "--brief" | "--full" | "--stdout" | "--stderr" | "--paginate")
+      :: rest -> help_flag rest
     | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> help_flag rest
     | _ :: rest -> help_flag rest
   in
@@ -214,7 +239,7 @@ let normalize_help arguments =
     | (("--full" | "--brief") as flag) :: rest -> flag :: reference_options rest
     | "--output" :: value :: rest -> "--output" :: value :: reference_options rest
     | ("--json-field" | "--field-file") :: _ :: _ :: rest -> reference_options rest
-    | ("--self" | "--json" | "--help" | "--stdout" | "--stderr") :: rest ->
+    | ("--self" | "--json" | "--help" | "--stdout" | "--stderr" | "--paginate") :: rest ->
       reference_options rest
     | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> reference_options rest
     | _ :: rest -> reference_options rest
@@ -263,6 +288,21 @@ let run ~env arguments =
            ^ "; use "
            ^ canonical
            ^ " for a new request; saved retries never change methods"));
+    let pagination =
+      if options.paginate
+      then
+        Some
+          (Query_pagination.create
+             request
+             ~limits:
+               (Query_pagination.Limits.create
+                  ~max_pages:(Option.value options.page_limit ~default:100)
+                  ~max_bytes:
+                    (Option.value options.total_bytes ~default:(16 * 1024 * 1024))
+                |> Disk.unwrap)
+           |> Disk.unwrap)
+      else None
+    in
     let client =
       Client.create
         ~net:(Eio.Stdenv.net env)
@@ -334,6 +374,7 @@ let run ~env arguments =
            ~f:(fun value -> String.equal (Json.text value) "-")
     in
     let incomplete_upload = ref false in
+    let incomplete_pagination = ref false in
     let response =
       match upload with
       | Some plan ->
@@ -374,7 +415,13 @@ let run ~env arguments =
             |> Disk.unwrap
         in
         Protocol.Success (receipt |> Api_response.project Value |> Api_response.to_json)
-      | None -> Client.execute client request |> Disk.unwrap
+      | None ->
+        (match pagination with
+         | None -> Client.execute client request |> Disk.unwrap
+         | Some plan ->
+           let collection = Query_pagination.run plan ~client |> Disk.unwrap in
+           incomplete_pagination := not (Query_pagination.Collection.complete collection);
+           Protocol.Success (Query_pagination.Collection.to_json collection))
     in
     (match response with
      | Success value when needs_mutation_id request && not !incomplete_upload ->
@@ -394,7 +441,7 @@ let run ~env arguments =
       | Failure error -> diagnostic (Json.canonical (Problem.to_json error)))
     else output (Json.canonical (Protocol.response_json request response));
     match response with
-    | Success _ -> if !incomplete_upload then 1 else 0
+    | Success _ -> if !incomplete_upload || !incomplete_pagination then 1 else 0
     | Failure _ -> 1
   in
   let context = ref None in
@@ -457,8 +504,13 @@ let run ~env arguments =
           select context_file (Some path) reversed rest
         | (("--json-field" | "--field-file") as flag) :: key :: value :: rest ->
           select context_file socket (value :: key :: flag :: reversed) rest
-        | (("--json" | "--help" | "--version" | "--self" | "--stdout" | "--stderr") as
-           flag)
+        | (( "--json"
+           | "--help"
+           | "--version"
+           | "--self"
+           | "--stdout"
+           | "--stderr"
+           | "--paginate" ) as flag)
           :: rest -> select context_file socket (flag :: reversed) rest
         | flag :: value :: rest when String.is_prefix flag ~prefix:"--" ->
           select context_file socket (value :: flag :: reversed) rest
