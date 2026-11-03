@@ -4,6 +4,15 @@
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))
 
+(rule
+ (alias runtest)
+ (deps
+  project_scope_test.py
+  ../daemon_ready.py
+  ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:project_scope_test.py} %{exe:../../bin/main.exe})))
+
 (library
  (name workgraph_attention_tests)
  (libraries workgraph core expect_test_helpers_core)

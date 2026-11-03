@@ -146,19 +146,22 @@ let read t ~now_unix_ms ~params =
     let target_matches = function
       | Entity_ref.Project id -> Option.for_all project ~f:(Id.Project.equal id)
       | Ticket id -> ticket_matches id
-      | Workspace | Milestone _ | Resource _ -> Option.is_none project
+      | Milestone id ->
+        Option.for_all project ~f:(fun project ->
+          Option.exists (Map.find t.milestones id) ~f:(fun milestone ->
+            Id.Project.equal milestone.project project))
+      | Workspace | Resource _ -> Option.is_none project
     in
-    let request_matches request =
-      let thread =
-        C.get_thread t.communication request.C.Request.thread |> Option.value_exn
-      in
-      Option.for_all project ~f:(fun p ->
-        List.exists thread.links ~f:(function
-          | Project id -> Id.Project.equal p id
-          | Ticket id -> ticket_matches id
-          | Workspace | Milestone _ | Resource _ -> false)
-        || target_matches (C.thread_target t.communication thread.id |> unwrap))
+    let thread_matches (thread : C.Thread.t) =
+      match C.thread_target t.communication thread.id |> unwrap with
+      | Workspace -> Option.is_none project || List.exists thread.links ~f:target_matches
+      | (Project _ | Ticket _ | Milestone _ | Resource _) as target ->
+        target_matches target
     in
+    let thread_id_matches id =
+      Option.exists (C.get_thread t.communication id) ~f:thread_matches
+    in
+    let request_matches request = thread_id_matches request.C.Request.thread in
     List.iter (C.requests t.communication) ~f:(fun request ->
       if C.Request.Status.equal request.status Open && request_matches request
       then (
@@ -212,7 +215,16 @@ let read t ~now_unix_ms ~params =
             let in_project =
               match notification.scope with
               | Project id -> Option.for_all project ~f:(Id.Project.equal id)
-              | Workspace -> Option.is_none project
+              | Workspace ->
+                Option.is_none project
+                ||
+                  (match notification.source with
+                  | C.Notification.Source.Thread id -> thread_id_matches id
+                  | Request id ->
+                    Option.exists (C.get_request t.communication id) ~f:request_matches
+                  | Message id ->
+                    Option.exists (C.get_message t.communication id) ~f:(fun message ->
+                      Option.exists message.ticket_id ~f:ticket_matches))
             in
             if in_project
             then
