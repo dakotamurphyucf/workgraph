@@ -88,7 +88,7 @@ let%expect_test "blocked finish identifies prerequisite without publishing hando
   print_s [%sexp (String.equal before (Json.canonical (State.to_json state)) : bool)];
   [%expect
     {|
-    {"details":{"blockers":["prerequisite:dep"],"ticket_id":"task","type":"readiness"},"kind":"Blocked","message":"unfinished prerequisites"}
+    {"details":{"blockers":["prerequisite:dep"],"omitted_blockers":"0","ticket_id":"task","type":"readiness"},"kind":"Blocked","message":"unfinished prerequisites"}
     true
     |}]
 ;;

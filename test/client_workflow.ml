@@ -64,6 +64,11 @@ let () =
       |> Disk.unwrap
       |> committed
     in
+    (* The SDK workflow is rerun after restart. This receipt may precede later
+       committed setup writes, so pin the current capture before exact retry. *)
+    let before_retry =
+      Client.query client ~workspace ~parameters:[] Workspace_get |> Disk.unwrap
+    in
     let duplicate =
       Client.mutate
         client
@@ -81,6 +86,8 @@ let () =
            commit.workspace_revision
            duplicate.workspace_revision)
     then failwith "retry committed twice";
+    if not (String.equal (Json.canonical commit.result) (Json.canonical duplicate.result))
+    then failwith "retry changed the original result";
     let context =
       Client.query client ~workspace ~parameters:[] (Ticket_context ticket) |> Disk.unwrap
     in
@@ -88,8 +95,8 @@ let () =
       not
         (Api_position.Workspace_revision.equal
            context.workspace_revision
-           commit.workspace_revision)
-    then failwith "query revision differs";
+           before_retry.workspace_revision)
+    then failwith "exact retry advanced the current query capture";
     let audit =
       Client.query client ~workspace ~parameters:[] (Activity_since 0) |> Disk.unwrap
     in
