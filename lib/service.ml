@@ -167,6 +167,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
         | Error error -> failures := Map.set !failures ~key:id ~data:error));
     let requests = Eio.Stream.create 128 in
     let changes_changed = Eio.Condition.create () in
+    let history_feed_changed = Eio.Condition.create () in
     let history_jobs = Eio.Stream.create 8 in
     let history_pins = ref String.Map.empty in
     let history_changed = Eio.Condition.create () in
@@ -1279,10 +1280,30 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  ~revision:(Some reference.revision)
                |> Disk.unwrap
                : Resource.Version.t));
-          worker (fun () ->
-            Store.with_history value.store ~f:(fun journal ->
-              History_command.execute journal command ~actor ?run ~key ~request_hash ()))
-          |> Disk.unwrap
+          let response, published =
+            worker (fun () ->
+              Store.with_history value.store ~f:(fun journal ->
+                let before = Session_store.last_committed_head journal in
+                Result.map
+                  (History_command.execute
+                     journal
+                     command
+                     ~actor
+                     ?run
+                     ~key
+                     ~request_hash
+                     ())
+                  ~f:(fun response ->
+                    ( response
+                    , not
+                        (Option.equal
+                           String.equal
+                           before
+                           (Session_store.last_committed_head journal)) ))))
+            |> Disk.unwrap
+          in
+          if published then Eio.Condition.broadcast history_feed_changed;
+          response
         | method_
           when List.mem
                  ([ "attention.read"; "actor.overview"; "usage.aggregate" ]
@@ -1680,6 +1701,11 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  params)
           in
           let timeout_ms = Change_feed_api.Request.timeout_ms decoded in
+          let condition =
+            match Change_feed_api.Request.source decoded with
+            | Planning -> changes_changed
+            | History -> history_feed_changed
+          in
           let current = ref decoded in
           let latest = ref None in
           let poll () =
@@ -1712,7 +1738,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
             Eio.Time.with_timeout_exn
               (Eio.Stdenv.clock env)
               (Float.of_int timeout_ms /. 1000.)
-              (fun () -> Eio.Condition.loop_no_mutex changes_changed poll)
+              (fun () -> Eio.Condition.loop_no_mutex condition poll)
           with
           | Eio.Time.Timeout ->
             (match !latest with

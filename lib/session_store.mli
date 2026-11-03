@@ -39,8 +39,10 @@ val open_existing
   -> workspace:Id.Workspace.t
   -> (t, Problem.t) Result.t
 
-(** Last committed in-memory ancestor, readable even when fenced, solely for
-    recording a close/recovery baseline. Does not verify current disk state. *)
+(** Worker-owned last committed in-memory ancestor, readable even when fenced.
+    Used for close/recovery baselines and comparing publication before/after a
+    serialized history mutation. Does not verify current disk state or authorize
+    writes; an unchanged head also identifies exact receipt retries. *)
 val last_committed_head : t -> string option
 
 (** On the persistence owner, check open/fenced state and capture exact journal
