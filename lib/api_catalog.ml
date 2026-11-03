@@ -237,6 +237,7 @@ let methods =
   @ [ scoped (Api_method.Packed.Pack Workspace_metrics.method_)
     ; scoped Usage_rollup_api.method_
     ]
+  @ List.map Brief_api.methods ~f:scoped
   @ List.map Planning_read_api.methods ~f:scoped
   @ List.map Planning_context_api.methods ~f:scoped
   @ declared_methods Resume_api.query_methods ~descriptor:Resume_api.descriptor

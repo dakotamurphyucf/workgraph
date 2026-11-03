@@ -98,3 +98,51 @@ let%expect_test "explicit query selectors override context without implicit filt
   [%expect
     {| {"actor_id":"selected-actor","run_id":"selected-run","workspace_id":"demo"} |}]
 ;;
+
+let%expect_test "observer defaults omit write identity without granting a security mode" =
+  let value =
+    Json.obj [ "socket", Json.string "/tmp/s"; "workspace_id", Json.string "demo" ]
+  in
+  let context = Cli_context.of_json value |> Disk.unwrap in
+  print_endline (Json.canonical (Cli_context.to_json context));
+  print_endline
+    (Json.canonical
+       (Json.obj (Cli_context.apply context ~method_:"ticket.list" ~fields:[])));
+  print_s
+    [%sexp
+      (Result.is_error
+         (Json.decode (fun () ->
+            Cli_context.apply context ~method_:"ticket.create" ~fields:[]))
+       : bool)];
+  print_endline
+    (Json.canonical
+       (Json.obj
+          (Cli_context.apply
+             context
+             ~method_:"ticket.create"
+             ~fields:[ "actor_id", Json.string "writer" ])));
+  print_s
+    [%sexp
+      (Result.is_error
+         (Cli_context.apply_self (Some context) ~method_:"inbox.read" ~fields:[])
+       : bool)];
+  print_s
+    [%sexp
+      (Result.is_error
+         (Cli_context.of_json
+            (Json.obj
+               [ "socket", Json.string "/tmp/s"
+               ; "workspace_id", Json.string "demo"
+               ; "run_id", Json.string "run"
+               ]))
+       : bool)];
+  [%expect
+    {|
+    {"socket":"/tmp/s","workspace_id":"demo"}
+    {"workspace_id":"demo"}
+    true
+    {"actor_id":"writer","workspace_id":"demo"}
+    true
+    true
+    |}]
+;;

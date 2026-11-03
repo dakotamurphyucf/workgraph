@@ -3,13 +3,15 @@ open Core
 let help =
   {|init / bootstrap [local helper] — Create or select a workspace and save agent-local defaults.
 Usage:
-  workgraph init --context ABS_FILE --socket ABS_SOCKET --workspace-id ID --actor-id ID
+  workgraph init --context ABS_FILE --socket ABS_SOCKET --workspace-id ID [--actor-id ID]
     --root ABS_ROOT --name NAME [--run-id ID] [--request-directory ABS_DIR]
     [--start-daemon true --registry ABS_DIR --daemon-log ABS_FILE] [--timeout SECONDS]
   workgraph bootstrap ... (same options)
   workgraph init --context EXISTING_CONTEXT
 
-New context requires an absolute context path, socket, workspace ID and actor ID.
+New context requires an absolute context path, socket and workspace ID.
+Omit actor/run for observer defaults against an existing open workspace. Observer
+defaults are not security: explicit --actor-id still enables authorized writes.
 A new workspace also requires an absolute root and nonblank name.
 An existing context supplies defaults; chosen defaults must match it exactly.
 --run-id records attribution; register the run separately before allocating work.
@@ -34,7 +36,7 @@ type t =
   ; context : Cli_context.t
   ; previous : Cli_context.t option
   ; workspace_id : string
-  ; actor_id : string
+  ; actor_id : string option
   ; root : string option
   ; name : string option
   ; startup : Startup.t
@@ -88,7 +90,7 @@ let create ~context_file ~socket ~previous ~fields ~request_directory ~timeout_s
           ("init requires --" ^ String.tr key ~target:'_' ~replacement:'-')
     in
     let workspace_id = required "workspace_id" in
-    let actor_id = required "actor_id" in
+    let actor_id = optional "actor_id" in
     let root = optional "root" in
     Option.iter root ~f:Disk.absolute;
     let name = optional "name" in
@@ -103,10 +105,9 @@ let create ~context_file ~socket ~previous ~fields ~request_directory ~timeout_s
     in
     let context_value =
       Json.obj
-        ([ "socket", Json.string socket
-         ; "workspace_id", Json.string workspace_id
-         ; "actor_id", Json.string actor_id
-         ]
+        ([ "socket", Json.string socket; "workspace_id", Json.string workspace_id ]
+         @ Option.to_list
+             (Option.map actor_id ~f:(fun actor -> "actor_id", Json.string actor))
          @ Option.to_list
              (Option.map
                 (List.Assoc.find fields "run_id" ~equal:String.equal)
@@ -370,6 +371,12 @@ let run t ~env ~on_saved_request =
         String.equal (Json.field value "workspace_id" |> Json.text) t.workspace_id)
     in
     let existing = find listing in
+    if Option.is_none t.actor_id && Option.is_none existing
+    then
+      Json.fail
+        Invalid_argument
+        "observer init requires an existing open workspace; supply --actor-id to create \
+         it";
     let root =
       match existing with
       | Some value ->
@@ -384,13 +391,21 @@ let run t ~env ~on_saved_request =
          | None -> Json.fail Invalid_argument "new workspace requires --root")
     in
     let mutate method_ fields =
+      let actor =
+        match t.actor_id with
+        | Some actor -> actor
+        | None ->
+          Json.fail
+            Invalid_argument
+            "observer init cannot open a closed workspace; supply --actor-id explicitly"
+      in
       let request =
         Protocol.Request.create
           ~id:"cli-init"
           ~method_
           ~params:
             (Json.obj
-               ([ "actor_id", Json.string t.actor_id
+               ([ "actor_id", Json.string actor
                 ; "workspace_id", Json.string t.workspace_id
                 ; "mutation_id", Json.string (random_name env)
                 ]

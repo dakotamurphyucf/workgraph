@@ -186,6 +186,45 @@ class ContextTest(unittest.TestCase):
                 body(cli('--context', context, 'resource', 'put_text', '--resource-id', 'file-literal', '--expected-revision', '0', '--field-file', 'text', payload_file, '--title', '--context'))
                 body(cli('--context', context, 'resource', 'put_text', '--resource-id', 'typed-literal', '--expected-revision', '0', '--json-field', 'title', '"--socket"', '--text', '--socket'))
 
+                # Observer context selects an existing open workspace without a write identity.
+                observer = root / 'observer.json'
+                observer_requests = root / 'observer-requests'
+                observed = body(cli('init', '--context', observer, '--socket', socket,
+                                    '--workspace-id', 'a', '--request-directory', observer_requests))
+                self.assertNotIn('actor_id', json.loads(observer.read_text()))
+                self.assertNotIn('run_id', json.loads(observer.read_text()))
+                self.assertNotIn('saved_request:', observed)
+                self.assertEqual([], list(observer_requests.glob('*.json')))
+                self.assertEqual(13, len(body(cli('--context', observer, 'ticket', 'list'))['result']['data']['items']))
+                self.assertEqual('brief', body(cli('--context', observer, 'ticket', 'brief', '--ticket-id', ticket_id))['result']['data']['representation'])
+                # Rejection precedes journaling and connection, even against an absent socket.
+                observer_saved = root / 'observer-write.json'
+                blocked = cli('--context', observer, '--socket', root / 'absent-socket', 'ticket', 'create',
+                              '--title', 'No implicit actor', '--save-request', observer_saved)
+                self.assertNotEqual(0, blocked.returncode)
+                self.assertEqual('Invalid_argument', json.loads(blocked.stderr)['kind'])
+                self.assertIn('actor', blocked.stderr)
+                self.assertEqual('', blocked.stdout)
+                self.assertFalse(observer_saved.exists())
+                self.assertEqual([], list(observer_requests.glob('*.json')))
+                missing_self = cli('--context', observer, 'inbox', 'read', '--self', '--consumer-id', 'watcher')
+                self.assertNotEqual(0, missing_self.returncode)
+                self.assertIn('requires actor_id', missing_self.stderr)
+                # Explicit write attribution is allowed: observer is a defaults convenience.
+                body(cli('--context', observer, 'ticket', 'create', '--ticket-id', 'explicit-observer-write',
+                         '--title', 'Explicit writer', '--actor-id', 'a'))
+                self.assertEqual(1, len(list(observer_requests.glob('*.json'))))
+                no_workspace = root / 'observer-unknown.json'
+                failed = cli('init', '--context', no_workspace, '--socket', socket, '--workspace-id', 'unknown')
+                self.assertNotEqual(0, failed.returncode)
+                self.assertFalse(no_workspace.exists())
+                self.assertIn('requires an existing open workspace', failed.stderr)
+                body(cli('--context', context, 'workspace', 'close', '--workspace-id', 'b'))
+                closed = root / 'observer-closed.json'
+                failed = cli('init', '--context', closed, '--socket', socket, '--workspace-id', 'b')
+                self.assertNotEqual(0, failed.returncode)
+                self.assertFalse(closed.exists())
+                self.assertIn('cannot open a closed workspace', failed.stderr)
                 self.assertNotEqual(0, cli('--context', context, 'retry', saved, '--actor-id', 'different').returncode)
             finally:
                 cli('request', socket, 'daemon.shutdown')

@@ -1286,6 +1286,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
         | method_
           when List.mem
                  ([ "attention.read"; "actor.overview"; "usage.aggregate" ]
+                  @ Brief_api.query_methods
                   @ Communication.query_methods
                   @ Agent_run.query_methods
                   @ Evidence.query_methods

@@ -1,7 +1,9 @@
 open Core
 
 (** Explicit agent-local defaults. No current ticket or process-global actor.
-    Paths must be absolute; identities are validated on decoding. *)
+    Paths must be absolute; identities are validated on decoding. Actor/run may
+    both be omitted for observer defaults. A run requires an actor; this is
+    convenience, never authorization or a security boundary. *)
 type t
 
 val of_json : Jsonaf.t -> (t, Problem.t) Result.t
@@ -14,7 +16,8 @@ val request_directory : t -> string option
     target identities remain explicit. Write methods receive applicable actor/run
     defaults, including actor-owned upload staging. Local upload/download helpers
     have explicit scope rules; unknown methods receive no defaults. Explicit fields
-    always win. *)
+    always win. Observer defaults reject a missing write actor before journaling
+    via [Json.Decode_error Invalid_argument]; an explicit actor enables writes. *)
 val apply
   :  t
   -> method_:string

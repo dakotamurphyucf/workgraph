@@ -3,7 +3,7 @@ open Core
 type t =
   { socket : string
   ; workspace_id : string
-  ; actor_id : string
+  ; actor_id : string option
   ; run_id : string option
   ; request_directory : string option
   }
@@ -24,12 +24,16 @@ let of_json value =
       |> Id.Workspace.to_string
     in
     let actor_id =
-      Json.field value "actor_id" |> Id.Actor.t_of_jsonaf |> Id.Actor.to_string
+      Option.map (Json.optional value "actor_id") ~f:(fun value ->
+        Id.Actor.t_of_jsonaf value |> Id.Actor.to_string)
     in
     let run_id =
       Option.map (Json.optional value "run_id") ~f:(fun v ->
         Id.Run.t_of_jsonaf v |> Id.Run.to_string)
     in
+    if Option.is_some run_id && Option.is_none actor_id
+    then
+      Json.fail Invalid_argument "observer context cannot specify run_id without actor_id";
     let request_directory =
       Option.map (Json.optional value "request_directory") ~f:(fun v ->
         let path = Json.text v in
@@ -41,10 +45,8 @@ let of_json value =
 
 let to_json t =
   Json.obj
-    ([ "socket", Json.string t.socket
-     ; "workspace_id", Json.string t.workspace_id
-     ; "actor_id", Json.string t.actor_id
-     ]
+    ([ "socket", Json.string t.socket; "workspace_id", Json.string t.workspace_id ]
+     @ Option.to_list (Option.map t.actor_id ~f:(fun v -> "actor_id", Json.string v))
      @ Option.to_list (Option.map t.run_id ~f:(fun v -> "run_id", Json.string v))
      @ Option.to_list
          (Option.map t.request_directory ~f:(fun v -> "request_directory", Json.string v))
@@ -68,9 +70,19 @@ let apply t ~method_ ~fields =
        | _ -> [])
   in
   let defaults =
-    [ "workspace_id", Json.string t.workspace_id; "actor_id", Json.string t.actor_id ]
+    [ "workspace_id", Json.string t.workspace_id ]
+    @ Option.to_list (Option.map t.actor_id ~f:(fun v -> "actor_id", Json.string v))
     @ Option.to_list (Option.map t.run_id ~f:(fun v -> "run_id", Json.string v))
   in
+  if
+    Option.is_none t.actor_id
+    && List.mem allowed "actor_id" ~equal:String.equal
+    && not (List.Assoc.mem fields "actor_id" ~equal:String.equal)
+  then
+    Json.fail
+      Invalid_argument
+      "observer context has no write actor; supply --actor-id explicitly (observer \
+       defaults are not an authorization boundary)";
   fields
   @ List.filter defaults ~f:(fun (key, _) ->
     List.mem allowed key ~equal:String.equal
@@ -122,7 +134,13 @@ let apply_self context ~method_ ~fields =
       let value =
         match selector with
         | "recipient" ->
-          Json.obj [ "kind", Json.string "actor"; "id", Json.string context.actor_id ]
+          (match context.actor_id with
+           | Some actor ->
+             Json.obj [ "kind", Json.string "actor"; "id", Json.string actor ]
+           | None ->
+             Json.fail
+               Invalid_argument
+               "--self requires actor_id in context; supply explicit recipient instead")
         | "target_run_id" ->
           (match context.run_id with
            | Some run -> Json.string run

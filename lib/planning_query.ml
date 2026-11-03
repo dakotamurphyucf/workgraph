@@ -801,7 +801,60 @@ let query_with_texts ?now_unix_ms t ~resource_texts ~method_ ~params =
 ;;
 
 let query ?now_unix_ms t ~method_ ~params =
-  if String.equal method_ "usage.aggregate"
+  if List.mem Brief_api.query_methods method_ ~equal:String.equal
+  then
+    Json.decode (fun () ->
+      let request = Brief_api.Request.decode ~method_ params |> unwrap_domain in
+      Option.iter (Brief_api.Request.at_revision request) ~f:(expected t.revision);
+      match Brief_api.Request.ticket request, Brief_api.Request.resource request with
+      | Some id, None ->
+        let ticket = find_ticket t id in
+        let reasons = eligibility_reasons ?now_unix_ms t ticket in
+        let decisions =
+          Discussion.list
+            t.discussion
+            ~target:(Some (Entity_ref.Ticket id))
+            ~include_tombstones:false
+          |> List.filter ~f:(fun json ->
+            String.equal (Json.field json "kind" |> Json.text) "decision")
+          |> List.map ~f:Discussion_wire.comment_json
+        in
+        let resources =
+          Map.data t.resources
+          |> List.filter ~f:(fun r ->
+            List.mem
+              r.Resource.metadata.targets
+              (Entity_ref.Ticket id)
+              ~equal:Entity_ref.equal)
+        in
+        Brief_view.ticket
+          { ticket = ticket_view ticket
+          ; observed_unix_ms = now_unix_ms
+          ; ready = List.is_empty reasons
+          ; readiness_reason_count = List.length reasons
+          ; handoff = Option.map (Map.find t.handoffs id) ~f:handoff_view
+          ; decisions
+          ; resources
+          }
+          ~workspace:t.workspace
+          ~workspace_revision:t.revision
+          ~max_bytes:(Brief_api.Request.max_bytes request)
+        |> unwrap_domain
+      | None, Some id ->
+        let resource =
+          match Map.find t.resources id with
+          | Some r -> r
+          | None -> Json.fail Not_found "resource not found"
+        in
+        Brief_view.resource
+          resource
+          ~workspace:t.workspace
+          ~workspace_revision:t.revision
+          ~max_bytes:(Brief_api.Request.max_bytes request)
+        |> unwrap_domain
+      | Some _, Some _ | None, None ->
+        Json.fail Invalid_argument "brief needs exactly one selector")
+  else if String.equal method_ "usage.aggregate"
   then
     Json.decode (fun () ->
       let request =

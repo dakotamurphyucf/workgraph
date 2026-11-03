@@ -1,0 +1,12 @@
+(library
+ (name workgraph_brief_tests)
+ (libraries workgraph core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(rule
+ (alias runtest)
+ (deps socket_test.py ../daemon_ready.py ../../examples/history-adapter.py)
+ (action
+  (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))

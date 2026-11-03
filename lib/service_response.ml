@@ -3,7 +3,7 @@ open Core
 let layout method_ =
   if
     List.mem
-      (Facts.query_methods @ Ticket_recovery.query_methods)
+      (Brief_api.query_methods @ Facts.query_methods @ Ticket_recovery.query_methods)
       method_
       ~equal:String.equal
   then Api_response.Layout.Planning_read

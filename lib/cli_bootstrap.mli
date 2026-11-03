@@ -19,7 +19,9 @@ val create
   -> (t, Problem.t) Result.t
 
 (** Create/select/open the explicitly identified workspace and publish a fresh
-    private synced context file. Existing files are never overwritten. Optional
+    private synced context file. Actor-free observer setup selects an existing open
+    workspace without administrative writes; creating/opening requires explicit
+    actor attribution before journaling. Existing files are never overwritten. Optional
     daemon startup uses an explicit registry and private log and survives this
     process's exit. Readiness requires a valid protocol response, racing the
     spawned child's exit against a monotonic configured timeout. Child failures
