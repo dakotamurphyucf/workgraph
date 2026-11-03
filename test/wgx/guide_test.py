@@ -1,4 +1,5 @@
 """Maintained guide examples: exact sources, visible import, CI and terminal viewport."""
+import errno
 import fcntl
 import hashlib
 import importlib.util
@@ -33,6 +34,47 @@ def load(name, path):
 
 converter = load("converter", ROOT / "examples/transcript-converter.py")
 adapter = load("adapter", ROOT / "examples/history-adapter.py")
+
+
+def read_pty(fd):
+    """Linux reports a closed slave as EIO; other PTYs return an empty read."""
+    try:
+        return os.read(fd, 65536)
+    except OSError as error:
+        if error.errno == errno.EIO:
+            return b""
+        raise
+
+
+def terminal_modes(fd):
+    """Compare portable attributes, excluding only the transient retype flag."""
+    modes = termios.tcgetattr(fd)
+    # Darwin may set PENDIN for queued input while Bash read restores modes.
+    # PENDIN requests input retyping; it is not a persistent terminal setting.
+    modes[3] &= ~getattr(termios, "PENDIN", 0)
+    return modes
+
+
+def foreground_session():
+    os.setsid()
+    fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+    os.tcsetpgrp(0, os.getpgrp())
+    # Do not inherit ignored SIGINT from a harness/background shell. The helper
+    # starts as a normal foreground job and installs its own signal traps.
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+
+def stop_pty_job(process):
+    if process.poll() is None:
+        try:
+            # This process owns its session/group; never signal a foreign group.
+            if os.getpgid(process.pid) == process.pid:
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+        except ProcessLookupError:
+            pass
+        process.wait(5)
 
 
 class Sources(unittest.TestCase):
@@ -300,8 +342,6 @@ class Daemon(unittest.TestCase):
 
 class Viewport(unittest.TestCase):
     def test_controlling_tty_height_resize_scroll_and_restore(self):
-        if sys.platform != "darwin":
-            self.skipTest("macOS Bash 3.2 PTY fixture; Linux platform qualification remains separate")
         with tempfile.TemporaryDirectory(prefix="wg-viewport-",dir="/tmp") as directory:
             root = Path(directory)
             binpath = root / ".local/bin"
@@ -326,25 +366,27 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
             self.addCleanup(os.close,master)
             self.addCleanup(os.close,slave)
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack("HHHH",54,120,0,0))
-            def session():
-                os.setsid()
-                fcntl.ioctl(0,termios.TIOCSCTTY,0)
-            process = subprocess.Popen(["/bin/bash","-c",'saved=$(stty -g); /bin/bash "$1" --context "$2" dash; code=$?; after=$(stty -g); printf "BEFORE=%s AFTER=%s\\n" "$saved" "$after"; exit "$code"',"viewport",str(ROOT / "tools/wgx.sh"),str(context)],stdin=slave,stdout=slave,stderr=slave,
-                                       env=dict(os.environ,HOME=str(root),WG=str(stub),TERM="xterm",LINES="24",COLUMNS="80"),preexec_fn=session)
-            self.addCleanup(lambda: process.poll() is None and process.kill())
+            before_modes = terminal_modes(master)
+            process = subprocess.Popen(["/bin/bash",str(ROOT / "tools/wgx.sh"),"--context",str(context),"dash"],stdin=slave,stdout=slave,stderr=slave,
+                                       env=dict(os.environ,HOME=str(root),WG=str(stub),TERM="xterm",LINES="24",COLUMNS="80"),preexec_fn=foreground_session)
+            self.addCleanup(stop_pty_job,process)
             def until(marker):
                 data = b""
                 deadline = time.monotonic()+12
                 while marker not in data:
                     self.assertLess(time.monotonic(),deadline,data[-1000:])
                     if select.select([master],[],[],.2)[0]:
-                        data += os.read(master,65536)
+                        part = read_pty(master)
+                        self.assertTrue(part, data[-1000:])
+                        data += part
                 return data
             first = until(b"\x1b[54;1H")
             screen = first.rsplit(b"\x1b[H",1)[-1].split(b"\x1b[54;1H")[0]
             self.assertEqual(screen.count(b"\n"),53,first[:1800]+b" ... "+first[-500:])
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack("HHHH",36,120,0,0))
-            process.send_signal(signal.SIGWINCH)
+            foreground = os.tcgetpgrp(master)
+            self.assertEqual(foreground,process.pid)
+            os.killpg(foreground,signal.SIGWINCH)
             resized = until(b"\x1b[36;1H")
             screen = resized.rsplit(b"\x1b[H",1)[-1].split(b"\x1b[36;1H")[0]
             self.assertEqual(screen.count(b"\n"),35,resized[-1000:])
@@ -355,8 +397,15 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
             deadline = time.monotonic()+10
             while process.poll() is None and time.monotonic()<deadline:
                 if select.select([master],[],[],.1)[0]:
-                    tail += os.read(master,65536)
-            self.assertEqual(process.poll(),0,tail[-2000:])
+                    part = read_pty(master)
+                    if not part: break
+                    tail += part
+            process.wait(timeout=max(.001,deadline-time.monotonic()))
+            self.assertEqual(process.returncode,0,tail[-2000:])
+            while select.select([master],[],[],.05)[0]:
+                part = read_pty(master)
+                if not part: break
+                tail += part
             self.assertIn(b"\x1b[?7h",tail)  # wrap mode restored
             self.assertIn(b"\x1b[?25h",tail) # cursor restored
             footer = re.search(rb"lines (\d+)-(\d+) of\s+(\d+)",tail)
@@ -364,15 +413,7 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
             self.assertGreater(int(footer[1]),1) # G reached bottom, not top
             self.assertEqual(footer[2],footer[3])
             self.assertEqual(process.returncode,0)
-            states = re.search(rb"BEFORE=(\S+) AFTER=(\S+)",tail)
-            self.assertIsNotNone(states,tail)
-            def persistent_modes(encoded):
-                values = dict(field.split("=",1) for field in encoded.decode().split(":")[1:])
-                # Darwin sets PENDIN for queued input while Bash read restores its
-                # modes. It is a transient retype flag, not a persistent setting.
-                values["lflag"] = int(values["lflag"],16) & ~getattr(termios,"PENDIN",0)
-                return values
-            self.assertEqual(persistent_modes(states[1]),persistent_modes(states[2]))
+            self.assertEqual(terminal_modes(master),before_modes)
 
 
 if __name__ == "__main__":

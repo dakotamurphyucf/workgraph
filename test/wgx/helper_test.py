@@ -231,7 +231,6 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
             self.assertIn(b'no valid success envelope',result.stderr)
 
     def test_dash_signals_and_error_restore_terminal(self):
-        if sys.platform!='darwin': self.skipTest('macOS PTY qualification; Linux gate is separate')
         self.write('ticket.create',ticket_id='t',title='Signal cleanup')
         before=self.call('workspace.overview')
         inbox=self.call('inbox.read',recipient={'kind':'actor','id':'ci'},consumer_id='dash-observer')
@@ -242,35 +241,30 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
             master,slave=pty.openpty()
             try:
                 fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',32,100,0,0))
-                def session(): os.setsid();fcntl.ioctl(0,termios.TIOCSCTTY,0)
-                command='set -m; saved=$(stty -g); /bin/bash "$1" --context "$2" dash <&0 & child=$!; printf "CHILD=%s\\n" "$child"; fg %1; code=$?; printf "BEFORE=%s AFTER=%s\\n" "$saved" "$(stty -g)"; exit "$code"'
-                process=subprocess.Popen(['/bin/bash','-c',command,'cleanup',str(ROOT/'tools/wgx.sh'),str(self.context)],stdin=slave,stdout=slave,stderr=slave,preexec_fn=session,env=dict(os.environ,WG=str(proxy) if action=='error' else EXE,TERM='xterm'))
+                before_modes=guide.terminal_modes(master)
+                process=subprocess.Popen(['/bin/bash',str(ROOT/'tools/wgx.sh'),'--context',str(self.context),'dash'],stdin=slave,stdout=slave,stderr=slave,preexec_fn=guide.foreground_session,env=dict(os.environ,WG=str(proxy) if action=='error' else EXE,TERM='xterm'))
                 data=b'';deadline=time.monotonic()+10;sent=False
                 while process.poll() is None:
                     self.assertLess(time.monotonic(),deadline,(action,data[-1000:]))
-                    if select.select([master],[],[],.1)[0]: data+=os.read(master,65536)
+                    if select.select([master],[],[],.1)[0]:
+                        part=guide.read_pty(master)
+                        if not part: break
+                        data+=part
                     if action!='error' and not sent and b'\x1b[32;1H' in data:
-                        child=int(re.search(rb'CHILD=(\d+)',data)[1])
                         foreground=os.tcgetpgrp(master)
-                        self.assertEqual(foreground,child)
+                        self.assertEqual(foreground,process.pid)
                         os.killpg(foreground,signal.SIGTERM if action=='TERM' else signal.SIGINT);sent=True
+                process.wait(timeout=max(.001,deadline-time.monotonic()))
                 while select.select([master],[],[],.05)[0]:
-                    part=os.read(master,65536)
+                    part=guide.read_pty(master)
                     if not part: break
                     data+=part
                 self.assertEqual(process.returncode,{'TERM':143,'INT':130,'error':1}[action],data[-1000:])
                 self.assertIn(b'\x1b[?7h',data)
                 self.assertIn(b'\x1b[?25h',data)
-                states=re.search(rb'BEFORE=(\S+) AFTER=(\S+)',data)
-                self.assertIsNotNone(states,data[-1000:])
-                def modes(value):
-                    fields=dict(field.split('=',1) for field in value.decode().split(':')[1:])
-                    fields['lflag']=int(fields['lflag'],16)&~getattr(termios,'PENDIN',0)
-                    return fields
-                self.assertEqual(modes(states[1]),modes(states[2]))
+                self.assertEqual(guide.terminal_modes(master),before_modes)
             finally:
-                if 'process' in locals() and process.poll() is None:
-                    os.killpg(process.pid,signal.SIGKILL);process.wait(5)
+                if 'process' in locals(): guide.stop_pty_job(process)
                 os.close(master);os.close(slave)
         self.assertEqual(self.call('workspace.overview'),before)
         self.assertEqual(self.call('inbox.read',recipient={'kind':'actor','id':'ci'},consumer_id='dash-observer'),inbox)
