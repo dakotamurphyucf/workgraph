@@ -18,6 +18,30 @@ let local_methods =
 
 let helper_help = function
   | "init" | "bootstrap" -> Some Cli_bootstrap.help
+  | "reservation-wait" | "reservation.wait" | "reservation.paths.wait" ->
+    Some
+      {|reservation wait / reservation paths wait [local acquisition helper]
+Usage: workgraph --context ABS_FILE reservation wait --target-run-id RUN
+  --json-field requests '[{"reservation_id":"build","mode":"exclusive"}]'
+  --request-directory ABS_EXISTING_PRIVATE_DIR
+  [--wait-ms 30000 --max-attempts 32 --wait-slice-ms 1000 --timeout 30]
+For paths use reservation paths wait and the reservation.paths.acquire request
+fields. Dotted spellings reservation.wait / reservation.paths.wait also work.
+Total deadline 1000..300000ms, attempts 1..100, feed slice 1..25000ms.
+Captures the planning cursor before acquisition. Each attempt syncs an exclusive
+exact request file before sending. Only typed contention for an original batch
+target permits a fresh identity after a feed wake or timer; guards never refresh.
+Other conflicts, uncertainty, malformed/nondurable replies or save failures stop.
+--timeout caps each transport by the remaining monotonic deadline. An in-flight
+durable success remains success; no later attempt starts after the deadline.
+Atomic batches stay intact. No fairness queue, foreign cleanup, renewal, process
+liveness or termination guarantee is implied. Expiry alone does not free a holder;
+its exact release/recovery is separate. --save-request/--paginate reject.
+Result paths: .result.data.daemon_response retains the actual {data,meta} grant;
+.result.data.wait.{completed,stop,attempt_count,journals,last_conflict,problem,
+feed_response,saved_request,retry_request} describes the bounded local workflow.
+Incomplete exits nonzero. Check exit status and completed before using grants.
+After uncertainty, retry the exact saved_request; retry never reruns this helper.|}
   | "receipts" | "scripting" ->
     Some
       {|receipts [local reference]
@@ -866,6 +890,11 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
          ^
          if Option.equal String.equal method_name (Some "resource")
          then "\nLocal helpers: resource.upload, resource.download (help each helper)."
+         else if
+           Option.equal String.equal method_name (Some "reservation")
+           || Option.equal String.equal method_name (Some "reservation.paths")
+         then
+           "\nLocal helpers: reservation wait, reservation paths wait (help each helper)."
          else "")
     else
       Result.map (descriptions ~core ~method_name) ~f:(fun methods ->

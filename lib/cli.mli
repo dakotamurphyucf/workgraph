@@ -1,5 +1,5 @@
 (** Standalone CLI entry. Uses Eio capabilities for all IO, returns an exit code,
-    never changes global toolchain state and never retries a request implicitly.
+    never changes global toolchain state. Ordinary requests never retry implicitly.
     Explicit agent-local contexts provide defaults overridden by command fields;
     no current-ticket or process-global actor is selected. Durable writes journal
     prepared requests to exclusive synced files before transmission when configured.
@@ -27,6 +27,12 @@
     guards, selectors and filters; it never restarts a stale capture or paginates
     writes/atomic batches. Incomplete traversal exits nonzero with explicit stop
     and exact next/retry requests. Cancellation propagates without retry.
+    Explicit [reservation wait] / [reservation paths wait] helpers bound acquisition
+    attempts by a monotonic deadline and attempt count. Each attempt has a synced
+    exclusive journal; only definite typed contention for the original batch
+    permits a fresh identity. Other failures/uncertainty stop for exact manual
+    retry. Actual daemon grants remain separate from local workflow metadata;
+    incomplete acquisition exits nonzero. No ownership recovery or queue is implied.
     Init/bootstrap are the only workspace-creating setup operations and may start
     a detached daemon with an explicit registry/log; ordinary calls never do so. *)
 val run : env:Eio_unix.Stdenv.base -> string list -> int

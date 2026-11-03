@@ -12,6 +12,9 @@ let usage =
   workgraph METHOD [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
   workgraph FAMILY ACTION... [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
   workgraph retry [ABS_SOCKET] REQUEST_FILE [--timeout SECONDS] [--output text]
+  workgraph reservation wait [ABS_SOCKET] [OPTIONS] --json-field requests JSON
+  workgraph reservation paths wait [ABS_SOCKET] [OPTIONS] --json-field requests JSON
+    --request-directory ABS_DIR [--wait-ms 30000 --max-attempts 32 --wait-slice-ms 1000]
   workgraph evidence-run --stage ABS_DIR --cwd ABS_DIR [--source-root ABS_GIT_ROOT]
     [--output-limit BYTES] -- COMMAND ARG...
   workgraph evidence-show --stage ABS_DIR [--stream stdout|stderr] [--tail BYTES]
@@ -45,7 +48,8 @@ Field names use hyphens or underscores. --workspace-id and --actor-id specify
 scope and attribution; --actor and --text are literal payload fields.
 Context defaults never select a current ticket. Explicit fields override defaults.
 Reissuing generates a new identity when journaling; retry preserves the saved
-operation. No automatic retries or implicit workspace creation occur.
+operation. Only the explicit reservation wait helper creates bounded fresh attempts
+after definite contention. Ordinary requests never retry or create a workspace.
 |}
 ;;
 
@@ -268,7 +272,7 @@ let run ~env arguments =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
   let output text = Platform.write_string (Eio.Stdenv.stdout env) (text ^ "\n") in
   let diagnostic text = Platform.write_string (Eio.Stdenv.stderr env) (text ^ "\n") in
-  let execute socket options request =
+  let execute ?reservation_wait socket options request =
     let method_ = Protocol.Request.method_ request in
     if
       Option.is_none (Api_catalog.find method_)
@@ -319,6 +323,21 @@ let run ~env arguments =
           (Option.is_some options.save_request || Option.is_some options.request_directory)
       |> Disk.unwrap
     in
+    let reservation_wait =
+      Option.map reservation_wait ~f:(fun limits ->
+        if options.paginate || Option.is_some options.save_request
+        then
+          Json.fail
+            Invalid_argument
+            "reservation wait rejects --paginate/--save-request; use an exclusive \
+             --request-directory";
+        if Option.is_none options.request_directory
+        then
+          Json.fail
+            Invalid_argument
+            "reservation wait requires --request-directory ABS_DIR (or context default)";
+        Reservation_wait.create request ~limits |> Disk.unwrap)
+    in
     if options.materialized
     then
       Option.iter
@@ -352,6 +371,7 @@ let run ~env arguments =
     in
     let save_request =
       match options.save_request, options.request_directory with
+      | _ when Option.is_some reservation_wait -> None
       | Some path, _ -> Some path
       | None, Some directory when needs_mutation_id request ->
         Local_file.require_directory Eio.Path.(fs / directory) ~operation:"save request";
@@ -375,8 +395,25 @@ let run ~env arguments =
     in
     let incomplete_upload = ref false in
     let incomplete_pagination = ref false in
+    let incomplete_wait = ref false in
     let response =
       match upload with
+      | None when Option.is_some reservation_wait ->
+        let outcome =
+          Reservation_wait.run
+            (Option.value_exn reservation_wait)
+            ~fs
+            ~net:(Eio.Stdenv.net env)
+            ~clock:(Eio.Stdenv.mono_clock env)
+            ~random:(Eio.Stdenv.secure_random env)
+            ~socket
+            ~request_directory:(Option.value_exn options.request_directory)
+            ~max_exchange_seconds:options.timeout_seconds
+            ~on_saved:(fun path -> diagnostic ("saved_request: " ^ path))
+          |> Disk.unwrap
+        in
+        incomplete_wait := not (Reservation_wait.Outcome.completed outcome);
+        Protocol.Success (Reservation_wait.Outcome.to_json outcome)
       | Some plan ->
         let result = Transfer.upload_with_link plan ~client ~fs |> Disk.unwrap in
         (match result with
@@ -424,7 +461,10 @@ let run ~env arguments =
            Protocol.Success (Query_pagination.Collection.to_json collection))
     in
     (match response with
-     | Success value when needs_mutation_id request && not !incomplete_upload ->
+     | Success value
+       when needs_mutation_id request
+            && (not !incomplete_upload)
+            && Option.is_none reservation_wait ->
        let envelope = Api_response.of_json value |> Disk.unwrap in
        if String.equal (Protocol.Request.method_ request) "ticket.claim_next"
        then
@@ -447,11 +487,12 @@ let run ~env arguments =
       | Failure error -> diagnostic (Json.canonical (Problem.to_json error)))
     else output (Json.canonical (Protocol.response_json request response));
     match response with
-    | Success _ -> if !incomplete_upload || !incomplete_pagination then 1 else 0
+    | Success _ ->
+      if !incomplete_upload || !incomplete_pagination || !incomplete_wait then 1 else 0
     | Failure _ -> 1
   in
   let context = ref None in
-  let request socket method_ options =
+  let request ?reservation_wait socket method_ options =
     let method_ = Cli_reference.canonical_method_name method_ in
     let options =
       if options.self
@@ -493,7 +534,7 @@ let run ~env arguments =
       Protocol.Request.create ~id:"cli" ~method_ ~params:(Json.obj options.fields)
       |> Disk.unwrap
     in
-    execute socket options value
+    execute ?reservation_wait socket options value
   in
   let result =
     Disk.protect (fun () ->
@@ -571,6 +612,53 @@ let run ~env arguments =
              Json.fail Invalid_argument "supply an absolute socket or --context/--socket")
       in
       match arguments with
+      | ("reservation-wait" | "reservation.wait") :: rest
+      | "reservation" :: "wait" :: rest
+      | "reservation" :: "paths" :: "wait" :: rest
+      | "reservation.paths.wait" :: rest ->
+        let paths =
+          match arguments with
+          | "reservation" :: "paths" :: "wait" :: _ | "reservation.paths.wait" :: _ ->
+            true
+          | _ -> false
+        in
+        let socket, rest = with_socket rest in
+        let rec extract bounds reversed = function
+          | [] -> bounds, List.rev reversed
+          | (("--wait-ms" | "--max-attempts" | "--wait-slice-ms") as key) :: value :: rest
+            ->
+            if Map.mem bounds key
+            then Json.fail Invalid_argument ("duplicate reservation wait option: " ^ key);
+            extract
+              (Map.set bounds ~key ~data:(Json.integer (Json.string value)))
+              reversed
+              rest
+          | (("--json-field" | "--field-file") as flag) :: key :: value :: rest ->
+            extract bounds (value :: key :: flag :: reversed) rest
+          | flag :: value :: rest
+            when String.is_prefix flag ~prefix:"--"
+                 && not
+                      (List.mem
+                         [ "--self"; "--json"; "--paginate" ]
+                         flag
+                         ~equal:String.equal) ->
+            extract bounds (value :: flag :: reversed) rest
+          | value :: rest -> extract bounds (value :: reversed) rest
+        in
+        let bounds, rest = extract String.Map.empty [] rest in
+        let bound name default = Option.value (Map.find bounds name) ~default in
+        let limits =
+          Reservation_wait.Limits.create
+            ~timeout_ms:(bound "--wait-ms" 30000)
+            ~max_attempts:(bound "--max-attempts" 32)
+            ~wait_slice_ms:(bound "--wait-slice-ms" 1000)
+          |> Disk.unwrap
+        in
+        request
+          ~reservation_wait:limits
+          socket
+          (if paths then "reservation.paths.acquire" else "reservation.acquire")
+          (parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest)
       | ("evidence-show" | "evidence.show") :: rest | "evidence" :: "show" :: rest ->
         let rec parse fields = function
           | [] -> fields
