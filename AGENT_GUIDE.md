@@ -50,13 +50,19 @@ managed data on Linux storage, not /mnt/c.
   <capability name="plan" reference="docs/agent/planning.md"><![CDATA[
 Create projects, milestones and tickets with instructions, acceptance criteria,
 labels, priorities, assignees, containment and explicit dependencies. Parenthood
-alone does not inherit scheduling gates. Ready/waiting are derived, not persisted
+alone does not inherit scheduling gates. ticket.hierarchy.get/put explicitly
+configures inheritance of ancestor prerequisites and whether canceled children
+permit parent completion. It never inherits ownership or parent child-completion
+gates. Readiness explains inherited blockers and their source; waivers belong to
+the ticket declaring that prerequisite. Ready/waiting are derived, not persisted
 statuses. Inspect ticket.context/brief, project.brief, blockers and readiness.
 transaction.preflight validates a bounded plan without committing/reserving;
 transaction.apply commits up to 32 supported operations atomically with typed
 creation aliases. Envelopes belong outside operations. External tools/uploads
 are not transactional. Explicit reopen preserves history and reassessment needs;
-it does not stop an agent. Project completion is an explicit guarded declaration.
+it does not stop an agent. project.readiness aggregates current work, ownership
+and completion gates; project.finish records Done and a structured handoff under
+an exact project revision. It does not finish tickets or resolve open questions.
 ]]></capability>
   <capability name="own_and_route" reference="docs/agent/coordination.md"><![CDATA[
 Register a run for one invocation, with immutable declared capabilities. An
@@ -64,6 +70,10 @@ attempt is one ticket try. ticket.start with attempt_id creates one; ticket.clai
 does not itself create an attempt. Preserve actual actor/run/token fences and
 resulting recorded run state. Use run-aware ticket.ready --target-run-id RUN for
 eligibility, including capabilities, pools, gates, holds, paths and policy.
+Optional allowed_actor_ids restrict cooperative scheduling to registered-run
+actors; they are not credentials. Existing per-run max_active_attempts budgets
+bound attempts. A direct claim remains distinct from an attempt. Pool occupancy
+counts a ticket once when it has a claim or nonterminal attempt.
 
 Standalone ticket.claim_next returns selected with claim/attempt, or a strictly
 classified nondurable empty observation with unchanged planning revision. Inspect
@@ -93,6 +103,11 @@ is implied. Inspect helper completion separately from actual daemon response.
   <capability name="memory_and_resume" reference="docs/agent/resume-digest.md"><![CDATA[
 Put small named JSON values in facts: at most 4096 canonical bytes, explicit
 workspace/project/milestone/ticket scope, observed per-key revision, no inheritance.
+Discover keys with fact.keys and query prefixes without loading unrelated values.
+fact.list/keys can filter with up to eight ANDed scalar-equality JSON-pointer
+predicates; missing differs from null. Facts may link up to 32 ticket/resource
+navigation references; fact.references finds referring facts. These editable
+links are not immutable evidence pins.
 Put reasons in decision comments; meaningful milestones in progress. Structured
 handoffs retain summary, objective, completed work, decisions, blockers, next
 steps and evidence. Omitted rich handoff fields preserve existing values; explicit
@@ -124,6 +139,9 @@ body; returned answer refs pin the actual durable comment version. Current quest
 thread revision and request revision are separate. request.get --include-messages
 true expands related.source_message and related.messages.items. Related/superseding
 request links provide explicit conversation lineage without inferred answers.
+Set priority/deadline on ask or guarded request.metadata. Superseding does not
+cancel a request. Question-created threads close when all their requests become
+terminal; ordinary threads remain manually closed by default.
 
 Filter request lists by ticket/resolver/recipient and use inbox.read/wait with an
 explicit recipient and consumer. Reading never acknowledges. Acknowledge only
@@ -140,6 +158,10 @@ override. Changed inputs require reconciliation, not silent pin refresh. Read th
 runnable two-actor/two-round gated-review-workflow.md recipe before gated work.
 Instruction amendments are immutable attributed records with current revisions,
 acknowledgements and explicit finish requirements; inspect them before continuing.
+ticket.amendment methods publish text or exact resource pins, acknowledge the
+current amendment version under your actor/run/claim token, and explicitly
+withdraw or supersede amendments. Progress or lease renewal preserves acceptance;
+a replacement claim requires its own acknowledgement before completion.
 ]]></capability>
   <capability name="captured_execution" reference="docs/agent/execution.md"><![CDATA[
 evidence-run executes literal argv outside the daemon into a fresh owned stage,
@@ -165,14 +187,20 @@ exports before sharing. History is retained; no automatic pruning is promised.
   <capability name="observe_and_budget" reference="docs/agent/metrics.md"><![CDATA[
 Use actor/coordinator overview, workspace.metrics, usage.aggregate and explicit
 planning/history changes.read/wait feeds. Reported model usage is caller-supplied,
-not a provider quota enforcer. Registered resource-backed templates instantiate
+not a provider quota enforcer. usage.report also accepts up to 16 named nonnegative
+integer measurements with explicit units; rollups expose overflow and unassigned
+run spending without inventing ticket costs. Registered resource-backed templates instantiate
 local plans. Named planning/history admission meters have distinct lifetime budgets;
 export/verify/close and deliberately roll over instead of silently deleting data.
 
 Reads are bounded. Opt-in --paginate preserves each supported family's selectors,
 capture and continuation and reports complete/stop/next/retry/problem. Stop on
 budget/no progress/error/cancellation. Do not strip guards or imply a partial batch
-is atomic. attention.read has separately paged readiness and stays manual. Capture
+is atomic. attention.read/wait filters project, ticket/run, source kind, fact prefix
+and explicit communication recipient/consumer. Logical notification groups retain
+every raw delivery ID for selective acknowledgement. Readiness is a separately
+paged current snapshot, not a history of every transient readiness change; this
+family stays manually paged. Capture
 before readiness/read/park to avoid missed wakes. Retain last consumed cursor, not
 an undelivered high-water mark. wgx is a read-only bounded preview; its local ready
 estimate and first-page panels are not scheduling or complete-audit authority.
