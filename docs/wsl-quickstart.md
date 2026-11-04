@@ -1,12 +1,12 @@
 # Workgraph on AlmaLinux 10 in WSL: install and quick start
 
-Version 0.5.1 includes the complete portable agent skill. See
-[skill installation](agent-skill.md). Upgrading from 0.5.0 keeps the same API and
+Version 0.5.2 includes the complete portable agent skill. See
+[skill installation](agent-skill.md). Upgrading from 0.5.0 or 0.5.1 keeps the same API and
 storage formats: retain your workspace, registry, contexts and saved requests.
 Shut down the old daemon gracefully and restart with the new executable and the
 same connection values. No data reset or migration is required.
 
-This walkthrough installs **Workgraph v0.5.1 preview** on **x86_64/AMD64 AlmaLinux
+This walkthrough installs **Workgraph v0.5.2 preview** on **x86_64/AMD64 AlmaLinux
 10** userspace inside WSL. It uses API **0.5** and affected stored roots **4**.
 Run commands in your AlmaLinux terminal as your normal user; use `sudo` only where
 shown. No OCaml, opam or systemd setup is required for the RPM.
@@ -14,12 +14,12 @@ shown. No OCaml, opam or systemd setup is required for the RPM.
 Native AlmaLinux tar/RPM qualification does not qualify an actual WSL kernel,
 Windows or SELinux policy. The standard AlmaLinux 10 AMD64 image requires an
 x86-64-v3-capable CPU. Keep registry/workspace data and the socket under your
-Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.5.1.md#qualification-and-limits).
+Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.5.2.md#qualification-and-limits).
 
 ## Preserve an older setup before upgrading
 
-For a first installation, continue with [Install v0.5.1](#install-v051).
-For 0.5.0, follow [the patch upgrade steps](releases/v0.5.1.md#upgrade-from-050) and keep your existing data.
+For a first installation, continue with [Install v0.5.2](#install-v052).
+For 0.5.0 or 0.5.1, follow [the patch upgrade steps](releases/v0.5.2.md#upgrade-from-050-or-051) and keep your existing data.
 The preservation/fresh-root steps below apply only to **0.4 or earlier**; follow
 the complete [older-preview upgrade steps](releases/v0.5.0.md#upgrade-from-04-or-an-older-preview)
 **before** upgrading the RPM, which replaces `/usr/bin/workgraph`:
@@ -31,7 +31,7 @@ the complete [older-preview upgrade steps](releases/v0.5.0.md#upgrade-from-04-or
    request journals, export and verify needed data, then stop custom launchers
    and shut down the old daemon gracefully. Preserve complete stopped registry
    and workspace roots, contexts, journals, logs and exports separately.
-3. Install 0.5.1 and use the fresh version-specific paths below. Do not reuse an
+3. Install 0.5.2 and use the fresh version-specific paths below. Do not reuse an
    old socket, context, request directory or managed root. Older exports cannot
    be restored by 0.5. Do not change format markers or copy old managed files.
 
@@ -42,28 +42,28 @@ and contexts you intend to discard. Deleting only a registry leaves custom
 workspace roots elsewhere; never broadly delete paths named `workgraph`, socket
 guards or locks to force a new setup.
 
-## Install v0.5.1
+## Install v0.5.2
 
 Download the RPM and checksums from the
-[v0.5.1 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.1):
+[v0.5.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.2):
 
 ```bash
 set -euo pipefail
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
-sudo dnf install -y jq
+sudo dnf install -y jq python3
 
-mkdir -p "$HOME/Downloads/workgraph-0.5.1"
-cd "$HOME/Downloads/workgraph-0.5.1" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.5.2"
+cd "$HOME/Downloads/workgraph-0.5.2" || exit
 
-RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.1"
+RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.2"
 
-curl -fLO "$RELEASE/workgraph-0.5.1-1.el10.x86_64.rpm"
+curl -fLO "$RELEASE/workgraph-0.5.2-1.el10.x86_64.rpm"
 curl -fLO "$RELEASE/SHA256SUMS"
 
-awk '$2 == "workgraph-0.5.1-1.el10.x86_64.rpm" { print; count++ }
+awk '$2 == "workgraph-0.5.2-1.el10.x86_64.rpm" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > rpm.SHA256SUMS &&
   sha256sum --check rpm.SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.5.1-1.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.5.2-1.el10.x86_64.rpm
 
 hash -r
 command -v workgraph
@@ -75,17 +75,19 @@ version:
 
 ```text
 /usr/bin/workgraph
-0.5.1
+0.5.2
 ```
 
-The executable uses standard AlmaLinux system libraries. `jq` is needed only
-for the shell example below that extracts an ownership token.
+The executable uses standard AlmaLinux system libraries. `jq` supports the shell examples and optional WGX viewer. WGX
+interactive dashboards and dependency trees also need Python 3.10+; both helper
+dependencies are installed above. Follow the [WGX setup](../README.md#watch-agents-work)
+to install the two viewer files together.
 
 ## Start the daemon and create a workspace
 
 Keep managed data and the socket on the Linux filesystem under `$HOME`, rather
 than `/mnt/c`. This fresh example uses a private directory for the 0.5 release line.
-If upgrading from 0.5.0, keep your existing context and paths instead.
+If upgrading from 0.5.0 or 0.5.1, keep your existing context and paths instead.
 
 ```bash
 workgraph init --help
@@ -209,7 +211,7 @@ For example, after copying it to your harness's configured skills directory, its
 entry point might be `$HOME/.agents/skills/workgraph/SKILL.md`. The folder includes
 its own references, API schemas and scripts.
 
-The v0.5.1 RPM installs the full folder at
+The v0.5.2 RPM installs the full folder at
 `/usr/share/doc/workgraph/skills/workgraph/`. Copy that folder into your harness
 using the skill installation instructions above. Older v0.5.0 packages retain
 the previous guide layout; their assets have not been replaced.

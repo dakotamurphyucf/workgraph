@@ -26,7 +26,7 @@ class Helper(unittest.TestCase):
 
     def helper(self, *args, expected=0, env=None, executable=None, timeout=30):
         result = subprocess.run(['/bin/bash',str(ROOT/'skills/workgraph/scripts/wgx.sh'),'--context',str(self.context),*map(str,args)],
-            env=dict(os.environ,WG=executable or EXE,NO_COLOR='1',**(env or {})),capture_output=True,timeout=timeout)
+            env={**os.environ,'WG':executable or EXE,'NO_COLOR':'1',**(env or {})},capture_output=True,timeout=timeout)
         if expected is not None:
             self.assertEqual(result.returncode,expected,(args,result.stdout,result.stderr))
         return result
@@ -66,6 +66,55 @@ class Helper(unittest.TestCase):
         byte_limited=self.helper('questions',expected=1,env={'WGX_TOTAL_BYTES':'4096'})
         self.assertEqual(byte_limited.stdout,b'')
         self.assertIn(b'byte',byte_limited.stderr)
+
+    def test_readable_dashboard_and_detail_views_keep_context_and_safe_colors(self):
+        self.write('ticket.create',ticket_id='prereq',title='First step')
+        self.write('ticket.create',ticket_id='task',title='Implement cache \x1b[2J')
+        self.write('dependency.add',ticket_id='task',prerequisite_id='prereq')
+        self.write('run.register',target_run_id='worker',objective='Implement the cache safely',capabilities=['ocaml'])
+        self.write('request.ask',request_id='cache-question',title='Which cache policy?',body='TTL choice',resolver_id='lead',ticket_id='task',recipients=[{'kind':'actor','id':'lead'}])
+        self.write('comment.add',comment_id='decision',target={'kind':'ticket','id':'task'},kind='decision',body='Keep cached values immutable')
+        before=self.call('workspace.overview')
+        status=self.helper('status').stdout
+        for expected in [b'Which cache policy?',b'Implement the cache safely',b'declared prerequisites: prereq',b'RECENT',b'Keep cached values immutable',b'KiB',b'[',b'none']:
+            self.assertIn(expected,status)
+        self.assertNotIn(b'\x1b',status)
+        self.assertIn(b'\\u001b[2J',status)
+        self.assertIn(b'Which cache policy?',self.helper('questions').stdout)
+        self.assertIn(b'Implement the cache safely',self.helper('agents').stdout)
+        ticket=self.helper('ticket','task').stdout
+        for expected in [b'priority=0',b'blocked by: prereq',b'declared prerequisites: prereq',b'decision',b'ci',b'Keep cached values immutable']:
+            self.assertIn(expected,ticket)
+        color=self.helper('status',env={'WGX_COLOR':'always','NO_COLOR':''}).stdout
+        for code in [b'\x1b[1m',b'\x1b[32m',b'\x1b[33m',b'\x1b[36m',b'\x1b[35m']:
+            self.assertIn(code,color)
+        self.assertNotIn(b'\x1b[2J',color)
+        for env in [{'WGX_COLOR':'always'}, {'WGX_COLOR':'never','NO_COLOR':''}, {'WGX_COLOR':'auto','NO_COLOR':''}]:
+            self.assertNotIn(b'\x1b',self.helper('questions',env=env).stdout)
+        self.assertEqual(self.call('workspace.overview'),before)
+
+    def test_readable_watch_expands_exact_consumed_interval(self):
+        self.write('ticket.create',ticket_id='watched',title='Visible watch work')
+        self.write('comment.add',comment_id='watch-decision',target={'kind':'ticket','id':'watched'},kind='decision',body='Use bounded caching')
+        log=self.root/'readable-watch-log';proxy=self.root/'readable-watch-proxy'
+        proxy.write_text('#!/usr/bin/env python3\nimport json,os,sys\nfrom pathlib import Path\np=Path('+repr(str(log))+')\nwith p.open("a") as f: f.write(json.dumps(sys.argv[3:])+"\\n")\nif sys.argv[3]=="changes.wait":\n print(json.dumps({"error":{"message":"deliberate stop"}}));sys.exit(1)\nos.execv('+repr(EXE)+',["workgraph"]+sys.argv[1:])\n')
+        proxy.chmod(0o755)
+        result=self.helper('watch','--all',expected=1,executable=str(proxy))
+        self.assertIn(b'created watched',result.stdout)
+        self.assertIn(b'decision on watched: Use bounded caching',result.stdout)
+        self.assertNotIn(b'\x1b',result.stdout)
+        calls=[json.loads(line) for line in log.read_text().splitlines()]
+        expansion=next(call for call in calls if call[0]=='activity.since')
+        self.assertEqual(expansion[expansion.index('--after')+1],'0')
+        self.assertEqual(expansion[expansion.index('--at-revision')+1],'2')
+        self.assertIn(b'retained cursor:',result.stderr)
+        # Failed enrichment must not consume its change cursor or proceed to wait.
+        proxy.write_text(proxy.read_text().replace('=="changes.wait"','=="activity.since"'))
+        log.unlink()
+        failed=self.helper('watch','--all',expected=1,executable=str(proxy))
+        self.assertEqual(failed.stdout,b'')
+        self.assertIn(b'initial after: 0',failed.stderr)
+        self.assertNotIn('changes.wait',log.read_text())
 
     def test_authoritative_readiness_and_explicit_run_capability_policy(self):
         self.write('project.create',project_id='p',title='Filtered')
@@ -153,7 +202,7 @@ else:
 print(json.dumps({'result':{'data':data,'meta':meta}}))
 ''')
         stub.chmod(0o755)
-        result=self.helper('watch',expected=1,executable=str(stub))
+        result=self.helper('watch','--metadata',expected=1,executable=str(stub))
         requests=[json.loads(line) for line in log.read_text().splitlines()]
         self.assertEqual([row[0] for row in requests],['workspace.overview','changes.read','changes.read','changes.wait','changes.read','changes.wait'])
         self.assertIn('--after',requests[1][1])
@@ -219,7 +268,9 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
         self.assertIn(b'\\u009b',failed.stderr)
         self.assertIn(b'incomplete collection',failed.stderr)
         packet={'data':{'pages':[{'data':{'items':[{'request_id':'partial','created':{'actor_id':'ci'},'resolver_id':'lead','status':{'kind':'open'},'responsibility':{'kind':'unaccepted'}}]},'meta':{'budget':{'truncated':True,'omitted_fields':'1','omitted_items':'0'}}}],'pagination':{'complete':True}},'meta':{}}
-        proxy.write_text('#!/usr/bin/env python3\nprint('+repr(json.dumps({'result':packet}))+')\n')
+        packet['data']['pages'][0]['meta']['query_revision']='1'
+        thread_packet={'data':{'pages':[{'data':{'items':[]},'meta':{'query_revision':'1'}}],'pagination':{'complete':True}},'meta':{}}
+        proxy.write_text('#!/usr/bin/env python3\nimport sys\nprint('+repr(json.dumps({'result':thread_packet}))+' if sys.argv[3]=="thread.list" else '+repr(json.dumps({'result':packet}))+')\n')
         partial=self.helper('questions',executable=str(proxy))
         self.assertIn(b'partial',partial.stdout)
         self.assertIn(b'omitted fields/bodies',partial.stderr)
@@ -250,6 +301,8 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
                         part=guide.read_pty(master)
                         if not part: break
                         data+=part
+                    if action=='error' and not sent and b'STALE / RECONNECTING' in data:
+                        os.write(master,b'q');sent=True
                     if action!='error' and not sent and b'\x1b[32;1H' in data:
                         foreground=os.tcgetpgrp(master)
                         self.assertEqual(foreground,process.pid)
@@ -259,7 +312,7 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
                     part=guide.read_pty(master)
                     if not part: break
                     data+=part
-                self.assertEqual(process.returncode,{'TERM':143,'INT':130,'error':1}[action],data[-1000:])
+                self.assertEqual(process.returncode,{'TERM':143,'INT':130,'error':0}[action],data[-1000:])
                 self.assertIn(b'\x1b[?7h',data)
                 self.assertIn(b'\x1b[?25h',data)
                 self.assertEqual(guide.terminal_modes(master),before_modes)

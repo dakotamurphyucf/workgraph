@@ -8,6 +8,7 @@
   ../../docs/guide-coverage.md
   ../../skills/workgraph/references/wgx.md
   ../../skills/workgraph/scripts/wgx.sh
+  ../../skills/workgraph/scripts/wgx_dashboard.py
   ../../skills/workgraph/scripts/ci-worker.sh
   ../../skills/workgraph/scripts/transcript-converter.py
   ../../skills/workgraph/scripts/history-adapter.py)
@@ -23,7 +24,21 @@
   ../../README.md
   ../../skills/workgraph/SKILL.md
   ../../skills/workgraph/scripts/wgx.sh
+  ../../skills/workgraph/scripts/wgx_dashboard.py
   ../../skills/workgraph/scripts/transcript-converter.py
   ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:helper_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps
+  dashboard_test.py
+  guide_test.py
+  ../daemon_ready.py
+  ../../skills/workgraph/scripts/wgx.sh
+  ../../skills/workgraph/scripts/wgx_dashboard.py
+  ../../skills/workgraph/scripts/transcript-converter.py
+  ../../skills/workgraph/scripts/history-adapter.py)
+ (action
+  (run python3 %{dep:dashboard_test.py} %{exe:../../bin/main.exe})))

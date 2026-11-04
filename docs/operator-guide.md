@@ -1,7 +1,7 @@
 # Install and operate Workgraph
 
-Version 0.5.1 includes the complete portable agent skill. See
-[skill installation](agent-skill.md). Upgrading from 0.5.0 keeps the same API and
+Version 0.5.2 includes the complete portable agent skill. See
+[skill installation](agent-skill.md). Upgrading from 0.5.0 or 0.5.1 keeps the same API and
 storage formats: retain your workspace, registry, contexts and saved requests.
 Shut down the old daemon gracefully and restart with the new executable and the
 same connection values. No data reset or migration is required.
@@ -45,16 +45,17 @@ collects these automatically. Check the tool's `--help` for supported labels and
 does not qualify a binary. Native bundles contain `bin/workgraph`; verify their
 checksums and use a binary matching the target OS, architecture and runtime.
 
-## Bootstrap v0.5.1 preview
+## Bootstrap v0.5.2 preview
 
 <a id="candidate-bootstrap"></a>
 
-This release identifies package 0.5.1/API 0.5 and affected stored roots 4.
-Install a [matching release package](releases/v0.5.1.md#install) or build from source
-as above. Follow the [upgrade steps](releases/v0.5.1.md#upgrade-from-04-or-an-older-preview)
+This release identifies package 0.5.2/API 0.5 and affected stored roots 4.
+Install a [matching release package](releases/v0.5.2.md#install) or build from source
+as above. Follow the [upgrade steps](releases/v0.5.2.md#upgrade-from-04-or-an-older-preview)
 before replacing an older executable. These commands use fresh private sibling
-roots, socket, contexts and journals; WG must name the matching 0.5.1 executable.
-Old data, request journals and exports are not accepted or automatically migrated.
+roots, socket, contexts and journals; WG must name the matching 0.5.2 executable.
+Data, request journals and exports from 0.4 or earlier are not accepted or
+automatically migrated. Existing 0.5.0/0.5.1 installations keep their current paths.
 
 ```sh
 WG="$PWD/_build/default/bin/main.exe"

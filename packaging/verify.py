@@ -17,6 +17,7 @@ DIGEST = re.compile(r"[0-9a-f]{64}")
 NATIVE_SOURCE_FILES = frozenset({
     "README.md", "AGENTS.md", "skills/workgraph/SKILL.md", "engineering-standards.md", "LICENSE",
     "tools/check_skill.py", "tools/generate_api_reference.py", "skills/workgraph/scripts/wgx.sh",
+    "skills/workgraph/scripts/wgx_dashboard.py",
     "tools/installed_smoke.py", "packaging/macos/inspect.py", "packaging/verify.py",
 })
 

@@ -31,7 +31,7 @@ class PackageQualification(unittest.TestCase):
         self.source_files["skills/workgraph/scripts/example.sh"] = (b"#!/bin/sh\n", 0o755)
         self.identity = verify.sha(verify.encode({name: verify.sha(data)
                                                 for name, (data, _) in self.source_files.items()}))
-        self.source_metadata = {"version": "0.5.1", "kind": "source", "source_identity": self.identity}
+        self.source_metadata = {"version": "0.5.2", "kind": "source", "source_identity": self.identity}
         self.native_metadata = {**self.source_metadata, "kind": "native", "platform": "macos-arm64"}
         self.native_files = dict(self.source_files)
         self.native_files["bin/workgraph"] = (b"independent fixture executable", 0o755)
@@ -57,8 +57,8 @@ class PackageQualification(unittest.TestCase):
     def write_archives(self):
         self.source_path.unlink(missing_ok=True)
         self.native_path.unlink(missing_ok=True)
-        package.archive(self.source_path, "workgraph-0.5.1", self.source_files, self.source_metadata)
-        package.archive(self.native_path, "workgraph-0.5.1-macos-arm64", self.native_files, self.native_metadata)
+        package.archive(self.source_path, "workgraph-0.5.2", self.source_files, self.source_metadata)
+        package.archive(self.native_path, "workgraph-0.5.2-macos-arm64", self.native_files, self.native_metadata)
 
     def pair(self):
         return verify.read_archive(self.source_path), verify.read_archive(self.native_path)
@@ -183,7 +183,7 @@ class PackageQualification(unittest.TestCase):
             def mutation(out, member, data):
                 if member.name.endswith("bin/workgraph"):
                     if case == "traversal":
-                        member.name = "workgraph-0.5.1-macos-arm64/../escape"
+                        member.name = "workgraph-0.5.2-macos-arm64/../escape"
                     elif case == "symlink":
                         member.type, member.linkname = tarfile.SYMTYPE, "/tmp/escape"
                     elif case == "setuid":

@@ -347,7 +347,7 @@ data={"items":[]}
 if method=="workspace.overview": data={"workspace":{"name":"Viewport"},"counts":{}}
 if method=="ticket.list": data={"items":[{"ticket_id":"t"+str(n),"title":"long viewport row "+str(n),"status":"in_progress","priority":0,"project_id":"p","prerequisites":[],"label_ids":[],"claim":{"actor_id":"worker","token":"1"}} for n in range(90)]}
 if method=="workspace.metrics": data={"planning":{"limits":{},"admission":{}},"history":{"limits":{},"admission":{}}}
-meta={"workspace_revision":"1"}
+meta={"workspace_revision":"1","query_revision":"1"}
 if "--paginate" in args: data={"pages":[{"data":data,"meta":meta}],"pagination":{"complete":True}}
 print(json.dumps({"result":{"data":data,"meta":meta}}))
 ''')
@@ -360,20 +360,21 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack("HHHH",54,120,0,0))
             before_modes = terminal_modes(master)
             process = subprocess.Popen(["/bin/bash",str(ROOT / "skills/workgraph/scripts/wgx.sh"),"--context",str(context),"dash"],stdin=slave,stdout=slave,stderr=slave,
-                                       env=dict(os.environ,HOME=str(root),WG=str(stub),TERM="xterm",LINES="24",COLUMNS="80"),preexec_fn=foreground_session)
+                                       env=dict(os.environ,HOME=str(root),WG=str(stub),TERM="xterm",LINES="24",COLUMNS="80",NO_COLOR="",WGX_COLOR="auto"),preexec_fn=foreground_session)
             self.addCleanup(stop_pty_job,process)
             def until(marker, predicate=lambda data: True):
                 data = b""
                 deadline = time.monotonic()+12
-                while marker not in data or not predicate(data):
+                while marker not in data.rsplit(b"\x1b[H", 1)[-1] or not predicate(data):
                     self.assertLess(time.monotonic(),deadline,data[-1000:])
                     if select.select([master],[],[],.2)[0]:
                         part = read_pty(master)
                         self.assertTrue(part, data[-1000:])
                         data += part
                 return data
-            first = until(b"q quit")
+            first = until(b"q quit", lambda data: b"0 of 90 complete" in data and b"long viewport row" in data)
             self.assertIn(b"\x1b[54;1H",first)
+            self.assertIn(b"\x1b[1;38;5;254m",first)  # quiet headings and item selection remain styled
             screen = first.rsplit(b"\x1b[H",1)[-1].split(b"\x1b[54;1H")[0]
             self.assertEqual(screen.count(b"\n"),53,first[:1800]+b" ... "+first[-500:])
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack("HHHH",36,120,0,0))
@@ -385,16 +386,11 @@ print(json.dumps({"result":{"data":data,"meta":meta}}))
             screen = resized.rsplit(b"\x1b[H",1)[-1].split(b"\x1b[36;1H")[0]
             self.assertEqual(screen.count(b"\n"),35,resized[-1000:])
             os.write(master,b"G")
-            footer_pattern = rb"lines (\d+)-(\d+) of\s+(\d+)[^\r\n]*q quit"
             def at_bottom(data):
-                return any(int(match[1]) > 1 and match[2] == match[3]
-                           for match in re.finditer(footer_pattern, data))
-            # PTY reads can split or coalesce the cursor marker and footer.
-            # Keep the complete bottom frame before asking the process to quit.
+                frame=data.rsplit(b"\x1b[H",1)[-1]
+                return b"long viewport row 89" in frame and b"0 tasks ready" in frame
             bottom = until(b"q quit", at_bottom)
-            footer = list(re.finditer(footer_pattern, bottom))[-1]
-            self.assertGreater(int(footer[1]),1) # G reached bottom, not top
-            self.assertEqual(footer[2],footer[3])
+            self.assertIn(b"long viewport row 89",bottom)
             os.write(master,b"q")
             tail = b""
             deadline = time.monotonic()+10

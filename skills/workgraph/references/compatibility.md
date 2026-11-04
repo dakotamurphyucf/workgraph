@@ -2,7 +2,7 @@
 
 Workgraph is an early preview with one current schema per representation. The
 0.5 line deliberately breaks the 0.4 application API and affected stored roots.
-Package 0.5.1 keeps the same API and stored formats as 0.5.0; updating within
+Package 0.5.2 keeps the same API and stored formats as 0.5.0; updating within
 that line needs no reset or migration.
 It has no legacy readers, automatic migrations, or backward compatibility promises.
 A package version, application API identifier and stored-format identifier serve

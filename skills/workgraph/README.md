@@ -25,11 +25,11 @@ model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE.t
 The harness owns agents, prompts, model calls, filesystem edits and external side
 effects; Workgraph records and coordinates their work.
 
-**Current release:** [v0.5.1 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.1)
+**Current release:** [v0.5.2 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.2)
 uses application API **0.5** and stored roots **4**, unchanged from v0.5.0.
 Existing 0.5 workspaces, contexts, saved requests and exports remain usable; no
 reset or migration is needed. Upgrading from 0.4 or earlier still requires fresh
-0.5 data roots. Read the [release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.1.md).
+0.5 data roots. Read the [release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.2.md).
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
 Install the self-contained [Workgraph skill](SKILL.md), then give
@@ -38,7 +38,7 @@ and links to focused instructions, API schemas and runnable helpers. The bundled
 [orchestrator overview](README.md) retains this complete team
 guide, including worker prompts and independent review workflows.
 See [skill installation](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/agent-skill.md) for copying the full folder into a
-harness. Version 0.5.1 packages include the full skill folder; a separate skill
+harness. Version 0.5.2 packages include the full skill folder; a separate skill
 archive is also available from the release. [Guide coverage](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
@@ -188,7 +188,7 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following concrete URLs install **v0.5.1 preview**, whose bundled documentation
+The following concrete URLs install **v0.5.2 preview**, whose bundled documentation
 applies. For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
 before replacing its executable or RPM.
 Choose the matching platform and stop if checksum verification fails. Keep WSL
@@ -198,11 +198,11 @@ under your own machine policy.
 ```bash
 # AlmaLinux 10 x86_64, including AlmaLinux under WSL
 set -euo pipefail
-sudo dnf install -y jq curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.5.1"
-cd "$HOME/Downloads/workgraph-0.5.1"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.1
-FILE=workgraph-0.5.1-1.el10.x86_64.rpm
+sudo dnf install -y jq python3 curl-minimal
+mkdir -p "$HOME/Downloads/workgraph-0.5.2"
+cd "$HOME/Downloads/workgraph-0.5.2"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.2
+FILE=workgraph-0.5.2-1.el10.x86_64.rpm
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
@@ -217,18 +217,18 @@ shell examples and helper; install it through your usual package manager.
 
 ```bash
 set -euo pipefail
-mkdir -p "$HOME/Downloads/workgraph-0.5.1"
-cd "$HOME/Downloads/workgraph-0.5.1"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.1
-FILE=workgraph-0.5.1-macos-arm64.tar.gz
+mkdir -p "$HOME/Downloads/workgraph-0.5.2"
+cd "$HOME/Downloads/workgraph-0.5.2"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.2
+FILE=workgraph-0.5.2-macos-arm64.tar.gz
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
 shasum -a 256 --check selected.sha256
-mkdir -p "$HOME/.local/opt/workgraph-0.5.1"
-tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.5.1"
+mkdir -p "$HOME/.local/opt/workgraph-0.5.2"
+tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.5.2"
 # Keep the versioned archive and docs together; select its executable explicitly.
-export PATH="$HOME/.local/opt/workgraph-0.5.1/workgraph-0.5.1-macos-arm64/bin:$PATH"
+export PATH="$HOME/.local/opt/workgraph-0.5.2/workgraph-0.5.2-macos-arm64/bin:$PATH"
 hash -r
 workgraph --version
 ```
@@ -255,7 +255,7 @@ uncertain requests, export and verify needed workspaces, stop its launchers and
 shut down gracefully. Preserve complete stopped registry/workspace roots, contexts,
 journals and exports separately. Verification is not a cross-version restore path.
 Use fresh 0.5 roots and a new socket/context/request directory; do not edit format
-markers or copy old managed files into them. See the [step-by-step upgrade](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.1.md#upgrade-from-04-or-an-older-preview).
+markers or copy old managed files into them. See the [step-by-step upgrade](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.2.md#upgrade-from-04-or-an-older-preview).
 
 ### Bootstrap a private workspace
 
@@ -903,7 +903,7 @@ not a retention budget or throughput guarantee.
 
 ## Watch agents work
 
-Install the maintained source from **the matching 0.5.1 checkout or package**.
+Install the maintained source from **the matching 0.5.2 checkout or package**.
 Preserve a locally adapted installed helper before replacing it.
 The complete same source is included below. Requirements: Bash, `jq`, matching
 `workgraph` on PATH and an explicit context. `wgx` makes read-only requests.
@@ -911,6 +911,7 @@ The complete same source is included below. Requirements: Bash, `jq`, matching
 ```bash
 mkdir -p "$HOME/.local/bin"
 install -m 755 skills/workgraph/scripts/wgx.sh "$HOME/.local/bin/wgx"
+install -m 644 skills/workgraph/scripts/wgx_dashboard.py "$HOME/.local/bin/wgx_dashboard.py"
 export PATH="$HOME/.local/bin:$PATH"
 wgx --context "$WG_CONTEXT" status
 wgx --context "$WG_CONTEXT" status --run "$RUN"
@@ -919,10 +920,77 @@ wgx --context "$WG_CONTEXT" dash
 wgx --context "$WG_CONTEXT" watch --all
 ```
 
-The maintained baseline preserves the Bash 3.2 portability and controlling-TTY
-viewport fixes: it reads `stty size </dev/tty`, redraws after resize, uses all
-available content rows above its footer, and restores terminal wrapping/cursor.
-It polls dashboard changes at roughly two seconds; no immediate latency guarantee.
+The dashboard opens on a quiet **Overview**: project progress, decisions waiting
+on someone, and active work. Each task has a title and a short worker/status line,
+with space between items. Attention items appear once, with a link to the full
+Questions view when there are more than three.
+
+Five tabs keep the rest nearby: **Overview · Tasks · Questions · Agents · Activity**.
+Enter opens the selected item. Detailed readiness reasons, ownership tokens,
+policies and evidence stay in the detail views. Press `i` for connection details,
+check coverage, file reservations and storage. A visible warning remains on the
+main screen while checks are loading or data is incomplete.
+
+The interactive `dash` view and `tree` command need **Python 3.10 or newer**, using
+only its standard library. Install both files above beside each other; other
+`wgx` commands still use Bash and jq. The companion
+[dashboard source](scripts/wgx_dashboard.py) is included in the
+skill and release bundles.
+
+| Key in `wgx dash` | Action |
+| --- | --- |
+| `j` / `k`, up/down arrows | Select whole items; wrapped lines and subtitles stay together |
+| `Tab` / `Shift-Tab`, left/right arrows | Next/previous tab |
+| `1`–`5` | Open Overview, Tasks, Questions, Agents, or Activity |
+| `Enter`, `Esc` | Open details; return to the previous view and position |
+| `space` / `b`, Page Down / Page Up | Page through the view |
+| `g` / `G`, Home / End | Jump to top/bottom |
+| `c` | Collapse/expand the selected item's section |
+| `/`, `a` | Search this view or filter by worker/resolver; submit an empty value to clear |
+| `f` | Open Tasks and cycle all, active, ready, blocked, completed/canceled |
+| `h` | Open Agents and hide/show non-running reports |
+| `p` | Pause/resume the displayed snapshot; background reads continue |
+| `d` | Selected ticket's prerequisite tree and downstream count |
+| `i` | Status inspector: connection, coverage, reservations, storage, errors |
+| `r`, `?`, `q` | Refresh now, show help, quit |
+
+Selection follows the same item when new records arrive or text rewraps after a
+resize. Each tab remembers its position. Detail and dependency views return to
+the item you were inspecting.
+
+Recently changed records are highlighted for six seconds. Pausing freezes the
+content and relative ages while new observations accumulate; resuming reports the
+number of distinct records seen changing, including removals. This is a comparison
+of observations, not a complete event log. Use `wgx watch` for recorded activity.
+
+The viewer uses the full terminal height, adapts to resizing, and restores the
+previous screen and terminal settings on exit. Reads happen in the background so
+navigation and quitting work even during a slow request. On disconnect, the last
+successful snapshot remains visible with a **STALE / RECONNECTING** banner, the
+last successful read time in the status inspector, and bounded retry delays. A reconnect never silently
+replaces a failed panel with an empty one.
+
+The dashboard uses a Linear-inspired dark palette: a charcoal canvas, off-white
+headings, gray secondary text, and restrained indigo accents for navigation,
+questions and recently changed records. Completed work uses muted green,
+active/waiting work uses amber, and errors use soft red. Selection uses a lighter
+charcoal surface with pale indigo text. These are standard 256-color terminal
+colors. Standalone `status` views retain their status colors. `WGX_COLOR=auto` is the default; use
+`WGX_COLOR=always` with a color-aware pager or `WGX_COLOR=never` to disable styles.
+A nonempty `NO_COLOR` disables colors in every mode. The dashboard still uses
+cursor controls for navigation. Noninteractive or dumb terminals get a single
+plain `status` snapshot.
+
+```bash
+WGX_COLOR=always wgx --context "$WG_CONTEXT" status | less -R
+wgx --context "$WG_CONTEXT" tree release-ticket-id
+```
+
+The dependency tree shows declared prerequisites across the workspace, marks
+shared or missing nodes, and limits very large trees explicitly. Downstream
+counts describe graph reachability, not time estimates or guarantees that those
+tickets would become ready. Inherited policies and other eligibility rules are
+explained by the daemon's readiness checks.
 
 Collections now use the CLI's bounded captured pagination. Incomplete traversal
 fails with exact stop/capture/next/retry metadata; omitted bodies are explicitly
@@ -943,16 +1011,17 @@ observed checks and platform limits. Actual WSL execution is a separate check.
 
 | Command | View |
 | --- | --- |
-| `status [-p PROJECT] [--run RUN]` | Captured dashboard, authoritative readiness and named storage meters |
-| `dash [-p PROJECT] [--run RUN]` | Scrollable dashboard; j/k/arrows/space/b/g/G/q |
-| `watch [--all\|--cursor CURSOR]` | Planning metadata; consume returned read/wait cursor before advancing |
+| `status [-p PROJECT] [--run RUN]` | Colored progress, authoritative readiness, questions, workers, recent events and storage gauges |
+| `dash [-p PROJECT] [--run RUN]` | Interactive attention, blockers, details, filters, pause/resume and reconnect status; press `?` for keys |
+| `tree TICKET` | Declared prerequisite tree, shared/missing nodes and downstream count |
+| `watch [--metadata] [--all\|--cursor CURSOR]` | Readable live events; optional `--metadata` keeps the compact revision/target stream. Advances only after rendering consumed activity |
 | `feed [N]` | Last N rendered planning events from one guarded capture |
 | `ticket TICKET` | Task/ownership/full handoff, paged notes/resources and explicit preview expansion |
-| `questions` | Captured paged request IDs with resolver/status/responsibility |
-| `agents` | Caller-reported run state and claimed tasks, not process liveness |
+| `questions` | Question titles, linked tickets, author/resolver, status, responsibility, priority and age |
+| `agents` | Caller-reported run state, claimed tasks, capabilities and objective; not process liveness |
 | `inbox ACTOR [CONSUMER]` | That consumer's unacknowledged notifications; no ack |
 | `output RESOURCE [--limit BYTES]` | Verified capture, safe decoded previews; explicit raw stream mode |
-| `storage` | Named lifetime admission meters and remaining allowances |
+| `storage` | Colored gauges, readable byte units, percentages and remaining named allowances |
 | `files` | Bounded path holders, fences and lease state |
 | `history TEXT` | Captured paged indexed matches with explicit coverage |
 | `convo SESSION [SEQ] [N]` | Forward captured window; 1200-byte UTF8/base64 previews and exact expansion positions |
@@ -1125,7 +1194,7 @@ rollover, not silent pruning or an automatic migration.
 - [macOS](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/macos-install.md), [AlmaLinux/WSL](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/wsl-quickstart.md), [gated review](references/gated-review-workflow.md)
 - [Coordination runner](scripts/coordination-runner.py), [coordination shell](scripts/coordination-workflow.sh), [notifications](scripts/notification-watcher.py), [history adapter](scripts/history-adapter.py), [Codex hooks](scripts/codex-hooks)
 - [Generated API reference](references/api/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
-- [v0.5.1 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.1.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
+- [v0.5.2 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.2.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
 
 ## Complete maintained scripts
 
@@ -1375,13 +1444,13 @@ if __name__ == "__main__":
 # wgx: read-only terminal views for the matching current Workgraph executable.
 # Usage: WG=/absolute/workgraph wgx --context ABS_FILE COMMAND [ARGS]
 # status|dash [-p PROJECT] [--run RUN]   graph readiness or explicit run eligibility
-# watch [--all|--cursor CURSOR]          consumed planning metadata, until interrupted
+# watch [--metadata] [--all|--cursor CURSOR]  readable events, until interrupted
 # feed [N]                             last N rendered planning events (1..1000)
-# ticket T | questions | agents | inbox ACTOR [CONSUMER] | storage | files
+# ticket T | tree T | questions | agents | inbox ACTOR [CONSUMER] | storage | files
 # output RESOURCE [--limit BYTES|--raw stdout|stderr]   verified capture, safe by default
 # history TEXT | convo SESSION [SEQ] [N]              bounded captured history previews
-# Requires Bash 3.2+, jq 1.6+, matching workgraph, standard terminal/filesystem utilities.
-# WGX_MAX_PAGES (1..1000), WGX_TOTAL_BYTES (4096..67108864): bounded read traversal.
+# Requires Bash 3.2+, jq 1.6+, matching workgraph; dash/tree also use Python 3.10+.
+# WGX_COLOR=auto|always|never (NO_COLOR disables); WGX_MAX_PAGES / WGX_TOTAL_BYTES bound reads.
 set -o pipefail
 WG=${WG:-workgraph}
 CTX=${WG_CONTEXT:-}
@@ -1402,7 +1471,8 @@ MAX_PAGES=${WGX_MAX_PAGES:-100}; TOTAL_BYTES=${WGX_TOTAL_BYTES:-16777216}
 uint "$MAX_PAGES" 1 1000 && uint "$TOTAL_BYTES" 4096 67108864 || { fail 'invalid traversal bounds'; exit 2; }
 command -v jq >/dev/null && command -v "$WG" >/dev/null || { fail 'jq and the matching WG executable are required'; exit 1; }
 [ -n "$CTX" ] && [ -f "$CTX" ] || { fail 'supply WG_CONTEXT or --context ABS_FILE'; exit 1; }
-if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR:-}" ]; then
+case "${WGX_COLOR:-auto}" in auto|always|never) ;; *) fail 'WGX_COLOR must be auto, always or never'; exit 2 ;; esac
+if [ -z "${NO_COLOR:-}" ] && { [ "${WGX_COLOR:-auto}" = always ] || { [ "${WGX_COLOR:-auto}" = auto ] && [ -t 1 ] && [ "${TERM:-dumb}" != dumb ]; }; }; then
   B=$'\033[1m' D=$'\033[2m' R=$'\033[0m' G=$'\033[32m' Y=$'\033[33m' C=$'\033[36m' M=$'\033[35m' RED=$'\033[31m'
 else B='' D='' R='' G='' Y='' C='' M='' RED=''; fi
 COLORS=(--arg B "$B" --arg D "$D" --arg R "$R" --arg G "$G" --arg Y "$Y" --arg C "$C" --arg M "$M" --arg RED "$RED")
@@ -1448,7 +1518,39 @@ def one: (. // "") | gsub("\\s+"; " ") | if length > 90 then .[0:87] + "..." els
 def short($n): (. // "") | gsub("\\s+"; " ") | if length > $n then .[0:($n-1)] + "~" else . end;
 def pad($n): tostring | if length >= $n then .[0:$n] else . + (" " * ($n - length)) end;
 def who: (.actor_id // "?");
-def whorun: (.actor_id // "?") + (if .run_id then " (" + .run_id + ")" else "" end);
+def whorun: if . == null then "unclaimed" else (.actor_id // "?") + (if .run_id then " (" + .run_id + ")" else "" end) end;
+def hdr($s): "\n" + $B + $s + $R;
+def empty_rows: if length == 0 then ["  " + $D + "none" + $R] else . end | .[];
+def state_color: if . == "done" or . == "resolved" then $G elif . == "in_progress" or . == "running" then $Y
+  elif . == "open" then $M elif . == "todo" then $C else $D end;
+def styled_state: (state_color) + . + $R;
+def bytes: tonumber | if . < 1024 then "\(.) B" elif . < 1048576 then "\(./1024*10|floor/10) KiB" else "\(./1048576*10|floor/10) MiB" end;
+def gauge($used; $limit; $color):
+  (if $limit > 0 then [0, ([1, ($used/$limit)]|min)]|max else 0 end) as $ratio |
+  ($ratio*24|floor) as $filled | $color + "[" + ("#"*$filled) + ("-"*(24-$filled)) + "]" + $R;
+def meter:
+  (.used|tonumber) as $used | (.limit|tonumber) as $limit |
+  (if $limit > 0 then $used*100/$limit else 0 end) as $pct |
+  (if $pct >= 95 then $RED elif $pct >= 80 then $Y else $G end) as $color |
+  "  \(.name)  " + gauge($used;$limit;$color) + " \($pct*10|floor/10)%  " +
+  (if (.name|endswith("bytes")) then ($used|bytes) + " / " + ($limit|bytes) else "\($used) / \($limit)" end) +
+  "  \(.severity)";
+def request_rows($threads):
+  . as $q | ($threads[.thread_id // ""] // {}) as $thread |
+  "  " + (.status.kind|styled_state) + "  " + $B + .request_id + $R + "  " + (($thread.title // "[thread title unavailable]")|short(72)),
+  "    \(.created.actor_id) -> " + $B + .resolver_id + $R + "  (\(.responsibility.kind))  priority=\(.priority // "0")  " +
+    $D + (.created.timestamp|ago(now)) + $R +
+    (if .deadline_unix_ms then "  deadline(ms)=\(.deadline_unix_ms)" else "" end),
+  ([$thread.links[]? | select(.kind=="ticket") | .id] | if length > 0 then "    on " + join(", ") else empty end);
+def run_rows($tickets):
+  . as $run | [$tickets[] | select(.claim != null and .claim.run_id == $run.run_id) | .ticket_id] as $work |
+  "  " + $B + .run_id + $R + "  " + .actor_id + "  " + (.status|styled_state) +
+    (if ($work|length)>0 then "  on " + ($work|join(", ")) else "  " + $D + "no claimed tickets in this view" + $R end),
+  "    " + (.objective // ""|short(90)) + (if (.capabilities|length)>0 then "  [" + (.capabilities|join(", ")) + "]" else "" end);
+def ticket_row:
+  "  " + $B + .ticket_id + $R + "  " + (.title|short(72)) +
+    (if (.label_ids|length)>0 then "  " + $D + "[" + (.label_ids|join(", ")) + "]" + $R else "" end);
+
 def tgt: if .kind == "ticket" then .ticket_id // .id elif .kind == "project" then "project " + (.project_id // .id)
   elif .kind == "workspace" then "workspace" else (.kind + " " + (.id // "")) end;
 def line($ts; $who; $icon; $text): "\($D)\($ts|t)\($R)  \($who|pad(12))  \($icon) \($text)";
@@ -1497,6 +1599,7 @@ def event:
       | line($it.timestamp; $it|who; "\($C)#\($R)"; "fact \($f.key) = \($f.value|tojson|short(60))")
     elif .kind == "project_put" then line($it.timestamp; $it|who; "\($C)+\($R)"; "project \($B)\(.project.project_id)\($R) (\(.project.status))")
     else empty end;
+def events: .data.items[] | . as $it | [event] | if length > 0 then .[] else line($it.timestamp;$it|who;"·";"commit " + $it.revision + " (expand activity.since)") end;
 '
 
 # Escape untrusted terminal controls before adding our own optional styles.
@@ -1515,16 +1618,17 @@ cmd_feed() {
   value=$(pages activity.since --after "$from" --at-revision "$revision") || return 1
   # Every commit contributes at least one line, including unknown event types;
   # therefore the last N commits contain the last N rendered lines.
-  render '.data.items[] | . as $it | [event] | if length > 0 then .[] else line($it.timestamp;$it|who;"·";"commit " + $it.revision + " (expand activity.since)") end' <<<"$value" | tail -n "$n"
+  render 'events' <<<"$value" | tail -n "$n"
 }
 
 cmd_watch() {
-  local cursor='' after page next count=0 bytes=0 size
+  local cursor='' after page next count=0 bytes=0 size metadata='' activity first last
+  if [ "${1:-}" = --metadata ]; then metadata=1; shift; fi
   case "$#:${1:-}" in
     0:) page=$(wg workspace.overview) || return 1; after=$(jq -er '.meta.workspace_revision' <<<"$page") || return 1 ;;
     1:--all) after=0 ;;
     2:--cursor) [ -n "$2" ] || return 2; cursor=$2 ;;
-    *) fail 'watch accepts --all or --cursor CURSOR'; return 2 ;;
+    *) fail 'watch accepts [--metadata] [--all or --cursor CURSOR]'; return 2 ;;
   esac
   trap 'fail "interrupted; retained cursor: $cursor (initial after: ${after:-not supplied})"; exit 130' INT
   trap 'fail "interrupted; retained cursor: $cursor (initial after: ${after:-not supplied})"; exit 143' TERM
@@ -1538,7 +1642,18 @@ cmd_watch() {
     if jq -e '.data.has_more == true' <<<"$page" >/dev/null && [ "$next" = "$cursor" ]; then fail "watch made no progress; retained cursor: $cursor"; return 1; fi
     size=$(printf '%s' "$page" | wc -c); bytes=$((bytes+size)); count=$((count+1))
     if [ "$count" -gt "$MAX_PAGES" ] || [ "$bytes" -gt "$TOTAL_BYTES" ]; then fail "watch drain limit; retained cursor: $cursor"; return 1; fi
-    render '.data.items[] | "revision \(.revision)  \(.actor_id // "?")  \((.targets // [])|map(tgt)|join(", "))  (\(.changes // "?") changes)"' <<<"$page" || return 1
+    if [ -n "$metadata" ]; then
+      render '.data.items[] | $D + "revision " + .revision + $R + "  \(.actor_id // "?")  \((.targets // [])|map(tgt)|join(", "))  (\(.changes // "?") changes)"' <<<"$page" || return 1
+    elif jq -e '.data.items|length>0' <<<"$page" >/dev/null; then
+      first=$(jq -er '.data.items[0].revision' <<<"$page") || return 1
+      last=$(jq -er '.data.items[-1].revision' <<<"$page") || return 1
+      # Expand only the consumed interval. The original cursor remains the retry
+      # boundary until all captured activity has been fetched and rendered.
+      activity=$(pages activity.since --after "$((first-1))" --at-revision "$last") || { fail "retained cursor: $cursor (initial after: ${after:-not supplied})"; return 1; }
+      size=$(printf '%s' "$activity" | wc -c); bytes=$((bytes+size))
+      if [ "$bytes" -gt "$TOTAL_BYTES" ]; then fail "watch activity byte limit; retained cursor: $cursor"; return 1; fi
+      render 'events' <<<"$activity" || { fail "retained cursor: $cursor"; return 1; }
+    fi
     cursor=$next                         # only after the returned rows were emitted
     if jq -e '.data.has_more == true' <<<"$page" >/dev/null; then
       page=$(wg changes.read --source planning --cursor "$cursor" --limit 100 --max-bytes 1048576) || { fail "retained cursor: $cursor"; return 1; }
@@ -1556,97 +1671,74 @@ status_args() {
 }
 cmd_status() {
   status_args "$@" || return 2
-  local project='' run='' pf=() rf=() ov tl ready rq rn pr mt revision
+  local project='' run='' pf=() rf=() ov tl ready rq rn pr mt threads recent revision from
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      -p) [ "$#" -ge 2 ] && identifier "$2" || return 2; project=$2; pf=(--project-id "$2"); shift 2 ;;
-      --run) [ "$#" -ge 2 ] && identifier "$2" || return 2; run=$2; rf=(--target-run-id "$2"); shift 2 ;;
-      *) fail 'status/dash accepts -p PROJECT and --run RUN'; return 2 ;;
+      -p) project=$2; pf=(--project-id "$2"); shift 2 ;;
+      --run) run=$2; rf=(--target-run-id "$2"); shift 2 ;;
     esac
   done
   ov=$(wg workspace.overview) || return 1
   revision=$(jq -er '.meta.workspace_revision' <<<"$ov") || return 1
   tl=$(all_tickets "${pf[@]}" --at-revision "$revision") || return 1
   ready=$(pages ticket.ready "${pf[@]}" "${rf[@]}" --at-revision "$revision") || return 1
-  rq=$(pages request.list) || return 1; rn=$(pages run.list) || return 1
+  rq=$(pages request.list) || return 1
+  # Thread labels share the request capture, not a later mutable observation.
+  threads=$(pages thread.list --revision "$(jq -er '.meta.query_revision' <<<"$rq")") || return 1
+  rn=$(pages run.list) || return 1
   pr=$(pages reservation.path.list) || return 1; mt=$(wg workspace.metrics) || return 1
-  printf '%s\n' "$tl" "$ready" "$rq" "$rn" "$pr" "$mt" | render '
-    . as [$tickets,$ready,$requests,$runs,$paths,$metrics] | $tickets.data.items as $T |
-    "Workgraph · " + $ws + " · planning capture " + $revision + (if $project=="" then "" else " · project " + $project end),
+  from=$((revision > 6 ? revision-6 : 0))
+  recent=$(pages activity.since --after "$from" --at-revision "$revision") || return 1
+  printf '%s\n' "$tl" "$ready" "$rq" "$rn" "$pr" "$mt" "$threads" "$recent" | render '
+    . as [$tickets,$ready,$requests,$runs,$paths,$metrics,$threads,$recent] | $tickets.data.items as $T |
+    ($threads.data.items|map({key:.thread_id,value:.})|from_entries) as $TH |
+    [$T[]|select(.status=="in_progress")] as $doing |
+    [$T[]|select(.status=="done")] as $done |
+    [$T[]|select(.status=="canceled")] as $canceled |
+    [$T[]|select(.status=="todo")|. as $t|select(all($ready.data.items[];.ticket_id != $t.ticket_id))] as $waiting |
+    [$requests.data.items[]|select(.status.kind=="open")] as $open |
+    def count_row($label;$n;$color): "  " + $color + ($label|pad(12)) + $R + " " + ($n|pad(5)) + gauge($n;($T|length);$color);
+    $B + "Workgraph" + $R + " · " + $ws + " · planning capture " + $revision + (if $project=="" then "" else " · project " + $project end),
     "Readiness: " + (if $run=="" then "graph-ready only; select --run RUN for worker eligibility" else "eligible for run " + $run end),
-    "Counts: done=\([$T[]|select(.status=="done")]|length) working=\([$T[]|select(.status=="in_progress")]|length) authoritative-ready=\($ready.data.items|length)",
-    "\nIN PROGRESS",
-    ($T[]|select(.status=="in_progress")|"  \(.ticket_id|pad(32)) \(.title|short(48))  \(.claim|whorun)"),
-    "\n" + (if $run=="" then "GRAPH READY (not run eligibility)" else "ELIGIBLE FOR " + $run end),
-    ($ready.data.items[]|"  \(.ticket_id|pad(32)) \(.title|short(64))"),
-    "\nOTHER TODO (inspect ticket.readiness for exact reasons)",
-    ($T[]|select(.status=="todo")|. as $t|select(all($ready.data.items[];.ticket_id != $t.ticket_id))|"  \(.ticket_id|pad(32)) \(.title|short(64))"),
-    "\nOPEN REQUESTS (workspace-wide)",
-    ($requests.data.items[]|select(.status.kind=="open")|"  \(.request_id|pad(28)) \(.created.actor_id) -> \(.resolver_id) (\(.responsibility.kind))"),
-    "\nRUNS (caller-reported, workspace-wide)",
-    ($runs.data.items[]|"  \(.run_id|pad(24)) \(.actor_id|pad(16)) \(.status) [\(.capabilities|join(","))]"),
-    "\nRESERVED FILES (workspace-wide)",
-    ($paths.data.items[]|. as $p|.holders[]|"  \($p.target.worktree_id):\($p.target.path) \(.actor_id)/\(.run_id) token=\(.token) \(.mode)"),
-    "\nSTORAGE (independent named meters)",
-    (($metrics.data.planning_admission + $metrics.data.storage_admission)[]? | select(.name=="planning_payload_bytes" or .name=="history_batch_bytes") | "  \(.name): \(.used)/\(.limit) bytes, \(.severity)"),
-    "\nPanels have independent captured collection revisions; list text is a preview. No read acknowledges an inbox."
+    "", count_row("done";($done|length);$G), count_row("working";($doing|length);$Y),
+    count_row("ready";($ready.data.items|length);$C), count_row("other todo";($waiting|length);$M),
+    (if ($canceled|length)>0 then count_row("canceled";($canceled|length);$D) else empty end),
+    "  " + $D + "\($T|length) tickets · \($open|length) open requests (workspace-wide)" + $R,
+    hdr("IN PROGRESS"),
+    ([$doing[]|ticket_row, ("    " + $Y + (.claim|whorun) + $R + "  " + $D + (.updated_at|ago(now)) + $R)]|empty_rows),
+    hdr(if $run=="" then "GRAPH READY (not run eligibility)" else "ELIGIBLE FOR " + $run end),
+    ([$ready.data.items[]|ticket_row]|empty_rows),
+    hdr("OTHER TODO (inspect ticket.readiness for exact reasons)"),
+    ([$waiting[]|ticket_row,
+      (if (.prerequisite_ticket_ids|length)>0 then "    " + $D + "declared prerequisites: " + (.prerequisite_ticket_ids|join(", ")) + $R else empty end),
+      (if .hold then "    " + $RED + "hold: " + (.hold|tojson|short(100)) + $R else empty end)]|empty_rows),
+    hdr("OPEN REQUESTS (workspace-wide)"), ([$open[]|request_rows($TH)]|empty_rows),
+    hdr("RUNS (caller-reported, workspace-wide)"), ([$runs.data.items[]|run_rows($T)]|empty_rows),
+    hdr("RESERVED FILES (workspace-wide)"),
+    ([$paths.data.items[]|. as $p|.holders[]|"  " + $C + "\($p.target.worktree_id):\($p.target.path)" + $R + "  \(.actor_id)/\(.run_id)  \(.mode) token=\(.token)"]|empty_rows),
+    hdr("RECENT (workspace-wide; last 6 rendered events at this planning capture)"),
+    ([$recent|events]|.[-6:]|map("  " + .)|empty_rows),
+    hdr("STORAGE (independent named meters)"),
+    (($metrics.data.planning_admission + $metrics.data.storage_admission)[]? | select(.name=="planning_payload_bytes" or .name=="history_batch_bytes") | meter),
+    "\n" + $D + "Panels have independent captured collection revisions; list text is a preview. No read acknowledges an inbox." + $R,
+    $D + "Details: wgx ticket ID · questions · agents · feed 30 · storage" + $R
   ' -s --arg ws "$(jq -er '.workspace_id' "$CTX")" --arg revision "$revision" --arg project "$project" --arg run "$run"
+}
+
+dashboard() {
+  local script
+  script="$(cd "$(dirname "$0")" && pwd)/wgx_dashboard.py"
+  command -v python3 >/dev/null && [ -f "$script" ] || { fail 'dash/tree require Python 3 and wgx_dashboard.py beside wgx; reinstall both viewer files'; return 1; }
+  python3 "$script" --wg "$WG" --context "$CTX" "$@"
 }
 cmd_dash() {
   status_args "$@" || return 2
   if [ ! -t 0 ] || [ ! -t 1 ] || [ "${TERM:-dumb}" = dumb ]; then cmd_status "$@"; return $?; fi
-  # Full status, scrollable, redrawn in place when the workspace changes; the scroll position survives redraws.
-  local off=0 last="" rev screen="" rows=24 cols=80 total maxoff key rest redraw=1
-  local size next_rows next_cols
-  WGX_TTY_STATE=$(stty -g </dev/tty 2>/dev/null)
-  trap 'tput smam 2>/dev/null; tput cnorm 2>/dev/null; [ -z "$WGX_TTY_STATE" ] || stty "$WGX_TTY_STATE" </dev/tty' EXIT
-  trap 'exit 130' INT; trap 'exit 143' TERM
-  trap 'redraw=1' WINCH
-  tput civis 2>/dev/null; clear
-  # Clip long logical rows instead of wrapping them into extra viewport rows.
-  tput rmam 2>/dev/null
-  while true; do
-    # tput in $(...) can consult inherited LINES/COLUMNS or terminfo defaults.
-    # Query the controlling TTY instead, and detect resizing even without new data.
-    size=$(stty size </dev/tty 2>/dev/null)
-    next_rows=${size%% *}; next_cols=${size##* }
-    case "$next_rows" in ''|*[!0-9]*) next_rows=24 ;; esac
-    case "$next_cols" in ''|*[!0-9]*) next_cols=80 ;; esac
-    [ "$next_rows" -ge 2 ] || next_rows=24
-    [ "$next_cols" -ge 1 ] || next_cols=80
-    if [ "$rows" != "$next_rows" ] || [ "$cols" != "$next_cols" ]; then
-      rows=$next_rows; cols=$next_cols; redraw=1
-    fi
-    rev=$(wg workspace.overview | jq -er .meta.workspace_revision) || return 1
-    if [ -n "$rev" ] && [ "$rev" != "$last" ]; then screen=$(cmd_status "$@") || return 1; last=$rev; redraw=1; fi
-    if [ -n "$redraw" ]; then
-      total=$(printf '%s\n' "$screen" | wc -l)
-      maxoff=$((total - rows + 1)); [ "$maxoff" -lt 0 ] && maxoff=0
-      [ "$off" -gt "$maxoff" ] && off=$maxoff; [ "$off" -lt 0 ] && off=0
-      tput cup 0 0 2>/dev/null
-      printf '%s\n' "$screen" | awk -v first="$((off+1))" -v count="$((rows-1))" 'NR>=first && NR<first+count {printf "%s\033[K\n",$0}'
-      tput ed 2>/dev/null
-      tput cup $((rows - 1)) 0 2>/dev/null
-      printf '%s' "${D}lines $((off + 1))-$((off + rows - 1 < total ? off + rows - 1 : total)) of $total · live · j/k or arrows scroll · space/b page · g/G top/bottom · q quit${R}"
-      redraw=""
-    fi
-    if IFS= read -rsn1 -t 2 key; then
-      case "$key" in
-        j) off=$((off + 1)) ;; k) off=$((off - 1)) ;;
-        ' ') off=$((off + rows - 2)) ;; b) off=$((off - rows + 2)) ;;
-        g) off=0 ;; G) off=1000000 ;;
-        q) break ;;
-        $'\e') read -rsn2 -t 1 rest
-          case "$rest" in
-            '[A') off=$((off - 1)) ;; '[B') off=$((off + 1)) ;;
-            '[5') read -rsn1 -t 1; off=$((off - rows + 2)) ;;
-            '[6') read -rsn1 -t 1; off=$((off + rows - 2)) ;;
-          esac ;;
-      esac
-      redraw=1
-    fi
-  done
-  echo
+  # Replace Bash so terminal signals reach the UI and its cancellable read worker.
+  local script
+  script="$(cd "$(dirname "$0")" && pwd)/wgx_dashboard.py"
+  command -v python3 >/dev/null && [ -f "$script" ] || { fail 'dash requires Python 3 and the adjacent wgx_dashboard.py'; return 1; }
+  exec python3 "$script" --wg "$WG" --context "$CTX" "$@"
 }
 
 cmd_ticket() {
@@ -1659,21 +1751,40 @@ cmd_ticket() {
   if jq -e '.meta.budget.truncated == true' <<<"$context" >/dev/null; then fail 'ticket context has omissions; inspect its budget/continuation metadata'; return 1; fi
   printf '%s\n' "$context" "$comments" "$resources" | render '
     . as [$x,$comments,$resources] | $x.data.ticket as $t |
-    "\($t.ticket_id) — \($t.title)", "status=\($t.status) project=\($t.project_id) owner=\($t.claim|whorun)",
-    "\nTASK", $t.description, "\nACCEPTANCE", $t.acceptance_criteria,
-    (if $x.data.handoff then "\nHANDOFF", ($x.data.handoff | to_entries[] | "\(.key): \(.value|if type=="string" then . else tojson end)") else empty end),
-    "\nNOTES (all captured rows; body previews)", ($comments.data.items[] | "\(.comment_id) \(.kind) \(.body|one)"),
-    "\nLINKED RESOURCES", ($resources.data.items[] | "\(.resource_id) \(.metadata.title)"),
-    "Expand clipped bodies: comment.get --comment-id ID; full bounded context: ticket.context --ticket-id " + $t.ticket_id
+    $B + "\($t.display_key // "")  \($t.ticket_id) — \($t.title)" + $R,
+    "status=" + ($t.status|styled_state) + " project=\($t.project_id // "none") priority=\($t.priority)",
+    "owner=" + $Y + ($t.claim|whorun) + $R + (if $t.claim then " token=\($t.claim.token)" else "" end),
+    (if ($t.label_ids|length)>0 then "labels: " + ($t.label_ids|join(", ")) else empty end),
+    (if $t.parent_ticket_id then "parent: " + $t.parent_ticket_id else empty end),
+    (if ($t.prerequisite_ticket_ids|length)>0 then "declared prerequisites: " + ($t.prerequisite_ticket_ids|join(", ")) else empty end),
+    (if ($x.data.blocker_ticket_ids|length)>0 then $RED + "blocked by: " + ($x.data.blocker_ticket_ids|join(", ")) + $R else empty end),
+    (if $t.hold then $RED + "hold: " + ($t.hold|tojson) + $R else empty end),
+    hdr("TASK"), $t.description, hdr("ACCEPTANCE"), $t.acceptance_criteria,
+    (if $x.data.handoff then hdr("HANDOFF"), ($x.data.handoff | to_entries[] | "\(.key): \(.value|if type=="string" then . else tojson end)") else empty end),
+    hdr("NOTES, DECISIONS, EVIDENCE (all captured rows; body previews)"),
+    ([$comments.data.items[] |
+      (if .kind=="decision" then $C elif .kind=="evidence" then $G elif .kind=="blocker" then $RED else $D end) as $color |
+      "  " + (.created_at|t) + "  " + (.author_id // .actor_id // "?") + "  " + $color + .kind + $R + "  " + .comment_id,
+      "    " + (.body|one)]|empty_rows),
+    hdr("LINKED RESOURCES"), ([$resources.data.items[] | "  " + $C + .resource_id + $R + "  " + .metadata.title]|empty_rows),
+    $D + "Expand clipped bodies: comment.get --comment-id ID; full bounded context: ticket.context --ticket-id " + $t.ticket_id + $R
   ' -s
 }
 cmd_questions() {
-  local value; value=$(pages request.list) || return 1
-  render '"REQUEST / FROM -> RESOLVER / STATUS / RESPONSIBILITY", (.data.items[] | "\(.request_id)  \(.created.actor_id) -> \(.resolver_id)  \(.status.kind)  \(.responsibility.kind)"), "Expand question/answer: request.get --request-id ID --include-messages true"' <<<"$value"
+  local value threads; value=$(pages request.list) || return 1
+  threads=$(pages thread.list --revision "$(jq -er '.meta.query_revision' <<<"$value")") || return 1
+  printf '%s\n' "$value" "$threads" | render '
+    . as [$requests,$threads] | ($threads.data.items|map({key:.thread_id,value:.})|from_entries) as $TH |
+    $B + "QUESTIONS / REQUESTS" + $R,
+    ([$requests.data.items[]|request_rows($TH)]|empty_rows),
+    $D + "Expand question/answer: request.get --request-id ID --include-messages true" + $R' -s
 }
 cmd_agents() {
   local runs tickets; runs=$(pages run.list) || return 1; tickets=$(all_tickets --status in_progress) || return 1
-  printf '%s\n' "$runs" "$tickets" | render '. as [$runs,$tickets] | "RUN / ACTOR / REPORTED STATE / WORK / CAPABILITIES", ($runs.data.items[] | . as $r | "\(.run_id)  \(.actor_id)  \(.status)  \([$tickets.data.items[]|select(.claim.run_id==$r.run_id)|.ticket_id]|join(","))  [\(.capabilities|join(","))]"), "Reported state is not process liveness."' -s
+  printf '%s\n' "$runs" "$tickets" | render '. as [$runs,$tickets] |
+    $B + "RUN / ACTOR / REPORTED STATE / WORK / CAPABILITIES / OBJECTIVE" + $R,
+    ([$runs.data.items[]|run_rows($tickets.data.items)]|empty_rows),
+    $D + "Reported state is not process liveness." + $R' -s
 }
 cmd_inbox() {
   local actor=$1 consumer=${2:-$1} value recipient
@@ -1681,7 +1792,7 @@ cmd_inbox() {
   recipient=$(jq -nc --arg id "$actor" '{kind:"actor",id:$id}')
   value=$(pages inbox.read --consumer-id "$consumer" --json-field recipient "$recipient") || return 1
   printf 'Unacknowledged for %s / consumer %s (read only)\n' "$actor" "$consumer"
-  render '.data.items[] | "\(.notification_id) \(.kind) from \(.attribution.actor_id) \(.body_source.body // "[no body supplied]"|one)"' <<<"$value"
+  render '[.data.items[] | $B + .notification_id + $R + " \(.kind) from \(.attribution.actor_id) " + $D + (.attribution.timestamp|ago(now)) + $R + "  \(.body_source.body // "[no body supplied]"|one)"]|empty_rows' <<<"$value"
 }
 cmd_output() (
   local id=$1 limit=4096 raw='' tmp receipt inspection stream offset retained
@@ -1715,12 +1826,12 @@ cmd_output() (
 )
 cmd_storage() {
   local value; value=$(wg workspace.metrics) || return 1
-  render '(.data.planning_admission + .data.storage_admission)[] | "\(.name): used=\(.used) limit=\(.limit) remaining=\(.remaining // "unknown") severity=\(.severity) lifetime=\(.lifetime)"' <<<"$value" || return 1
+  render '(.data.planning_admission + .data.storage_admission)[] | meter, ("    remaining=\(.remaining // "unknown") lifetime=\(.lifetime)")' <<<"$value" || return 1
   echo 'Advisory: at 80% of a cumulative meter, plan a successor workspace; retained data is not silently freed. See skills/workgraph/references/capacity-rollover.md.'
 }
 cmd_files() {
   local value; value=$(pages reservation.path.list) || return 1
-  render '.data.items[] | . as $p | .holders[] | "\($p.target.worktree_id):\($p.target.path) \(.actor_id)/\(.run_id) \(.mode) token=\(.token) deadline=\(.lease.deadline_unix_ms // "none") (expiry does not remove ownership)"' <<<"$value"
+  render '[.data.items[] | . as $p | .holders[] | $C + "\($p.target.worktree_id):\($p.target.path)" + $R + " \(.actor_id)/\(.run_id) \(.mode) token=\(.token) deadline=\(.lease.deadline_unix_ms // "none") (expiry does not remove ownership)"]|empty_rows' <<<"$value"
 }
 cmd_history() {
   local value; [ -n "$1" ] || return 2; value=$(pages history.search --text "$1") || return 1
@@ -1747,6 +1858,7 @@ cmd_convo() {
 command=${1:-status}; [ "$#" -eq 0 ] || shift
 case "$command" in
   status) cmd_status "$@" ;; dash) cmd_dash "$@" ;; watch) cmd_watch "$@" ;; feed) cmd_feed "$@" ;;
+  tree) [ "$#" -eq 1 ] && identifier "$1" || exit 2; dashboard --tree "$1" ;;
   ticket) [ "$#" -eq 1 ] && cmd_ticket "$@" ;; questions) [ "$#" -eq 0 ] && cmd_questions ;;
   agents) [ "$#" -eq 0 ] && cmd_agents ;; inbox) [ "$#" -ge 1 ] && [ "$#" -le 2 ] && cmd_inbox "$@" ;;
   output) [ "$#" -ge 1 ] && cmd_output "$@" ;; storage) [ "$#" -eq 0 ] && cmd_storage ;; files) [ "$#" -eq 0 ] && cmd_files ;;

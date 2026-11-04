@@ -1,25 +1,25 @@
 # AlmaLinux 10 on x86_64, including WSL
 
-Version 0.5.1 includes the complete portable agent skill. See
-[skill installation](agent-skill.md). Upgrading from 0.5.0 keeps the same API and
+Version 0.5.2 includes the complete portable agent skill. See
+[skill installation](agent-skill.md). Upgrading from 0.5.0 or 0.5.1 keeps the same API and
 storage formats: retain your workspace, registry, contexts and saved requests.
 Shut down the old daemon gracefully and restart with the new executable and the
 same connection values. No data reset or migration is required.
 
-Use the [release notes](releases/v0.5.1.md) for features, breaking changes, upgrade
-steps and qualification limits. Use a matching 0.5.1 executable and guide.
+Use the [release notes](releases/v0.5.2.md) for features, breaking changes, upgrade
+steps and qualification limits. Use a matching 0.5.2 executable and guide.
 
-## Install v0.5.1 preview
+## Install v0.5.2 preview
 
-This installation walkthrough targets **v0.5.1 preview**, application API **0.5**
+This installation walkthrough targets **v0.5.2 preview**, application API **0.5**
 and affected stored roots **4**, with its matching bundled guide/API.
 Download its packages and qualification evidence from the
-[v0.5.1 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.1).
+[v0.5.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.2).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
-or the local packaging procedure below. Existing 0.5.0 data is supported without
+or the local packaging procedure below. Existing 0.5.0/0.5.1 data is supported without
 a reset. Only upgrades from 0.4 or earlier require fresh registry/workspace
 folders, socket, contexts and request journals. Preserve older binaries and
-archives before upgrading; follow the [release upgrade steps](releases/v0.5.1.md#upgrade-from-050).
+archives before upgrading; follow the [release upgrade steps](releases/v0.5.2.md#upgrade-from-050-or-051).
 
 For copy-and-paste installation, preservation of an older setup, and a first
 ticket workflow, use the [WSL install and quick-start guide](wsl-quickstart.md).
@@ -46,23 +46,25 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.5.1-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.5.2-1.el10.x86_64.rpm
 workgraph --version
 ```
 
 For the tarball:
 
 ```sh
-tar -xzf workgraph-0.5.1-almalinux-10-x86_64.tar.gz
-export PATH="$PWD/workgraph-0.5.1-almalinux-10-x86_64/bin:$PATH"
+tar -xzf workgraph-0.5.2-almalinux-10-x86_64.tar.gz
+export PATH="$PWD/workgraph-0.5.2-almalinux-10-x86_64/bin:$PATH"
 workgraph --version
 ```
 
 Keep the extracted archive directory together so the agent guide and its references
-remain available. The version must print `0.5.1`. The executable links to the
+remain available. The version must print `0.5.2`. The executable links to the
 AlmaLinux system libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
-Python 3 is needed for the supplied examples and qualification walkthrough.
+Python 3.10+ is needed for the WGX dashboard/dependency tree and supplied Python
+examples. Install viewer dependencies with `sudo dnf install -y jq python3`;
+follow the [WGX setup](../README.md#watch-agents-work).
 Third-party license texts and an exact dependency inventory are retained under
 `THIRD_PARTY_NOTICES/` in the native archive and
 `/usr/share/licenses/workgraph/THIRD_PARTY_NOTICES/` in the RPM installation.
@@ -112,10 +114,10 @@ under the Linux home filesystem:
 
 ```sh
 sudo dnf install git python3
-tar -xzf workgraph-0.5.1-source.tar.gz
-python3 workgraph-0.5.1/tools/installed_smoke.py "$(command -v workgraph)" \
+tar -xzf workgraph-0.5.2-source.tar.gz
+python3 workgraph-0.5.2/tools/installed_smoke.py "$(command -v workgraph)" \
   "$HOME/.local/state/workgraph-0.5/wsl-qualification"
-python3 workgraph-0.5.1/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
+python3 workgraph-0.5.2/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
   --directory "$HOME/.local/state/workgraph-0.5/wsl-history-qualification"
 ```
 
