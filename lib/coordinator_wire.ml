@@ -383,6 +383,36 @@ module Active_attempt = struct
   ;;
 end
 
+module Held_work = struct
+  type t =
+    { ticket_claim_count : int
+    ; named_reservation_count : int
+    ; path_reservation_count : int
+    ; active_attempt_count : int
+    }
+
+  let codec =
+    Api_codec.object_
+      (F.map
+         (req "ticket_claim_count" counter
+          ++ req "named_reservation_count" counter
+          ++ req "path_reservation_count" counter
+          ++ req "active_attempt_count" counter)
+         ~decode:
+           (fun
+             ( ((ticket_claim_count, named_reservation_count), path_reservation_count)
+             , active_attempt_count ) ->
+           { ticket_claim_count
+           ; named_reservation_count
+           ; path_reservation_count
+           ; active_attempt_count
+           })
+         ~encode:(fun t ->
+           ( ((t.ticket_claim_count, t.named_reservation_count), t.path_reservation_count)
+           , t.active_attempt_count )))
+  ;;
+end
+
 module Stale_run = struct
   type liveness =
     | Unobserved
@@ -395,6 +425,9 @@ module Stale_run = struct
     { status : Agent_run.Status.t
     ; last_observed_unix_ms : int64 option
     ; liveness : liveness
+    ; observation_age_ms : int64 option
+    ; clock_regressed : bool
+    ; held_work : Held_work.t
     }
 
   let fields_base =
@@ -402,10 +435,26 @@ module Stale_run = struct
       (F.map
          (req "status" Agent_run_wire.status
           ++ req "last_observed_unix_ms" (nullable nonnegative64)
-          ++ req "liveness" liveness)
-         ~decode:(fun ((status, last_observed_unix_ms), liveness) ->
-           { status; last_observed_unix_ms; liveness })
-         ~encode:(fun (t : t) -> (t.status, t.last_observed_unix_ms), t.liveness))
+          ++ req "liveness" liveness
+          ++ req "observation_age_ms" (nullable nonnegative64)
+          ++ req "clock_regressed" Api_codec.boolean
+          ++ req "held_work" Held_work.codec)
+         ~decode:
+           (fun
+             ( ( (((status, last_observed_unix_ms), liveness), observation_age_ms)
+               , clock_regressed )
+             , held_work ) ->
+           { status
+           ; last_observed_unix_ms
+           ; liveness
+           ; observation_age_ms
+           ; clock_regressed
+           ; held_work
+           })
+         ~encode:(fun (t : t) ->
+           ( ( (((t.status, t.last_observed_unix_ms), t.liveness), t.observation_age_ms)
+             , t.clock_regressed )
+           , t.held_work )))
   ;;
 
   let base =
@@ -429,7 +478,33 @@ module Stale_run = struct
         (Bool.equal
            (Option.is_none t.last_observed_unix_ms)
            (equal_liveness t.liveness Unobserved))
-        "stale run liveness differs from observation")
+        "stale run liveness differs from observation";
+      match t.last_observed_unix_ms, t.observation_age_ms, t.clock_regressed with
+      | None, None, false | Some _, Some _, false | Some _, None, true -> ()
+      | None, (Some _ | None), true
+      | None, Some _, false
+      | Some _, None, false
+      | Some _, Some _, true ->
+        Json.fail
+          Invalid_argument
+          "run observation age differs from observation/clock state")
+  ;;
+
+  let validate_clock t ~captured_now_unix_ms =
+    let regressed =
+      Option.exists t.last_observed_unix_ms ~f:(fun observed ->
+        Int64.(observed > captured_now_unix_ms))
+    in
+    check
+      (Bool.equal t.clock_regressed regressed)
+      "run observation clock regression differs from captured clock";
+    let age =
+      Option.bind t.last_observed_unix_ms ~f:(fun observed ->
+        if regressed then None else Some Int64.(captured_now_unix_ms - observed))
+    in
+    check
+      (Option.equal Int64.equal t.observation_age_ms age)
+      "run observation age differs from captured clock"
   ;;
 end
 
@@ -1056,11 +1131,11 @@ module Response = struct
                lease_status
                (Allocation_lease.status lease ~now_unix_ms:t.captured_now_unix_ms))
             "ticket lease status differs from captured clock"
+        | Item.Stale_run { metadata; _ } | Unobserved_run { metadata; _ } ->
+          Stale_run.validate_clock metadata ~captured_now_unix_ms:t.captured_now_unix_ms
         | Item.Active_attempt _
         | Ready_work _
         | Allocation_blocked _
-        | Stale_run _
-        | Unobserved_run _
         | Stale_ownership _
         | Expired_ownership _
         | Unanswered_request _

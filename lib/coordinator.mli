@@ -37,7 +37,14 @@ end
     [needs_larger_budget], never skips it. Unobserved runs have their own advisory
     [unobserved_run] row and never produce a stale-run or stale-ownership warning
     merely from missing observation. Lease expiry/regression remains independent.
-    No process or duration is inferred. *)
+    The captured nonarchived [tickets] contain all valid retained claims: planning
+    preparation and replay reject archiving claimed work or its enclosing scope.
+    Run warnings include observation_age_ms (unknown for missing observations or
+    clock regression) and complete whole-run held-work counts. These count retained
+    claim/reservation records even after lease expiry, not valid grants or executing
+    processes; shared targets count once per run, not once per borrower. Attempt
+    counts can overlap claims. Project selection does not narrow these run counts.
+    No process termination or task duration is inferred. *)
 val read
   :  workspace:Id.Workspace.t
   -> revision:int

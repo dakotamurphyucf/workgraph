@@ -709,6 +709,20 @@ let preconditions name mode request =
       [ "The ticket must be ready and claimable; retain the returned token. Supply \
          run_id and attempt_id to start an attempt atomically."
       ]
+    | "coordinator.overview" ->
+      [ "Select stale_run and unobserved_run to inspect advisory observation_age_ms, \
+         clock_regressed and held_work counts. Age uses captured_now_unix_ms and the \
+         latest durable observe/advisory heartbeat. Unknown age never proves the \
+         external process stopped."
+      ; "held_work counts retained ticket claims, named/path reservation targets and \
+         nonterminal attempts for the whole run, including expired records; project \
+         selection does not narrow counts. Shared targets count once, and attempts can \
+         overlap claims."
+      ; "Heartbeats never renew leases or release ownership. The harness must \
+         monitor/resume/stop or isolate external execution and explicitly renew, release \
+         or recover with exact guards. A turn ending is not a Workgraph lifecycle \
+         transition."
+      ]
     | "participant.list" ->
       [ "Discovers registered catalog identities (including archived) and actors from \
          retained attributed writes. registration is null for unregistered participants; \

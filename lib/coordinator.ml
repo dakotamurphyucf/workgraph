@@ -379,35 +379,57 @@ let read
             project
             (Option.to_list claim.run)
             [ claim.actor ])));
+    let held_work run : Wire.Held_work.t =
+      { ticket_claim_count =
+          List.count tickets ~f:(fun ticket ->
+            Option.exists ticket.Ticket.claim ~f:(fun claim ->
+              Option.exists claim.run ~f:(Id.Run.equal run)))
+      ; named_reservation_count =
+          List.count (Agent_run.reservations runs) ~f:(fun reservation ->
+            List.exists reservation.Reservation.holders ~f:(fun holder ->
+              Id.Run.equal holder.run run))
+      ; path_reservation_count =
+          List.count (Agent_run.path_reservations runs) ~f:(fun reservation ->
+            List.exists reservation.Path_reservation.holders ~f:(fun holder ->
+              Id.Run.equal holder.run run))
+      ; active_attempt_count =
+          List.count (Agent_run.attempts_for_run runs run) ~f:(fun attempt ->
+            not (Attempt.State.terminal attempt.state))
+      }
+    in
     List.iter (Agent_run.runs runs) ~f:(fun record ->
       if not (Agent_run.Status.terminal record.Agent_run.Record.status)
       then (
         let record = liveness_record record in
-        let row =
+        let warning =
           match Agent_run.liveness record ~now_unix_ms:clock ~after_ms:stale_after_ms with
           | Fresh -> None
-          | Unobserved ->
-            Some
-              (Wire.Item.Unobserved_run
-                 { run_id = record.id
-                 ; metadata =
-                     { status = record.status
-                     ; last_observed_unix_ms = None
-                     ; liveness = Unobserved
-                     }
-                 })
-          | Stale ->
-            Some
-              (Wire.Item.Stale_run
-                 { run_id = record.id
-                 ; metadata =
-                     { status = record.status
-                     ; last_observed_unix_ms = record.last_observed_unix_ms
-                     ; liveness = Stale
-                     }
-                 })
+          | Unobserved -> Some Wire.Stale_run.Unobserved
+          | Stale -> Some Stale
         in
-        Option.iter row ~f:(fun row ->
+        Option.iter warning ~f:(fun liveness ->
+          let clock_regressed =
+            Option.exists record.last_observed_unix_ms ~f:(fun observed ->
+              Int64.(observed > clock))
+          in
+          let observation_age_ms =
+            Option.bind record.last_observed_unix_ms ~f:(fun observed ->
+              if clock_regressed then None else Some Int64.(clock - observed))
+          in
+          let metadata : Wire.Stale_run.t =
+            { status = record.status
+            ; last_observed_unix_ms = record.last_observed_unix_ms
+            ; liveness
+            ; observation_age_ms
+            ; clock_regressed
+            ; held_work = held_work record.id
+            }
+          in
+          let row =
+            match liveness with
+            | Unobserved -> Wire.Item.Unobserved_run { run_id = record.id; metadata }
+            | Stale -> Wire.Item.Stale_run { run_id = record.id; metadata }
+          in
           add
             row
             (Id.Run.to_string record.id)

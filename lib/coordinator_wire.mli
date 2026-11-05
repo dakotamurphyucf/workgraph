@@ -87,6 +87,25 @@ module Active_attempt : sig
   val codec : t Api_codec.t
 end
 
+module Held_work : sig
+  (** Complete whole-run counts from the captured workspace, including when the
+      overview has a project filter. Retained expired leases still count as held
+      records. Shared reservations count each distinct target once for this run;
+      borrowers do not increase the count. Attempts count nonterminal records and
+      can overlap ticket claims, so these counts must not be summed as tasks.
+      Counters are nonnegative. Projection reads immutable captures only; it scans
+      retained ticket/attempt and reservation records per warning run and owns no
+      mutable execution state. *)
+  type t =
+    { ticket_claim_count : int
+    ; named_reservation_count : int
+    ; path_reservation_count : int
+    ; active_attempt_count : int
+    }
+
+  val codec : t Api_codec.t
+end
+
 module Stale_run : sig
   type liveness =
     | Unobserved
@@ -96,9 +115,17 @@ module Stale_run : sig
     { status : Agent_run.Status.t
     ; last_observed_unix_ms : int64 option
     ; liveness : liveness
+    ; observation_age_ms : int64 option
+    ; clock_regressed : bool
+    ; held_work : Held_work.t
     }
 
-  (** Shared advisory metadata for separately labelled stale and unobserved run
+  (** Age is captured_now_unix_ms minus the effective observation, in milliseconds.
+      Unobserved has no timestamp/age and no regression. Clock regression has a
+      timestamp and no age, with clock_regressed=true; never a fabricated zero age.
+      The enclosing response validates age/regression against its captured clock.
+      Fresh and terminal runs remain absent from this warning view.
+      Shared advisory metadata for separately labelled stale and unobserved run
       rows. liveness_is_advisory is literal true in the public codec. *)
   val codec : t Api_codec.t
 end

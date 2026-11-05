@@ -368,8 +368,8 @@ let%expect_test "unobserved runs stay visible without stale ownership warnings" 
 
 let%expect_test "coordinator row decoders cannot label unobserved liveness stale" =
   List.iter
-    [ {|{"kind":"stale_run","source":{"kind":"run","run_id":"run"},"metadata":{"status":"running","last_observed_unix_ms":null,"liveness":"unobserved","liveness_is_advisory":true}}|}
-    ; {|{"kind":"unobserved_run","source":{"kind":"run","run_id":"run"},"metadata":{"status":"running","last_observed_unix_ms":"1","liveness":"stale","liveness_is_advisory":true}}|}
+    [ {|{"kind":"stale_run","source":{"kind":"run","run_id":"run"},"metadata":{"status":"running","last_observed_unix_ms":null,"liveness":"unobserved","liveness_is_advisory":true,"observation_age_ms":null,"clock_regressed":false,"held_work":{"ticket_claim_count":"0","named_reservation_count":"0","path_reservation_count":"0","active_attempt_count":"0"}}}|}
+    ; {|{"kind":"unobserved_run","source":{"kind":"run","run_id":"run"},"metadata":{"status":"running","last_observed_unix_ms":"1","liveness":"stale","liveness_is_advisory":true,"observation_age_ms":"1","clock_regressed":false,"held_work":{"ticket_claim_count":"0","named_reservation_count":"0","path_reservation_count":"0","active_attempt_count":"0"}}}|}
     ]
     ~f:(fun value -> outcome (Api_codec.decode Coordinator_wire.Item.codec (json value)));
   [%expect

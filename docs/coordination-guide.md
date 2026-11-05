@@ -218,3 +218,41 @@ daemon restart. `actor.list` continues to list only catalog registrations.
 ```json
 {"method":"participant.list","params":{"workspace_id":"demo","limit":"50","max_bytes":"65536"}}
 ```
+
+### Inspect stale observations and held work
+
+Use `coordinator.overview` with `kinds:["stale_run","unobserved_run"]` and,
+optionally, `run_id`, `actor_id` or `project_id`. This is a warning view: fresh
+and terminal runs do not produce these rows. `unobserved_run` means no observation
+is recorded. `stale_run` uses the requested `stale_after_ms` threshold against the
+later of durable `run.observe` metadata and the current advisory heartbeat cache.
+
+Each warning's `metadata.observation_age_ms` is the exact difference between
+`data.captured_now_unix_ms` and `last_observed_unix_ms`. Missing observations have
+null age and `clock_regressed:false`. A future observation has null age and
+`clock_regressed:true`, conservatively stale rather than a fabricated zero age.
+Pages retain the first clock; changed planning/head/heartbeat captures require a
+rescan. Durable observe metadata replays with history; `.local` heartbeats are
+advisory, excluded from portable history and may lose coalesced updates on abrupt
+shutdown. Graceful shutdown flushes them.
+
+`metadata.held_work` has exact `ticket_claim_count`, `named_reservation_count`,
+`path_reservation_count` and `active_attempt_count`. These cover the whole run,
+even when selecting a project. Retained expired ownership records still count;
+this is an inventory of held records, not a count of valid fencing grants or
+executing processes. Each shared reservation target counts once for the run,
+regardless of other holders or automatic claim borrowers. Attempts count
+nonterminal records and can overlap claimed tickets; do not sum them as tasks.
+Use `actor.overview` with the owner and run to inspect claim/attempt/named/path
+reservation details; that detail read has its own current capture. Valid planning
+state cannot archive a claimed ticket or its scope, so the existing coordinator
+ticket capture includes all retained claims without scheduling archived work.
+
+The harness owns process/session supervision, foreground lock waits, periodic
+observations, wakeups and resuming an agent that ended its turn. Configure heartbeats
+and lease renewals separately: neither `run.heartbeat` nor `run.observe` renews a
+claim/reservation, ends a run or releases ownership. Missing/stale observations,
+lease expiry and a finished model turn never prove a process stopped or its
+checkout is safe to reuse. Before replacing work, confirm the old execution is
+stopped or isolated, then use exact guarded release/recovery. For ticket recovery,
+choose `disposition:"requeue"` explicitly when the work should return to Todo.
