@@ -549,6 +549,11 @@ let run ~env arguments =
     in
     let fields =
       Option.value_map !context ~default:options.fields ~f:(fun context ->
+        let method_ =
+          if String.equal method_ "resource.publish_text"
+          then "resource.put_text"
+          else method_
+        in
         Cli_context.apply context ~method_ ~fields:options.fields)
     in
     let options =
@@ -560,9 +565,17 @@ let run ~env arguments =
            | None -> Option.bind !context ~f:Cli_context.request_directory)
       }
     in
+    let method_, parameters =
+      if String.equal method_ "resource.publish_text"
+      then
+        ( "transaction.apply"
+        , Text_publication.of_params (Json.obj options.fields)
+          |> Disk.unwrap
+          |> Text_publication.params )
+      else method_, Json.obj options.fields
+    in
     let value =
-      Protocol.Request.create ~id:"cli" ~method_ ~params:(Json.obj options.fields)
-      |> Disk.unwrap
+      Protocol.Request.create ~id:"cli" ~method_ ~params:parameters |> Disk.unwrap
     in
     execute ?reservation_wait socket options value
   in

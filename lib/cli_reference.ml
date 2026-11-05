@@ -14,6 +14,7 @@ let canonical_method_name = function
 
 let local_methods =
   [ "resource.upload"
+  ; "resource.publish_text"
   ; "resource.upload-abort"
   ; "resource.download"
   ; "evidence.show"
@@ -22,6 +23,23 @@ let local_methods =
 ;;
 
 let helper_help = function
+  | "resource.publish_text" ->
+    Some
+      {|resource.publish_text [local atomic text helper]
+Usage: workgraph --context ABS_FILE resource publish_text --ticket-id ID
+  --expected-revision REV --text TEXT [--resource-id ID --title TEXT]
+At most 65536 UTF-8 bytes; --field-file text ABS_FILE or --field-file text - work.
+Title is required on creation (revision 0); omitted resource_id generates an ID.
+Optional filename, mime-type and run-id follow resource.put_text semantics.
+Publishes text and links the ticket atomically through one transaction.apply.
+A missing ticket, stale guard or existing link fails without publishing content.
+Save with --save-request ABS_NEW_FILE or --request-directory ABS_PRIVATE_DIR;
+otherwise provide a stable --mutation-id. Retry only that exact saved request.
+Saved bytes are the expanded transaction, so retry never rereads the text source.
+Success is the normal durable transaction receipt: .result.data.results[0].data
+contains resource_id, revision and version.{revision,digest}; results[1].data
+contains the final linked metadata revision. Publication is not ticket approval.
+This helper is not a daemon method. Read skills/workgraph/references/resources.md.|}
   | "init" | "bootstrap" -> Some Cli_bootstrap.help
   | "reservation-wait" | "reservation.wait" | "reservation.paths.wait" ->
     Some
@@ -946,8 +964,8 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
          if Option.equal String.equal method_name (Some "resource")
          then
            "\n\
-            Local helpers: resource.upload, resource.upload-abort, resource.download \
-            (help each helper)."
+            Local helpers: resource.publish_text, resource.upload, \
+            resource.upload-abort, resource.download (help each helper)."
          else if
            Option.equal String.equal method_name (Some "reservation")
            || Option.equal String.equal method_name (Some "reservation.paths")
@@ -990,8 +1008,8 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
           ^ ":\n"
           ^ rendered
           ^ "\n\
-             CLI helpers (local workflows): init, bootstrap, upload, download, \
-             evidence-run, evidence-publish, retry.\n\
+             CLI helpers (local workflows): init, bootstrap, resource.publish_text, \
+             upload, download, evidence-run, evidence-publish, retry.\n\
              CLI spelling: ticket.get (canonical ticket.context); request get/list/... \
              select request-domain methods with --context/--socket.\n\
              Generic transport: request ABS_SOCKET METHOD; dotted METHOD is also accepted.\n\

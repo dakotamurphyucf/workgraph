@@ -40,6 +40,37 @@ Unarchive before publishing new content. Links make metadata visible in target c
 without loading bytes. Publishing does not itself update a ticket handoff, discussion
 request or model prompt; the harness chooses context and side effects.
 
+### Publish small text and link a ticket atomically
+
+Use the local `resource publish_text` helper for text up to 65536 UTF-8 bytes when
+publication and a ticket link must succeed together:
+
+```sh
+workgraph --context /absolute/agent.json resource publish_text \
+  --ticket-id task --resource-id findings --expected-revision 0 \
+  --title Findings --field-file text /absolute/findings.md \
+  --save-request /absolute/new-request.json
+```
+
+The helper expands to one `transaction.apply`: `resource.put_text` at the supplied
+metadata revision, followed by `resource.link` at that revision plus one. A missing
+ticket, stale revision or already existing link fails the whole transaction without
+publishing content or changing metadata. Omit resource-id to generate an ID on
+creation; keep the returned ID. Title is required on creation; omitted title,
+filename and MIME type on update follow the normal put_text preservation rules.
+Use `--field-file text -` for stdin. The usual explicit workspace/actor/run defaults
+apply; attribution is cooperative metadata. This helper is not a daemon method.
+
+Use a configured request directory, `--save-request`, or a stable mutation-id.
+The saved file is the exact ordinary transaction, including the materialized text;
+`workgraph retry /absolute/new-request.json` never rereads a deleted or changed input,
+refreshes the guards or adds another content version. Retry uncertain outcomes using
+that saved request. Success retains the standard durable transaction receipt:
+`.result.data.results[0].data` contains resource_id, the publication revision and
+immutable `version.{revision,digest}`; `.result.data.results[1].data` contains the final
+linked metadata revision (one greater). Pin the immutable version and digest for
+evidence. Publication and linking do not approve a ticket.
+
 ## Discover metadata, then read pinned bytes
 
 Planning queries return a **workspace revision**, the planning journal position they

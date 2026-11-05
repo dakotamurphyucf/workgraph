@@ -107,7 +107,7 @@ method. `"$WG" help ticket.finish` gives short offline help;
 | Register an agent invocation (a run), record a ticket try (an attempt), allocate eligible work, renew leases, use capacity pools or instantiate templates | [Coordination](references/coordination.md) |
 | Reserve logical file paths, wait for external conditions, or recover abandoned ownership after the runner has stopped or isolated its process | [Paths, conditions and recovery](references/path-conditions-recovery.md) |
 | Recover saved task context, selected facts and incremental change summaries | [Resume and activity digest](references/resume-digest.md) |
-| Store long notes, logs, source or binary files; pin exact versions; reuse verified inputs across tickets; resume uploads or verify downloads | [Resources](references/resources.md) |
+| Store notes, logs, source or binary files; atomically publish text and link a ticket; pin versions; reuse verified inputs; resume uploads or verify downloads | [Resources](references/resources.md) |
 | Use boards, discussion threads, teams and messages; ask, route and resolve requests; process inbox delivery | [Communication and evidence](references/communication-evidence.md) |
 | Pin exact inputs and outputs; record contracts, validations and decisions; reconcile changed inputs; apply review, acceptance and instruction-amendment requirements | [Communication and evidence](references/communication-evidence.md), then the [gated review example](references/gated-review-workflow.md) |
 | Execute a command outside the daemon, capture its output and declared source coverage, then publish evidence without rerunning it on retry | [Captured execution](references/execution.md) |
