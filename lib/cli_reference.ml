@@ -612,6 +612,17 @@ let preconditions name mode request =
       [ "The ticket must be ready and claimable; retain the returned token. Supply \
          run_id and attempt_id to start an attempt atomically."
       ]
+    | "participant.list" ->
+      [ "Discovers registered catalog identities (including archived) and actors from \
+         retained attributed writes. registration is null for unregistered participants; \
+         observed is null for catalog-only identities."
+      ; "sources identifies catalog/activity/fact/comment/request/run provenance. \
+         First/last observed revisions cover retained history, not lifetime or liveness. \
+         Merely named recipients/resolvers are not observed writers."
+      ; "Pages retain whole records in actor ID order. Continue next_offset with the \
+         same at_revision; any intervening mutation requires a rescan. This read never \
+         creates actors or runs."
+      ]
     | "ticket.read" ->
       [ "Returns the complete ticket in data.ticket, including description and \
          acceptance_criteria. It never silently clips prose: increase max_bytes if \

@@ -333,3 +333,28 @@ max_active_attempts bounds nonterminal attempts; same-ticket retained pool occup
 requires actor/run/capability/budget/ownership checks. Released tickets return predictably
 to the normal priority/creation/ID ordering. Reported run lifecycle is not external
 process state.
+
+### Discover participants
+
+`participant.list` returns actor-ID ordered, bounded whole records from the actor
+catalog and retained attributed planning commits. `registration` is the complete
+catalog record (including archived identities), or null for unregistered writers.
+`observed` contains inclusive `first_revision` and `last_revision` workspace commit
+bounds, or null for catalog-only identities. These cover retained history, not an
+actor's lifetime. `sources` identifies `catalog`, `activity`, `fact`, `comment`,
+`request`, and `run` provenance; the run family includes coordination writes. Old
+fact versions and tombstones, comment revisions, and terminal request/run activity
+remain discoverable through their retained attribution. Merely naming an assignee,
+recipient or resolver does not establish observed participation.
+
+This read never creates catalog actors or runs. Neither registration nor past
+activity asserts current liveness. Use `limit` (1..100, default 50), `offset`, and
+`max_bytes` (4096..1048576, default 65536). Continue `next_offset` with the same
+`at_revision` from `meta.workspace_revision`; intervening mutations fail Conflict
+and require a rescan. Byte fitting removes only complete record suffixes and
+advances by the number actually returned. The same capture and offsets survive
+daemon restart. `actor.list` continues to list only catalog registrations.
+
+```json
+{"method":"participant.list","params":{"workspace_id":"demo","limit":"50","max_bytes":"65536"}}
+```

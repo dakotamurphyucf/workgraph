@@ -1006,6 +1006,20 @@ let query ?now_unix_ms t ~method_ ~params =
       if String.equal method_ "attention.read"
       then Attention.read t ~now_unix_ms ~params
       else Actor_overview.read t ~now_unix_ms ~params)
+  else if String.equal method_ "participant.list"
+  then
+    Json.decode (fun () ->
+      let unscoped =
+        match params with
+        | `Object fields ->
+          Json.obj
+            (List.filter fields ~f:(fun (key, _) -> not (String.equal key "workspace_id")))
+        | _ -> Json.fail Invalid_argument "query params require object"
+      in
+      let request =
+        Api_codec.decode Participant_api.Request.codec unscoped |> unwrap_domain
+      in
+      Participants.read t request |> unwrap_domain)
   else if String.equal method_ "activity.read"
   then
     Json.decode (fun () ->
