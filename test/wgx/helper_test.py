@@ -198,7 +198,7 @@ else:
  n=len(previous)-1
  if n==4:
   print(json.dumps({'error':{'message':'deliberate stop','data':{'kind':'Unavailable'}}}));sys.exit(1)
- data={'items':[{'revision':str(1000+n),'actor_id':'observer','targets':[],'changes':'1'}], 'cursor':'c'+str(n+1),'through':'999999','needs_larger_budget':False,'has_more':n in (0,2)};meta={}
+ data={'items':[{'revision':str(1000+n),'actor_id':'observer','timestamp':'2026-11-05 05:00:00Z','run_id':None,'targets':[],'kinds':['ticket_put']}], 'cursor':'c'+str(n+1),'through':'999999','needs_larger_budget':False,'has_more':n in (0,2)};meta={}
 print(json.dumps({'result':{'data':data,'meta':meta}}))
 ''')
         stub.chmod(0o755)
@@ -212,6 +212,35 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
             self.assertNotIn('999999',row[1])
         self.assertEqual([line.split()[1] for line in result.stdout.splitlines()],[b'1000',b'1001',b'1002',b'1003'])
         self.assertIn(b'retained cursor: c4',result.stderr)
+
+    def test_metadata_watch_renders_real_kinds_targets_and_attribution(self):
+        self.write('ticket.create',ticket_id='watched',title='Watch metadata')
+        self.write('run.register',target_run_id='worker',objective='Metadata attribution')
+        self.call('comment.add',actor_id='ci',run_id='worker',mutation_id='metadata-comment',
+                  comment_id='observed',target={'kind':'ticket','id':'watched'},body='Metadata only')
+        before=self.call('workspace.overview')
+        feed=self.call('changes.read',source='planning',after='0',limit='100')
+        self.assertTrue(feed['data']['items'])
+        proxy=self.root/'metadata-proxy'
+        proxy.write_text('#!/usr/bin/env python3\nimport os,sys\nif sys.argv[3]=="changes.wait":\n print(\'{"error":{"message":"deliberate stop"}}\');sys.exit(1)\nos.execv('+repr(EXE)+',["workgraph"]+sys.argv[1:])\n')
+        proxy.chmod(0o755)
+        result=self.helper('watch','--metadata','--all',expected=1,executable=str(proxy))
+        for item in feed['data']['items']:
+            self.assertNotIn('changes',item)
+            line=next(line for line in result.stdout.decode().splitlines()
+                      if line.startswith('revision '+item['revision']+'  '))
+            self.assertIn(item['actor_id'],line)
+            for kind in item['kinds']:
+                self.assertIn(kind,line)
+        self.assertIn(b'ci (worker)',result.stdout)
+        self.assertIn(b'watched',result.stdout)
+        self.assertNotIn(b'? changes',result.stdout)
+        self.assertNotIn(b'\x1b',result.stdout)
+        colored=self.helper('watch','--metadata','--all',expected=1,executable=str(proxy),
+                            env={'WGX_COLOR':'always','NO_COLOR':''})
+        for code in [b'\x1b[1m',b'\x1b[36m',b'\x1b[35m']:
+            self.assertIn(code,colored.stdout)
+        self.assertEqual(self.call('workspace.overview'),before)
 
     def test_real_watch_wait_cancel_preserves_state_ack_and_journals(self):
         log=self.root/'watch-log';proxy=self.root/'watch-proxy'
