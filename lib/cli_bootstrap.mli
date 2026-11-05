@@ -32,7 +32,10 @@ val create
     permits waiting for another owner, and success still requires its valid
     handshake. Concurrent startup/setup reuses matching
     published identities.
-    All administrative writes are synced as exact requests beside the context;
+    The configured request directory is created and validated before daemon
+    startup or mutation submission. All administrative writes are synced there
+    as exact requests, falling back beside the context when no request directory
+    is configured;
     [on_saved_request] runs after sync and before transmission. No implicit retry
     of a mutation occurs. Local input/file failures use Invalid_argument or
     Local_io; daemon storage and uncertain mutation errors retain their kinds.

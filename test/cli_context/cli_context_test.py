@@ -14,6 +14,18 @@ EXE = Path(sys.argv.pop(1)).resolve()
 
 
 class ContextTest(unittest.TestCase):
+    def test_startup_flags_explain_explicit_setup_before_connecting(self):
+        for flag in ['--start-daemon', '--registry', '--daemon-log']:
+            result = subprocess.run([str(EXE), 'request', '/absent-workgraph-socket',
+                                     'ticket.list', '--workspace-id', 'demo', flag, 'value'],
+                                    capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(0, result.returncode)
+            problem = json.loads(result.stderr)
+            self.assertEqual('Invalid_argument', problem['kind'])
+            self.assertIn(flag + ' is a setup option', problem['message'])
+            self.assertIn('workgraph help init', problem['message'])
+            self.assertEqual('', result.stdout)
+
     def test_unknown_method_rejects_before_journal_or_connection(self):
         with tempfile.TemporaryDirectory(prefix='wg-cli-unknown-', dir='/tmp') as directory:
             root = Path(directory)
@@ -73,6 +85,10 @@ class ContextTest(unittest.TestCase):
                     results = list(pool.map(init, ['a', 'b']))
                 for result in results:
                     body(result)
+                bootstrap_requests = list((root / 'a-requests').glob('*.json'))
+                self.assertEqual(1, len(bootstrap_requests))
+                self.assertEqual('workspace.create', json.loads(bootstrap_requests[0].read_text())['method'])
+                self.assertIn('saved_request: ' + str(bootstrap_requests[0]), results[0].stderr)
                 body(init('a'))
                 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
                     for result in pool.map(init, ['c', 'c']):
@@ -90,16 +106,16 @@ class ContextTest(unittest.TestCase):
                     body(result)
                     self.assertIn('saved_request: ', result.stderr)
                 requests = list((root / 'a-requests').glob('*.json'))
-                self.assertEqual(12, len(requests))
+                self.assertEqual(13, len(requests))
                 identities = {json.loads(path.read_text())['params']['mutation_id'] for path in requests}
-                self.assertEqual(12, len(identities))
-                saved = requests[0]
+                self.assertEqual(13, len(identities))
+                saved = next(path for path in requests if json.loads(path.read_text())['method'] == 'ticket.create')
                 original = json.loads(saved.read_text())
                 first = body(cli('--context', root / 'b.json', 'retry', saved))
                 second = body(cli('--context', context, 'retry', saved))
                 self.assertEqual(first['result'], second['result'])
                 self.assertEqual(original, json.loads(saved.read_text()))
-                self.assertEqual(12, len(list((root / 'a-requests').glob('*.json'))))
+                self.assertEqual(13, len(list((root / 'a-requests').glob('*.json'))))
                 a = body(cli('--context', context, 'ticket', 'list'))['result']['data']
                 b = body(cli('--context', root / 'b.json', 'ticket', 'list'))['result']['data']
                 request_list = body(cli('--context', context, 'request', 'list'))
@@ -225,6 +241,14 @@ class ContextTest(unittest.TestCase):
                 self.assertNotEqual(0, failed.returncode)
                 self.assertFalse(closed.exists())
                 self.assertIn('cannot open a closed workspace', failed.stderr)
+                before_open = set((root / 'b-requests').glob('*.json'))
+                reopened = cli('init', '--context', root / 'b.json')
+                body(reopened)
+                open_requests = set((root / 'b-requests').glob('*.json')) - before_open
+                self.assertEqual(1, len(open_requests))
+                open_request = open_requests.pop()
+                self.assertEqual('workspace.open', json.loads(open_request.read_text())['method'])
+                self.assertIn('saved_request: ' + str(open_request), reopened.stderr)
                 self.assertNotEqual(0, cli('--context', context, 'retry', saved, '--actor-id', 'different').returncode)
             finally:
                 cli('request', socket, 'daemon.shutdown')

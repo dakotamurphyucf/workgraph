@@ -96,7 +96,9 @@ Repeated setup reuses the registered workspace; a supplied root must identify it
 Setup reports context, workspace, actor, socket, root and request directory. Startup
 races reuse a responding compatible daemon through the typed socket-owner result.
 Readiness verifies the initialize handshake and reports bounded child exit/log diagnostics;
-bootstrap creation requests are saved beside the context for exact recovery.
+bootstrap creation/open requests are saved in the configured request directory
+before sending, or beside the context when no directory is configured. The
+directory is created and validated before daemon startup or a mutation.
 
 Ordinary calls never create/select a workspace from cwd. Supply --context ABS_FILE
 on each invocation to use that agent's defaults. The positional socket is optional

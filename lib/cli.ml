@@ -508,6 +508,22 @@ let run ~env arguments =
       | None -> options
       | Some (Api_method.Packed.Pack method_definition) ->
         let codec = Api_method.request_codec method_definition in
+        List.iter options.named_fields ~f:(fun key ->
+          if
+            List.mem [ "start_daemon"; "registry"; "daemon_log" ] key ~equal:String.equal
+            && not
+                 (List.mem
+                    (Api_codec.field_names codec |> Option.value_exn)
+                    key
+                    ~equal:String.equal)
+          then
+            Json.fail
+              Invalid_argument
+              (sprintf
+                 "--%s is a setup option; run workgraph init (or bootstrap) first, then \
+                  call %s with --context. See workgraph help init."
+                 (String.tr key ~target:'_' ~replacement:'-')
+                 method_));
         { options with
           fields =
             List.map options.fields ~f:(fun (key, value) ->

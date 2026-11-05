@@ -70,6 +70,25 @@ run `serve` in a runner-managed persistent process or a separate terminal; see
 A successful `init` verifies readiness at that moment, not the runner's future
 process lifetime. Restart with the same registry and socket to recover saved work.
 
+### Add another agent to the same workspace
+
+Each agent uses its own actor identity, context and request journal. Share the
+existing socket and workspace ID; do not create another workspace or copy the
+first agent's context. For the demo above:
+
+```sh
+SECOND_AGENT_DIR="$DEMO/second-agent"
+mkdir "$SECOND_AGENT_DIR" || exit 1
+"$WG" init --context "$SECOND_AGENT_DIR/context.json" --socket "$SOCKET" \
+  --workspace-id demo --actor-id reviewer \
+  --request-directory "$SECOND_AGENT_DIR/requests" || exit 1
+```
+
+Give that agent its new context path. Register a separate run when tracking an
+agent invocation; see [coordination](coordination.md). Startup options such as
+`--start-daemon`, `--registry` and `--daemon-log` belong to `init`/`bootstrap`,
+not ordinary API calls.
+
 ## Read, claim, record progress and finish
 
 In the fresh example, create a ticket. For real work, use your assigned ticket ID

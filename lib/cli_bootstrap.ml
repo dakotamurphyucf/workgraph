@@ -16,9 +16,13 @@ A new workspace also requires an absolute root and nonblank name.
 An existing context supplies defaults; chosen defaults must match it exactly.
 --run-id records attribution; register the run separately before allocating work.
 --start-daemon true requires registry and daemon-log; otherwise a daemon must be running.
-Parent directories must exist. Setup saves exact administrative requests beside the
-context before sending, opens the workspace, then publishes the private context.
---request-directory journals later mutations; --save-request is unsupported here.
+Parent directories must exist. Setup creates the configured --request-directory
+before starting a daemon or sending mutations. It saves exact administrative
+requests there (beside the context if unconfigured), opens the workspace, then
+publishes the private context. The directory also journals later mutations.
+--save-request is unsupported here. For a second agent, use a fresh --context and
+--actor-id with the same --socket and --workspace-id; omit root/name and startup
+flags when the workspace and daemon already exist.
 Reading this help requires no daemon or context and creates no files.|}
 ;;
 
@@ -331,6 +335,17 @@ let run t ~env ~on_saved_request =
             (sprintf
                "initialize daemon log %S: requires a regular file or a fresh path"
                log)));
+    let request_directory =
+      match Cli_context.request_directory t.context with
+      | None -> directory
+      | Some directory ->
+        Local_file.protect
+          ~operation:"initialize request directory"
+          ~path:directory
+          (fun () -> Disk.ensure_directory Eio.Path.(fs / directory))
+        |> Disk.unwrap;
+        directory
+    in
     let client =
       Client.create
         ~net:(Eio.Stdenv.net env)
@@ -412,7 +427,7 @@ let run t ~env ~on_saved_request =
                 @ fields))
         |> Disk.unwrap
       in
-      let path = Filename.concat directory (random_name env ^ ".json") in
+      let path = Filename.concat request_directory (random_name env ^ ".json") in
       Local_file.write_new
         ~operation:"save initialization request"
         Eio.Path.(fs / path)
@@ -454,8 +469,6 @@ let run t ~env ~on_saved_request =
         | `True -> ()
         | _ -> Json.fail Invalid_argument "invalid workspace listing")
      | None -> Json.fail Not_found "workspace disappeared during explicit setup");
-    Option.iter (Cli_context.request_directory t.context) ~f:(fun directory ->
-      Disk.ensure_directory Eio.Path.(fs / directory));
     (match t.previous with
      | Some _ -> ()
      | None ->
