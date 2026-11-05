@@ -25,10 +25,10 @@ helper imports stay within this folder, so the copy does not need a repository
 checkout beside it. Keep the skill matched to its CLI version. This skill targets
 Workgraph 0.6 / application API 0.6; changing documentation does not migrate data.
 
-**Packaging:** v0.6.0 native/source packages include this folder. The planned
+**Packaging:** v0.6.0 native/source packages include this folder. The standalone
 `workgraph-0.6.0-skill.tar.gz` contains the standalone `workgraph/` skill without a
 binary. Use a matching 0.6 executable; a new skill does not make 0.5 data or requests
-compatible. Release availability and qualification are recorded separately.
+compatible. Release qualification records identify the exact packaged files.
 
 ## Copy it into your harness
 

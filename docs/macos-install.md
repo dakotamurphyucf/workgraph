@@ -1,12 +1,13 @@
 # macOS ARM64 native installation
 
-Version 0.6.0 targets application API 0.6 and affected stored roots 5. Use the
+Version 0.6.0 uses application API 0.6 and affected stored roots 5. Use the
 matching complete [agent skill](agent-skill.md). This is a breaking preview:
 0.5 and earlier data, contexts and saved requests need separate preservation;
 create fresh registry/workspace roots, socket, contexts and request journals.
 Read the [preservation-first upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-before replacing an executable. Publication and platform qualification are recorded
-separately in the release evidence; these instructions do not establish either.
+before replacing an executable. Release qualification records identify the exact
+source, artifacts and observed platform checks; installation instructions do not
+substitute for that evidence.
 
 Use the [release notes](releases/v0.6.0.md) for features, breaking changes, upgrade
 steps and qualification limits. Use a matching 0.6.0 executable and guide.
@@ -20,12 +21,11 @@ separate evidence; no such qualification is claimed here.
 
 This installation walkthrough targets **v0.6.0 preview**, application API **0.6**
 and affected stored roots **5**, with its matching bundled guide/API.
-Once published, download its archive and qualification evidence from the
+Download its archive and qualification evidence from the
 [v0.6.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
 or the local archive procedure below. All 0.5 and earlier installations require
 fresh data and journals; follow the [upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
-Use the download commands only once matching release assets are published.
 
 The native archive is intended for Apple Silicon Macs. It contains the executable,
 complete offline guide and references, examples, dependency license texts and a

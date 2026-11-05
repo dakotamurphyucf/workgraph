@@ -1,10 +1,10 @@
 # Workgraph 0.6 current operating contracts
 
-Package 0.6.0 targets API 0.6, affected roots 5 and upload plan 2. Independent
+Package 0.6.0 uses API 0.6, affected roots 5 and upload plan 2. Independent
 planning/history heads, history batches and heartbeat cache retain format 1.
 Read the [breaking upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-before replacing an older executable. This records operating contracts, not a
-claim that final package/platform/publication gates have passed.
+before replacing an older executable. These are operating contracts; release
+qualification separately records exact artifacts and observed checks.
 
 | Task | Required boundary | Focused guide |
 | --- | --- | --- |

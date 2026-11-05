@@ -62,9 +62,12 @@ steps, and [history](history.md) for indexed coverage and payload recovery.
 Publish common review inputs once as resource versions and record exact version/
 digest pins. Use the bundled input-cache helper with those explicit inputs and
 inspect its coverage; a local cache path alone is not portable provenance. Keep
-short recovery pointers and logs under your own `scratch/agents/SESSION/`; keep
-accepted shared context and completion evidence as durable resources. Do not store
-scratch or source checkouts inside the managed workspace root.
+private per-agent scratch and caches outside the source checkout, for example
+`~/.local/state/workgraph-0.6/scratch/ACTOR/`, so clean-worktree checks do not remove
+inputs or force repeated downloads. Use repository scratch only if its policy
+explicitly provides and ignores it. Keep accepted shared context and completion
+evidence as durable resources. Never put scratch, caches or source checkouts inside
+managed registry/workspace data directories.
 
 Participant prompts should name lead-only synthesis/dispatch work and the allowed
 verifier roles. Before a finding gets a verifier ticket, compare related findings

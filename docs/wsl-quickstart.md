@@ -1,12 +1,13 @@
 # Workgraph on AlmaLinux 10 in WSL: install and quick start
 
-Version 0.6.0 targets application API 0.6 and affected stored roots 5. Use the
+Version 0.6.0 uses application API 0.6 and affected stored roots 5. Use the
 matching complete [agent skill](agent-skill.md). This is a breaking preview:
 0.5 and earlier data, contexts and saved requests need separate preservation;
 create fresh registry/workspace roots, socket, contexts and request journals.
 Read the [preservation-first upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-before replacing an executable. Publication and platform qualification are recorded
-separately in the release evidence; these instructions do not establish either.
+before replacing an executable. Release qualification records identify the exact
+source, artifacts and observed platform checks; installation instructions do not
+substitute for that evidence.
 
 This walkthrough installs **Workgraph v0.6.0 preview** on **x86_64/AMD64 AlmaLinux
 10** userspace inside WSL. It uses API **0.6** and affected stored roots **5**.
@@ -45,7 +46,7 @@ guards or locks to force a new setup.
 
 ## Install v0.6.0
 
-Once published, download the RPM and checksums from the
+Download the RPM and checksums from the
 [v0.6.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.0):
 
 ```bash

@@ -12,12 +12,12 @@ model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE).
 The harness owns agents, prompts, model calls, filesystem edits and external side
 effects; Workgraph records and coordinates their work.
 
-**Release target:** v0.6.0 preview, application API **0.6**, affected stored roots
+**Version 0.6.0 preview** uses application API **0.6**, affected stored roots
 **5** and saved upload plan **2**. Use fresh registry/workspace roots, socket,
 contexts and request journals when moving from 0.5 or earlier. Preserve the old
 binary with its old data; exports and saved requests are not a migration path.
-See the [release and upgrade notes](docs/releases/v0.6.0.md). Final platform,
-package and publication evidence is separate from the implementation checks.
+See the [release and upgrade notes](docs/releases/v0.6.0.md). Qualification records
+bind exact source and package artifacts to their observed platform checks.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
 Install the self-contained [Workgraph skill](skills/workgraph/SKILL.md), then give
@@ -26,7 +26,7 @@ and links to focused instructions, API schemas and runnable helpers. The bundled
 [orchestrator overview](skills/workgraph/README.md) retains this complete team
 guide, including worker prompts and independent review workflows.
 See [skill installation](docs/agent-skill.md) for copying the full folder into a
-harness. Version 0.6.0 packaging includes the full skill folder; its planned standalone
+harness. Version 0.6.0 packaging includes the full skill folder; the standalone
 skill archive is described in the release notes. [Guide coverage](docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
@@ -176,9 +176,9 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following commands target **v0.6.0 preview** and its matching bundled docs.
-Use them after the release assets and qualification evidence are published; until
-then, build the matching checkout below. For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
+The following commands install **v0.6.0 preview** with its matching bundled docs.
+Check the release qualification evidence for the exact artifacts and platform scope.
+For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
 before replacing its executable or RPM.
 Choose the matching platform and stop if checksum verification fails. Keep WSL
 managed data on Linux `$HOME`, not `/mnt/c`. Review privileged installation commands
@@ -369,9 +369,12 @@ positive `allowed_actor_ids` policy. The daemon cannot infer duplicate findings.
 Keep small fact summaries below about 3 KiB; the 4096 canonical-byte limit covers the
 whole replacement JSON, including later verdict fields. Put complete reports and
 verification evidence in pinned resources. JSON null is a value, not deletion.
-Use your own `scratch/agents/SESSION/` for local logs and recovery pointers; retain
-shared accepted context as versioned Workgraph resources. Scratch is not managed
-workspace storage and is not portable evidence by itself.
+Keep private per-agent scratch and caches outside the source checkout, for
+example `~/.local/state/workgraph-0.6/scratch/ACTOR/`, separate from managed data.
+Use repository scratch only when that repository explicitly provides and ignores
+it; clean-worktree checks must not delete shared inputs or force repeated downloads.
+Retain shared accepted context as versioned Workgraph resources. A local scratch
+path is not portable evidence by itself.
 
 A harness should inspect provider errors before relaunching, respect reset/retry
 instructions, cap backoff and stop repeated rapid no-progress launches. It owns

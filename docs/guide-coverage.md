@@ -5,7 +5,7 @@ Authority: `workgraph-team-guide.html` supplied by the user, 1990 source lines, 
 
 The README contains complete corrected script sources; focused tests keep those
 bytes equal to maintained files. This audit maps the supplied material to its
-current documentation. The [feedback coverage and release gates](acceptance/v0.6-feedback.md)
+current documentation. The [feedback coverage and release qualification](acceptance/v0.6-feedback.md)
 track implementation checks, package verification and platform limits separately.
 The helper uses bounded typed pagination, daemon-derived graph/run eligibility and
 explicit retention/provenance limits; incomplete traversal remains a nonzero result.
