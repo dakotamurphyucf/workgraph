@@ -13,7 +13,10 @@ end
 
 (** Metadata shared by every public success. The codec validates nested budget
     diagnostics and immutable history captures, not only their outer object.
-    Entity revisions belong in the method's data, never in this envelope. *)
+    Entity revisions belong in the method's data, never in this envelope. Optional
+    [pagination] is validated client-added single-page continuation metadata; its
+    own size cap is independent of the daemon payload budget. Raw daemon results
+    do not add that metadata. *)
 type t
 
 val codec : t Api_codec.t

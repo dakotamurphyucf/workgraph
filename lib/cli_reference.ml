@@ -101,6 +101,10 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
       ("pagination [local read helper]\n\
         Usage: workgraph --context ABS_FILE ticket list --project-id PROJECT --paginate\n\
         [--page-limit 100] [--total-bytes 16777216] [--limit 50] [--max-bytes 65536]\n\
+        Ordinary supported single-page reads add validated client-only meta.pagination\n\
+        with capture, next_request and retry_request. Raw call and saved retry stay exact.\n\
+        Daemon max_bytes bounds its original page; local continuation metadata has its\n\
+        own 65536-byte cap. metadata_limit is explicitly incomplete and preserves page.\n\
         Opt-in bounded traversal; requests 1..1000, total JSON 4096..67108864 bytes.\n\
         Keeps exact selectors and per-family captures: at_revision (planning),\n\
         expected_revision/revision plus query_scope (domain), at_snapshot (exports),\n\

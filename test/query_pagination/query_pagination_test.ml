@@ -325,3 +325,90 @@ let%expect_test "new current cursors retain cancellation and prefetch bounds" =
     Invalid_argument
   |}]
 ;;
+
+let%expect_test "single returned page exposes exact capture and next request" =
+  let initial = request () in
+  let continuation =
+    Query_pagination.Continuation.of_response initial ~response:(page ~next:(Some 1))
+    |> unwrap
+  in
+  let value = Query_pagination.Continuation.to_json continuation in
+  print_endline (Json.canonical (Json.field value "capture"));
+  let next =
+    Query_pagination.Continuation.next_request continuation |> Option.value_exn
+  in
+  print_endline (Json.canonical (Protocol.Request.params next));
+  print_s [%sexp (Query_pagination.Continuation.complete continuation : bool)];
+  (match
+     Query_pagination.Continuation.of_response
+       (request ~guard:6 ())
+       ~response:(page ~next:(Some 1))
+   with
+   | Ok _ -> print_endline "unexpected"
+   | Error problem -> print_s [%sexp (problem.kind : Problem.kind)]);
+  let complete =
+    Query_pagination.Continuation.of_response initial ~response:(page ~next:None)
+    |> unwrap
+  in
+  print_s [%sexp (Query_pagination.Continuation.complete complete : bool)];
+  [%expect
+    {| {"query_revision":"7","query_scope":"runs"}
+ {"expected_revision":"7","offset":"1","workspace_id":"w"}
+ false
+ Conflict
+ true |}]
+;;
+
+let%expect_test "client metadata remains strict and separately bounded" =
+  let next =
+    Protocol.Request.create
+      ~id:"metadata"
+      ~method_:"ticket.list"
+      ~params:
+        (Json.obj
+           [ "workspace_id", Json.string "w"
+           ; "text", Json.string (String.make 70000 'x')
+           ])
+    |> unwrap
+    |> Protocol.Request.to_json
+  in
+  let metadata =
+    Pagination_metadata.create
+      ~complete:false
+      ~stop:Page_limit
+      ~consistency:"current_revision_guard"
+      ~capture:(Json.obj [ "workspace_revision", Json.int 7 ])
+      ~next_request:(Some next)
+      ~retry_request:None
+    |> unwrap
+  in
+  print_s [%sexp (Pagination_metadata.complete metadata : bool)];
+  print_s [%sexp (Pagination_metadata.stop metadata : Pagination_metadata.Stop.t)];
+  let json = Pagination_metadata.to_json metadata in
+  assert (String.length (Json.canonical json) <= 65536);
+  assert (
+    Json.integer (Json.field json "returned_bytes") = String.length (Json.canonical json));
+  assert (Json.integer (Json.field json "required_bytes") > 65536);
+  let replace value name field =
+    match value with
+    | `Object fields -> Json.obj (List.Assoc.add fields ~equal:String.equal name field)
+    | _ -> failwith "object expected"
+  in
+  List.iter
+    [ replace json "complete" `True
+    ; replace json "returned_bytes" (Json.int 1)
+    ; replace json "capture" (Json.obj [ "history_sequence", Json.int 7 ])
+    ; replace json "unexpected" `Null
+    ]
+    ~f:(fun value ->
+      match Api_codec.decode Pagination_metadata.codec value with
+      | Ok _ -> print_endline "unexpected"
+      | Error problem -> print_s [%sexp (problem.kind : Problem.kind)]);
+  [%expect
+    {| false
+ Metadata_limit
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument |}]
+;;

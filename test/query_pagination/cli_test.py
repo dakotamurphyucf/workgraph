@@ -116,6 +116,19 @@ class PaginationTests(unittest.TestCase):
     def read(self, method, **params):
         return json.loads(self.cli("call", self.socket, method, json.dumps(dict(workspace_id="w",**params))).stdout)["result"]
 
+    def single(self, method, params=None, address=None, workspace=True):
+        args = ["request", address or self.socket, method]
+        if workspace:
+            args += ["--workspace-id", "w"]
+        for key, value in (params or {}).items():
+            args += ["--json-field", key, json.dumps(value)]
+        return json.loads(self.cli(*args).stdout)["result"]
+
+    def follow(self, request, expected=0):
+        saved = self.root / "next-request.json"
+        saved.write_text(json.dumps(request))
+        return json.loads(self.cli("retry", self.socket, saved, expected=expected).stdout)
+
     def collect(self, method, params=None, options=(), expected=0, address=None):
         args = ["request", address or self.socket, method, "--workspace-id", "w", "--paginate", *options]
         for key, value in (params or {}).items():
@@ -230,6 +243,14 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual(resumed["data"]["pages"][0]["data"]["through"],result["data"]["pages"][0]["data"]["through"])
         self.assertEqual(sum(len(p["data"]["items"]) for p in resumed["data"]["pages"]),1)
         self.assertTrue(result["data"]["pages"][0]["data"]["needs_larger_budget"])
+        single = self.single("changes.read", {"source": "planning", "cursor": base["data"]["cursor"], "max_bytes": "4096"})
+        local = single["meta"]["pagination"]
+        self.assertEqual("needs_larger_budget", local["stop"])
+        self.assertFalse(local["complete"])
+        retry = local["retry_request"]
+        self.assertEqual(single["data"]["cursor"], retry["params"]["cursor"])
+        expanded = {**retry, "params": {**retry["params"], "max_bytes": "1048576"}}
+        self.assertEqual(single["data"]["through"], self.follow(expanded)["result"]["data"]["through"])
 
     def test_history_head_and_payload_ranges(self):
         for name in ["s1","s2","s3"]: self.write("session.create",session_id=name,title=name)
@@ -247,6 +268,114 @@ class PaginationTests(unittest.TestCase):
         result=self.collect("history.read",{"session_id":"s1","direction":"before","anchor":"3","limit":"1"})
         self.assertEqual([e["event_ref"]["sequence"] for p in result["data"]["pages"] for e in p["data"]["items"]],["2","1"])
 
+
+    def test_single_page_default_preserves_filters_and_raw_wire(self):
+        params = {"project_id": "p", "status": "todo", "limit": "1", "max_bytes": "4096"}
+        first = self.single("ticket.list", params)
+        raw = self.read("ticket.list", **params)
+        self.assertEqual(first["data"], raw["data"])
+        self.assertNotIn("pagination", raw["meta"])
+        metadata = first["meta"]["pagination"]
+        self.assertFalse(metadata["complete"])
+        self.assertEqual("current_revision_guard", metadata["consistency"])
+        self.assertEqual(len(json.dumps(metadata, separators=(",", ":"), ensure_ascii=False).encode()), int(metadata["returned_bytes"]))
+        self.assertEqual(first["meta"]["budget"], raw["meta"]["budget"])
+        next_request = metadata["next_request"]
+        for key, value in params.items():
+            self.assertEqual(value, next_request["params"][key])
+        self.assertEqual(first["meta"]["workspace_revision"], next_request["params"]["at_revision"])
+        second = self.follow(next_request)["result"]
+        self.assertNotIn("pagination", second["meta"])
+        self.assertEqual("b", second["data"]["items"][0]["ticket_id"])
+        self.write("ticket.create", ticket_id="late-single", title="Late", project_id="p")
+        failed = self.follow(next_request, expected=1)
+        self.assertEqual("Conflict", failed["error"]["data"]["kind"])
+        self.assertNotIn("pagination", self.single("workspace.get")["meta"])
+
+    def test_single_page_domain_guards_and_export_snapshot(self):
+        for name in ["run-one", "run-two"]:
+            self.write("run.register", target_run_id=name, objective="Recorded")
+        first = self.single("run.list", {"limit": "1"})
+        metadata = first["meta"]["pagination"]
+        self.assertEqual({"query_revision": first["meta"]["query_revision"], "query_scope": "runs"}, metadata["capture"])
+        self.assertEqual(first["meta"]["query_revision"], metadata["next_request"]["params"]["expected_revision"])
+        self.assertEqual(1, len(self.follow(metadata["next_request"])["result"]["data"]["items"]))
+        asset = self.write("resource.put_text", resource_id="schema", expected_revision="0", title="Schema", text='{"type":"object"}')
+        version = asset["data"]["version"]
+        for name in ["contract-one", "contract-two"]:
+            self.write("contract.put", contract_id=name, expected_revision="0", schema_version="1", schema={"resource_id": "schema", "revision": version["revision"], "digest": version["digest"]}, required_inputs=[], required_outputs=[])
+        first = self.single("contract.list", {"limit": "1"})
+        metadata = first["meta"]["pagination"]
+        self.assertEqual("evidence", metadata["capture"]["query_scope"])
+        self.assertEqual(first["meta"]["query_revision"], metadata["next_request"]["params"]["revision"])
+        self.assertEqual(1, len(self.follow(metadata["next_request"])["result"]["data"]["items"]))
+        for i in range(2):
+            self.write("workspace.export", destination=str(self.root / ("export-" + str(i))))
+        first = self.single("export.list", {"limit": "1"}, workspace=False)
+        metadata = first["meta"]["pagination"]
+        self.assertEqual("snapshot_guard", metadata["consistency"])
+        self.assertEqual(first["meta"]["snapshot"], metadata["next_request"]["params"]["at_snapshot"])
+        self.assertEqual(1, len(self.follow(metadata["next_request"])["result"]["data"]["items"]))
+
+    def test_single_page_immutable_audit_resume_inbox_and_history(self):
+        before = self.read("workspace.get")["meta"]["workspace_revision"]
+        self.write("transaction.apply", operations=[{"method": "comment.add", "params": {"comment_id": "single-decision-" + str(i), "target": {"kind": "ticket", "id": "a"}, "kind": "decision", "body": "Decision " + str(i)}} for i in range(4)])
+        feed = self.single("changes.read", {"source": "planning", "after": "0", "limit": "1"})
+        self.assertEqual("planning", feed["meta"]["pagination"]["capture"]["source"])
+        self.assertTrue(self.follow(feed["meta"]["pagination"]["next_request"])["result"]["data"]["items"])
+        params = {"after": before, "target": {"kind": "ticket", "ticket_id": "a"}, "actor_id": "a", "limit": "1", "max_bytes": "4096"}
+        first = self.single("activity.read", params)
+        metadata = first["meta"]["pagination"]
+        self.assertEqual({"through": first["data"]["through"], "lineage": first["data"]["lineage"]}, metadata["capture"])
+        next_request = metadata["next_request"]
+        self.assertNotIn("after", next_request["params"])
+        self.assertEqual(params["target"], next_request["params"]["target"])
+        self.assertEqual("a", next_request["params"]["actor_id"])
+        self.write("comment.add", comment_id="outside-single-capture", target={"kind": "ticket", "id": "a"}, body="Later")
+        second = self.follow(next_request)["result"]
+        self.assertEqual(first["data"]["through"], second["data"]["through"])
+        self.assertEqual("1", second["data"]["items"][0]["change_index"])
+        resume = self.single("ticket.resume", {"ticket_id": "a", "change_limit": "1"})
+        continuation = resume["meta"]["pagination"]["next_request"]
+        self.assertEqual("activity.digest", continuation["method"])
+        self.assertEqual({"kind": "ticket", "ticket_id": "a"}, continuation["params"]["scope"])
+        self.assertNotIn("ticket_id", continuation["params"])
+        self.assertTrue(self.follow(continuation)["result"]["data"]["entries"])
+        for name in ["notice-one", "notice-two"]:
+            self.write("message.send", message_id=name, body=name, recipients=[{"kind": "actor", "id": "reader"}])
+        first = self.single("inbox.read", {"recipient": {"kind": "actor", "id": "reader"}, "consumer_id": "reader", "limit": "1"})
+        continuation = first["meta"]["pagination"]["next_request"]
+        self.assertEqual(first["data"]["through"], continuation["params"]["through"])
+        self.assertEqual(1, len(self.follow(continuation)["result"]["data"]["items"]))
+        for name in ["single-session-one", "single-session-two"]:
+            self.write("session.create", session_id=name, title=name)
+        first = self.single("session.list", {"limit": "1"})
+        continuation = first["meta"]["pagination"]["next_request"]
+        self.assertEqual(first["meta"]["history_capture"]["head"], continuation["params"]["head"])
+        self.write("session.create", session_id="session-outside-capture", title="Later")
+        second = self.follow(continuation)["result"]
+        self.assertEqual(first["meta"]["history_capture"]["head"], second["meta"]["history_capture"]["head"])
+        self.assertEqual(1, len(second["data"]["items"]))
+        self.write("session.append", session_id="single-session-one", events=[{"client_id": "around", "role": "user", "kind": "message", "phase": "final", "payload": {"kind": "inline", "bytes_base64": "YQ=="}}])
+        around = self.single("history.read", {"session_id": "single-session-one", "direction": "around", "anchor": "1", "limit": "1"})
+        self.assertNotIn("pagination", around["meta"])
+        feed = self.single("changes.read", {"source": "history", "after": "0", "limit": "1"})
+        self.assertEqual("history", feed["meta"]["pagination"]["capture"]["source"])
+        self.assertEqual("history", self.follow(feed["meta"]["pagination"]["next_request"])["result"]["data"]["source"])
+
+    def test_single_page_current_cursors_keep_capture_and_filter(self):
+        self.seed_current_usage()
+        for method, params in [("usage.aggregate", {"group_by": "ticket", "project_id": "p", "actor_id": "a", "run_id": "usage-run", "limit": "1"}), ("actor.overview", {"project_id": "p", "actor_id": "a", "run_id": "usage-run", "kinds": ["claim", "attempt"], "limit": "1"})]:
+            first = self.single(method, params)
+            metadata = first["meta"]["pagination"]
+            self.assertEqual("current_revision_cursor", metadata["consistency"])
+            continuation = metadata["next_request"]
+            for key, value in params.items():
+                self.assertEqual(value, continuation["params"][key])
+            second = self.follow(continuation)["result"]
+            self.assertEqual(first["meta"]["workspace_revision"], second["meta"]["workspace_revision"])
+            if method == "actor.overview":
+                self.assertEqual(first["data"]["observed_unix_ms"], second["data"]["observed_unix_ms"])
 
     def seed_current_usage(self, metric_batches=1):
         self.write("run.register",target_run_id="usage-run",objective="Caller-reported usage")
@@ -355,6 +484,14 @@ class PaginationTests(unittest.TestCase):
         self.write("ticket.create",ticket_id="large",project_id="p",title="Large",description="x"*60000)
         result=self.collect("ticket.list",{"text":"Large","max_bytes":"4096"},expected=1)
         self.assertEqual(result["data"]["pagination"]["stop"],"server_field_omissions")
+        single = self.single("ticket.list", {"text": "Large", "max_bytes": "4096"})
+        local = single["meta"]["pagination"]
+        self.assertEqual("server_field_omissions", local["stop"])
+        retry = local["retry_request"]
+        self.assertEqual("Large", retry["params"]["text"])
+        self.assertEqual(single["meta"]["workspace_revision"], retry["params"]["at_revision"])
+        expanded = {**retry, "params": {**retry["params"], "max_bytes": "1048576"}}
+        self.assertEqual("x" * 60000, self.follow(expanded)["result"]["data"]["items"][0]["description"])
         result=self.collect("ticket.list",{"project_id":"p","limit":"1"},options=["--total-bytes","4096"],expected=1)
         metadata=result["data"]["pagination"]
         self.assertEqual(metadata["stop"],"byte_limit")

@@ -274,6 +274,7 @@ type t =
   ; budget : Budget.t option
   ; history_capture : History_capture.t option
   ; snapshot : string option
+  ; pagination : Pagination_metadata.t option
   }
 
 let codec =
@@ -290,13 +291,15 @@ let codec =
     (both
        (both (optional "durable" boolean) (optional "budget" Budget.codec))
        (both
-          (optional "history_capture" History_capture.codec)
-          (optional "snapshot" digest)))
+          (both
+             (optional "history_capture" History_capture.codec)
+             (optional "snapshot" digest))
+          (optional "pagination" Pagination_metadata.codec)))
   |> map
        ~decode:
          (fun
            ( ((workspace_revision, query_revision), (query_scope, history_sequence))
-           , ((durable, budget), (history_capture, snapshot)) ) ->
+           , ((durable, budget), ((history_capture, snapshot), pagination)) ) ->
          { workspace_revision
          ; query_revision
          ; query_scope
@@ -305,6 +308,7 @@ let codec =
          ; budget
          ; history_capture
          ; snapshot
+         ; pagination
          })
        ~encode:
          (fun
@@ -316,9 +320,10 @@ let codec =
            ; budget
            ; history_capture
            ; snapshot
+           ; pagination
            } ->
          ( ((workspace_revision, query_revision), (query_scope, history_sequence))
-         , ((durable, budget), (history_capture, snapshot)) ))
+         , ((durable, budget), ((history_capture, snapshot), pagination)) ))
   |> object_
   |> Api_codec.map
        ~decode:(fun t ->

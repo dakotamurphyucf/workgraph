@@ -43,9 +43,34 @@ module Stop : sig
     | Server_field_omissions
     | Server_item_omissions
     | Error
+    | Metadata_limit
   [@@deriving equal, sexp]
 
   val to_string : t -> string
+end
+
+(** Exact continuation for one already returned page. This is a pure projection:
+    it performs no fetch, retry, acknowledgement or fallback to newer state.
+    Serialized metadata has its own 65536-byte cap, separate from the original
+    daemon response budget. Oversized exact request metadata yields incomplete
+    [Metadata_limit], with no clipped request or invented continuation. *)
+module Continuation : sig
+  type t
+
+  (** Validate the original supported read and its public result codec, then bind
+      the actual family capture. All request selectors remain exact; only declared
+      paging positions advance. Current guards remain current guards, immutable
+      cursors/head captures remain immutable. Malformed pages and conflicting
+      explicit guards reject. The first omitted or unconsumed position never moves
+      to a fresh initial request. [ticket.resume] history continues intentionally
+      through [activity.digest] with the exact ticket scope and captured cursor. *)
+  val of_response : Protocol.Request.t -> response:Jsonaf.t -> (t, Problem.t) Result.t
+
+  val complete : t -> bool
+  val stop : t -> Stop.t
+  val next_request : t -> Protocol.Request.t option
+  val retry_request : t -> Protocol.Request.t option
+  val to_json : t -> Jsonaf.t
 end
 
 module Collection : sig

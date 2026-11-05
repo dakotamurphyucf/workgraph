@@ -482,3 +482,31 @@ acknowledges delivery or splits a transaction. Body/index omissions remain visib
 complete traversal. Resume the exact next_request; retry_request repeats an unconsumed
 position. Nested multi-section views and waits reject this helper, including attention's
 separate readiness pages. Run help pagination for the exact supported method list.
+
+### Exact continuation on a single page
+
+Ordinary `request` and friendly CLI reads of supported collections add validated
+client-only `result.meta.pagination`. It contains `complete`, `stop`, `consistency`,
+`capture`, `next_request` and `retry_request`. `next_request` advances exactly the
+returned position; `retry_request` repeats an unconsumed position. Neither is an
+instruction to discard a stale guard or restart from the latest state. Unsupported
+methods and bounded views such as `history.read` with direction `around` keep their
+original result shape. Raw `call` and saved `retry` return the original wire result.
+
+Save the complete next/retry request JSON and pass it to `workgraph retry SOCKET
+ABS_FILE`, or use its exact method and parameters for another ordinary read.
+Planning pages retain `at_revision`, domain pages retain their declared
+`expected_revision` or `revision` together with query scope, and export lists retain
+`at_snapshot`. These guards detect changes. Immutable audit/digest cursors and history
+heads instead retain the original capture while newer commits arrive. Inbox `through`
+counts notifications. All selectors remain attached to their original family.
+`ticket.resume` continues its history through `activity.digest` with the same ticket
+scope and returned cursor; current task fields are not reread as a substitute.
+
+The daemon's `max_bytes` and `meta.budget.returned_bytes` describe its original
+payload. Client continuation metadata independently records its own `max_bytes`
+(65536) and canonical `returned_bytes`. If an exact continuation exceeds that cap,
+`stop:"metadata_limit"`, `complete:false` and `required_bytes` disclose the omission;
+the original page is preserved and request fields are never clipped. A supported
+single-page read still exits successfully when more pages remain. Explicit
+`--paginate` retains its bounded collection envelope and incomplete exit status.

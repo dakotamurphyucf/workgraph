@@ -286,7 +286,7 @@ let run ~env arguments =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
   let output text = Platform.write_string (Eio.Stdenv.stdout env) (text ^ "\n") in
   let diagnostic text = Platform.write_string (Eio.Stdenv.stderr env) (text ^ "\n") in
-  let execute ?reservation_wait socket options request =
+  let execute ?reservation_wait ?(continuations = true) socket options request =
     let method_ = Protocol.Request.method_ request in
     if
       Option.is_none (Api_catalog.find method_)
@@ -474,6 +474,34 @@ let run ~env arguments =
            incomplete_pagination := not (Query_pagination.Collection.complete collection);
            Protocol.Success (Query_pagination.Collection.to_json collection))
     in
+    let response =
+      match response, pagination with
+      | Success value, None
+        when continuations
+             && Result.is_ok
+                  (Query_pagination.create
+                     request
+                     ~limits:Query_pagination.Limits.default) ->
+        let continuation =
+          Query_pagination.Continuation.of_response request ~response:value |> Disk.unwrap
+        in
+        let fields = function
+          | `Object fields -> fields
+          | _ -> assert false
+        in
+        let meta = Json.field value "meta" |> fields in
+        let meta =
+          Json.obj
+            (List.Assoc.add
+               meta
+               ~equal:String.equal
+               "pagination"
+               (Query_pagination.Continuation.to_json continuation))
+        in
+        Protocol.Success
+          (Json.obj (List.Assoc.add (fields value) ~equal:String.equal "meta" meta))
+      | (Success _ | Failure _), _ -> response
+    in
     (match response with
      | Success value
        when needs_mutation_id request
@@ -506,7 +534,7 @@ let run ~env arguments =
     | Failure _ -> 1
   in
   let context = ref None in
-  let request ?reservation_wait socket method_ options =
+  let request ?reservation_wait ?(continuations = true) socket method_ options =
     let method_ = Cli_reference.canonical_method_name method_ in
     let options =
       if options.self
@@ -577,7 +605,7 @@ let run ~env arguments =
     let value =
       Protocol.Request.create ~id:"cli" ~method_ ~params:parameters |> Disk.unwrap
     in
-    execute ?reservation_wait socket options value
+    execute ?reservation_wait ~continuations socket options value
   in
   let result =
     Disk.protect (fun () ->
@@ -979,7 +1007,7 @@ let run ~env arguments =
            if not (List.is_empty options.fields)
            then
              Json.fail Invalid_argument "call fields must be supplied in its JSON object";
-           request socket method_ { options with fields }
+           request ~continuations:false socket method_ { options with fields }
          | _ -> Json.fail Invalid_argument "call requires method and JSON parameters")
       | "retry" :: rest
       | "resource" :: "upload-abort" :: rest
@@ -1064,7 +1092,7 @@ let run ~env arguments =
              then render_text result
              else Json.canonical (Protocol.response_json request (Success result)));
           0)
-        else execute socket options request
+        else execute ~continuations:false socket options request
       | "request" :: rest ->
         let explicit_socket =
           Option.value_map (List.hd rest) ~default:false ~f:Filename.is_absolute

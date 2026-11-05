@@ -52,7 +52,7 @@ module Family = struct
       let output name = List.mem outputs name ~equal:String.equal in
       match Api_method.name definition with
       | "inbox.read" -> Some Inbox
-      | "changes.read" | "activity.digest" | "ticket.resume" ->
+      | "changes.read" | "activity.digest" | "ticket.resume" | "activity.read" ->
         Some (Cursor { result_field = "cursor" })
       | "coordinator.overview" -> Some (Cursor { result_field = "next_cursor" })
       | "usage.aggregate" ->
@@ -149,31 +149,7 @@ let create request ~limits =
     { request; family; limits })
 ;;
 
-module Stop = struct
-  type t =
-    | Complete
-    | Page_limit
-    | Byte_limit
-    | No_progress
-    | Needs_larger_budget
-    | Indexing_incomplete
-    | Server_field_omissions
-    | Server_item_omissions
-    | Error
-  [@@deriving equal, sexp]
-
-  let to_string = function
-    | Complete -> "complete"
-    | Page_limit -> "page_limit"
-    | Byte_limit -> "byte_limit"
-    | No_progress -> "no_progress"
-    | Needs_larger_budget -> "needs_larger_budget"
-    | Indexing_incomplete -> "indexing_incomplete"
-    | Server_field_omissions -> "server_field_omissions"
-    | Server_item_omissions -> "server_item_omissions"
-    | Error -> "error"
-  ;;
-end
+module Stop = Pagination_metadata.Stop
 
 module Collection = struct
   type t =
@@ -224,15 +200,39 @@ let pin request key value =
 ;;
 
 let with_cursor request cursor =
-  let fields =
-    match Protocol.Request.params request with
-    | `Object fields -> List.Assoc.remove fields "after" ~equal:String.equal
-    | _ -> assert false
-  in
-  Protocol.Request.with_params
-    request
-    (Json.obj (List.Assoc.add fields ~equal:String.equal "cursor" cursor))
-  |> Disk.unwrap
+  let params = Protocol.Request.params request in
+  if String.equal (Protocol.Request.method_ request) "ticket.resume"
+  then (
+    let fields =
+      [ "workspace_id", Json.field params "workspace_id"
+      ; ( "scope"
+        , Json.obj
+            [ "kind", Json.string "ticket"; "ticket_id", Json.field params "ticket_id" ] )
+      ; "cursor", cursor
+      ]
+      @ List.filter_map
+          [ "max_bytes", "max_bytes"
+          ; "change_limit", "limit"
+          ; "include_markdown", "include_markdown"
+          ]
+          ~f:(fun (source, target) ->
+            Option.map (Json.optional params source) ~f:(fun value -> target, value))
+    in
+    Protocol.Request.create
+      ~id:(Json.field (Protocol.Request.to_json request) "id" |> Json.text)
+      ~method_:"activity.digest"
+      ~params:(Json.obj fields)
+    |> Disk.unwrap)
+  else (
+    let fields =
+      match params with
+      | `Object fields -> List.Assoc.remove fields "after" ~equal:String.equal
+      | _ -> assert false
+    in
+    Protocol.Request.with_params
+      request
+      (Json.obj (List.Assoc.add fields ~equal:String.equal "cursor" cursor))
+    |> Disk.unwrap)
 ;;
 
 let capture family response =
@@ -268,7 +268,11 @@ let capture family response =
         [ "through", Json.field capture "through"
         ; "lineage", Json.field capture "lineage"
         ])
-    else Json.obj [ "through", Json.field data "through" ]
+    else
+      Json.obj
+        ([ "through", Json.field data "through" ]
+         @ List.filter_map [ "lineage"; "source" ] ~f:(fun name ->
+           Option.map (Json.optional data name) ~f:(fun value -> name, value)))
 ;;
 
 let pin_request family request response =
@@ -329,7 +333,9 @@ let next_request family request data =
     else numeric position result_field
   | Cursor { result_field } | Current_cursor { result_field; _ } ->
     let has_more =
-      if String.equal result_field "next_cursor"
+      if
+        String.equal result_field "next_cursor"
+        || String.equal (Protocol.Request.method_ request) "activity.read"
       then not (equal_json (Json.field data result_field) `Null)
       else flag data "has_more"
     in
@@ -342,6 +348,110 @@ let next_request family request data =
       | `Null -> `Stopped Stop.No_progress
       | cursor -> `Next (with_cursor request cursor))
 ;;
+
+let validate_page request response =
+  match Api_catalog.find (Protocol.Request.method_ request) with
+  | Some (Api_method.Packed.Pack definition) ->
+    Api_codec.decode (Api_method.response_codec definition) (Api_response.data response)
+    |> Disk.unwrap
+    |> ignore
+  | None -> assert false
+;;
+
+let page_action family request response =
+  let next = next_request family request (Api_response.data response) in
+  let budget = Json.optional (Api_response.meta response) "budget" in
+  let missing_fields =
+    Option.exists budget ~f:(fun b -> optional_integer b "omitted_fields" > 0)
+  in
+  let positioned_items =
+    Option.is_some (Json.optional (Api_response.data response) "offset")
+    ||
+    match family with
+    | Cursor _ when String.equal (Protocol.Request.method_ request) "activity.read" ->
+      not (equal_json (Json.field (Api_response.data response) "cursor") `Null)
+    | Current_cursor _ ->
+      flag (Api_response.data response) "has_more"
+      && not (equal_json (Json.field (Api_response.data response) "cursor") `Null)
+    | Offset _ | Inbox | History _ | Cursor _ -> false
+  in
+  let unsafe_item_omissions =
+    Option.exists budget ~f:(fun b ->
+      optional_integer b "omitted_items" > 0
+      && ((not positioned_items)
+          || (not (flag b "details_complete"))
+          || List.exists
+               (Json.list (Json.field b "details"))
+               ~f:(fun detail ->
+                 not
+                   (List.mem
+                      [ "/items"; "/data/items" ]
+                      (Json.text (Json.field detail "path"))
+                      ~equal:String.equal))))
+  in
+  if missing_fields
+  then `Stopped Stop.Server_field_omissions
+  else (
+    match next with
+    | `Stopped _ -> next
+    | `Done | `Next _ ->
+      if unsafe_item_omissions then `Stopped Stop.Server_item_omissions else next)
+;;
+
+let retry_request (family : Family.t) request response =
+  match family with
+  | (Cursor { result_field } | Current_cursor { result_field; _ })
+    when flag (Api_response.data response) "needs_larger_budget" ->
+    (* A terminal input cursor may have opened a new captured range.
+                   The response cursor is bound before its unconsumed oversized row. *)
+    Some (with_cursor request (Json.field (Api_response.data response) result_field))
+  | (Cursor _ | Current_cursor _)
+    when Option.is_none (Json.optional (Protocol.Request.params request) "cursor") ->
+    (* An initial request cannot recreate the captured position before
+                   already-returned rows. Do not advertise a fresh read as exact retry. *)
+    None
+  | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ -> Some request
+;;
+
+module Continuation = struct
+  type t = Pagination_metadata.t
+
+  let of_response request ~response =
+    Json.decode (fun () ->
+      let plan = create request ~limits:Limits.default |> Disk.unwrap in
+      let response = Api_response.of_json response |> Disk.unwrap in
+      validate_page request response;
+      let capture = capture plan.family response in
+      let pinned = pin_request plan.family request response in
+      let stop, next, retry =
+        match page_action plan.family pinned response with
+        | `Done -> Stop.Complete, None, None
+        | `Next next ->
+          validate next;
+          Stop.Page_limit, Some next, None
+        | `Stopped stop -> stop, None, retry_request plan.family pinned response
+      in
+      Pagination_metadata.create
+        ~complete:(Stop.equal stop Complete)
+        ~stop
+        ~consistency:(Family.name plan.family)
+        ~capture
+        ~next_request:(Option.map next ~f:Protocol.Request.to_json)
+        ~retry_request:(Option.map retry ~f:Protocol.Request.to_json)
+      |> Disk.unwrap)
+  ;;
+
+  let complete = Pagination_metadata.complete
+  let stop = Pagination_metadata.stop
+
+  let request value =
+    Option.map value ~f:(fun json -> Protocol.Request.of_json json |> Disk.unwrap)
+  ;;
+
+  let next_request t = request (Pagination_metadata.next_request t)
+  let retry_request t = request (Pagination_metadata.retry_request t)
+  let to_json = Pagination_metadata.to_json
+end
 
 let collect t ~fetch =
   Json.decode (fun () ->
@@ -466,14 +576,7 @@ let collect t ~fetch =
       | Ok page ->
         let response = Api_response.of_json page |> Disk.unwrap in
         let retained_page = page, String.length (Json.canonical page) in
-        (match Api_catalog.find (Protocol.Request.method_ request) with
-         | Some (Api_method.Packed.Pack definition) ->
-           Api_codec.decode
-             (Api_method.response_codec definition)
-             (Api_response.data response)
-           |> Disk.unwrap
-           |> ignore
-         | None -> assert false);
+        validate_page request response;
         let observed = capture t.family response in
         Option.iter capture_id ~f:(fun previous ->
           if not (equal_json previous observed)
@@ -481,43 +584,7 @@ let collect t ~fetch =
             Json.fail Conflict "pagination capture changed; traversal was not restarted");
         let capture_id = Some observed in
         let request = pin_request t.family request response in
-        let next = next_request t.family request (Api_response.data response) in
-        let budget = Json.optional (Api_response.meta response) "budget" in
-        let missing_fields =
-          Option.exists budget ~f:(fun b -> optional_integer b "omitted_fields" > 0)
-        in
-        let positioned_items =
-          Option.is_some (Json.optional (Api_response.data response) "offset")
-          ||
-          match t.family with
-          | Current_cursor _ ->
-            flag (Api_response.data response) "has_more"
-            && not (equal_json (Json.field (Api_response.data response) "cursor") `Null)
-          | Offset _ | Inbox | History _ | Cursor _ -> false
-        in
-        let unsafe_item_omissions =
-          Option.exists budget ~f:(fun b ->
-            optional_integer b "omitted_items" > 0
-            && ((not positioned_items)
-                || (not (flag b "details_complete"))
-                || List.exists
-                     (Json.list (Json.field b "details"))
-                     ~f:(fun detail ->
-                       not
-                         (List.mem
-                            [ "/items"; "/data/items" ]
-                            (Json.text (Json.field detail "path"))
-                            ~equal:String.equal))))
-        in
-        let next =
-          if missing_fields
-          then `Stopped Stop.Server_field_omissions
-          else (
-            match next with
-            | `Stopped _ -> next
-            | `Done | `Next _ ->
-              if unsafe_item_omissions then `Stopped Stop.Server_item_omissions else next)
-        in
+        let next = page_action t.family request response in
         let candidate =
           match next with
           | `Done ->
@@ -529,24 +596,7 @@ let collect t ~fetch =
               ~capture:capture_id
               ~problem:None
           | `Stopped stop ->
-            let retry =
-              match t.family with
-              | (Cursor { result_field } | Current_cursor { result_field; _ })
-                when flag (Api_response.data response) "needs_larger_budget" ->
-                (* A terminal input cursor may have opened a new captured range.
-                   The response cursor is bound before its unconsumed oversized row. *)
-                Some
-                  (with_cursor
-                     request
-                     (Json.field (Api_response.data response) result_field))
-              | (Cursor _ | Current_cursor _)
-                when Option.is_none
-                       (Json.optional (Protocol.Request.params request) "cursor") ->
-                (* An initial request cannot recreate the captured position before
-                   already-returned rows. Do not advertise a fresh read as exact retry. *)
-                None
-              | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ -> Some request
-            in
+            let retry = retry_request t.family request response in
             finish
               (retained_page :: pages)
               ~stop
