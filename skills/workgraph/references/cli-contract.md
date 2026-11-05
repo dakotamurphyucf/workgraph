@@ -533,3 +533,23 @@ payload. Client continuation metadata independently records its own `max_bytes`
 the original page is preserved and request fields are never clipped. A supported
 single-page read still exits successfully when more pages remain. Explicit
 `--paginate` retains its bounded collection envelope and incomplete exit status.
+
+### Choose the actual receipt field
+
+There is no universal result ID, revision or status. `help receipts` gives a compact
+offline reference; `help METHOD` lists the specific result paths.
+
+| Operation | Read from `.result` |
+| --- | --- |
+| `request.ask` | `data.request_id`, `data.request_revision`, `data.thread_revision`, `data.question`; no status or generic revision. |
+| `request.get` | `data.revision` guards that request; `data.status.kind` is its state; `data.answer` is the pinned answer body/version or null. |
+| `request.resolve` | `data.request_revision`, `data.thread_revision`, `data.status.kind`; `data.answer` is a comment/version reference, not the expanded body. |
+| `ticket.progress` | `data.comment_id` identifies the new progress note; it does not return a new ticket revision. |
+| Receipt-bearing workspace mutation | `meta.workspace_revision` identifies the commit, not a ticket, comment, thread or resource revision. |
+| List read | Usually `data.items`, with method-specific continuation and budget metadata; do not assume the result itself is an array. |
+
+After progress, read `ticket.get` if you need the ticket's current revision, and
+`comment.get` for the progress comment. For an answer, use `request.get` or
+[the bounded request wait helper](communication-evidence.md#wait-for-one-requests-answer).
+The latter preserves the request data paths and adds local `meta.wait`; it does not
+write or acknowledge delivery.

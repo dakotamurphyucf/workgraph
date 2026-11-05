@@ -13,6 +13,7 @@ let usage =
   workgraph METHOD [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
   workgraph FAMILY ACTION... [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
   workgraph retry [ABS_SOCKET] REQUEST_FILE [--timeout SECONDS] [--output text]
+  workgraph request wait [ABS_SOCKET] --request-id ID [--wait-ms 30000 --poll-interval-ms 1000]
   workgraph reservation wait [ABS_SOCKET] [OPTIONS] --json-field requests JSON
   workgraph reservation paths wait [ABS_SOCKET] [OPTIONS] --json-field requests JSON
     --request-directory ABS_DIR [--wait-ms 30000 --max-attempts 32 --wait-slice-ms 1000]
@@ -686,6 +687,63 @@ let run ~env arguments =
              Json.fail Invalid_argument "supply an absolute socket or --context/--socket")
       in
       match arguments with
+      | "request.wait" :: rest | "request" :: "wait" :: rest ->
+        let socket, rest = with_socket rest in
+        let options = parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest in
+        if
+          options.self
+          || options.paginate
+          || Option.is_some options.save_request
+          || Option.is_some options.request_directory
+        then
+          Json.fail
+            Invalid_argument
+            "request wait is read-only; --self, journal and pagination options do not \
+             apply";
+        let fields =
+          Option.value_map !context ~default:options.fields ~f:(fun context ->
+            Cli_context.apply context ~method_:"request.get" ~fields:options.fields)
+        in
+        List.iter fields ~f:(fun (key, _) ->
+          if
+            not
+              (List.mem
+                 [ "workspace_id"; "request_id"; "wait_ms"; "poll_interval_ms" ]
+                 key
+                 ~equal:String.equal)
+          then Json.fail Invalid_argument ("unknown request wait field: " ^ key));
+        let params = Json.obj fields in
+        let number field default =
+          Option.value_map (Json.optional params field) ~default ~f:Json.integer
+        in
+        let plan =
+          Request_wait.create
+            ~workspace:(Id.Workspace.t_of_jsonaf (Json.field params "workspace_id"))
+            ~request:
+              (Communication_id.Request.t_of_jsonaf (Json.field params "request_id"))
+            ~timeout_ms:(number "wait_ms" 30000)
+            ~poll_interval_ms:(number "poll_interval_ms" 1000)
+          |> Disk.unwrap
+        in
+        let result =
+          Request_wait.run
+            plan
+            ~net:(Eio.Stdenv.net env)
+            ~clock:(Eio.Stdenv.mono_clock env)
+            ~socket
+            ~max_exchange_seconds:options.timeout_seconds
+          |> Disk.unwrap
+        in
+        let value = Request_wait.Outcome.to_json result in
+        if options.text
+        then output (render_text value)
+        else (
+          let request =
+            Protocol.Request.create ~id:"cli" ~method_:"request.wait" ~params
+            |> Disk.unwrap
+          in
+          output (Json.canonical (Protocol.response_json request (Success value))));
+        if Request_wait.Outcome.resolved result then 0 else 1
       | ("reservation-wait" | "reservation.wait") :: rest
       | "reservation" :: "wait" :: rest
       | "reservation" :: "paths" :: "wait" :: rest

@@ -42,12 +42,16 @@ with tempfile.TemporaryDirectory(prefix="wg-inspect-", dir="/tmp") as temporary:
     assert summary["source_before"]["listed_paths"] == summary["source_before"]["hashed_paths"] == "1"
     assert summary["source_before"]["identity_complete"]
     preview = summary["stdout_preview"]
+    capture = json.loads((stage / "capture.json").read_text())
+    assert base64.b64decode(capture["stdout"]["base64"]) == b"abcdefgh"
+    assert base64.b64decode(preview["data_base64"]) == b"abcdefgh"
     assert preview["text"] == "abcdefgh" and preview["retention"] == "prefix" and preview["selection"] == "retained_tail"
     assert preview["observed_bytes"] == "16" and preview["retained_bytes"] == "8"
     assert not preview["at_observed_end"] and preview["truncated"] and preview["eof"]
     assert summary["stderr_preview"]["text_lossy"]
     tail = json.loads(cli("--context", root / "absent-context", "evidence", "show", "--stage", stage, "--stdout", "--tail", "4", "--output", "json").stdout)
     assert tail["text"] == "efgh" and tail["offset"] == "4" and not tail["at_observed_end"]
+    assert base64.b64decode(tail["data_base64"]) == b"efgh"
     exact = cli("evidence.show", "--stage", stage, "--stderr", "--offset", "2", "--length", "3", "--output", "bytes")
     assert exact.stdout == b"d\xff\x00" and json.loads(exact.stderr)["text_lossy"]
     assert b"Decoded output" in cli("evidence-show", "--stage", stage).stdout

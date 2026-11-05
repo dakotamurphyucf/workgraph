@@ -111,6 +111,42 @@ subscription routing are frozen when the event commits; later team/subscription
 edits never rewrite past routing. Deadlines are caller-declared timestamps, with
 no automatic expiry or transition. The harness owns processing and external sends.
 
+### Wait for one request's answer
+
+`request.ask` returns `request_revision`, not a generic `revision` or `status`.
+`request.get` instead returns the current request `revision` and a status object:
+test `.result.data.status.kind` for `open`, `resolved` or `cancelled`. A resolved
+request's `.result.data.answer` contains the exact pinned comment body and version,
+or null when it was resolved without an answer. `include_messages` adds related
+conversation; searching those messages is not how to retrieve the resolution.
+
+Use the local CLI helper for a bounded wait. It preserves those `request.get` data
+paths and adds `.result.meta.wait.{stop,resolved,poll_count}`:
+
+```sh
+if "$WG" --context "$CONTEXT" request wait --request-id design-choice \
+     --wait-ms 30000 --poll-interval-ms 1000 > "$AGENT_DIR/answer.json"; then
+  jq '.result.data.answer' "$AGENT_DIR/answer.json"
+else
+  # A read error may leave no success result. Inspect stderr and the saved output.
+  cat "$AGENT_DIR/answer.json"
+fi
+```
+
+This reads immediately, then polls at intervals; it does not ask again or acknowledge
+delivery. Total wait is 1000..300000ms; interval is 250..25000ms. `--timeout` caps each
+transport by the remaining monotonic deadline. Exit 0 means a complete resolved
+observation, including resolution without an answer. `cancelled`, `deadline`, and
+`incomplete` stop with exit 1 and the last observation; an open request at timeout is
+still open. Read errors stop unchanged. The helper requests a 1MiB budget and refuses
+to present a clipped response as a complete answer. A later edit of the answer's
+comment does not replace the version pinned by resolution.
+
+`meta.wait` is a local helper extension; raw `request.get` is unchanged. No daemon
+worker or persistent watch is created. The caller decides whether to wait again,
+read another request or act on the answer. Journal, `--self`, and pagination flags
+do not apply to this helper; a context's request directory is unused.
+
 ## Capture and provenance
 
 message.send creates an authored discussion comment and pins delivery to its initial
@@ -133,8 +169,9 @@ entity revisions, discussion activity serials and communication/evidence query r
 Results use result.data; applicable receipt/query/budget metadata is in result.meta.
 For communication/evidence lists, read offset zero first. Continue with next_offset
 and meta.query_revision as revision, preserving filters. Positive offset requires
-that exact current family revision; Conflict means restart at zero. At zero, revision
-does not fence the read. Lists use typed-ID order unless a method specifies otherwise;
+that exact current family revision; Conflict means deliberately start a new capture
+at zero. An explicitly supplied revision also fences offset zero, including a
+larger-budget retry. Lists use typed-ID order unless a method specifies otherwise;
 histories increase entity revision, assertions increase evidence serial.
 Query budgets default to 65536 bytes and accept 4096..1048576. Inspect meta.budget:
 truncated, omitted_fields/items and JSON-pointer details disclose incomplete views;

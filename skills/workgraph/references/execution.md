@@ -39,6 +39,20 @@ Exit 0 means observed command exit 0; exit 2 means a captured nonzero exit, sign
 launch failure; exit 1 indicates an infrastructure/argument error. Signal numbers in
 capture.json use OCaml Sys conventions, which can differ from native POSIX numbers.
 
+The saved capture and its printed inspection views have different scopes:
+
+| Output | Exact byte field | Meaning |
+| --- | --- | --- |
+| Saved `capture.json` | `.stdout.base64`, `.stderr.base64` | Entire retained prefix for that stream, up to the capture limit. |
+| `evidence-run` printed JSON | `.stdout_preview.data_base64`, `.stderr_preview.data_base64` | Only the selected bounded preview; inspect its offset/length and omission metadata. |
+| `evidence show --output json` | `.data_base64` | The explicitly selected range or retained tail. |
+
+These outputs are ordinary local JSON, without `.result.data`. Use
+`evidence show --stage "$STAGE" --stdout --offset 0 --length 65536 --output bytes`
+to read exact selected bytes without decoding fields yourself; metadata goes to
+stderr. Continue at the next retained byte offset for a larger prefix. This does not
+recover output discarded during capture, rerun a command, or publish anything.
+
 command.json is synced before launch. capture.json retains canonical JSON containing
 argv, cwd, wall-clock boundaries, independent monotonic duration, outcome, binary base64
 output, observed SHA256/counts, and source observations. Cancellation stages an

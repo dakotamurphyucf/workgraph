@@ -14,6 +14,7 @@ let canonical_method_name = function
 
 let local_methods =
   [ "resource.upload"
+  ; "request.wait"
   ; "resource.publish_text"
   ; "resource.upload-abort"
   ; "resource.download"
@@ -23,6 +24,24 @@ let local_methods =
 ;;
 
 let helper_help = function
+  | "request.wait" ->
+    Some
+      {|request wait [local read helper]
+Usage: workgraph --context ABS_FILE request wait --request-id ID
+  [--wait-ms 30000 --poll-interval-ms 1000 --timeout 30 --output json|text]
+Dotted request.wait also works; explicit --workspace-id and socket override context.
+Polls request.get immediately, then at bounded intervals. Total 1000..300000ms,
+interval 250..25000ms; --timeout caps each transport by the remaining deadline.
+No messages, acknowledgements, acceptances, writes or daemon-side worker are created.
+Result data preserves request.get paths: .result.data.status.kind,
+.revision (request revision), .thread_revision and .answer (exact pinned comment
+with .body/.comment_id/.revision, or null when resolved without an answer).
+Local .result.meta.wait has stop, resolved and poll_count. Exit 0 only for a
+complete resolved observation; cancelled/deadline/incomplete observations exit 1
+with the last result. Read errors stop unchanged; cancellation propagates.
+Data is bounded to 1MiB; clipped replies stop as incomplete, never a full answer.
+This is a local helper, not a daemon method or a saved mutation to retry.
+Journal, --self and --paginate options reject. A context's journal default is unused.|}
   | "fields" ->
     Some
       {|fields [local helper]
@@ -80,6 +99,13 @@ After uncertainty, retry the exact saved_request; retry never reruns this helper
 Mutation results use .result.data and .result.meta. IDs and state fields are
 method-specific: run_id/status for run mutations, attempt_id/state for attempts,
 ticket_id/token for acquisition, and answer/thread revisions for resolution.
+request.ask returns request_revision, thread_revision and question; it does not
+return status or a generic revision. request.get returns revision and status.kind.
+request.get.answer contains the exact resolved comment body/version or null;
+include_messages expands related messages, not a replacement location for answers.
+ticket.progress returns comment_id, not a new ticket revision. Read ticket.get for
+the ticket's current revision; meta.workspace_revision is the containing commit.
+Lists generally return data.items; inspect the method's own continuation fields.
 Run revision guards that run, coordination_revision guards its domain collection,
 workspace_revision identifies the durable transaction, and a resource content
 version/digest is an immutable evidence pin. Never interchange these counters.
@@ -168,6 +194,9 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
        -- is literal child argv, including --help and --context. No daemon is used.\n\
        Each stream retains its first BYTES (default 65536, range 1..1048576), drains\n\
        and hashes observed bytes, and stores binary output as base64 in capture.json.\n\
+       capture.json: .stdout.base64/.stderr.base64 hold the retained prefix. Printed\n\
+       .stdout_preview.data_base64/.stderr_preview.data_base64 hold selected previews.\n\
+       Use evidence show --stage ABS --stdout --output bytes for exact selected bytes.\n\
        JSON stdout: stage, capture_file, outcome, stdout/stderr counts and truncation,\n\
        source_drift, publication:not_attempted. Exit 0: observed command success;\n\
        2: captured nonzero/signal/launch failure; 1: infrastructure/argument error.\n\
@@ -854,8 +883,12 @@ let result_paths = function
   | "transaction.apply" ->
     ".result.data.results[] has method and data, in operation order"
   | "request.get" ->
-    ".result.data.{revision,thread_revision}; with include_messages: \
+    ".result.data.{revision,thread_revision,status.kind,answer}; answer is the exact \
+     pinned comment with body/comment_id/revision, or null; with include_messages: \
      .result.data.related.{source_message,messages.items}"
+  | "ticket.progress" ->
+    ".result.data.comment_id (new progress comment); .result.meta.workspace_revision is \
+     the commit, not the ticket revision; read ticket.get for its current revision"
   | _ -> ".result.data contains the fields above; .result.meta carries response metadata"
 ;;
 
