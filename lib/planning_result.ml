@@ -240,7 +240,9 @@ module Template = struct
   let codec =
     record
       [ field "instance" instance
-      ; field "results" (Api_codec.list operation_codec ~max_items:32)
+      ; field
+          "results"
+          (Api_codec.list operation_codec ~max_items:Transaction_limit.max_operations)
       ; field "duplicate" boolean
       ]
   ;;

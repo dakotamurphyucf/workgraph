@@ -10,7 +10,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `at_revision` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;4611686018427387903&quot; |
-| `operations` | required | array; max items=32; 1..32 ordered operations with unique creation aliases. |
+| `operations` | required | array; max items=128; 1..128 ordered operations with unique creation aliases. |
 | `run_id` | optional | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `workspace_id` | required | string; max UTF-8 bytes=96; Workspace identity. |
 
@@ -10219,7 +10219,7 @@ For preconditions and a small example, run `workgraph help transaction.preflight
                                                 ],
                                                 "description": "Literal ASCII graph or parameter name."
                                               },
-                                              "maxItems": 31,
+                                              "maxItems": 127,
                                               "type": "array"
                                             },
                                             "description": {
@@ -10271,7 +10271,7 @@ For preconditions and a small example, run `workgraph help transaction.preflight
                                           ],
                                           "type": "object"
                                         },
-                                        "maxItems": 31,
+                                        "maxItems": 127,
                                         "type": "array"
                                       },
                                       "parameters": {
@@ -10655,7 +10655,7 @@ For preconditions and a small example, run `workgraph help transaction.preflight
                                             ],
                                             "description": "Literal entity ID or $alias resolved within transaction.apply."
                                           },
-                                          "maxItems": 31,
+                                          "maxItems": 127,
                                           "type": "array"
                                         },
                                         "reviewers": {
@@ -10715,7 +10715,7 @@ For preconditions and a small example, run `workgraph help transaction.preflight
                                       ],
                                       "type": "object"
                                     },
-                                    "maxItems": 31,
+                                    "maxItems": 127,
                                     "type": "array"
                                   }
                                 },
@@ -11209,11 +11209,11 @@ For preconditions and a small example, run `workgraph help transaction.preflight
                           }
                         ]
                       },
-                      "maxItems": 32,
+                      "maxItems": 128,
                       "type": "array"
                     }
                   ],
-                  "description": "1..32 ordered operations with unique creation aliases."
+                  "description": "1..128 ordered operations with unique creation aliases."
                 }
               },
               "required": [
@@ -11235,410 +11235,402 @@ For preconditions and a small example, run `workgraph help transaction.preflight
 
 ```json
 {
-  "additionalProperties": false,
-  "properties": {
-    "data": {
-      "allOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "generated_ids": {
-              "items": {
-                "allOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "x-maxUtf8Bytes": 96
-                      },
-                      "kind": {
-                        "enum": [
-                          "project",
-                          "milestone",
-                          "ticket",
-                          "comment",
-                          "resource"
-                        ],
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "kind",
-                      "id"
-                    ],
-                    "type": "object"
-                  }
-                ],
-                "description": "Provisional identity used by this preview only; it is not reserved."
-              },
-              "maxItems": 32,
-              "type": "array"
-            },
-            "operation_count": {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "32"
-            },
-            "proposed_revision": {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            },
-            "staged_blob_bytes": {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "9223372036854775807"
-            },
-            "staged_blob_count": {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            },
-            "validation": {
-              "const": "domain_preparation",
-              "type": "string"
-            },
-            "workspace_revision": {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          },
-          "required": [
-            "validation",
-            "workspace_revision",
-            "proposed_revision",
-            "operation_count",
-            "generated_ids",
-            "staged_blob_count",
-            "staged_blob_bytes"
-          ],
-          "type": "object"
-        }
-      ],
-      "description": "Successful non-durable preparation only. Storage commit and future state remain unchecked; IDs and revision are unreserved. Staged blob totals are not incremental disk usage."
-    },
-    "meta": {
-      "allOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "budget": {
-              "allOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "details": {
-                      "items": {
-                        "allOf": [
-                          {
-                            "additionalProperties": false,
-                            "properties": {
-                              "kind": {
-                                "enum": [
-                                  "text_bytes",
-                                  "items"
-                                ],
-                                "type": "string"
-                              },
-                              "omitted": {
-                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                "type": "string",
-                                "x-maximumDecimal": "4611686018427387903"
-                              },
-                              "path": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 4194304
-                              }
-                            },
-                            "required": [
-                              "path",
-                              "kind",
-                              "omitted"
-                            ],
-                            "type": "object"
-                          }
-                        ],
-                        "description": "Path is a JSON pointer into the public result; omitted is positive."
-                      },
-                      "maxItems": 4,
-                      "type": "array"
-                    },
-                    "details_complete": {
-                      "type": "boolean"
-                    },
-                    "max_bytes": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "omitted_fields": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "omitted_items": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "returned_bytes": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "truncated": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "max_bytes",
-                    "returned_bytes",
-                    "truncated",
-                    "omitted_fields",
-                    "omitted_items",
-                    "details",
-                    "details_complete"
-                  ],
-                  "type": "object"
-                }
-              ],
-              "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
-            },
-            "durable": {
-              "type": "boolean"
-            },
-            "history_capture": {
-              "allOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "head": {
-                      "anyOf": [
-                        {
-                          "allOf": [
-                            {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 64
-                            }
-                          ],
-                          "description": "64 lowercase hexadecimal SHA-256 characters."
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sequence": {
-                      "allOf": [
-                        {
-                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                          "type": "string",
-                          "x-maximumDecimal": "1000000"
-                        }
-                      ],
-                      "description": "History journal commit sequence, independent of planning."
-                    },
-                    "sessions": {
-                      "items": {
+  "$defs": {
+    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "details": {
+                  "items": {
+                    "allOf": [
+                      {
                         "additionalProperties": false,
                         "properties": {
-                          "session_id": {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
+                          "kind": {
+                            "enum": [
+                              "text_bytes",
+                              "items"
                             ],
-                            "description": "Session identifier."
+                            "type": "string"
                           },
-                          "through": {
-                            "allOf": [
-                              {
-                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                "type": "string",
-                                "x-maximumDecimal": "1000000"
-                              }
-                            ],
-                            "description": "Event sequence within one history session."
+                          "omitted": {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "4611686018427387903"
+                          },
+                          "path": {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 4194304
                           }
                         },
                         "required": [
-                          "session_id",
-                          "through"
+                          "path",
+                          "kind",
+                          "omitted"
                         ],
                         "type": "object"
-                      },
-                      "maxItems": 1000000,
-                      "type": "array"
-                    },
-                    "workspace_id": {
+                      }
+                    ],
+                    "description": "Path is a JSON pointer into the public result; omitted is positive."
+                  },
+                  "maxItems": 4,
+                  "type": "array"
+                },
+                "details_complete": {
+                  "type": "boolean"
+                },
+                "max_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_fields": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_items": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "max_bytes",
+                "returned_bytes",
+                "truncated",
+                "omitted_fields",
+                "omitted_items",
+                "details",
+                "details_complete"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
+        },
+        "durable": {
+          "type": "boolean"
+        },
+        "history_capture": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "head": {
+                  "anyOf": [
+                    {
                       "allOf": [
                         {
                           "type": "string",
-                          "x-maxUtf8Bytes": 96
+                          "x-maxUtf8Bytes": 64
                         }
                       ],
-                      "description": "Workspace identifier."
+                      "description": "64 lowercase hexadecimal SHA-256 characters."
+                    },
+                    {
+                      "type": "null"
                     }
-                  },
-                  "required": [
-                    "workspace_id",
-                    "head",
-                    "sequence",
-                    "sessions"
-                  ],
-                  "type": "object"
-                }
-              ],
-              "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
-            },
-            "history_sequence": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "1000000"
-                }
-              ],
-              "description": "History journal commit sequence, independent of planning."
-            },
-            "pagination": {
-              "allOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "capture": {
-                      "x-maxCanonicalBytes": 4096,
-                      "x-maxDepth": 4
-                    },
-                    "complete": {
-                      "type": "boolean"
-                    },
-                    "consistency": {
-                      "enum": [
-                        "snapshot_guard",
-                        "current_revision_guard",
-                        "opaque_captured_cursor",
-                        "current_revision_cursor",
-                        "notification_through",
-                        "immutable_history_head"
-                      ],
-                      "type": "string"
-                    },
-                    "max_bytes": {
-                      "const": "65536",
-                      "type": "string"
-                    },
-                    "next_request": {
-                      "$ref": "#/$defs/shape_002"
-                    },
-                    "required_bytes": {
-                      "anyOf": [
-                        {
-                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                          "type": "string",
-                          "x-maximumDecimal": "4611686018427387903"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "retry_request": {
-                      "$ref": "#/$defs/shape_002"
-                    },
-                    "returned_bytes": {
+                  ]
+                },
+                "sequence": {
+                  "allOf": [
+                    {
                       "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                       "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "stop": {
-                      "enum": [
-                        "complete",
-                        "page_limit",
-                        "byte_limit",
-                        "no_progress",
-                        "needs_larger_budget",
-                        "indexing_incomplete",
-                        "server_field_omissions",
-                        "server_item_omissions",
-                        "error",
-                        "metadata_limit"
-                      ],
-                      "type": "string"
+                      "x-maximumDecimal": "1000000"
                     }
-                  },
-                  "required": [
-                    "complete",
-                    "stop",
-                    "consistency",
-                    "capture",
-                    "next_request",
-                    "retry_request",
-                    "required_bytes",
-                    "returned_bytes",
-                    "max_bytes"
                   ],
-                  "type": "object"
+                  "description": "History journal commit sequence, independent of planning."
+                },
+                "sessions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "session_id": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Session identifier."
+                      },
+                      "through": {
+                        "allOf": [
+                          {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "1000000"
+                          }
+                        ],
+                        "description": "Event sequence within one history session."
+                      }
+                    },
+                    "required": [
+                      "session_id",
+                      "through"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1000000,
+                  "type": "array"
+                },
+                "workspace_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Workspace identifier."
                 }
+              },
+              "required": [
+                "workspace_id",
+                "head",
+                "sequence",
+                "sessions"
               ],
-              "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
-            },
-            "query_revision": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                }
-              ],
-              "description": "Pagination capture revision within the accompanying query_scope."
-            },
-            "query_scope": {
-              "enum": [
-                "communication",
-                "runs",
-                "evidence",
-                "policy"
-              ],
-              "type": "string"
-            },
-            "snapshot": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 64
-                }
-              ],
-              "description": "64 lowercase hexadecimal SHA-256 characters."
-            },
-            "workspace_revision": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                }
-              ],
-              "description": "Workspace planning transaction revision."
+              "type": "object"
             }
-          },
-          "required": [],
-          "type": "object"
+          ],
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+        },
+        "history_sequence": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "1000000"
+            }
+          ],
+          "description": "History journal commit sequence, independent of planning."
+        },
+        "pagination": {
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "capture": {
+                          "x-maxCanonicalBytes": 4096,
+                          "x-maxDepth": 4
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        },
+                        "consistency": {
+                          "enum": [
+                            "snapshot_guard",
+                            "current_revision_guard",
+                            "opaque_captured_cursor",
+                            "current_revision_cursor",
+                            "notification_through",
+                            "immutable_history_head"
+                          ],
+                          "type": "string"
+                        },
+                        "max_bytes": {
+                          "allOf": [
+                            {
+                              "const": "65536",
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
+                        },
+                        "next_request": {
+                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                        },
+                        "required_bytes": {
+                          "anyOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "retry_request": {
+                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                        },
+                        "returned_bytes": {
+                          "allOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            }
+                          ],
+                          "description": "Canonical UTF-8 bytes of this continuation metadata object only; not the returned page. Page bytes are reported in meta.budget.returned_bytes when available."
+                        },
+                        "stop": {
+                          "enum": [
+                            "complete",
+                            "page_limit",
+                            "byte_limit",
+                            "no_progress",
+                            "needs_larger_budget",
+                            "indexing_incomplete",
+                            "server_field_omissions",
+                            "server_item_omissions",
+                            "error",
+                            "metadata_limit"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "complete",
+                        "stop",
+                        "consistency",
+                        "capture",
+                        "next_request",
+                        "retry_request",
+                        "required_bytes",
+                        "returned_bytes",
+                        "max_bytes"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "properties": {
+                        "sections": {
+                          "items": {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "complete": {
+                                    "type": "boolean"
+                                  },
+                                  "next_request": {
+                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "response_path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "retry_request": {
+                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                  },
+                                  "stop": {
+                                    "enum": [
+                                      "complete",
+                                      "page_limit",
+                                      "byte_limit",
+                                      "no_progress",
+                                      "needs_larger_budget",
+                                      "indexing_incomplete",
+                                      "server_field_omissions",
+                                      "server_item_omissions",
+                                      "error",
+                                      "metadata_limit"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "path",
+                                  "complete",
+                                  "stop",
+                                  "next_request",
+                                  "retry_request"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+                          },
+                          "maxItems": 32,
+                          "type": "array"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    }
+                  ],
+                  "unevaluatedProperties": false
+                }
+              ],
+              "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "query_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Pagination capture revision within the accompanying query_scope."
+        },
+        "query_scope": {
+          "enum": [
+            "communication",
+            "runs",
+            "evidence",
+            "policy"
+          ],
+          "type": "string"
+        },
+        "snapshot": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            }
+          ],
+          "description": "64 lowercase hexadecimal SHA-256 characters."
+        },
+        "workspace_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Workspace planning transaction revision."
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
         }
       ],
       "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
-    }
-  },
-  "required": [
-    "data",
-    "meta"
-  ],
-  "type": "object",
-  "$defs": {
-    "shape_001": {
+    },
+    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -11686,16 +11678,109 @@ For preconditions and a small example, run `workgraph help transaction.preflight
       ],
       "type": "object"
     },
-    "shape_002": {
+    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
       "anyOf": [
         {
-          "$ref": "#/$defs/shape_001"
+          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
         },
         {
           "type": "null"
         }
       ]
     }
-  }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "allOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "generated_ids": {
+              "items": {
+                "allOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      },
+                      "kind": {
+                        "enum": [
+                          "project",
+                          "milestone",
+                          "ticket",
+                          "comment",
+                          "resource"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "description": "Provisional identity used by this preview only; it is not reserved."
+              },
+              "maxItems": 128,
+              "type": "array"
+            },
+            "operation_count": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "128"
+            },
+            "proposed_revision": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            },
+            "staged_blob_bytes": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            },
+            "staged_blob_count": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            },
+            "validation": {
+              "const": "domain_preparation",
+              "type": "string"
+            },
+            "workspace_revision": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          },
+          "required": [
+            "validation",
+            "workspace_revision",
+            "proposed_revision",
+            "operation_count",
+            "generated_ids",
+            "staged_blob_count",
+            "staged_blob_bytes"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Successful non-durable preparation only. Storage commit and future state remain unchecked; IDs and revision are unreserved. Staged blob totals are not incremental disk usage."
+    },
+    "meta": {
+      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+    }
+  },
+  "required": [
+    "data",
+    "meta"
+  ],
+  "type": "object"
 }
 ```

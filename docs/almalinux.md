@@ -1,23 +1,24 @@
 # AlmaLinux 10 on x86_64, including WSL
 
-Version 0.6.0 uses application API 0.6 and affected stored roots 5. Use the
-matching complete [agent skill](agent-skill.md). This is a breaking preview:
-0.5 and earlier data, contexts and saved requests need separate preservation;
-create fresh registry/workspace roots, socket, contexts and request journals.
-Read the [preservation-first upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-before replacing an executable. Release qualification records identify the exact
-source, artifacts and observed platform checks; installation instructions do not
-substitute for that evidence.
+Version 0.6.1 uses application API 0.6 and affected stored roots 5, unchanged
+from 0.6.0. An upgrade from 0.6.0 retains existing roots, contexts and journals;
+stop the daemon gracefully, install the matching client/daemon, replace the complete
+[agent skill](agent-skill.md), and restart. No data reset is required. Read the
+[0.6.1 upgrade notes](releases/v0.6.1.md#upgrade-from-060) before replacing an executable.
+For 0.5 or earlier, follow the separate
+[preservation-first fresh-root procedure](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
+Release qualification records identify exact source, artifacts and observed platform
+checks; installation instructions do not substitute for that evidence.
 
-Use the [release notes](releases/v0.6.0.md) for features, breaking changes, upgrade
-steps and qualification limits. Use a matching 0.6.0 executable and guide.
+Use the [release notes](releases/v0.6.1.md) for features, breaking changes, upgrade
+steps and qualification limits. Use a matching 0.6.1 executable and guide.
 
-## Install v0.6.0 preview
+## Install v0.6.1 preview
 
-This installation walkthrough targets **v0.6.0 preview**, application API **0.6**
+This installation walkthrough targets **v0.6.1 preview**, application API **0.6**
 and affected stored roots **5**, with its matching bundled guide/API.
 Download its packages and qualification evidence from the
-[v0.6.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.0).
+[v0.6.1 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.1).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
 or the local packaging procedure below. All 0.5 and earlier installations require
 fresh data and journals; follow the [upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
@@ -47,20 +48,20 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.6.0-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.6.1-1.el10.x86_64.rpm
 workgraph --version
 ```
 
 For the tarball:
 
 ```sh
-tar -xzf workgraph-0.6.0-almalinux-10-x86_64.tar.gz
-export PATH="$PWD/workgraph-0.6.0-almalinux-10-x86_64/bin:$PATH"
+tar -xzf workgraph-0.6.1-almalinux-10-x86_64.tar.gz
+export PATH="$PWD/workgraph-0.6.1-almalinux-10-x86_64/bin:$PATH"
 workgraph --version
 ```
 
 Keep the extracted archive directory together so the agent guide and its references
-remain available. The version must print `0.6.0`. The executable links to the
+remain available. The version must print `0.6.1`. The executable links to the
 AlmaLinux system libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
 Python 3.10+ is needed for the WGX dashboard/dependency tree and supplied Python
@@ -115,10 +116,10 @@ under the Linux home filesystem:
 
 ```sh
 sudo dnf install git python3
-tar -xzf workgraph-0.6.0-source.tar.gz
-python3 workgraph-0.6.0/tools/installed_smoke.py "$(command -v workgraph)" \
+tar -xzf workgraph-0.6.1-source.tar.gz
+python3 workgraph-0.6.1/tools/installed_smoke.py "$(command -v workgraph)" \
   "$HOME/.local/state/workgraph-0.6/wsl-qualification"
-python3 workgraph-0.6.0/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
+python3 workgraph-0.6.1/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
   --directory "$HOME/.local/state/workgraph-0.6/wsl-history-qualification"
 ```
 

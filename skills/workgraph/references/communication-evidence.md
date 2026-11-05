@@ -120,6 +120,13 @@ request's `.result.data.answer` contains the exact pinned comment body and versi
 or null when it was resolved without an answer. `include_messages` adds related
 conversation; searching those messages is not how to retrieve the resolution.
 
+`.result.data.question.body` contains the original question text without another
+`comment.get` call. Its `comment_id` and `revision` match the request's
+`comment_id` and `comment_revision`. Later comment edits do not change this pinned
+question or the pinned answer. Both bodies obey `max_bytes`; check `meta.budget`
+for clipping and retry with a larger budget when needed. `include_messages=true`
+adds current conversation versions separately under `related`.
+
 Use the local CLI helper for a bounded wait. It preserves those `request.get` data
 paths and adds `.result.meta.wait.{stop,resolved,poll_count}`:
 
@@ -434,7 +441,7 @@ List current teams by ID.
 
 [Request and result contract](api/request.get.md).
 
-Reads current request metadata, pinned question/answer references, current thread_revision and optional related CURRENT messages. Request revision, thread revision, discussion serial and family query revision are distinct. include_messages expansion preserves dual-capture paging; it does not replace original question/answer provenance.
+Reads current request metadata, pinned `question` and `answer` bodies with their exact references, current thread_revision and optional related CURRENT messages. Request revision, thread revision, discussion serial and family query revision are distinct. include_messages expansion preserves dual-capture paging; it does not replace original question/answer provenance.
 
 ### `request.list`
 

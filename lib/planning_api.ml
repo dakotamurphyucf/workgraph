@@ -2076,7 +2076,11 @@ module Operation = struct
   ;;
 
   let batch_codec ~requests ~creation_methods =
-    let operations = Api_codec.list (codec ~requests ~creation_methods) ~max_items:32 in
+    let operations =
+      Api_codec.list
+        (codec ~requests ~creation_methods)
+        ~max_items:Transaction_limit.max_operations
+    in
     let operations =
       Api_codec.map
         operations
@@ -2084,7 +2088,11 @@ module Operation = struct
           if List.is_empty operations
           then
             Error
-              (Problem.create Invalid_argument "transaction requires 1..32 operations")
+              (Problem.create
+                 Invalid_argument
+                 (sprintf
+                    "transaction requires 1..%d operations"
+                    Transaction_limit.max_operations))
           else if
             List.contains_dup
               (List.filter_map operations ~f:(fun operation -> operation.alias))
@@ -2092,7 +2100,10 @@ module Operation = struct
           then Error (Problem.create Invalid_argument "duplicate transaction alias")
           else Ok operations)
         ~encode:Fn.id
-        ~description:"1..32 ordered operations with unique creation aliases."
+        ~description:
+          (sprintf
+             "1..%d ordered operations with unique creation aliases."
+             Transaction_limit.max_operations)
     in
     Api_codec.object_ (Fields.required "operations" operations)
   ;;

@@ -180,9 +180,10 @@ module Spec = struct
       "Invalid workflow parameters";
     List.iter t.parameters ~f:name;
     require
-      ((not (List.is_empty t.nodes)) && List.length t.nodes <= 31)
+      ((not (List.is_empty t.nodes))
+       && List.length t.nodes < Transaction_limit.max_operations)
       Invalid_argument
-      "Workflow requires 1..31 nodes";
+      (sprintf "Workflow requires 1..%d nodes" (Transaction_limit.max_operations - 1));
     let aliases = List.map t.nodes ~f:(fun n -> n.Node.alias) in
     require
       (not (List.contains_dup aliases ~compare:String.compare))
@@ -195,7 +196,7 @@ module Spec = struct
       require
         (List.length n.capabilities <= 100
          && List.length n.reviewers <= 100
-         && List.length n.depends_on <= 31)
+         && List.length n.depends_on < Transaction_limit.max_operations)
         Invalid_argument
         "Workflow node links exceed limit";
       List.iter n.capabilities ~f:(fun c -> nonempty c 96);
@@ -250,9 +251,11 @@ module Spec = struct
             + if List.is_empty n.reviewers && not n.separate_actor then 0 else 1)
     in
     require
-      (operations <= 32)
+      (operations <= Transaction_limit.max_operations)
       Invalid_argument
-      "Workflow requires more than 32 atomic mutations"
+      (sprintf
+         "Workflow requires more than %d atomic mutations"
+         Transaction_limit.max_operations)
   ;;
 
   let validate t = Json.decode (fun () -> validate_exn t)

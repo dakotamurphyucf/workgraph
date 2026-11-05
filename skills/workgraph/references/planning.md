@@ -310,12 +310,12 @@ and alias resolution against a captured state. It makes no durable change, store
 no receipt, reserves nothing and grants no ownership. The proposed result can be
 stale before the real transaction.
 
-[transaction.apply](api/transaction.apply.md) commits 1–32 supported operations
+[transaction.apply](api/transaction.apply.md) commits 1–128 supported operations
 with one actor/run, one receipt and one workspace revision. Put workspace/actor/
 mutation/run fields on the outer request only; inner `params` contain method fields.
 Preconditions run in order; final graphs/references validate together. Nested
 transactions, administrative operations, history writes, upload staging and
-worker-only publication are excluded. Template expansion counts toward 32.
+worker-only publication are excluded. Template expansion counts toward 128.
 Results are in `result.data.results` in input order, each with `method` and its
 normal `data`; template expansion has one outer result with tagged internal results.
 External tools and file edits are never rolled back by this transaction.

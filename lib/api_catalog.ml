@@ -167,7 +167,9 @@ let purpose name mode original =
       , "Create a discussion board at revision 0 or update its guarded metadata." )
     ; ( "thread.put"
       , "Create a discussion thread at revision 0 or update its guarded metadata." )
-    ; "request.get", "Read one request with its request and current thread revisions."
+    ; ( "request.get"
+      , "Read a request with its pinned question and answer bodies and current thread \
+         revision." )
     ; ( "request.list"
       , "List requests with recipient, ticket and resolver filters; reading acknowledges \
          nothing." )

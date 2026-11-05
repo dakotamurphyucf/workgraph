@@ -8,7 +8,7 @@ messages used by direct clients; ordinary CLI users can skip the transport secti
 Return to [the capability guide](../SKILL.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for v0.6.0 preview/API 0.6. Preserve 0.5 and earlier data with its
+contracts for v0.6.1 preview/API 0.6. Preserve 0.5 and earlier data with its
 matching executable; use fresh registry/workspace folders, socket, contexts and
 request journals for 0.6. Old exports cannot be restored into this current format.
 See [compatibility and fresh-data setup](compatibility.md).
@@ -273,9 +273,15 @@ Successful responses have `result:{data,meta}`. Error responses instead have
 `error:{code,message,data}`; `error.data.kind` is the programmatic problem kind,
 for example `Conflict`. The complete shapes are in the [common API contract](api/common.md).
 Do not interpret the JSON-RPC id as a mutation idempotency key. Validate matching response
-id and exactly one result/error. The CLI prints server responses to stdout in JSON mode,
-local/transport diagnostics to stderr, and exits nonzero on failure. In text mode server
-errors also go to stderr. A lost reply or timeout after transmission may be an uncertain
+id and exactly one result/error. In JSON mode the CLI prints one JSON-RPC envelope to
+stdout for every result or expected failure, including local validation, input-file and
+transport failures, and exits nonzero on failure. Error details remain at
+`error.data`, with code `-32000`; local failures use ID `"cli"` until a saved request
+ID is available, then preserve that exact ID. Stderr carries diagnostics such as
+`saved_request: PATH`. In text mode errors go to stderr. Raw resource-download stdout
+and evidence inspection with `--output bytes` keep errors and receipts on stderr,
+so even a partial byte stream is never followed by an error envelope. A lost reply or
+timeout after transmission may be an uncertain
 write; inspect/retry its saved identity. Malformed, mismatched or unreadable responses
 after a write could have executed remain uncertain; an unreadable error is no proof of
 nonexecution. Never replace the mutation ID after uncertainty. A connection failure
@@ -549,8 +555,9 @@ is excluded from portable history. The current schema is the only supported sche
 
 Only one stdin consumer is allowed across --params-file - and --field-file FIELD -. Input
 is materialized and validated before saving the exact request. An invalid materialized
-parameter object can produce a local Problem on stderr with no daemon call or saved
-journal; raw RPC validation remains a server error envelope. Retry rejects new
+parameter object can produce a local error envelope with no daemon call or saved
+journal; raw RPC validation produces a server error envelope. Both use stdout in
+JSON mode. Retry rejects new
 input/identity overrides before consuming stdin. Observer contexts may omit actor/run;
 write attribution must still be supplied. Offline help never opens context or contacts a
 daemon.
@@ -587,6 +594,12 @@ counts notifications. All selectors remain attached to their original family.
 `ticket.resume` continues its history through `activity.digest` with the same ticket
 scope and returned cursor; current task fields are not reread as a substitute.
 
+`ticket.recovery.list` is a planning read whose continuation uses
+`expected_revision` with the captured `meta.workspace_revision`. The separate
+`recovery.list` method uses `meta.query_revision` in the runs domain. The CLI
+supplies the appropriate continuation guard; neither method accepts `meta` or
+`query_revision` as request parameters.
+
 The daemon's `max_bytes` and `meta.budget.returned_bytes` describe its original
 payload. Client continuation metadata independently records its own `max_bytes`
 (65536) and canonical `returned_bytes`. If an exact continuation exceeds that cap,
@@ -594,6 +607,15 @@ payload. Client continuation metadata independently records its own `max_bytes`
 the original page is preserved and request fields are never clipped. A supported
 single-page read still exits successfully when more pages remain. Explicit
 `--paginate` retains its bounded collection envelope and incomplete exit status.
+
+For example, a read requested with `--max-bytes 1048576` may return a 108 KB page
+and only about 300 bytes of continuation metadata. Read
+`meta.budget.max_bytes` / `meta.budget.returned_bytes` for the page, and
+`meta.pagination.max_bytes` / `meta.pagination.returned_bytes` for the small
+metadata object. The latter's 65536-byte limit does not reduce the requested page
+budget. These counts use canonical UTF-8 JSON; pretty printing and the outer
+JSON-RPC envelope add bytes. Some methods omit `meta.budget`; in that case it is
+absent, and `meta.pagination` must not be used as a page-size estimate.
 
 ### Choose the actual receipt field
 
@@ -603,7 +625,7 @@ offline reference; `help METHOD` lists the specific result paths.
 | Operation | Read from `.result` |
 | --- | --- |
 | `request.ask` | `data.request_id`, `data.request_revision`, `data.thread_revision`, `data.question`; no status or generic revision. |
-| `request.get` | `data.revision` guards that request; `data.status.kind` is its state; `data.answer` is the pinned answer body/version or null. |
+| `request.get` | `data.revision` guards that request; `data.status.kind` is its state; `data.question` is the original pinned question body/version; `data.answer` is the pinned answer body/version or null. |
 | `request.resolve` | `data.request_revision`, `data.thread_revision`, `data.status.kind`; `data.answer` is a comment/version reference, not the expanded body. |
 | `ticket.progress` | `data.comment_id` identifies the new progress note; it does not return a new ticket revision. |
 | Receipt-bearing workspace mutation | `meta.workspace_revision` identifies the commit, not a ticket, comment, thread or resource revision. |
@@ -614,3 +636,46 @@ After progress, read `ticket.get` if you need the ticket's current revision, and
 [the bounded request wait helper](communication-evidence.md#wait-for-one-requests-answer).
 The latter preserves the request data paths and adds local `meta.wait`; it does not
 write or acknowledge delivery.
+
+### Nested section continuations
+
+Ordinary `ticket.context` reads and `thread.get` / `request.get` reads with
+`include_messages=true` expose `meta.pagination.sections`. Each entry contains:
+
+- `path`: the JSON pointer identifying the collection in the result, such as
+  `/data/children`, `/data/updates`, or `/data/related/messages`.
+- `complete` and `stop`: whether that collection has been fully returned.
+- `next_request` or `retry_request`: the exact request envelope to save and execute.
+- `response_path`, when present: the collection's location in that next/retry
+  response. Otherwise consume the original `path`.
+
+The enclosing `meta.pagination.next_request` and `retry_request` are null for
+nested collections. Choose a section and consume only that section from the next
+response; a context request returns other sections too. This is not an automatic
+multi-section merge, and `--paginate` still applies only to supported flat reads.
+
+```sh
+workgraph --context "$CONTEXT" ticket context --ticket-id "$TICKET" --limit 10 > context.json
+jq '.result.meta.pagination.sections[] | select(.path == "/data/children") | .next_request' context.json > next.json
+# Only run this if next.json contains a request, not null.
+workgraph retry "$SOCKET" "$PWD/next.json" > next-page.json
+```
+
+Ticket context continuations retain `at_revision` and each section's returned
+offset. Expanded discussion continuations retain **both** communication `revision`
+and `discussion_serial`, plus `message_offset`. Original selectors, limits,
+and method names are preserved, except for the explicit fact-key handoff below.
+Do not replace these guards with current values:
+a conflict means the captured traversal became stale.
+
+Text clipping produces a same-position `retry_request`; increase only `max_bytes`
+when retrying it. Unsafe item omissions remain incomplete. A returned first
+unconsumed offset is never skipped. The combined metadata remains capped at
+64 KiB; `metadata_limit` reports an unavailable continuation instead of clipping it.
+Ticket fact-key discovery continues through `fact.keys`, retaining the same
+workspace revision and ticket scope. Its section has `response_path:"/data"`
+because the dedicated listing returns its page there. Embedded evidence retains
+its own domain-specific read APIs and capture metadata.
+Raw `call` and saved `retry` retain exact daemon responses without CLI decoration;
+use an ordinary named read with the saved parameters when another decorated page
+is needed.

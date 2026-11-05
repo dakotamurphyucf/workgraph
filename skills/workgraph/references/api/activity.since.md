@@ -1290,11 +1290,11 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "description": "Allocation bounds and externally reported attention limits; null means unlimited."
     },
-    "change_8243c7d20264e315cade62b422e2ab677e53bed4215a386580a4f0be54721dcb": {
+    "change_984e7d076be71dc0163a6344efef9974cc7a8883b67ba2446332ae8cacef5186": {
       "additionalProperties": false,
       "properties": {
         "command": {
-          "$ref": "#/$defs/command_51f892ead637745f664125a9bd530984dbb06746c07bf525997d2a9d3a756785"
+          "$ref": "#/$defs/command_a6d6a7c4fe9b10b81ee98078a98f6142c43ff5755eabd888127d45f2c42a825f"
         },
         "revision": {
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -1405,11 +1405,11 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "command_133111ffe90d8df34d7d3acbe1c23b3a63d8cd96058e8fac25d20c22bde8d095": {
+    "command_327639b8152bf886558023e4845c1e0a264a5eea0cd4353e1d863a75fd81ba78": {
       "additionalProperties": false,
       "properties": {
         "instance": {
-          "$ref": "#/$defs/instance_6fe28d21012e695d524c89a6d0e99efbb99cda6610740c806b5590ac2eb56e01"
+          "$ref": "#/$defs/instance_e560413bd6b00095ab0a10e6da5793929966a02bdf5b599c12ac1e708cdaa0c4"
         },
         "kind": {
           "const": "instance_register",
@@ -1421,22 +1421,6 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "instance"
       ],
       "type": "object"
-    },
-    "command_51f892ead637745f664125a9bd530984dbb06746c07bf525997d2a9d3a756785": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/command_c077d19164c2281cce8d3e2f2ceded4e349e49f3d3b42f6815a4cfb2ac3dc0eb"
-        },
-        {
-          "$ref": "#/$defs/command_133111ffe90d8df34d7d3acbe1c23b3a63d8cd96058e8fac25d20c22bde8d095"
-        },
-        {
-          "$ref": "#/$defs/command_5c4f5bdfd3b67c9081d36674ca3896407f9cd8cdaf14ca896cddfa7598b033b1"
-        },
-        {
-          "$ref": "#/$defs/command_6d331a6f988d15157d130a5399e2cfb00e511a3da14cf0aa9846f7d6233f0acb"
-        }
-      ]
     },
     "command_5c4f5bdfd3b67c9081d36674ca3896407f9cd8cdaf14ca896cddfa7598b033b1": {
       "additionalProperties": false,
@@ -1472,7 +1456,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "command_c077d19164c2281cce8d3e2f2ceded4e349e49f3d3b42f6815a4cfb2ac3dc0eb": {
+    "command_8b4fa4d0cc1f963e6be2718920399346ab947169f661ef6df95a05801cfb198c": {
       "additionalProperties": false,
       "properties": {
         "kind": {
@@ -1480,7 +1464,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "type": "string"
         },
         "template": {
-          "$ref": "#/$defs/template_318fb787852e6b475363aa278e4ba16a52fdf94f560b907c663e15293d90084b"
+          "$ref": "#/$defs/template_eac469024a00f1014c1f3d34024be73eb4b61496d803abeb7673bc98fe77849a"
         }
       },
       "required": [
@@ -1488,6 +1472,22 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "template"
       ],
       "type": "object"
+    },
+    "command_a6d6a7c4fe9b10b81ee98078a98f6142c43ff5755eabd888127d45f2c42a825f": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/command_8b4fa4d0cc1f963e6be2718920399346ab947169f661ef6df95a05801cfb198c"
+        },
+        {
+          "$ref": "#/$defs/command_327639b8152bf886558023e4845c1e0a264a5eea0cd4353e1d863a75fd81ba78"
+        },
+        {
+          "$ref": "#/$defs/command_5c4f5bdfd3b67c9081d36674ca3896407f9cd8cdaf14ca896cddfa7598b033b1"
+        },
+        {
+          "$ref": "#/$defs/command_6d331a6f988d15157d130a5399e2cfb00e511a3da14cf0aa9846f7d6233f0acb"
+        }
+      ]
     },
     "criteria_a800ef6887d2e8aa9dd3e05fcfab16ccc897dd52009a2d07b9948ecc44777500": {
       "additionalProperties": false,
@@ -1743,7 +1743,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "maxItems": 100,
       "type": "array"
     },
-    "instance_15ecc52b4e2d072a20f99001e56881f1d18caa88b1aeb6fbabe0f151adfea974": {
+    "instance_99c7d869321be6d6d7d6cc71aac904c368d8cf71e01516182cbe1a59168067ad": {
       "additionalProperties": false,
       "properties": {
         "bindings": {
@@ -1795,7 +1795,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "description": "Positive version."
         },
         "tickets": {
-          "$ref": "#/$defs/tickets_b050a2adc8a817181e0d7e6a4e55ab85f02a2a8c14005e5fb3bcc0bd6dba166c"
+          "$ref": "#/$defs/tickets_92af48b2319e00c48cd4a31fa020c0ba3e9a0d0ceb6bb20a12fe431f22081702"
         }
       },
       "required": [
@@ -1808,10 +1808,10 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "instance_6fe28d21012e695d524c89a6d0e99efbb99cda6610740c806b5590ac2eb56e01": {
+    "instance_e560413bd6b00095ab0a10e6da5793929966a02bdf5b599c12ac1e708cdaa0c4": {
       "allOf": [
         {
-          "$ref": "#/$defs/instance_15ecc52b4e2d072a20f99001e56881f1d18caa88b1aeb6fbabe0f151adfea974"
+          "$ref": "#/$defs/instance_99c7d869321be6d6d7d6cc71aac904c368d8cf71e01516182cbe1a59168067ad"
         }
       ],
       "description": "Complete deterministic expansion, validated against its template when registered."
@@ -2057,7 +2057,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "description": "Complete immutable historical metadata, validated by actual Resource metadata invariants."
     },
-    "metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624": {
+    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -2243,81 +2243,160 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "pagination": {
           "allOf": [
             {
-              "additionalProperties": false,
-              "properties": {
-                "capture": {
-                  "x-maxCanonicalBytes": 4096,
-                  "x-maxDepth": 4
-                },
-                "complete": {
-                  "type": "boolean"
-                },
-                "consistency": {
-                  "enum": [
-                    "snapshot_guard",
-                    "current_revision_guard",
-                    "opaque_captured_cursor",
-                    "current_revision_cursor",
-                    "notification_through",
-                    "immutable_history_head"
-                  ],
-                  "type": "string"
-                },
-                "max_bytes": {
-                  "const": "65536",
-                  "type": "string"
-                },
-                "next_request": {
-                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                },
-                "required_bytes": {
-                  "anyOf": [
+              "allOf": [
+                {
+                  "allOf": [
                     {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
+                      "properties": {
+                        "capture": {
+                          "x-maxCanonicalBytes": 4096,
+                          "x-maxDepth": 4
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        },
+                        "consistency": {
+                          "enum": [
+                            "snapshot_guard",
+                            "current_revision_guard",
+                            "opaque_captured_cursor",
+                            "current_revision_cursor",
+                            "notification_through",
+                            "immutable_history_head"
+                          ],
+                          "type": "string"
+                        },
+                        "max_bytes": {
+                          "allOf": [
+                            {
+                              "const": "65536",
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
+                        },
+                        "next_request": {
+                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                        },
+                        "required_bytes": {
+                          "anyOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "retry_request": {
+                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                        },
+                        "returned_bytes": {
+                          "allOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            }
+                          ],
+                          "description": "Canonical UTF-8 bytes of this continuation metadata object only; not the returned page. Page bytes are reported in meta.budget.returned_bytes when available."
+                        },
+                        "stop": {
+                          "enum": [
+                            "complete",
+                            "page_limit",
+                            "byte_limit",
+                            "no_progress",
+                            "needs_larger_budget",
+                            "indexing_incomplete",
+                            "server_field_omissions",
+                            "server_item_omissions",
+                            "error",
+                            "metadata_limit"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "complete",
+                        "stop",
+                        "consistency",
+                        "capture",
+                        "next_request",
+                        "retry_request",
+                        "required_bytes",
+                        "returned_bytes",
+                        "max_bytes"
+                      ],
+                      "type": "object"
                     },
                     {
-                      "type": "null"
+                      "properties": {
+                        "sections": {
+                          "items": {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "complete": {
+                                    "type": "boolean"
+                                  },
+                                  "next_request": {
+                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "response_path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "retry_request": {
+                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                  },
+                                  "stop": {
+                                    "enum": [
+                                      "complete",
+                                      "page_limit",
+                                      "byte_limit",
+                                      "no_progress",
+                                      "needs_larger_budget",
+                                      "indexing_incomplete",
+                                      "server_field_omissions",
+                                      "server_item_omissions",
+                                      "error",
+                                      "metadata_limit"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "path",
+                                  "complete",
+                                  "stop",
+                                  "next_request",
+                                  "retry_request"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+                          },
+                          "maxItems": 32,
+                          "type": "array"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
                     }
-                  ]
-                },
-                "retry_request": {
-                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                },
-                "returned_bytes": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "stop": {
-                  "enum": [
-                    "complete",
-                    "page_limit",
-                    "byte_limit",
-                    "no_progress",
-                    "needs_larger_budget",
-                    "indexing_incomplete",
-                    "server_field_omissions",
-                    "server_item_omissions",
-                    "error",
-                    "metadata_limit"
                   ],
-                  "type": "string"
+                  "unevaluatedProperties": false
                 }
-              },
-              "required": [
-                "complete",
-                "stop",
-                "consistency",
-                "capture",
-                "next_request",
-                "retry_request",
-                "required_bytes",
-                "returned_bytes",
-                "max_bytes"
               ],
-              "type": "object"
+              "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
             }
           ],
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
@@ -2364,10 +2443,10 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "required": [],
       "type": "object"
     },
-    "metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01": {
+    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
       "allOf": [
         {
-          "$ref": "#/$defs/metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624"
+          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
         }
       ],
       "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
@@ -2466,7 +2545,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         }
       ]
     },
-    "nodes_3130d0716e373aceda72e51d64bf54c904f155949dd829dfe8c664303ce4933f": {
+    "nodes_3f1a1f4e9b02868949e47d5c4c4f6ef4188f86b991167d3e217bf80481e63aec": {
       "additionalProperties": false,
       "properties": {
         "alias": {
@@ -2526,7 +2605,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
             ],
             "description": "Literal ASCII graph or parameter name."
           },
-          "maxItems": 31,
+          "maxItems": 127,
           "type": "array"
         },
         "description": {
@@ -2578,11 +2657,11 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "nodes_b1da6ab4ae2254da2dee408dccb14343a2a6f4da7519e3758f666a8a8dcaaee0": {
+    "nodes_6570574764b797c9aa7c9c4f5eab228e30d208899ba335ee2cac1b7ca5a210b0": {
       "items": {
-        "$ref": "#/$defs/nodes_3130d0716e373aceda72e51d64bf54c904f155949dd829dfe8c664303ce4933f"
+        "$ref": "#/$defs/nodes_3f1a1f4e9b02868949e47d5c4c4f6ef4188f86b991167d3e217bf80481e63aec"
       },
-      "maxItems": 31,
+      "maxItems": 127,
       "type": "array"
     },
     "origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc": {
@@ -3469,19 +3548,19 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "maxItems": 2,
       "type": "array"
     },
-    "spec_5e83830a5678d40e8e9f94d6119b1c5cd226b3e7d6703c57377bf4d75985dbf0": {
+    "spec_271e725ae1940fcb7f1f073875899f0c551314ba247a8964ff9865930b89f981": {
       "allOf": [
         {
-          "$ref": "#/$defs/spec_8ec594dca1bd7e85b8352ae1c56c155d3bfcc3cbb23745f1f89532f687a89b1a"
+          "$ref": "#/$defs/spec_2dd71aea32c58ab7fd8b49d44ecdee69e3fff45bb25b6944bf281634fc77b0eb"
         }
       ],
-      "description": "Validated acyclic graph with 1..31 nodes and at most 32 atomic operations."
+      "description": "Validated acyclic graph with 1..127 nodes and at most 128 atomic operations."
     },
-    "spec_8ec594dca1bd7e85b8352ae1c56c155d3bfcc3cbb23745f1f89532f687a89b1a": {
+    "spec_2dd71aea32c58ab7fd8b49d44ecdee69e3fff45bb25b6944bf281634fc77b0eb": {
       "additionalProperties": false,
       "properties": {
         "nodes": {
-          "$ref": "#/$defs/nodes_b1da6ab4ae2254da2dee408dccb14343a2a6f4da7519e3758f666a8a8dcaaee0"
+          "$ref": "#/$defs/nodes_6570574764b797c9aa7c9c4f5eab228e30d208899ba335ee2cac1b7ca5a210b0"
         },
         "parameters": {
           "items": {
@@ -3927,15 +4006,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "maxItems": 200,
       "type": "array"
     },
-    "template_318fb787852e6b475363aa278e4ba16a52fdf94f560b907c663e15293d90084b": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/template_88b6bca197eef33ef01a1047604e422d24f3339a0aa0c6b41529b321a1350556"
-        }
-      ],
-      "description": "Exact canonical template asset binding."
-    },
-    "template_88b6bca197eef33ef01a1047604e422d24f3339a0aa0c6b41529b321a1350556": {
+    "template_55e9c95259101b6449ac883cb859128437545b4bcd514a3f65174caacf9b53dd": {
       "additionalProperties": false,
       "properties": {
         "digest": {
@@ -3948,7 +4019,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
           "description": "Exact lowercase SHA256 canonical Spec asset digest."
         },
         "spec": {
-          "$ref": "#/$defs/spec_5e83830a5678d40e8e9f94d6119b1c5cd226b3e7d6703c57377bf4d75985dbf0"
+          "$ref": "#/$defs/spec_271e725ae1940fcb7f1f073875899f0c551314ba247a8964ff9865930b89f981"
         },
         "template_id": {
           "allOf": [
@@ -3978,7 +4049,22 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       ],
       "type": "object"
     },
-    "tickets_241a94c1aca9cbd6ae2e65d048b50398e8432549c91d7edc4cf822987766503f": {
+    "template_eac469024a00f1014c1f3d34024be73eb4b61496d803abeb7673bc98fe77849a": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/template_55e9c95259101b6449ac883cb859128437545b4bcd514a3f65174caacf9b53dd"
+        }
+      ],
+      "description": "Exact canonical template asset binding."
+    },
+    "tickets_92af48b2319e00c48cd4a31fa020c0ba3e9a0d0ceb6bb20a12fe431f22081702": {
+      "items": {
+        "$ref": "#/$defs/tickets_c0054611ba803dfcaf076cf9a0eb1626ad86e7488611021763606b1072e00c83"
+      },
+      "maxItems": 127,
+      "type": "array"
+    },
+    "tickets_c0054611ba803dfcaf076cf9a0eb1626ad86e7488611021763606b1072e00c83": {
       "additionalProperties": false,
       "properties": {
         "alias": {
@@ -4058,7 +4144,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
             ],
             "description": "Validated entity ID."
           },
-          "maxItems": 31,
+          "maxItems": 127,
           "type": "array"
         },
         "reviewers": {
@@ -4099,13 +4185,6 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
         "separate_actor"
       ],
       "type": "object"
-    },
-    "tickets_b050a2adc8a817181e0d7e6a4e55ab85f02a2a8c14005e5fb3bcc0bd6dba166c": {
-      "items": {
-        "$ref": "#/$defs/tickets_241a94c1aca9cbd6ae2e65d048b50398e8432549c91d7edc4cf822987766503f"
-      },
-      "maxItems": 31,
-      "type": "array"
     },
     "usage_14a40077437b9545239817b44f6de0491625239985ba520a8e444f975a27b66d": {
       "additionalProperties": false,
@@ -8410,7 +8489,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                               "additionalProperties": false,
                               "properties": {
                                 "change": {
-                                  "$ref": "#/$defs/change_8243c7d20264e315cade62b422e2ab677e53bed4215a386580a4f0be54721dcb"
+                                  "$ref": "#/$defs/change_984e7d076be71dc0163a6344efef9974cc7a8883b67ba2446332ae8cacef5186"
                                 },
                                 "kind": {
                                   "const": "policy_changed",
@@ -8427,7 +8506,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
                               "additionalProperties": false,
                               "properties": {
                                 "change": {
-                                  "$ref": "#/$defs/change_8243c7d20264e315cade62b422e2ab677e53bed4215a386580a4f0be54721dcb"
+                                  "$ref": "#/$defs/change_984e7d076be71dc0163a6344efef9974cc7a8883b67ba2446332ae8cacef5186"
                                 },
                                 "kind": {
                                   "const": "policy_unchanged",
@@ -10478,7 +10557,7 @@ For preconditions and a small example, run `workgraph help activity.since`. Use 
       "description": "Ordered nonempty remaining pages advance by actual returned-item count."
     },
     "meta": {
-      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
+      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
     }
   },
   "required": [

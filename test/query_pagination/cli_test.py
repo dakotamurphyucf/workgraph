@@ -140,6 +140,58 @@ class PaginationTests(unittest.TestCase):
         self.addCleanup(proxy.close)
         return proxy
 
+    def test_recovery_lists_cli_and_raw_socket(self):
+        for method, revision in [("recovery.list", "query_revision"),
+                                 ("ticket.recovery.list", "workspace_revision")]:
+            with self.subTest(method=method):
+                request = {"jsonrpc": "2.0", "workgraph_api": "0.6", "id": "recovery",
+                           "method": method, "params": {"workspace_id": "w"}}
+                body = json.dumps(request).encode()
+                with socket.socket(socket.AF_UNIX) as flow:
+                    flow.settimeout(5)
+                    flow.connect(str(self.socket))
+                    flow.sendall(struct.pack(">I", len(body)) + body)
+                    _, raw = frame(flow)
+                self.assertIn("result", raw, raw)
+                self.assertIn(revision, raw["result"]["meta"])
+                single = self.single(method)
+                self.assertEqual(raw["result"]["data"], single["data"])
+                self.assertEqual(raw["result"]["meta"][revision], single["meta"][revision])
+                result = self.collect(method)
+                self.assertTrue(result["data"]["pagination"]["complete"])
+
+    def test_ticket_recovery_continuation_uses_workspace_revision(self):
+        self.write("run.register", target_run_id="owner", objective="Recovery test")
+        for number in range(2):
+            self.write("ticket.claim", ticket_id="a", run_id="owner")
+            ticket = self.read("ticket.context", ticket_id="a")["data"]["ticket"]
+            self.write("ticket.recover", ticket_id="a", expected_revision=ticket["revision"],
+                       recovery_id="recovery-" + str(number), old_actor_id="a", old_run_id="owner",
+                       token=ticket["claim"]["token"],
+                       expected_lease_revision=ticket["claim"]["lease"]["revision"],
+                       confirmation="isolated", disposition="requeue", reason="Sandbox stopped")
+        params = {"ticket_id": "a", "limit": "1"}
+        first = self.single("ticket.recovery.list", params)
+        metadata = first["meta"]["pagination"]
+        revision = first["meta"]["workspace_revision"]
+        self.assertEqual({"workspace_revision": revision}, metadata["capture"])
+        next_request = metadata["next_request"]
+        self.assertEqual(revision, next_request["params"]["expected_revision"])
+        self.assertEqual("a", next_request["params"]["ticket_id"])
+        second = self.follow(next_request)["result"]
+        self.assertEqual({"recovery-0", "recovery-1"},
+                         {p["data"]["items"][0]["request"]["recovery_id"] for p in [first, second]})
+        collected = self.collect("ticket.recovery.list", params)
+        self.assertTrue(collected["data"]["pagination"]["complete"])
+        self.assertEqual(2, len(collected["data"]["pages"]))
+        self.assertEqual([], self.single("ticket.recovery.list", {"ticket_id": "b"})["data"]["items"])
+        proxy = self.proxy("ticket.recovery.list", lambda: self.write(
+            "ticket.create", ticket_id="later-recovery", title="Changed workspace"))
+        stale = self.collect("ticket.recovery.list", params, expected=1, address=proxy.path)
+        self.assertEqual("Conflict", stale["data"]["pagination"]["problem"]["kind"])
+        self.assertEqual(revision, proxy.requests[1]["params"]["expected_revision"])
+        self.assertEqual("Conflict", self.follow(next_request, expected=1)["error"]["data"]["kind"])
+
     def test_planning_filters_and_exact_resume(self):
         first = self.collect("ticket.list", {"project_id":"p", "status":"todo", "limit":"1"}, options=["--page-limit","1"], expected=1)
         metadata = first["data"]["pagination"]
@@ -152,6 +204,102 @@ class PaginationTests(unittest.TestCase):
         items = [i for p in first["data"]["pages"]+rest["data"]["pages"] for i in p["data"]["items"]]
         self.assertEqual({i["ticket_id"] for i in items}, {"a","b","c"})
         self.assertTrue(rest["data"]["pagination"]["complete"])
+
+    def test_ticket_context_has_independent_section_continuations(self):
+        for i in range(3):
+            self.write("ticket.create", ticket_id="child-" + str(i), title="Child", parent_ticket_id="a", project_id="p")
+            self.write("comment.add", comment_id="update-" + str(i),
+                       target={"kind": "ticket", "id": "a"}, body="Update " + str(i))
+        first = self.single("ticket.context", {"ticket_id": "a", "limit": "1"})
+        metadata = first["meta"]["pagination"]
+        sections = {s["path"]: s for s in metadata["sections"]}
+        self.assertFalse(metadata["complete"])
+        self.assertIsNone(metadata["next_request"])
+        self.assertTrue(sections["/data/resources"]["complete"])
+        for path, key in [("/data/children", "children"), ("/data/updates", "updates")]:
+            next_request = sections[path]["next_request"]
+            self.assertEqual("ticket.context", next_request["method"])
+            self.assertEqual("a", next_request["params"]["ticket_id"])
+            self.assertEqual(first["meta"]["workspace_revision"], next_request["params"]["at_revision"])
+            second = self.follow(next_request)["result"]
+            self.assertEqual("1", second["data"][key]["offset"])
+            self.assertNotEqual(first["data"][key]["items"], second["data"][key]["items"])
+        self.write("ticket.create", ticket_id="late-context", title="Changed")
+        self.assertEqual("Conflict", self.follow(sections["/data/children"]["next_request"], expected=1)["error"]["data"]["kind"])
+
+    def test_expanded_messages_keep_both_captures_and_original_method(self):
+        asked = self.write("request.ask", request_id="nested", title="Question", body="Original question",
+                           resolver_id="a", recipients=[{"kind": "actor", "id": "a"}])["data"]
+        self.write("request.resolve", request_id="nested", expected_revision="1", body="Answer")
+        continuations = []
+        for method, identity in [("thread.get", {"thread_id": asked["thread_id"]}),
+                                 ("request.get", {"request_id": "nested"})]:
+            self.assertTrue(self.single(method, identity)["meta"]["pagination"]["complete"])
+            first = self.single(method, {**identity, "include_messages": True, "message_limit": "1"})
+            metadata = first["meta"]["pagination"]
+            section, = metadata["sections"]
+            self.assertEqual("/data/related/messages", section["path"])
+            next_request = section["next_request"]
+            self.assertEqual(method, next_request["method"])
+            self.assertEqual(first["meta"]["query_revision"], next_request["params"]["revision"])
+            self.assertEqual(first["data"]["related"]["discussion_serial"], next_request["params"]["discussion_serial"])
+            self.assertEqual(next_request["params"]["discussion_serial"], metadata["capture"]["discussion_serial"])
+            following = self.single(method, {k: v for k, v in next_request["params"].items() if k != "workspace_id"})
+            self.assertTrue(following["meta"]["pagination"]["complete"])
+            self.assertEqual("Answer", following["data"]["related"]["messages"]["items"][0]["body"])
+            continuations.append(next_request)
+        self.write("comment.edit", comment_id=asked["question"]["comment_id"], expected_revision="1", body="Edited")
+        for next_request in continuations:
+            self.assertEqual("Conflict", self.follow(next_request, expected=1)["error"]["data"]["kind"])
+
+    def test_ticket_fact_key_summary_continues_in_dedicated_listing(self):
+        for key in ["first", "second"]:
+            self.write("fact.put", scope={"kind": "ticket", "id": "a"}, key=key,
+                       expected_revision="0", value={"text": key})
+        first = self.single("ticket.context", {"ticket_id": "a", "limit": "1"})
+        metadata = first["meta"]["pagination"]
+        facts = next(s for s in metadata["sections"] if s["path"] == "/data/fact_keys")
+        self.assertFalse(metadata["complete"])
+        self.assertFalse(facts["complete"])
+        self.assertEqual("/data", facts["response_path"])
+        next_request = facts["next_request"]
+        self.assertEqual("fact.keys", next_request["method"])
+        self.assertEqual(first["meta"]["workspace_revision"], next_request["params"]["at_revision"])
+        following = self.follow(next_request)["result"]
+        self.assertEqual("second", following["data"]["items"][0]["key"])
+        self.assertIsNone(following["data"]["next_offset"])
+
+    def test_nested_clipping_retries_same_captured_page(self):
+        asked = self.write("request.ask", request_id="clipped", title="Question", body="x" * 60000,
+                           resolver_id="a", recipients=[{"kind": "actor", "id": "a"}])["data"]
+        first = self.single("thread.get", {"thread_id": asked["thread_id"], "include_messages": True, "max_bytes": "4096"})
+        section, = first["meta"]["pagination"]["sections"]
+        self.assertEqual("server_field_omissions", section["stop"])
+        self.assertIsNone(section["next_request"])
+        retry = section["retry_request"]
+        self.assertNotIn("message_offset", retry["params"])
+        retry["params"]["max_bytes"] = "1048576"
+        expanded = self.follow(retry)["result"]
+        self.assertEqual("x" * 60000, expanded["data"]["related"]["messages"]["items"][0]["body"])
+
+    def test_page_bytes_and_continuation_metadata_bytes_are_separate(self):
+        for i in range(2):
+            self.write("comment.add", comment_id="large-" + str(i),
+                       target={"kind": "ticket", "id": "a"}, body="q" * 54000)
+        params = {"target": {"kind": "ticket", "id": "a"}, "max_bytes": "1048576"}
+        raw = self.read("comment.list", **params)
+        page = self.single("comment.list", params)
+        budget = page["meta"]["budget"]
+        continuation = page["meta"]["pagination"]
+        size = lambda value: len(json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode())
+        self.assertEqual("1048576", budget["max_bytes"])
+        self.assertEqual(size(raw), int(budget["returned_bytes"]))
+        self.assertGreater(size(raw), 108000)
+        self.assertFalse(budget["truncated"])
+        self.assertEqual("65536", continuation["max_bytes"])
+        self.assertEqual(size(continuation), int(continuation["returned_bytes"]))
+        self.assertLess(size(continuation), 1000)
+        self.assertEqual(raw["data"], page["data"])
 
     def test_concurrent_change_is_conflict_without_refresh(self):
         proxy = self.proxy("ticket.list", lambda: self.write("ticket.create",ticket_id="later",title="Later",project_id="p"))
@@ -526,8 +674,8 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual(resumed["data"]["pagination"]["capture"],metadata["capture"])
         self.assertEqual(len(resumed["data"]["pages"][0]["data"]["items"]),1)
         rejected=self.cli("request",self.root/"absent-socket","attention.read","--workspace-id","w","--paginate",expected=1)
-        self.assertIn(b"declared read collections",rejected.stderr)
-        self.assertNotIn(b"cannot connect",rejected.stderr)
+        self.assertIn(b"declared read collections",rejected.stdout)
+        self.assertNotIn(b"cannot connect",rejected.stdout)
 
     def test_server_omissions_total_bound_and_offline_rejection(self):
         self.write("ticket.create",ticket_id="large",project_id="p",title="Large",description="x"*60000)
@@ -551,8 +699,8 @@ class PaginationTests(unittest.TestCase):
         self.assertFalse(path.exists())
         # A first opaque page cannot be thrown away while claiming a captured continuation.
         rejected=self.cli("request",self.root/"absent","changes.read","--workspace-id","w","--source","planning","--paginate","--total-bytes","4096",expected=1)
-        self.assertIn(b"initial opaque-cursor",rejected.stderr)
-        self.assertNotIn(b"cannot connect",rejected.stderr)
+        self.assertIn(b"initial opaque-cursor",rejected.stdout)
+        self.assertNotIn(b"cannot connect",rejected.stdout)
         for method in ["inbox.wait","ticket.context"]:
             self.cli("request",self.root/"absent",method,"--paginate","--workspace-id","w",expected=1)
         self.assertIn(b"pagination [local read helper]",self.cli("--context",self.root/"absent-context","help","pagination").stdout)

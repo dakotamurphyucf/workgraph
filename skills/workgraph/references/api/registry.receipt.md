@@ -202,7 +202,7 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
       ],
       "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
     },
-    "metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624": {
+    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -225,7 +225,7 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
           "description": "History journal commit sequence, independent of planning."
         },
         "pagination": {
-          "$ref": "#/$defs/pagination_9c54d5502e4849008957b0a78bf06a0e8049de52792bb1b0784c01486165026c"
+          "$ref": "#/$defs/pagination_5304aa8e449260de2209d0891e9a905366d6eb7cf48a067ad4bc6cd333071b98"
         },
         "query_revision": {
           "allOf": [
@@ -269,10 +269,10 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
       "required": [],
       "type": "object"
     },
-    "metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01": {
+    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
       "allOf": [
         {
-          "$ref": "#/$defs/metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624"
+          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
         }
       ],
       "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
@@ -335,8 +335,7 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
         }
       ]
     },
-    "pagination_5bb653ec0da1ab4e161001340dfdd7056fc7ec6bbbab7e68a1f8fbe2a76ff8bd": {
-      "additionalProperties": false,
+    "pagination_189f2185e0a8e06d54b060838b6a61187e090b1fdfbfa642cf8d2a03c8b92ab5": {
       "properties": {
         "capture": {
           "x-maxCanonicalBytes": 4096,
@@ -357,8 +356,13 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
           "type": "string"
         },
         "max_bytes": {
-          "const": "65536",
-          "type": "string"
+          "allOf": [
+            {
+              "const": "65536",
+              "type": "string"
+            }
+          ],
+          "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
         },
         "next_request": {
           "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
@@ -379,9 +383,14 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
           "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
         },
         "returned_bytes": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Canonical UTF-8 bytes of this continuation metadata object only; not the returned page. Page bytes are reported in meta.budget.returned_bytes when available."
         },
         "stop": {
           "enum": [
@@ -412,13 +421,101 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
       ],
       "type": "object"
     },
-    "pagination_9c54d5502e4849008957b0a78bf06a0e8049de52792bb1b0784c01486165026c": {
+    "pagination_5304aa8e449260de2209d0891e9a905366d6eb7cf48a067ad4bc6cd333071b98": {
       "allOf": [
         {
-          "$ref": "#/$defs/pagination_5bb653ec0da1ab4e161001340dfdd7056fc7ec6bbbab7e68a1f8fbe2a76ff8bd"
+          "$ref": "#/$defs/pagination_cf0b7bb1dd97e58dab0937f9d4958cd825a84f449f2b9e1aa7dfa96729db5138"
         }
       ],
       "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+    },
+    "pagination_b885c669bb155987a322cc44073be05b4161647604b25574a074c7a1944243d5": {
+      "properties": {
+        "sections": {
+          "$ref": "#/$defs/sections_fcb6fc8fced415d7f373a90131df8464e7743523cb8bf14863d137c372bae41b"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "pagination_bd61ea61bc83611f2efe535617c256f28b5e1c0634424f6bf1dd1f43ef6763d4": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/pagination_189f2185e0a8e06d54b060838b6a61187e090b1fdfbfa642cf8d2a03c8b92ab5"
+        },
+        {
+          "$ref": "#/$defs/pagination_b885c669bb155987a322cc44073be05b4161647604b25574a074c7a1944243d5"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "pagination_cf0b7bb1dd97e58dab0937f9d4958cd825a84f449f2b9e1aa7dfa96729db5138": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/pagination_bd61ea61bc83611f2efe535617c256f28b5e1c0634424f6bf1dd1f43ef6763d4"
+        }
+      ],
+      "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
+    },
+    "sections_475a11c49fc47ef24e817ecfdd19db3407418335ae8353a8921728080b6a9a66": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/sections_4da75c9ec39c672814e9fc3bf0259f2f43dbda8d5d3ef4f931ca94a47e43c0c5"
+        }
+      ],
+      "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+    },
+    "sections_4da75c9ec39c672814e9fc3bf0259f2f43dbda8d5d3ef4f931ca94a47e43c0c5": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "next_request": {
+          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+        },
+        "path": {
+          "type": "string",
+          "x-maxUtf8Bytes": 256
+        },
+        "response_path": {
+          "type": "string",
+          "x-maxUtf8Bytes": 256
+        },
+        "retry_request": {
+          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+        },
+        "stop": {
+          "enum": [
+            "complete",
+            "page_limit",
+            "byte_limit",
+            "no_progress",
+            "needs_larger_budget",
+            "indexing_incomplete",
+            "server_field_omissions",
+            "server_item_omissions",
+            "error",
+            "metadata_limit"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "complete",
+        "stop",
+        "next_request",
+        "retry_request"
+      ],
+      "type": "object"
+    },
+    "sections_fcb6fc8fced415d7f373a90131df8464e7743523cb8bf14863d137c372bae41b": {
+      "items": {
+        "$ref": "#/$defs/sections_475a11c49fc47ef24e817ecfdd19db3407418335ae8353a8921728080b6a9a66"
+      },
+      "maxItems": 32,
+      "type": "array"
     },
     "sessions_8b4cb95d903fadbd84b98887273e1df06000c9b52e235f82d315493b413a36f7": {
       "items": {
@@ -506,7 +603,7 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
                       "x-maxDepth": 64
                     },
                     "meta": {
-                      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
+                      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
                     }
                   },
                   "required": [
@@ -533,7 +630,7 @@ For preconditions and a small example, run `workgraph help registry.receipt`. Us
       ]
     },
     "meta": {
-      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
+      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
     }
   },
   "required": [

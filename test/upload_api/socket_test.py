@@ -27,10 +27,10 @@ class UploadSocketTest(unittest.TestCase):
     def test_private_staging_publication_budgets_and_exact_restart_retry(self):
         catalog = json.loads(subprocess.check_output([str(EXE), "schema"]))
         methods = {method["name"]: method for method in catalog["methods"]}
-        for name in ["upload.begin", "upload.chunk", "upload.status", "upload.abort", "upload.list"]:
+        for name in ["upload.begin", "upload.chunk", "upload.abort"]:
             self.assertEqual(methods[name]["mode"], "write")
         self.assertEqual(methods["resource.finish_upload"]["mode"], "mutation")
-        for name in ["resource.get", "resource.list", "resource.history"]:
+        for name in ["resource.get", "resource.list", "resource.history", "upload.status", "upload.list"]:
             self.assertEqual(methods[name]["mode"], "read")
 
         with tempfile.TemporaryDirectory(prefix="wg-upload-", dir="/tmp") as temporary:
@@ -259,7 +259,7 @@ class UploadSocketTest(unittest.TestCase):
                             stdout, stderr = process.communicate(timeout=10)
                             if not cancel:
                                 self.assertEqual(process.returncode, 1, (stdout, stderr))
-                                self.assertIn("Outcome_unknown", stderr)
+                                self.assertEqual("Outcome_unknown", json.loads(stdout)["error"]["data"]["kind"])
                             frozen = json.loads(transfer_plan.read_text())["params"]
                             if cancel:
                                 staged = upload("upload.status", frozen["upload_id"])["data"]
@@ -318,7 +318,7 @@ class UploadSocketTest(unittest.TestCase):
                         guarded = subprocess.run([str(EXE), "--context", str(context), "resource", "upload-abort", str(saved)],
                                                  capture_output=True, text=True, timeout=10)
                         self.assertEqual(guarded.returncode, 1)
-                        self.assertEqual(json.loads(guarded.stderr)["kind"], "Conflict")
+                        self.assertEqual(json.loads(guarded.stdout)["error"]["data"]["kind"], "Conflict")
                     self.assertEqual(upload("upload.status", upload_id)["data"]["received"], "0")
                     tampered = directory / "tampered.json"
                     changed = json.loads(saved.read_text())
@@ -327,7 +327,7 @@ class UploadSocketTest(unittest.TestCase):
                     invalid = subprocess.run([str(EXE), "resource", "upload-abort", str(address), str(tampered)],
                                              capture_output=True, text=True, timeout=10)
                     self.assertEqual(invalid.returncode, 1)
-                    self.assertEqual(json.loads(invalid.stderr)["kind"], "Invalid_argument")
+                    self.assertEqual(json.loads(invalid.stdout)["error"]["data"]["kind"], "Invalid_argument")
                     aborted = subprocess.run([str(EXE), "resource", "upload-abort", str(address), str(saved)],
                                              capture_output=True, text=True, timeout=10)
                     self.assertEqual(aborted.returncode, 0, aborted.stderr)

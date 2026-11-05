@@ -148,7 +148,7 @@ class PublicationTests(unittest.TestCase):
 
     def assert_error(self, result, kind):
         self.assertEqual(result.returncode, 1, result.stdout)
-        self.assertEqual(json.loads(result.stderr.splitlines()[-1])["kind"], kind,
+        self.assertEqual(json.loads(result.stdout)["error"]["data"]["kind"], kind,
                          result.stderr)
 
     def test_context_identity_journal_and_stage_only_retry(self):
@@ -274,7 +274,7 @@ class PublicationTests(unittest.TestCase):
             failed = self.no_connection(lambda address: self.cli("evidence-publish", address,
                                         "--stage", stage, expected=1))
             self.assert_error(failed, "Local_io")
-            self.assertIn("publication.json", failed.stderr)
+            self.assertIn("publication.json", failed.stdout)
         finally:
             stage.chmod(0o700)
         self.assertFalse((stage / "publication.json").exists())
@@ -325,7 +325,7 @@ class PublicationTests(unittest.TestCase):
         failed = self.no_connection(lambda address: self.cli("evidence-publish", address,
                                     "--stage", nonregular, expected=1))
         self.assert_error(failed, "Invalid_argument")
-        self.assertIn("regular file", failed.stderr)
+        self.assertIn("regular file", failed.stdout)
         self.assertEqual(fifo_counter.read_text(), "x")
         unfinished, unfinished_counter = self.stage("unfinished")
         (unfinished / "capture.json").unlink()

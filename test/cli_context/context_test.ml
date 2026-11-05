@@ -53,6 +53,8 @@ let%expect_test "context attribution does not become a read filter" =
     ; "ticket.create"
     ; "workspace.create"
     ; "upload.chunk"
+    ; "upload.status"
+    ; "upload.list"
     ; "resource.upload"
     ; "resource.download"
     ; "unknown.method"
@@ -75,6 +77,8 @@ let%expect_test "context attribution does not become a read filter" =
     ticket.create {"actor_id":"worker","run_id":"run","workspace_id":"explicit"}
     workspace.create {"actor_id":"worker","workspace_id":"explicit"}
     upload.chunk {"actor_id":"worker","workspace_id":"explicit"}
+    upload.status {"actor_id":"worker","workspace_id":"explicit"}
+    upload.list {"workspace_id":"explicit"}
     resource.upload {"actor_id":"worker","run_id":"run","workspace_id":"explicit"}
     resource.download {"workspace_id":"explicit"}
     unknown.method {"workspace_id":"explicit"} |}]
@@ -192,5 +196,80 @@ let%expect_test "observer defaults omit write identity without granting a securi
     {"actor_id":"writer","workspace_id":"demo"}
     true
     true
+    |}]
+;;
+
+let%expect_test "reservation self selects ownership independently of attribution" =
+  let context =
+    Cli_context.of_json
+      (Json.obj
+         [ "socket", Json.string "/tmp/s"
+         ; "workspace_id", Json.string "demo"
+         ; "actor_id", Json.string "worker"
+         ; "run_id", Json.string "owner-run"
+         ])
+    |> Disk.unwrap
+  in
+  List.iter [ "reservation.acquire"; "reservation.paths.acquire" ] ~f:(fun method_ ->
+    Cli_context.apply context ~method_ ~fields:[]
+    |> Json.obj
+    |> Json.canonical
+    |> print_endline;
+    let fields =
+      Cli_context.apply_self
+        (Some context)
+        ~method_
+        ~fields:[ "run_id", Json.string "invocation-run" ]
+      |> Disk.unwrap
+    in
+    Cli_context.apply context ~method_ ~fields
+    |> Json.obj
+    |> Json.canonical
+    |> print_endline;
+    Cli_context.apply_self
+      None
+      ~method_
+      ~fields:[ "target_run_id", Json.string "explicit-owner" ]
+    |> Disk.unwrap
+    |> Json.obj
+    |> Json.canonical
+    |> print_endline);
+  [%expect
+    {|
+    {"actor_id":"worker","run_id":"owner-run","workspace_id":"demo"}
+    {"actor_id":"worker","run_id":"invocation-run","target_run_id":"owner-run","workspace_id":"demo"}
+    {"target_run_id":"explicit-owner"}
+    {"actor_id":"worker","run_id":"owner-run","workspace_id":"demo"}
+    {"actor_id":"worker","run_id":"invocation-run","target_run_id":"owner-run","workspace_id":"demo"}
+    {"target_run_id":"explicit-owner"}
+    |}]
+;;
+
+let%expect_test "reservation self requires actionable run context" =
+  let actor_only =
+    Cli_context.of_json
+      (Json.obj
+         [ "socket", Json.string "/tmp/s"
+         ; "workspace_id", Json.string "demo"
+         ; "actor_id", Json.string "worker"
+         ])
+    |> Disk.unwrap
+  in
+  List.iter [ "reservation.acquire"; "reservation.paths.acquire" ] ~f:(fun method_ ->
+    List.iter [ None; Some actor_only ] ~f:(fun context ->
+      match Cli_context.apply_self context ~method_ ~fields:[] with
+      | Ok _ -> print_endline "unexpected success"
+      | Error error ->
+        print_s [%sexp (error.kind : Problem.kind), (error.message : string)]));
+  [%expect
+    {|
+    (Invalid_argument
+     "--self for reservation.acquire requires --context; supply an explicit target_run_id instead")
+    (Invalid_argument
+     "--self for reservation.acquire requires run_id in --context; supply --target-run-id instead")
+    (Invalid_argument
+     "--self for reservation.paths.acquire requires --context; supply an explicit target_run_id instead")
+    (Invalid_argument
+     "--self for reservation.paths.acquire requires run_id in --context; supply --target-run-id instead")
     |}]
 ;;

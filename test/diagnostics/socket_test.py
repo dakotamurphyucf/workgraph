@@ -16,6 +16,82 @@ from daemon_ready import is_listening
 EXE = str(Path(sys.argv.pop(1)).resolve())
 
 class DiagnosticsTest(unittest.TestCase):
+    def test_json_local_failures_share_the_daemon_error_envelope(self):
+        with tempfile.TemporaryDirectory(prefix='wg-output-', dir='/tmp') as directory:
+            root = Path(directory)
+            missing = str(root / 'missing')
+            cases = [
+                (['ticket.list'], 'Invalid_argument'),
+                (['--context', 'relative', 'ticket.list'], 'Invalid_argument'),
+                (['--context', missing, 'ticket.list'], 'Invalid_argument'),
+                (['request', missing, 'ticket.list', '--json-field', 'limit', '{'], 'Invalid_argument'),
+                (['request', missing, 'ticket.list', '--workspace-id', 'w'], 'Storage_unavailable'),
+                # A literal field value is never an output switch.
+                (['request', missing, 'ticket.create', '--title', '--output'], 'Invalid_argument'),
+            ]
+            for arguments, kind in cases:
+                with self.subTest(arguments=arguments):
+                    result = subprocess.run([EXE, *arguments], capture_output=True, text=True, timeout=5)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertEqual(result.stderr, '')
+                    envelope = json.loads(result.stdout)
+                    self.assertEqual(set(envelope), {'jsonrpc', 'id', 'error'})
+                    self.assertEqual(envelope['jsonrpc'], '2.0')
+                    self.assertEqual(envelope['id'], 'cli')
+                    self.assertEqual(envelope['error']['code'], -32000)
+                    self.assertEqual(envelope['error']['data']['kind'], kind)
+                    self.assertEqual(envelope['error']['message'], envelope['error']['data']['message'])
+
+    def test_text_and_byte_stdout_remain_clean_on_early_errors(self):
+        cases = [
+            ['ticket.list', '--output', 'text'],
+            ['--context', 'relative', 'ticket.list', '--output', 'text'],
+            ['resource', 'download', '--destination', '-'],
+            ['request', '/missing', 'resource.download', '--json-field', 'destination', '"-"'],
+            ['call', '/missing', 'resource.download', '{"destination":"-"}'],
+            ['--socket', '/missing', 'call', 'resource.download', '{"destination":"-"}'],
+            ['request', '/missing', 'resource', 'download', '--destination', '-'],
+            ['evidence-show', '--stage', 'relative', '--output', 'bytes'],
+        ]
+        for arguments in cases:
+            with self.subTest(arguments=arguments):
+                result = subprocess.run([EXE, *arguments], capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, '')
+                self.assertEqual(json.loads(result.stderr)['kind'], 'Invalid_argument')
+        with tempfile.TemporaryDirectory(prefix='wg-raw-options-', dir='/tmp') as directory:
+            params = Path(directory) / 'params.json'
+            params.write_text('{"destination":"-"}')
+            result = subprocess.run([EXE, 'resource.download', '/missing',
+                '--params-file', str(params), '--timeout', 'invalid'],
+                capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, '')
+            self.assertEqual(json.loads(result.stderr)['kind'], 'Invalid_argument')
+        # Literal child argv after -- cannot change the parent JSON mode.
+        literal = subprocess.run([EXE, 'evidence-run', '--stage', 'relative', '--',
+                                  '/bin/echo', '--output', 'text'],
+                                 capture_output=True, text=True, timeout=5)
+        self.assertEqual(literal.stderr, '')
+        self.assertEqual(json.loads(literal.stdout)['error']['data']['kind'], 'Invalid_argument')
+
+    def test_retry_local_failure_preserves_saved_request_id(self):
+        with tempfile.TemporaryDirectory(prefix='wg-output-id-', dir='/tmp') as directory:
+            root = Path(directory)
+            saved = root / 'saved.json'
+            for request_id in ['original-identity', 'raw\\"\\nidentity', 12.5]:
+                saved.write_text(json.dumps({'jsonrpc': '2.0', 'workgraph_api': '0.5',
+                    'id': request_id, 'method': 'ticket.list', 'params': {}}))
+                before = saved.read_bytes()
+                result = subprocess.run([EXE, 'retry', str(root / 'missing'), str(saved)],
+                                        capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stderr, '')
+                envelope = json.loads(result.stdout)
+                self.assertEqual(envelope['id'], request_id)
+                self.assertEqual(envelope['error']['data']['kind'], 'Unsupported_version')
+                self.assertEqual(saved.read_bytes(), before)
+
     def test_old_peer_reply_preserves_uncertain_write_and_saved_identity(self):
         with tempfile.TemporaryDirectory(prefix='wg-old-peer-', dir='/tmp') as d:
             root = Path(d)
@@ -50,10 +126,10 @@ class DiagnosticsTest(unittest.TestCase):
                 thread.join(timeout=10)
                 self.assertFalse(thread.is_alive())
             self.assertNotEqual(result.returncode, 0)
-            problem = json.loads(result.stderr.splitlines()[-1])
-            self.assertEqual(problem['kind'], 'Outcome_unknown')
-            self.assertIn('initialize', problem['message'])
-            self.assertIn('identical saved request', problem['message'])
+            problem = json.loads(result.stdout)
+            self.assertEqual(problem['error']['data']['kind'], 'Outcome_unknown')
+            self.assertIn('initialize', problem['error']['data']['message'])
+            self.assertIn('identical saved request', problem['error']['data']['message'])
             self.assertEqual(json.loads(saved.read_text()), observed[0])
 
     def test_actionable_claim_revision_collision_and_blocker_diagnostics(self):
@@ -151,13 +227,19 @@ class DiagnosticsTest(unittest.TestCase):
                     self.assertIn('result', result)
                     raw = rpc('ticket.resume', workspace_id='w', ticket_id='t', include_markdown='true')
                     self.assertEqual(raw['error']['data']['details']['path'], ['include_markdown'])
+                    text = subprocess.run([EXE, 'request', address, 'ticket.resume',
+                        '--workspace-id', 'w', '--ticket-id', 'absent', '--output', 'text'],
+                        capture_output=True, text=True, timeout=10)
+                    self.assertEqual(text.returncode, 1)
+                    self.assertEqual(text.stdout, '')
+                    self.assertEqual(json.loads(text.stderr)['kind'], 'Not_found')
                     params = root/'params.json'; params.write_text(json.dumps({'workspace_id':'w','ticket_id':'t','include_markdown':'true'}))
                     saved = root/'invalid-saved.json'
                     rejected, local = invoke(['request', address,'ticket.resume','--params-file',str(params),'--save-request',str(saved)])
                     self.assertEqual(rejected.returncode, 1)
-                    self.assertEqual(rejected.stdout, '')
-                    self.assertEqual(local['kind'], 'Invalid_argument')
-                    self.assertEqual(local['details']['path'], ['include_markdown'])
+                    self.assertEqual(rejected.stderr, '')
+                    self.assertEqual(local['error']['data']['kind'], 'Invalid_argument')
+                    self.assertEqual(local['error']['data']['details']['path'], ['include_markdown'])
                     self.assertFalse(saved.exists())
                     bad = write('transaction.apply', operations=[{'method':'ticket.update','params':{'ticket_id':'t','expected_revision':'oops','title':'true'}}])
                     path = bad['error']['data']['details']['path']
@@ -168,9 +250,9 @@ class DiagnosticsTest(unittest.TestCase):
                     rejected, local = invoke(['request', '/absent-workgraph-socket', 'transaction.preflight',
                                               '--workspace-id', 'w', '--actor-id', 'owner', '--operations', '[]'])
                     self.assertEqual(1, rejected.returncode)
-                    self.assertEqual('', rejected.stdout)
-                    self.assertEqual(['operations'], local['details']['path'])
-                    self.assertIn('--json-field operations JSON', local['details']['suggestion'])
+                    self.assertEqual('', rejected.stderr)
+                    self.assertEqual(['operations'], local['error']['data']['details']['path'])
+                    self.assertIn('--json-field operations JSON', local['error']['data']['details']['suggestion'])
                     # W35: direct raw and parsed CLI errors are structured, never a bare null.
                     oversized = [{'method': 'fact.put', 'params': {'scope': {'kind': 'workspace'},
                                   'key': 'oversize', 'expected_revision': '0', 'value': 'x' * 5000}}]
@@ -186,9 +268,9 @@ class DiagnosticsTest(unittest.TestCase):
                         params.write_text(json.dumps(fields))
                         parsed, problem = invoke(['request', address, method, '--params-file', str(params)])
                         self.assertEqual(1, parsed.returncode)
-                        self.assertEqual('', parsed.stdout)
-                        self.assertEqual('Invalid_argument', problem['kind'])
-                        self.assertIn('4096', problem['message'])
+                        self.assertEqual('', parsed.stderr)
+                        self.assertEqual('Invalid_argument', problem['error']['data']['kind'])
+                        self.assertIn('4096', problem['error']['data']['message'])
                     self.assertIn('result', write('fact.put', scope={'kind': 'workspace'}, key='nullable',
                                                  expected_revision='0', value=None))
                 finally:

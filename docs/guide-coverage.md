@@ -145,7 +145,7 @@ explicit retention/provenance limits; incomplete traversal remains a nonzero res
 The [current contract map](preview-0.6-contracts.md) and
 [feedback coverage](acceptance/v0.6-feedback.md) add the policy revision, role and
 duplicate-author gates, priority/unhold, resolver/responsibility distinction,
-whole-value fact cap, 32-operation expansion limit and harness backoff guidance.
+whole-value fact cap, 128-operation expansion limit and harness backoff guidance.
 The generated API reference and bundled README are regenerated from the final
 integrated executable/source; historical line numbers above remain provenance,
 not current source positions or final release qualification.

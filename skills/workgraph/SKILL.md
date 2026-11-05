@@ -83,7 +83,7 @@ Keep fact summaries below about 3 KiB: the 4096 canonical-byte cap covers the wh
 replacement value, including later verdict fields. Put full findings, shared input
 and verification evidence in pinned [resources](references/resources.md). JSON null
 is an intentional value, not deletion. Keep local scratch notes separate from
-portable resource evidence. A transaction has at most 32 expanded operations;
+portable resource evidence. A transaction has at most 128 expanded operations;
 preview a coupled ticket/policy/template plan and check its write before dispatch.
 
 ## Rules that prevent lost or duplicated work

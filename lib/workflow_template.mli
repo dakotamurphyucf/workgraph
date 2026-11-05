@@ -90,7 +90,7 @@ end
     have stable instance/alias ticket IDs. Parameter substitution recognizes
     only {{name}} in template text; inserted values are literal and are never
     interpreted as further placeholders. Parameter ordering has no effect.
-    Cycles, unknown aliases and plans over 32 mutations reject
+    Cycles, unknown aliases and plans over 128 mutations reject
     before publishing any runnable tickets. The integration owner stages the
     complete returned plan and instance registration in one transaction. Allocation
     actor restrictions and full named/role review requirements are part of the

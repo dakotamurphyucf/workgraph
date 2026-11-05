@@ -290,7 +290,7 @@ let status_method =
   Api_method.create
     ~name:"upload.status"
     ~summary:"Read private live staging progress."
-    ~mode:Write
+    ~mode:Read
     ~request:Identity.codec
     ~response:Status.codec
 ;;
@@ -301,7 +301,7 @@ let list_method =
     ~summary:
       "Inspect complete live staging owner, progress, lifecycle and epoch-ms age \
        metadata."
-    ~mode:Write
+    ~mode:Read
     ~request:List_request.codec
     ~response:Listing.codec
 ;;

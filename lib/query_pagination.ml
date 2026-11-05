@@ -74,15 +74,22 @@ module Family = struct
       | "history.search" ->
         Some (History { position = "after_event"; result_field = "next" })
       | _ when has "offset" && output "items" && output "next_offset" ->
-        if has "at_revision"
-        then Some (Offset { guard = "at_revision"; metadata = "workspace_revision" })
-        else if has "expected_revision"
-        then Some (Offset { guard = "expected_revision"; metadata = "query_revision" })
-        else if has "revision"
-        then Some (Offset { guard = "revision"; metadata = "query_revision" })
-        else if has "at_snapshot"
-        then Some (Offset { guard = "at_snapshot"; metadata = "snapshot" })
-        else None
+        let offset guards metadata =
+          List.find guards ~f:has
+          |> Option.map ~f:(fun guard -> Offset { guard; metadata })
+        in
+        (match Service_response.layout (Api_method.name definition) with
+         | Planning_read ->
+           offset [ "at_revision"; "expected_revision" ] "workspace_revision"
+         | Domain_query _ -> offset [ "expected_revision"; "revision" ] "query_revision"
+         | Snapshot_read -> offset [ "at_snapshot" ] "snapshot"
+         | Value
+         | Planning_write
+         | Registry_write
+         | Domain_record _
+         | Workspace_view
+         | Feed
+         | History -> None)
       | _ -> None)
   ;;
 
@@ -416,29 +423,43 @@ let retry_request (family : Family.t) request response =
 module Continuation = struct
   type t = Pagination_metadata.t
 
+  let supported_methods () = supported_methods () @ Nested_pagination.methods
+
+  let supports request =
+    List.mem
+      Nested_pagination.methods
+      (Protocol.Request.method_ request)
+      ~equal:String.equal
+    || Result.is_ok (create request ~limits:Limits.default)
+  ;;
+
   let of_response request ~response =
-    Json.decode (fun () ->
-      let plan = create request ~limits:Limits.default |> Disk.unwrap in
-      let response = Api_response.of_json response |> Disk.unwrap in
-      validate_page request response;
-      let capture = capture plan.family response in
-      let pinned = pin_request plan.family request response in
-      let stop, next, retry =
-        match page_action plan.family pinned response with
-        | `Done -> Stop.Complete, None, None
-        | `Next next ->
-          validate next;
-          Stop.Page_limit, Some next, None
-        | `Stopped stop -> stop, None, retry_request plan.family pinned response
-      in
-      Pagination_metadata.create
-        ~complete:(Stop.equal stop Complete)
-        ~stop
-        ~consistency:(Family.name plan.family)
-        ~capture
-        ~next_request:(Option.map next ~f:Protocol.Request.to_json)
-        ~retry_request:(Option.map retry ~f:Protocol.Request.to_json)
-      |> Disk.unwrap)
+    match Nested_pagination.of_response request ~response with
+    | Error _ as error -> error
+    | Ok (Some continuation) -> Ok continuation
+    | Ok None ->
+      Json.decode (fun () ->
+        let plan = create request ~limits:Limits.default |> Disk.unwrap in
+        let response = Api_response.of_json response |> Disk.unwrap in
+        validate_page request response;
+        let capture = capture plan.family response in
+        let pinned = pin_request plan.family request response in
+        let stop, next, retry =
+          match page_action plan.family pinned response with
+          | `Done -> Stop.Complete, None, None
+          | `Next next ->
+            validate next;
+            Stop.Page_limit, Some next, None
+          | `Stopped stop -> stop, None, retry_request plan.family pinned response
+        in
+        Pagination_metadata.create
+          ~complete:(Stop.equal stop Complete)
+          ~stop
+          ~consistency:(Family.name plan.family)
+          ~capture
+          ~next_request:(Option.map next ~f:Protocol.Request.to_json)
+          ~retry_request:(Option.map retry ~f:Protocol.Request.to_json)
+        |> Disk.unwrap)
   ;;
 
   let complete = Pagination_metadata.complete

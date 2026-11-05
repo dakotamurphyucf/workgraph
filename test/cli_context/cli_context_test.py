@@ -20,11 +20,11 @@ class ContextTest(unittest.TestCase):
                                      'ticket.list', '--workspace-id', 'demo', flag, 'value'],
                                     capture_output=True, text=True, timeout=5)
             self.assertNotEqual(0, result.returncode)
-            problem = json.loads(result.stderr)
+            problem = json.loads(result.stdout)["error"]["data"]
             self.assertEqual('Invalid_argument', problem['kind'])
             self.assertIn(flag + ' is a setup option', problem['message'])
             self.assertIn('workgraph help init', problem['message'])
-            self.assertEqual('', result.stdout)
+            self.assertEqual('', result.stderr)
 
     def test_unknown_method_rejects_before_journal_or_connection(self):
         with tempfile.TemporaryDirectory(prefix='wg-cli-unknown-', dir='/tmp') as directory:
@@ -38,11 +38,11 @@ class ContextTest(unittest.TestCase):
                     args.extend(['--save-request', str(saved)])
                     result = subprocess.run(args, capture_output=True, text=True, timeout=5)
                     self.assertNotEqual(0, result.returncode)
-                    problem = json.loads(result.stderr)
+                    problem = json.loads(result.stdout)["error"]["data"]
                     self.assertEqual('Invalid_argument', problem['kind'])
                     self.assertIn('unknown method: ' + method, problem['message'])
                     self.assertFalse(saved.exists())
-                    self.assertEqual('', result.stdout)
+                    self.assertEqual('', result.stderr)
 
     def test_bootstrap_concurrency_context_and_journal(self):
         with tempfile.TemporaryDirectory(prefix='wg-cli-', dir='/tmp') as directory:
@@ -127,7 +127,7 @@ class ContextTest(unittest.TestCase):
                 self.assertEqual(request_list['result']['data'], selected_socket['result']['data'])
                 missing_request = cli('--context', context, 'request', 'get', '--request-id', 'absent')
                 self.assertIn('Not_found', missing_request.stdout)
-                self.assertNotIn('unknown method', missing_request.stderr)
+                self.assertNotIn('unknown method', missing_request.stdout)
                 ticket_id = a['items'][0]['ticket_id']
                 alias_saved = root / 'ticket-get.json'
                 alias = body(cli('--context', context, 'request', 'ticket.get', '--ticket-id', ticket_id,
@@ -181,7 +181,7 @@ class ContextTest(unittest.TestCase):
                 self.assertFalse(worker.is_alive())
                 self.assertEqual([], errors)
                 self.assertNotEqual(0, lost.returncode)
-                self.assertIn('Outcome_unknown', lost.stderr)
+                self.assertIn('Outcome_unknown', lost.stdout)
                 saved_lost = Path(lost.stderr.split('saved_request: ', 1)[1].splitlines()[0])
                 before = body(cli('--context', context, 'ticket', 'list'))['result']['data']['items']
                 body(cli('--context', context, 'retry', saved_lost))
@@ -218,14 +218,14 @@ class ContextTest(unittest.TestCase):
                 blocked = cli('--context', observer, '--socket', root / 'absent-socket', 'ticket', 'create',
                               '--title', 'No implicit actor', '--save-request', observer_saved)
                 self.assertNotEqual(0, blocked.returncode)
-                self.assertEqual('Invalid_argument', json.loads(blocked.stderr)['kind'])
-                self.assertIn('actor', blocked.stderr)
-                self.assertEqual('', blocked.stdout)
+                self.assertEqual('Invalid_argument', json.loads(blocked.stdout)["error"]["data"]['kind'])
+                self.assertIn('actor', blocked.stdout)
+                self.assertEqual('', blocked.stderr)
                 self.assertFalse(observer_saved.exists())
                 self.assertEqual([], list(observer_requests.glob('*.json')))
                 missing_self = cli('--context', observer, 'inbox', 'read', '--self', '--consumer-id', 'watcher')
                 self.assertNotEqual(0, missing_self.returncode)
-                self.assertIn('requires actor_id', missing_self.stderr)
+                self.assertIn('requires actor_id', missing_self.stdout)
                 # Explicit write attribution is allowed: observer is a defaults convenience.
                 body(cli('--context', observer, 'ticket', 'create', '--ticket-id', 'explicit-observer-write',
                          '--title', 'Explicit writer', '--actor-id', 'a'))
@@ -234,13 +234,13 @@ class ContextTest(unittest.TestCase):
                 failed = cli('init', '--context', no_workspace, '--socket', socket, '--workspace-id', 'unknown')
                 self.assertNotEqual(0, failed.returncode)
                 self.assertFalse(no_workspace.exists())
-                self.assertIn('requires an existing open workspace', failed.stderr)
+                self.assertIn('requires an existing open workspace', failed.stdout)
                 body(cli('--context', context, 'workspace', 'close', '--workspace-id', 'b'))
                 closed = root / 'observer-closed.json'
                 failed = cli('init', '--context', closed, '--socket', socket, '--workspace-id', 'b')
                 self.assertNotEqual(0, failed.returncode)
                 self.assertFalse(closed.exists())
-                self.assertIn('cannot open a closed workspace', failed.stderr)
+                self.assertIn('cannot open a closed workspace', failed.stdout)
                 before_open = set((root / 'b-requests').glob('*.json'))
                 reopened = cli('init', '--context', root / 'b.json')
                 body(reopened)

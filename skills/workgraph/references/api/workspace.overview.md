@@ -1970,7 +1970,7 @@ For preconditions and a small example, run `workgraph help workspace.overview`. 
       ],
       "type": "object"
     },
-    "metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624": {
+    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -2156,81 +2156,160 @@ For preconditions and a small example, run `workgraph help workspace.overview`. 
         "pagination": {
           "allOf": [
             {
-              "additionalProperties": false,
-              "properties": {
-                "capture": {
-                  "x-maxCanonicalBytes": 4096,
-                  "x-maxDepth": 4
-                },
-                "complete": {
-                  "type": "boolean"
-                },
-                "consistency": {
-                  "enum": [
-                    "snapshot_guard",
-                    "current_revision_guard",
-                    "opaque_captured_cursor",
-                    "current_revision_cursor",
-                    "notification_through",
-                    "immutable_history_head"
-                  ],
-                  "type": "string"
-                },
-                "max_bytes": {
-                  "const": "65536",
-                  "type": "string"
-                },
-                "next_request": {
-                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                },
-                "required_bytes": {
-                  "anyOf": [
+              "allOf": [
+                {
+                  "allOf": [
                     {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
+                      "properties": {
+                        "capture": {
+                          "x-maxCanonicalBytes": 4096,
+                          "x-maxDepth": 4
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        },
+                        "consistency": {
+                          "enum": [
+                            "snapshot_guard",
+                            "current_revision_guard",
+                            "opaque_captured_cursor",
+                            "current_revision_cursor",
+                            "notification_through",
+                            "immutable_history_head"
+                          ],
+                          "type": "string"
+                        },
+                        "max_bytes": {
+                          "allOf": [
+                            {
+                              "const": "65536",
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
+                        },
+                        "next_request": {
+                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                        },
+                        "required_bytes": {
+                          "anyOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "retry_request": {
+                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                        },
+                        "returned_bytes": {
+                          "allOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            }
+                          ],
+                          "description": "Canonical UTF-8 bytes of this continuation metadata object only; not the returned page. Page bytes are reported in meta.budget.returned_bytes when available."
+                        },
+                        "stop": {
+                          "enum": [
+                            "complete",
+                            "page_limit",
+                            "byte_limit",
+                            "no_progress",
+                            "needs_larger_budget",
+                            "indexing_incomplete",
+                            "server_field_omissions",
+                            "server_item_omissions",
+                            "error",
+                            "metadata_limit"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "complete",
+                        "stop",
+                        "consistency",
+                        "capture",
+                        "next_request",
+                        "retry_request",
+                        "required_bytes",
+                        "returned_bytes",
+                        "max_bytes"
+                      ],
+                      "type": "object"
                     },
                     {
-                      "type": "null"
+                      "properties": {
+                        "sections": {
+                          "items": {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "complete": {
+                                    "type": "boolean"
+                                  },
+                                  "next_request": {
+                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "response_path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "retry_request": {
+                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                  },
+                                  "stop": {
+                                    "enum": [
+                                      "complete",
+                                      "page_limit",
+                                      "byte_limit",
+                                      "no_progress",
+                                      "needs_larger_budget",
+                                      "indexing_incomplete",
+                                      "server_field_omissions",
+                                      "server_item_omissions",
+                                      "error",
+                                      "metadata_limit"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "path",
+                                  "complete",
+                                  "stop",
+                                  "next_request",
+                                  "retry_request"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+                          },
+                          "maxItems": 32,
+                          "type": "array"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
                     }
-                  ]
-                },
-                "retry_request": {
-                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                },
-                "returned_bytes": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "stop": {
-                  "enum": [
-                    "complete",
-                    "page_limit",
-                    "byte_limit",
-                    "no_progress",
-                    "needs_larger_budget",
-                    "indexing_incomplete",
-                    "server_field_omissions",
-                    "server_item_omissions",
-                    "error",
-                    "metadata_limit"
                   ],
-                  "type": "string"
+                  "unevaluatedProperties": false
                 }
-              },
-              "required": [
-                "complete",
-                "stop",
-                "consistency",
-                "capture",
-                "next_request",
-                "retry_request",
-                "required_bytes",
-                "returned_bytes",
-                "max_bytes"
               ],
-              "type": "object"
+              "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
             }
           ],
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
@@ -2277,10 +2356,10 @@ For preconditions and a small example, run `workgraph help workspace.overview`. 
       "required": [],
       "type": "object"
     },
-    "metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01": {
+    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
       "allOf": [
         {
-          "$ref": "#/$defs/metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624"
+          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
         }
       ],
       "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
@@ -4999,7 +5078,7 @@ For preconditions and a small example, run `workgraph help workspace.overview`. 
       "type": "object"
     },
     "meta": {
-      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
+      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
     }
   },
   "required": [

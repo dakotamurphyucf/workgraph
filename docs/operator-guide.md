@@ -1,13 +1,14 @@
 # Install and operate Workgraph
 
-Version 0.6.0 uses application API 0.6 and affected stored roots 5. Use the
-matching complete [agent skill](agent-skill.md). This is a breaking preview:
-0.5 and earlier data, contexts and saved requests need separate preservation;
-create fresh registry/workspace roots, socket, contexts and request journals.
-Read the [preservation-first upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-before replacing an executable. Release qualification records identify the exact
-source, artifacts and observed platform checks; installation instructions do not
-substitute for that evidence.
+Version 0.6.1 uses application API 0.6 and affected stored roots 5, unchanged
+from 0.6.0. An upgrade from 0.6.0 retains existing roots, contexts and journals;
+stop the daemon gracefully, install the matching client/daemon, replace the complete
+[agent skill](agent-skill.md), and restart. No data reset is required. Read the
+[0.6.1 upgrade notes](releases/v0.6.1.md#upgrade-from-060) before replacing an executable.
+For 0.5 or earlier, follow the separate
+[preservation-first fresh-root procedure](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
+Release qualification records identify exact source, artifacts and observed platform
+checks; installation instructions do not substitute for that evidence.
 
 Workgraph is a standalone early preview. It needs no hosted service, model
 key, or account. The daemon and CLI are the same executable. All paths supplied
@@ -48,15 +49,16 @@ collects these automatically. Check the tool's `--help` for supported labels and
 does not qualify a binary. Native bundles contain `bin/workgraph`; verify their
 checksums and use a binary matching the target OS, architecture and runtime.
 
-## Bootstrap v0.6.0 preview
+## Bootstrap v0.6.1 preview
 
 <a id="candidate-bootstrap"></a>
 
-This release identifies package 0.6.0/API 0.6 and affected stored roots 5.
-Install a [matching release package](releases/v0.6.0.md#install) or build from source
-as above. Follow the [upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-before replacing an older executable. These commands use fresh private sibling
-roots, socket, contexts and journals; WG must name the matching 0.6.0 executable.
+This release identifies package 0.6.1/API 0.6 and affected stored roots 5.
+Install a [matching release package](releases/v0.6.1.md#install) or build from source
+as above. Use the [0.6.0 patch upgrade](releases/v0.6.1.md#upgrade-from-060) for an
+existing 0.6.0 installation; use the [fresh-root upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
+for 0.5 or earlier. These bootstrap commands use fresh private sibling
+roots, socket, contexts and journals; WG must name the matching 0.6.1 executable.
 Data, request journals and exports from 0.5 or earlier are not accepted or
 automatically migrated. Preserve older installations separately.
 

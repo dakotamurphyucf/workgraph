@@ -2,7 +2,7 @@ open Core
 
 (** Ordered atomic planning operations, using the actual request codecs of each
     participating family. Administrative, history, upload and nested transactions
-    have no branch. 1..32 operations, unique creation aliases; domain preparation
+    have no branch. 1..128 operations, unique creation aliases; domain preparation
     additionally resolves alias kinds and validates the final combined state. *)
 val request : Planning_api.Operation.t list Api_codec.t
 

@@ -22,6 +22,32 @@ end
 
 type t
 
+module Section : sig
+  type t =
+    { path : string
+    ; response_path : string option
+    ; complete : bool
+    ; stop : Stop.t
+    ; next_request : Jsonaf.t option
+    ; retry_request : Jsonaf.t option
+    }
+
+  (** [path] identifies the original section. [response_path], when present,
+      identifies its collection in the next/retry response after switching to a
+      dedicated listing method. Otherwise consume the same [path]. Requests
+      retain the enclosing response's capture. *)
+  val codec : t Api_codec.t
+end
+
+(** Independently paged nested collections. Top-level next/retry requests remain
+    null. The entire metadata object shares the same 64KiB bound; overflow
+    removes all sections and reports [Metadata_limit] without invented requests. *)
+val create_sections
+  :  consistency:string
+  -> capture:Jsonaf.t
+  -> sections:Section.t list
+  -> (t, Problem.t) Result.t
+
 (** Validate original exact request envelopes and family-specific captures. Wrong
     protocol versions and unknown envelope fields reject before encoding or size
     limiting. Canonical metadata bytes alone are capped at 65536, independently

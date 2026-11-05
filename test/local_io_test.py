@@ -30,7 +30,8 @@ class LocalIoTests(unittest.TestCase):
 
     def error(self, result, kind, path=None):
         self.assertNotEqual(result.returncode, 0, result.stdout)
-        diagnostic = json.loads(result.stderr.splitlines()[-1])
+        diagnostic = (json.loads(result.stdout)["error"]["data"] if result.stdout
+                      else json.loads(result.stderr.splitlines()[-1]))
         self.assertEqual(diagnostic["kind"], kind, result.stderr)
         if path is not None:
             self.assertIn(str(path), diagnostic["message"])
@@ -87,8 +88,8 @@ class LocalIoTests(unittest.TestCase):
         second = self.cli("evidence-run", "--stage", stage, "--cwd", self.root,
                           "--", shutil.which("false"))
         self.error(second, "Invalid_argument", stage)
-        self.assertIn("stage already exists", second.stderr)
-        self.assertIn("fresh stage", second.stderr)
+        self.assertIn("stage already exists", second.stdout)
+        self.assertIn("fresh stage", second.stdout)
         self.assertNotIn("Eio.", second.stderr)
         self.assertEqual((stage / "capture.json").read_bytes(), original)
 
@@ -97,7 +98,7 @@ class LocalIoTests(unittest.TestCase):
                           "--actor-id", "a", "--mutation-id", "m", "--ticket-id", "t",
                           "--title", "Fixture")
         self.error(result, "Storage_unavailable", self.socket)
-        self.assertIn("start the daemon", result.stderr)
+        self.assertIn("start the daemon", result.stdout)
         self.assertNotIn("Eio.", result.stderr)
         self.assertNotIn("Outcome_unknown", result.stderr)
 
@@ -149,7 +150,7 @@ class LocalIoTests(unittest.TestCase):
                 self.socket.unlink()
                 if expected == "Outcome_unknown":
                     self.error(result, expected)
-                    self.assertIn("identical saved request", result.stderr)
+                    self.assertIn("identical saved request", result.stdout)
                 else:
                     self.assertEqual(json.loads(result.stdout)["error"]["data"]["kind"], expected)
 

@@ -348,8 +348,22 @@ omitted counts, excluding fence tokens.
 
 ## Wait for a contended reservation
 
-The local `reservation wait` / `reservation paths wait` helper requires `--request-directory
-ABS_EXISTING_PRIVATE_DIR` and the original acquisition fields. `--wait-ms` defaults to 30000
+The local `reservation wait` / `reservation paths wait` helper requires an existing private
+request directory, supplied by context `request_directory` or `--request-directory
+ABS_EXISTING_PRIVATE_DIR`, and the original acquisition fields. An explicit directory
+overrides the context default. With a context containing `run_id`, `--self` supplies a
+missing `target_run_id` for these helpers and for `reservation acquire` / `reservation
+paths acquire`. An explicit `--target-run-id` wins. This ownership selector is separate
+from `--run-id`, which attributes the invocation; without `--self`, context attribution
+does not select the reservation owner. Missing context/run defaults produce an actionable
+error before journaling.
+
+Normal ownership checks still apply: when `run_id` attribution is supplied for an
+acquisition, it must match the selected `target_run_id`. Selecting another target with
+`--self --target-run-id` does not rewrite attribution inherited from context; supply a
+matching `--run-id` explicitly when overriding both fields.
+
+`--wait-ms` defaults to 30000
 (1000..300000), `--max-attempts` defaults to 32 (1..100), `--wait-slice-ms` defaults to 1000
 (1..25000). It captures the planning feed before acquisition and syncs an exclusive exact
 journal before each attempt. Only definite typed reservation contention on an original
@@ -359,3 +373,17 @@ stop. It never recovers expiry, renews ownership, promises fairness or changes p
 Check exit status and result.data.wait.completed, then use result.data.daemon_response for
 the actual receipt. After uncertainty retry the exact saved_request; retry does not rerun
 the helper.
+
+For a context with a configured request directory and registered run:
+
+```sh
+"$WG" --context "$CONTEXT" reservation paths wait --self \
+  --json-field requests '[{"target":{"worktree_id":"tree","kind":"subtree","path":"src"},"mode":"exclusive"}]' \
+  > "$AGENT_DIR/path-grant.json" || exit 1
+jq -e '.result.data.wait.completed == true' "$AGENT_DIR/path-grant.json" >/dev/null || exit 1
+jq '.result.data.daemon_response.data.holds' "$AGENT_DIR/path-grant.json"
+```
+
+Proceed with protected work only after both checks succeed. A JSON helper result can
+describe a conflict or uncertain write while the process exits nonzero; its presence
+does not imply a grant.

@@ -136,8 +136,8 @@ class Receipts(unittest.TestCase):
         proxy=LostReply(proxy_address,self.address)
         observed_file,failed=self.saved_write("run.observe","observed",address=proxy_address,expected=1,target_run_id="run",expected_revision="2",observed_unix_ms="123")
         proxy.join()
-        self.assertIn(b"Outcome_unknown",failed.stderr)
-        self.assertEqual(failed.stdout,b"")
+        self.assertIn(b"Outcome_unknown",failed.stdout)
+        self.assertIn(b"saved_request:",failed.stderr)
         observed=proxy.receipt
         self.assert_run(observed["data"],3,"waiting",observed=123)
         self.write("session.create","session",session_id="linked",title="User-visible records")

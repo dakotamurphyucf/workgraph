@@ -1,6 +1,6 @@
 # API and runtime reference
 
-This guide describes the 0.6.0 preview contracts (API 0.6, affected stored roots 5).
+This guide describes the 0.6.1 preview contracts (API 0.6, affected stored roots 5).
 Use matching packaged docs and fresh registry/workspace roots, socket, contexts and
 request journals when upgrading from older previews. Older exports are not a
 migration path; preserve the matching old binary and data. See [compatibility](../skills/workgraph/references/compatibility.md) for independent format identifiers.
@@ -352,9 +352,11 @@ passes arrays, objects or null. Decimal revisions remain strings. The aliases
 `--workspace`/`--actor` expand to their `_id` fields. `request SOCKET METHOD`
 is equivalent to `FAMILY ACTION SOCKET`; `call SOCKET METHOD JSON` remains available.
 
-Output defaults to canonical JSON. `--text` prints readable field/value content.
-Received application errors are JSON response envelopes on stdout (or stderr in
-text mode); local/transport diagnostics go to stderr. A nonzero exit status
+Output defaults to canonical JSON. `--output text` prints readable field/value content.
+Application, local validation and transport errors are JSON response envelopes on
+stdout in JSON mode. Text/raw output modes keep errors on stderr so they cannot
+contaminate streamed content. Journal paths and other diagnostics remain on stderr.
+A nonzero exit status
 indicates failure. `--timeout SECONDS` uses a finite monotonic deadline, default
 30 seconds, maximum one hour. A timed-out write, early disconnect, or invalid
 acknowledgement reports `Outcome_unknown` once transmission might have started.

@@ -138,7 +138,9 @@ let validate_capture kind capture =
       Json.fields capture ~allowed:[ "workspace_revision" ];
       counter "workspace_revision")
     else (
-      Json.fields capture ~allowed:[ "query_revision"; "query_scope" ];
+      Json.fields
+        capture
+        ~allowed:[ "query_revision"; "query_scope"; "discussion_serial" ];
       counter "query_revision";
       let scope = Json.text (Json.field capture "query_scope") in
       if
@@ -147,7 +149,11 @@ let validate_capture kind capture =
              [ "communication"; "runs"; "evidence"; "policy" ]
              scope
              ~equal:String.equal)
-      then Json.fail Invalid_argument "invalid continuation query scope")
+      then Json.fail Invalid_argument "invalid continuation query scope";
+      Option.iter (Json.optional capture "discussion_serial") ~f:(fun _ ->
+        if not (String.equal scope "communication")
+        then Json.fail Invalid_argument "discussion capture requires communication scope";
+        counter "discussion_serial"))
   | "opaque_captured_cursor" ->
     if Option.is_some (Json.optional capture "captured_now_unix_ms")
     then (
@@ -176,6 +182,71 @@ let validate_capture kind capture =
   | _ -> Json.fail Invalid_argument "unknown continuation consistency"
 ;;
 
+let validate_requests ~complete ~stop ~next_request ~retry_request =
+  if not (Bool.equal complete (Stop.equal stop Complete))
+  then Json.fail Invalid_argument "continuation completion differs from stop";
+  if complete && (Option.is_some next_request || Option.is_some retry_request)
+  then Json.fail Invalid_argument "complete continuation cannot carry requests";
+  if Option.is_some next_request && Option.is_some retry_request
+  then Json.fail Invalid_argument "continuation cannot advance and retry simultaneously";
+  if not (Bool.equal (Stop.equal stop Page_limit) (Option.is_some next_request))
+  then Json.fail Invalid_argument "next request differs from available-page stop"
+;;
+
+module Section = struct
+  type t =
+    { path : string
+    ; response_path : string option
+    ; complete : bool
+    ; stop : Stop.t
+    ; next_request : Jsonaf.t option
+    ; retry_request : Jsonaf.t option
+    }
+
+  let codec =
+    Api_codec.object_
+      (F.map
+         (F.required "path" (bounded_text 256)
+          ++ F.optional "response_path" (bounded_text 256)
+          ++ F.required "complete" Api_codec.boolean
+          ++ F.required "stop" Stop.codec
+          ++ F.required "next_request" (Api_codec.nullable request_codec)
+          ++ F.required "retry_request" (Api_codec.nullable request_codec))
+         ~decode:
+           (fun
+             (((((path, response_path), complete), stop), next_request), retry_request) ->
+           { path; response_path; complete; stop; next_request; retry_request })
+         ~encode:
+           (fun
+             { path; response_path; complete; stop; next_request; retry_request } ->
+           ((((path, response_path), complete), stop), next_request), retry_request))
+    |> fun codec ->
+    checked codec (fun t ->
+      if not (String.is_prefix t.path ~prefix:"/data/")
+      then Json.fail Invalid_argument "section path must identify returned data";
+      Option.iter t.response_path ~f:(fun path ->
+        if not (String.equal path "/data" || String.is_prefix path ~prefix:"/data/")
+        then
+          Json.fail Invalid_argument "section response path must identify returned data");
+      validate_requests
+        ~complete:t.complete
+        ~stop:t.stop
+        ~next_request:t.next_request
+        ~retry_request:t.retry_request)
+  ;;
+end
+
+let sections_stop sections =
+  if List.for_all sections ~f:(fun s -> s.Section.complete)
+  then Stop.Complete
+  else if
+    List.exists sections ~f:(fun s -> Stop.equal s.Section.stop Server_field_omissions)
+  then Server_field_omissions
+  else if List.exists sections ~f:(fun s -> Option.is_some s.Section.next_request)
+  then Page_limit
+  else (List.find_exn sections ~f:(fun s -> not s.Section.complete)).stop
+;;
+
 type t =
   { complete : bool
   ; stop : Stop.t
@@ -185,9 +256,10 @@ type t =
   ; retry_request : Jsonaf.t option
   ; required_bytes : int option
   ; returned_bytes : int
+  ; sections : Section.t list option
   }
 
-let base =
+let core_base =
   Api_codec.object_
     (F.map
        (F.required "complete" Api_codec.boolean
@@ -197,8 +269,26 @@ let base =
         ++ F.required "next_request" (Api_codec.nullable request_codec)
         ++ F.required "retry_request" (Api_codec.nullable request_codec)
         ++ F.required "required_bytes" (Api_codec.nullable count)
-        ++ F.required "returned_bytes" count
-        ++ F.required "max_bytes" (Api_codec.literal "65536"))
+        ++ F.required
+             "returned_bytes"
+             (Api_codec.map
+                count
+                ~decode:Result.return
+                ~encode:Fn.id
+                ~description:
+                  "Canonical UTF-8 bytes of this continuation metadata object only; not \
+                   the returned page. Page bytes are reported in \
+                   meta.budget.returned_bytes when available.")
+        ++ F.required
+             "max_bytes"
+             (Api_codec.map
+                (Api_codec.literal "65536")
+                ~decode:Result.return
+                ~encode:Fn.id
+                ~description:
+                  "Fixed cap on this continuation metadata object only. Independent of \
+                   the request max_bytes and the daemon page budget in \
+                   meta.budget.max_bytes."))
        ~decode:
          (fun
            ( ( ( ( ((((complete, stop), consistency), capture), next_request)
@@ -214,6 +304,7 @@ let base =
          ; retry_request
          ; required_bytes
          ; returned_bytes
+         ; sections = None
          })
        ~encode:(fun t ->
          ( ( ( ( ((((t.complete, t.stop), t.consistency), t.capture), t.next_request)
@@ -223,17 +314,41 @@ let base =
          , () )))
 ;;
 
+let base =
+  Api_codec.merge_objects
+    core_base
+    (Api_codec.object_
+       (F.optional "sections" (Api_codec.list Section.codec ~max_items:32)))
+  |> Api_codec.map
+       ~decode:(fun (t, sections) -> Ok { t with sections })
+       ~encode:(fun t -> t, t.sections)
+       ~description:
+         "Flat continuation or independently paged nested sections. Section paths \
+          identify the portion to consume from each subsequent response."
+;;
+
 let codec =
   checked base (fun t ->
     validate_capture t.consistency t.capture;
     if not (Bool.equal t.complete (Stop.equal t.stop Complete))
     then Json.fail Invalid_argument "continuation completion differs from stop";
-    if t.complete && (Option.is_some t.next_request || Option.is_some t.retry_request)
-    then Json.fail Invalid_argument "complete continuation cannot carry requests";
-    if Option.is_some t.next_request && Option.is_some t.retry_request
-    then Json.fail Invalid_argument "continuation cannot advance and retry simultaneously";
-    if not (Bool.equal (Stop.equal t.stop Page_limit) (Option.is_some t.next_request))
-    then Json.fail Invalid_argument "next request differs from available-page stop";
+    (match t.sections with
+     | None ->
+       validate_requests
+         ~complete:t.complete
+         ~stop:t.stop
+         ~next_request:t.next_request
+         ~retry_request:t.retry_request
+     | Some sections ->
+       if
+         List.is_empty sections
+         || List.contains_dup
+              (List.map sections ~f:(fun s -> s.Section.path))
+              ~compare:String.compare
+         || (not (Stop.equal t.stop (sections_stop sections)))
+         || Option.is_some t.next_request
+         || Option.is_some t.retry_request
+       then Json.fail Invalid_argument "invalid nested continuation summary");
     if Stop.equal t.stop Metadata_limit
     then (
       if
@@ -251,7 +366,16 @@ let codec =
     then Json.fail Invalid_argument "continuation byte count or budget differs")
 ;;
 
-let create ~complete ~stop ~consistency ~capture ~next_request ~retry_request =
+let create_internal
+      ?sections
+      ~complete
+      ~stop
+      ~consistency
+      ~capture
+      ~next_request
+      ~retry_request
+      ()
+  =
   Json.decode (fun () ->
     (* Validate the caller's original envelopes before encoding can reconstruct
        their fixed fields, or an oversized marker can omit their requests. *)
@@ -272,6 +396,7 @@ let create ~complete ~stop ~consistency ~capture ~next_request ~retry_request =
         ; retry_request
         ; required_bytes = None
         ; returned_bytes = 0
+        ; sections
         }
     in
     let t =
@@ -286,10 +411,40 @@ let create ~complete ~stop ~consistency ~capture ~next_request ~retry_request =
           ; retry_request = None
           ; required_bytes = Some t.returned_bytes
           ; returned_bytes = 0
+          ; sections = None
           }
     in
     ignore (Api_codec.encode codec t |> unwrap : Jsonaf.t);
     t)
+;;
+
+let create ~complete ~stop ~consistency ~capture ~next_request ~retry_request =
+  create_internal ~complete ~stop ~consistency ~capture ~next_request ~retry_request ()
+;;
+
+let create_sections ~consistency ~capture ~sections =
+  Json.decode (fun () ->
+    if List.is_empty sections then Json.fail Invalid_argument "empty nested continuation";
+    if
+      List.contains_dup
+        (List.map sections ~f:(fun s -> s.Section.path))
+        ~compare:String.compare
+    then Json.fail Invalid_argument "duplicate nested continuation path";
+    List.iter sections ~f:(fun section ->
+      List.iter [ section.Section.next_request; section.retry_request ] ~f:(fun request ->
+        Option.iter request ~f:(fun json ->
+          ignore (Api_codec.decode request_codec json |> unwrap : Jsonaf.t))));
+    let stop = sections_stop sections in
+    create_internal
+      ~sections
+      ~consistency
+      ~capture
+      ~complete:(Stop.equal stop Complete)
+      ~stop
+      ~next_request:None
+      ~retry_request:None
+      ()
+    |> unwrap)
 ;;
 
 let complete t = t.complete

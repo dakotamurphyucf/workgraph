@@ -63,7 +63,14 @@ class RequestWait(unittest.TestCase):
                     self.assertNotIn("status", result)
                     self.assertEqual(result["request_revision"], "1")
                     return result
-                ask("delayed")
+                question = ask("delayed")["question"]
+                original = call("request.get", request_id="delayed")["data"]
+                self.assertEqual(original["question"]["body"], "Confirm")
+                self.assertEqual(original["question"]["revision"], original["comment_revision"])
+                write("comment.edit", comment_id=question["comment_id"], expected_revision=question["revision"], body="Edited question")
+                expanded = call("request.get", request_id="delayed", include_messages=True)["data"]
+                self.assertEqual(expanded["question"]["body"], "Confirm")
+                self.assertEqual(expanded["related"]["source_message"]["body"], "Edited question")
                 waiting = subprocess.Popen(command("delayed"), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 self.addCleanup(lambda: waiting.kill() if waiting.poll() is None else None)
                 answered = write("request.resolve", request_id="delayed", expected_revision="1", body="Original answer")["data"]
@@ -72,6 +79,7 @@ class RequestWait(unittest.TestCase):
                 response = json.loads(stdout)["result"]
                 self.assertEqual(response["data"]["status"]["kind"], "resolved")
                 self.assertEqual(response["data"]["answer"]["body"], "Original answer")
+                self.assertEqual(response["data"]["question"]["body"], "Confirm")
                 self.assertTrue(response["meta"]["wait"]["resolved"])
                 answer = answered["answer"]
                 write("comment.edit", comment_id=answer["comment_id"], expected_revision=answer["revision"], body="Later edited answer")
@@ -97,7 +105,7 @@ class RequestWait(unittest.TestCase):
                 self.assertFalse((root / "never-created").exists())
                 invalid = subprocess.run(command("open") + ["--save-request", str(root / "forbidden")], capture_output=True, text=True, timeout=5)
                 self.assertEqual(invalid.returncode, 1)
-                self.assertIn("read-only", invalid.stderr)
+                self.assertIn("read-only", invalid.stdout)
                 self.assertFalse((root / "forbidden").exists())
                 help_result = subprocess.run([EXE, "--context", str(root / "absent"), "request", "wait", "--help"], capture_output=True, text=True, timeout=5)
                 self.assertEqual(help_result.returncode, 0, help_result.stderr)

@@ -149,7 +149,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [request.ask](request.ask.md) | core | mutation | Ask an accountable question and create its discussion and request atomically. |
 | [request.cancel](request.cancel.md) | advanced | mutation | Cancel request state. |
 | [request.create](request.create.md) | core | mutation | Create an accountable request with explicit recipient and resolver. |
-| [request.get](request.get.md) | core | read | Read one request with its request and current thread revisions. |
+| [request.get](request.get.md) | core | read | Read a request with its pinned question and answer bodies and current thread revision. |
 | [request.history](request.history.md) | advanced | read | Read retained attributed request history. |
 | [request.list](request.list.md) | core | read | List requests with recipient, ticket and resolver filters; reading acknowledges nothing. |
 | [request.metadata](request.metadata.md) | advanced | mutation | Metadata request state. |
@@ -275,13 +275,13 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [ticket.resume](ticket.resume.md) | core | read | Recover bounded recorded task context with exact historical sources. |
 | [ticket.start](ticket.start.md) | core | mutation | Claim a ready ticket and optionally start an attempt atomically. |
 | [ticket.update](ticket.update.md) | core | mutation | Update title, description or status; use ticket.metadata for priority. |
-| [transaction.apply](transaction.apply.md) | core | mutation | Commit 1..32 ordered planning operations atomically, with typed creation aliases. |
+| [transaction.apply](transaction.apply.md) | core | mutation | Commit 1..128 ordered planning operations atomically, with typed creation aliases. |
 | [transaction.preflight](transaction.preflight.md) | advanced | read | Validate an atomic plan with actual domain preparation, without committing it. |
 | [upload.abort](upload.abort.md) | advanced | write | Discard private staging and free upload admission. |
 | [upload.begin](upload.begin.md) | advanced | write | Begin or resume actor-owned ephemeral byte staging. |
 | [upload.chunk](upload.chunk.md) | advanced | write | Stage a contiguous opaque byte chunk or exact range retry. |
-| [upload.list](upload.list.md) | advanced | write | Inspect complete live staging owner, progress, lifecycle and epoch-ms age metadata. |
-| [upload.status](upload.status.md) | advanced | write | Read private live staging progress. |
+| [upload.list](upload.list.md) | advanced | read | Inspect complete live staging owner, progress, lifecycle and epoch-ms age metadata. |
+| [upload.status](upload.status.md) | advanced | read | Read private live staging progress. |
 | [usage.aggregate](usage.aggregate.md) | advanced | read | Aggregate immutable caller-reported usage and named integer samples in one current capture. |
 | [usage.list](usage.list.md) | advanced | read | List usage records matching the explicit filters. |
 | [usage.report](usage.report.md) | advanced | mutation | Report usage state. |

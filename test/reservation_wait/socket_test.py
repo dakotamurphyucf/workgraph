@@ -136,6 +136,118 @@ class ReservationWait(unittest.TestCase):
                           "--wait-slice-ms", "100", *options, expected=expected)
         return result, json.loads(result.stdout)["result"]["data"] if result.stdout else None
 
+    def context(self, run="waiter"):
+        path = self.root / "context.json"
+        fields = dict(socket=str(self.socket), workspace_id="w", actor_id="worker",
+                      request_directory=str(self.journal))
+        if run is not None:
+            fields["run_id"] = run
+        path.write_text(json.dumps(fields))
+        return path
+
+    def reservation_request(self, name, paths=False):
+        target = {"worktree_id":"tree", "kind":"file", "path":name}
+        return [{"target":target, "mode":"exclusive"}] if paths else [{"reservation_id":name, "mode":"exclusive"}]
+
+    def test_acquire_self_inherits_journal_and_preserves_explicit_owner(self):
+        context = self.context()
+        for paths in [False, True]:
+            command = ["reservation", "paths", "acquire"] if paths else ["reservation", "acquire"]
+            for explicit in [False, True]:
+                mutation = "acquire-"+str(paths)+"-"+str(explicit)
+                options = ["--target-run-id", "holder", "--run-id", "holder"] if explicit else []
+                result = self.cli("--context", context, *command, "--self",
+                                  "--mutation-id", mutation, "--json-field", "requests",
+                                  json.dumps(self.reservation_request(mutation, paths)), *options)
+                receipt = json.loads(result.stdout)["result"]["data"]
+                owner = "holder" if explicit else "waiter"
+                self.assertEqual(receipt["holds"][0]["holder"]["run_id"], owner)
+                envelopes = [json.loads(path.read_bytes()) for path in self.journal.iterdir()]
+                envelope = next(value for value in envelopes if value["params"]["mutation_id"] == mutation)
+                self.assertEqual(envelope["params"]["target_run_id"], owner)
+                self.assertEqual(envelope["params"]["run_id"], owner)
+                self.assertIn("saved_request:", result.stderr)
+        self.assertEqual(len(list(self.journal.iterdir())), 4)
+
+    def test_wait_self_inherits_journal_and_nonzero_conflict_is_not_a_grant(self):
+        context = self.context()
+        for paths in [False, True]:
+            command = ["reservation", "paths", "wait"] if paths else ["reservation", "wait"]
+            for blocked in [False, True]:
+                mutation = "wait-"+str(paths)+"-"+str(blocked)
+                requests = self.reservation_request(mutation, paths)
+                if blocked:
+                    method = "reservation.paths.acquire" if paths else "reservation.acquire"
+                    self.write(method, target_run_id="holder", requests=requests)
+                result = self.cli("--context", context, *command, "--self",
+                                  "--mutation-id", mutation, "--json-field", "requests", json.dumps(requests),
+                                  "--wait-ms", "1000", "--max-attempts", "1", expected=1 if blocked else 0)
+                data = json.loads(result.stdout)["result"]["data"]
+                wait = data["wait"]
+                self.assertEqual(wait["completed"], not blocked)
+                self.assertEqual(wait["attempt_count"], "1")
+                saved = self.journal / (mutation+".json")
+                envelope = json.loads(saved.read_bytes())
+                self.assertEqual(envelope["params"]["target_run_id"], "waiter")
+                self.assertEqual(envelope["params"]["run_id"], "waiter")
+                if blocked:
+                    self.assertEqual(wait["stop"], "attempt_limit")
+                    self.assertEqual(wait["last_conflict"]["kind"], "Already_claimed")
+                    self.assertEqual(wait["retry_request"], envelope)
+                    self.assertIsNone(data["daemon_response"])
+                else:
+                    self.assertEqual(data["daemon_response"]["data"]["holds"][0]["holder"]["run_id"], "waiter")
+        self.assertEqual(len(list(self.journal.iterdir())), 4)
+
+    def test_wait_explicit_target_and_journal_override_context_defaults(self):
+        context = self.context()
+        override = self.root / "override"
+        override.mkdir()
+        result = self.cli("--context", context, "reservation", "wait", "--self",
+                          "--target-run-id", "holder", "--run-id", "holder",
+                          "--request-directory", override, "--mutation-id", "override",
+                          "--json-field", "requests", json.dumps(self.reservation_request("override")))
+        data = json.loads(result.stdout)["result"]["data"]
+        self.assertTrue(data["wait"]["completed"])
+        envelope = json.loads((override / "override.json").read_bytes())
+        self.assertEqual(envelope["params"]["target_run_id"], "holder")
+        self.assertEqual(envelope["params"]["run_id"], "holder")
+        self.assertEqual(list(self.journal.iterdir()), [])
+
+    def test_self_without_run_context_fails_before_journaling(self):
+        context = self.context(run=None)
+        for command in [["reservation", "acquire"], ["reservation", "paths", "acquire"],
+                        ["reservation", "wait"], ["reservation", "paths", "wait"]]:
+            for prefix, missing in [([], "requires --context"), (["--context", context], "requires run_id in --context")]:
+                result = self.cli(*prefix, *command, self.socket, "--self", expected=1)
+                self.assertIn(missing, json.loads(result.stdout)["error"]["data"]["message"])
+                self.assertNotIn("saved_request:", result.stderr)
+        self.assertEqual(list(self.journal.iterdir()), [])
+
+    def test_self_never_rewrites_incompatible_invocation_attribution(self):
+        context = self.context()
+        for waiting in [False, True]:
+            mutation = "mismatch-"+str(waiting)
+            command = ["reservation", "wait" if waiting else "acquire"]
+            result = self.cli("--context", context, *command, "--self", "--run-id", "invocation",
+                              "--mutation-id", mutation, "--json-field", "requests",
+                              json.dumps(self.reservation_request(mutation)), expected=1)
+            response = json.loads(result.stdout)
+            if waiting:
+                data = response["result"]["data"]
+                self.assertFalse(data["wait"]["completed"])
+                self.assertEqual(data["wait"]["stop"], "failed")
+                self.assertIsNone(data["daemon_response"])
+                problem = data["wait"]["problem"]
+            else:
+                problem = response["error"]["data"]
+            self.assertEqual(problem, {"kind":"Conflict", "message":"Run attribution differs"})
+            envelopes = [json.loads(path.read_bytes()) for path in self.journal.iterdir()]
+            envelope = next(value for value in envelopes if value["params"]["mutation_id"] == mutation)
+            self.assertEqual(envelope["params"]["run_id"], "invocation")
+            self.assertEqual(envelope["params"]["target_run_id"], "waiter")
+        self.assertEqual(self.read("reservation.list", target_run_id="waiter")["data"]["items"], [])
+
     def test_named_release_preserves_atomic_batch_and_actual_receipt(self):
         held = self.write("reservation.acquire", target_run_id="holder", requests=[{"reservation_id":"b", "mode":"exclusive"}])
         def release(conflict):
@@ -257,7 +369,7 @@ class ReservationWait(unittest.TestCase):
         try:
             process.wait(timeout=2)
             self.assertEqual(process.returncode, 1)
-            self.assertIn(b"reservation wait bounds", process.stderr.read())
+            self.assertIn(b"reservation wait bounds", process.stdout.read())
         finally:
             if process.poll() is None:
                 process.kill()

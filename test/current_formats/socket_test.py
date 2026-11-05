@@ -141,7 +141,7 @@ class CurrentFormats(unittest.TestCase):
                     before_bytes = saved.read_bytes()
                     result = subprocess.run([str(EXE), "retry", str(root / "absent-socket"), str(saved)], capture_output=True, text=True, timeout=10)
                     self.assertNotEqual(0, result.returncode)
-                    self.assertEqual("Unsupported_version", json.loads(result.stderr)["kind"])
+                    self.assertEqual("Unsupported_version", json.loads(result.stdout)["error"]["data"]["kind"])
                     self.assertEqual(before_bytes, saved.read_bytes())
                     # Current API framing does not admit an old transfer plan either.
                     # Reject before looking up source files or connecting to a daemon.
@@ -153,7 +153,7 @@ class CurrentFormats(unittest.TestCase):
                     result = subprocess.run([str(EXE), "retry", str(root / "absent-socket"), str(saved_upload)],
                                             capture_output=True, text=True, timeout=10)
                     self.assertNotEqual(0, result.returncode)
-                    problem = json.loads(result.stderr)
+                    problem = json.loads(result.stdout)["error"]["data"]
                     self.assertEqual("Unsupported_version", problem["kind"])
                     self.assertEqual("upload plan", problem["details"]["representation"])
                     self.assertEqual("2", problem["details"]["supported"])
@@ -194,7 +194,7 @@ class CurrentFormats(unittest.TestCase):
                 self.assertFalse(worker.is_alive())
                 self.assertEqual("0.6", observed[0]["workgraph_api"])
                 self.assertNotEqual(0, result.returncode)
-                self.assertEqual("Unsupported_version", json.loads(result.stderr)["kind"])
+                self.assertEqual("Unsupported_version", json.loads(result.stdout)["error"]["data"]["kind"])
 
 
 if __name__ == "__main__":

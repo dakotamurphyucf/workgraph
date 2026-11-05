@@ -15,7 +15,9 @@ val request_directory : t -> string option
     Ordinary read methods receive only the workspace default: actor/run query
     filters and target identities remain explicit. [transaction.preflight] receives
     the intended writer actor/run defaults, matching [transaction.apply] without
-    performing a write. Write methods receive applicable actor/run defaults,
+    performing a write. [upload.status] receives its required owner actor default;
+    [upload.list] receives only the workspace default and lists all staging owners.
+    Write methods receive applicable actor/run defaults,
     including actor-owned upload staging. Local upload/download helpers
     have explicit scope rules; unknown methods receive no defaults. Explicit fields
     always win. Observer defaults reject a missing write actor before journaling
@@ -28,7 +30,10 @@ val apply
 
 (** Explicit CLI [--self] expansion only. For inbox.read/wait/ack and
     request.list/acknowledge/accept, supply a missing actor [recipient]. For
-    run.get/transition/observe/link_session, supply missing [target_run_id].
+    run.get/transition/observe/link_session and reservation.acquire/paths.acquire
+    (including local reservation wait helpers), supply missing [target_run_id].
+    This selects ownership separately from the invocation's [run_id] attribution;
+    normal daemon attribution checks still apply to the expanded fields.
     Explicit selectors win, even without context. Missing required actor/run
     context and unsupported methods return actionable Invalid_argument. This
     operation never defaults general reads, reassign destinations or API params

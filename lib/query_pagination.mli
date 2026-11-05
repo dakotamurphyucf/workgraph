@@ -20,6 +20,9 @@ type t
 (** Validate the exact request using its executable codec. Supports top-level
     offset collections with their declared capture guard, opaque-cursor reads,
     inbox.read's notification through bound and immutable history-head traversal.
+    Offset capture metadata follows the method's public response layout; a
+    request guard named [expected_revision] can refer to either a workspace or
+    a domain revision. Callers never supply response metadata as request fields.
     [usage.aggregate] and [actor.overview] traverse their flat top-level rows
     using current-workspace revision cursors; actor observation time remains
     captured and usage [at_revision] is retained. Their whole-row byte fitting
@@ -56,6 +59,14 @@ end
     [Metadata_limit], with no clipped request or invented continuation. *)
 module Continuation : sig
   type t
+
+  (** Methods with single-response continuation metadata, including nested
+      collections that are intentionally excluded from automatic traversal. *)
+  val supported_methods : unit -> string list
+
+  (** Whether this request shape can receive continuation metadata. A method
+      may support only particular directions or selectors. *)
+  val supports : Protocol.Request.t -> bool
 
   (** Validate the original supported read and its public result codec, then bind
       the actual family capture. All request selectors remain exact; only declared

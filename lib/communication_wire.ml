@@ -536,15 +536,29 @@ let request_current =
     (record
        (request_fields
         @ [ field "thread_revision" positive
+          ; field "question" Discussion_wire.comment
           ; field "answer" (Api_codec.nullable Discussion_wire.comment)
           ; field
               "superseded_by_request_ids"
               (Api_codec.list request_id ~max_items:100000)
           ; optional "related" related_request
           ]))
-    ~decode:(fun json -> answer_matches_record json ~body:true)
+    ~decode:(fun json ->
+      let question = Json.field json "question" in
+      if
+        String.equal
+          (Json.text (Json.field question "comment_id"))
+          (Json.text (Json.field json "comment_id"))
+        && Int.equal
+             (Json.integer (Json.field question "revision"))
+             (Json.integer (Json.field json "comment_revision"))
+      then answer_matches_record json ~body:true
+      else
+        Error
+          (Problem.create Invalid_argument "question body differs from pinned reference"))
     ~encode:Fn.id
-    ~description:"Current request and pinned answer with matching exact reference."
+    ~description:
+      "Current request with question and answer bodies at their exact pinned versions."
 ;;
 
 let resolve_receipt =

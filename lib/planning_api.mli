@@ -41,7 +41,7 @@ module Operation : sig
     -> creation_methods:string list
     -> t Api_codec.t
 
-  (** Ordered, nonempty batches contain at most 32 operations. Duplicate alias
+  (** Ordered, nonempty batches contain at most 128 operations. Duplicate alias
       names are rejected here; reference kind resolution follows separately. *)
   val batch_codec
     :  requests:(string * Jsonaf.t Api_codec.t) list

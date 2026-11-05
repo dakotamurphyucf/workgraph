@@ -112,12 +112,15 @@ This helper is not a daemon method. Read skills/workgraph/references/resources.m
   | "reservation-wait" | "reservation.wait" | "reservation.paths.wait" ->
     Some
       {|reservation wait / reservation paths wait [local acquisition helper]
-Usage: workgraph --context ABS_FILE reservation wait --target-run-id RUN
+Usage: workgraph --context ABS_FILE reservation wait --self
   --json-field requests '[{"reservation_id":"build","mode":"exclusive"}]'
-  --request-directory ABS_EXISTING_PRIVATE_DIR
+  [--request-directory ABS_EXISTING_PRIVATE_DIR]
   [--wait-ms 30000 --max-attempts 32 --wait-slice-ms 1000 --timeout 30]
 For paths use reservation paths wait and the reservation.paths.acquire request
 fields. Dotted spellings reservation.wait / reservation.paths.wait also work.
+--self selects the context run as target; an explicit --target-run-id wins.
+The context request_directory is reused; pass the flag only to override it or
+when the context has none. The reservation requests array is still explicit.
 Total deadline 1000..300000ms, attempts 1..100, feed slice 1..25000ms.
 Captures the planning cursor before acquisition. Each attempt syncs an exclusive
 exact request file before sending. Only typed contention for an original batch
@@ -141,6 +144,7 @@ method-specific: run_id/status for run mutations, attempt_id/state for attempts,
 ticket_id/token for acquisition, and answer/thread revisions for resolution.
 request.ask returns request_revision, thread_revision and question; it does not
 return status or a generic revision. request.get returns revision and status.kind.
+request.get.question contains the original question body/version;
 request.get.answer contains the exact resolved comment body/version or null;
 include_messages expands related messages, not a replacement location for answers.
 ticket.progress returns comment_id, not a new ticket revision. Read ticket.get for
@@ -151,8 +155,9 @@ workspace_revision identifies the durable transaction, and a resource content
 version/digest is an immutable evidence pin. Never interchange these counters.
 
 Check the process exit status before extracting JSON; a nonzero result can carry
-a JSON-RPC error on stdout or a local Problem on stderr. saved_request diagnostics
-are on stderr. Example (fresh request/output paths and live connection required):
+a JSON-RPC error on stdout for both local and daemon failures in JSON mode.
+Text/raw output modes keep errors on stderr. saved_request diagnostics stay on
+stderr. Example (fresh request/output paths and live connection required):
   if "$WG" --context "$CONTEXT" run register --target-run-id worker-1 \
        --objective 'Inspect the change' --save-request "$REQUEST" >"$RESULT"; then
     python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["result"]["data"]; print(d["run_id"],d["revision"],d["status"])' "$RESULT"
@@ -177,10 +182,16 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
         [--page-limit 100] [--total-bytes 16777216] [--limit 50] [--max-bytes 65536]\n\
         Ordinary supported single-page reads add validated client-only meta.pagination\n\
         with capture, next_request and retry_request. Raw call and saved retry stay exact.\n\
+        ticket.context and expanded thread.get/request.get expose independent\n\
+        meta.pagination.sections with path, next_request and retry_request. Follow\n\
+        the selected section; no automatic merge or --paginate for nested views.\n\
         Daemon max_bytes bounds its original page; local continuation metadata has its\n\
         own 65536-byte cap. metadata_limit is explicitly incomplete and preserves page.\n\
+        meta.pagination.{returned_bytes,max_bytes} measure only that metadata object;\n\
+        meta.budget.{returned_bytes,max_bytes}, when present, measure the daemon page.\n\
         Opt-in bounded traversal; requests 1..1000, total JSON 4096..67108864 bytes.\n\
-        Keeps exact selectors and per-family captures: at_revision (planning),\n\
+        Keeps exact selectors and per-family captures: at_revision (planning;\n\
+        ticket.recovery.list uses expected_revision with workspace_revision),\n\
         expected_revision/revision plus query_scope (domain), at_snapshot (exports),\n\
         opaque cursor, inbox notification through, or immutable history head.\n\
         Current-revision guards detect changes; they do not retrieve old state.\n\
@@ -757,11 +768,11 @@ let preconditions name mode request =
       [ "Optional project_id/milestone_id/parent_ticket_id bind placement at creation. \
          External parent applies only to template roots; membership must be coherent."
       ; "Creates the parent-before-child graph, actor/capability allocation gates and \
-         full actor/role review requirements atomically within 32 operations. No \
+         full actor/role review requirements atomically within 128 operations. No \
          follow-up ungated interval; changed instance bindings conflict."
       ]
     | "transaction.apply" ->
-      [ "operations: 1..32 ordered {method, params, as?} objects; all commit or none do."
+      [ "operations: 1..128 ordered {method, params, as?} objects; all commit or none do."
       ; "as is only for creation methods, unique ASCII IDs (1..96 bytes)."
       ; "$alias resolves earlier creations only in declared typed reference fields; \
          never text."
@@ -771,7 +782,7 @@ let preconditions name mode request =
          operation params. Separate commands are independent commits."
       ]
     | "transaction.preflight" ->
-      [ "operations: the same 1..32 ordered {method, params, as?} objects as \
+      [ "operations: the same 1..128 ordered {method, params, as?} objects as \
          transaction.apply; preview runs domain preparation without committing."
       ; "Supply explicit actor_id/run_id for the intended writer. Generated IDs and \
          proposed revision are unreserved; a later write repeats every check."
@@ -1004,7 +1015,8 @@ let result_paths = function
   | "transaction.apply" ->
     ".result.data.results[] has method and data, in operation order"
   | "request.get" ->
-    ".result.data.{revision,thread_revision,status.kind,answer}; answer is the exact \
+    ".result.data.{revision,thread_revision,status.kind,question,answer}; question is \
+     the original pinned comment with body/comment_id/revision; answer is the exact \
      pinned comment with body/comment_id/revision, or null; with include_messages: \
      .result.data.related.{source_message,messages.items}"
   | "ticket.progress" ->
@@ -1031,7 +1043,7 @@ let brief method_ =
             name
             ~equal:String.equal
           && String.equal field "operations"
-        then "array of {method: string, params: object, as?: string}; 1..32 items"
+        then "array of {method: string, params: object, as?: string}; 1..128 items"
         else shape schema ~depth:1
       in
       "  "

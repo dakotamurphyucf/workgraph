@@ -80,7 +80,7 @@ with tempfile.TemporaryDirectory(prefix="wg-inspect-", dir="/tmp") as temporary:
 
     token = summary["owner_token"]
     original = {p.name: p.read_bytes() for p in stage.iterdir()}
-    assert b"token differs" in cli("evidence-clean", "--stage", stage, "--owner-token", "0"*64, code=1).stderr
+    assert b"token differs" in cli("evidence-clean", "--stage", stage, "--owner-token", "0"*64, code=1).stdout
     foreign = root / "foreign"
     foreign.mkdir()
     for name in ["command.json", "capture.json"]: shutil.copyfile(stage / name, foreign / name)
@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory(prefix="wg-inspect-", dir="/tmp") as temporary:
             time.sleep(.01)
         live_token = json.loads((live / "owner.json").read_text())["token"]
         blocked = cli("evidence-clean", "--stage", live, "--owner-token", live_token, code=1)
-        assert b"live" in blocked.stderr and (live / "command.json").exists()
+        assert b"live" in blocked.stdout and (live / "command.json").exists()
         release.touch()
         out, err = child.communicate(timeout=5)
         assert child.returncode == 0, (out, err)

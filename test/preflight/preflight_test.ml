@@ -121,7 +121,9 @@ let%expect_test
     (preview
        state
        { request with
-         operations = List.init 33 ~f:(fun _ -> List.hd_exn request.operations)
+         operations =
+           List.init (Transaction_limit.max_operations + 1) ~f:(fun _ ->
+             List.hd_exn request.operations)
        });
   show
     (Api_codec.decode
@@ -144,6 +146,66 @@ let%expect_test
     ok
     Invalid_argument
     Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test
+    "128 operations preserve pure preparation replay and public receipt bounds"
+  =
+  let operations =
+    List.init Transaction_limit.max_operations ~f:(fun index ->
+      Json.obj
+        [ "method", Json.string "ticket.create"
+        ; ( "params"
+          , Json.obj
+              [ "ticket_id", Json.string ("setup-" ^ Int.to_string index)
+              ; "title", Json.string "Setup"
+              ] )
+        ])
+  in
+  let params = Json.obj [ "operations", `Array operations ] in
+  let state = empty () in
+  let request =
+    Api_codec.decode
+      Preflight_api.Request.codec
+      (Json.obj [ "actor_id", Json.string "agent"; "operations", `Array operations ])
+    |> ok
+  in
+  let report = preview state request |> ok in
+  printf "preview=%d revision=%d\n" report.operation_count (State.revision state);
+  let command = Domain_command.decode ~method_:"transaction.apply" ~params |> ok in
+  let prepared = State.prepare state command ~actor ~timestamp:"fixture" |> ok in
+  let receipts =
+    Api_codec.decode Transaction_api.response (State.result prepared) |> ok
+  in
+  printf
+    "receipts=%d revision=%d replay=%b\n"
+    (List.length receipts)
+    (State.revision (State.candidate prepared))
+    (String.equal
+       (Json.canonical (State.to_json (State.candidate prepared)))
+       (Json.canonical (State.to_json (State.replay state (State.events prepared) |> ok))));
+  let oversized =
+    Json.obj [ "operations", `Array (List.hd_exn operations :: operations) ]
+  in
+  show (Domain_command.decode ~method_:"transaction.apply" ~params:oversized);
+  (match command with
+   | Domain_command.Batch commands ->
+     show
+       (State.prepare
+          state
+          (Batch (List.hd_exn commands :: commands))
+          ~actor
+          ~timestamp:"fixture")
+   | _ -> failwith "expected batch");
+  show (Api_codec.encode Transaction_api.response (List.hd_exn receipts :: receipts));
+  [%expect
+    {|
+    preview=128 revision=0
+    receipts=128 revision=1 replay=true
     Invalid_argument
     Invalid_argument
     Invalid_argument

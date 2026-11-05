@@ -318,7 +318,10 @@ let%expect_test "parent topological ordering and bound actor-only gates are dete
        ~id
        ~bindings:{ Workflow_template.Bindings.empty with parent = Some generated }
        ~parameters:[]);
-  let nodes = List.init 16 ~f:(fun i -> { node with alias = "n" ^ Int.to_string i }) in
+  let nodes =
+    List.init (Transaction_limit.max_operations / 2) ~f:(fun i ->
+      { node with alias = "n" ^ Int.to_string i })
+  in
   report (Workflow_template.Spec.validate { spec with nodes });
   report
     (Workflow_template.Spec.validate
@@ -627,5 +630,51 @@ let%expect_test
     Invalid_argument
     {"expected":"IDs require 1..96 ASCII letters, digits, underscores or hyphens","path":["project_id"],"suggestion":null,"type":"field"}
     ok
+    |}]
+;;
+
+let%expect_test "template node and expanded policy bounds share the transaction cap" =
+  let nodes =
+    List.init (Transaction_limit.max_operations - 1) ~f:(fun index ->
+      { node with
+        alias = "work-" ^ Int.to_string index
+      ; allowed_actor_ids = Actor_eligibility.unrestricted
+      })
+  in
+  let spec = { spec with nodes } in
+  report (Workflow_template.Spec.validate spec);
+  report (Workflow_template.Spec.of_json (Workflow_template.Spec.to_json spec));
+  report
+    (Api_codec.decode Workflow_template_wire.spec (Workflow_template.Spec.to_json spec));
+  let extra_policy =
+    { spec with
+      nodes =
+        List.mapi nodes ~f:(fun index node ->
+          if index = 0 then { node with capabilities = [ "ocaml" ] } else node)
+    }
+  in
+  report (Workflow_template.Spec.validate extra_policy);
+  report (Workflow_template.Spec.of_json (Workflow_template.Spec.to_json extra_policy));
+  report
+    (Api_codec.decode
+       Workflow_template_wire.spec
+       (Workflow_template.Spec.to_json extra_policy));
+  let too_many_nodes = { spec with nodes = { node with alias = "extra" } :: nodes } in
+  report (Workflow_template.Spec.validate too_many_nodes);
+  report
+    (Api_codec.decode
+       Workflow_template_wire.spec
+       (Workflow_template.Spec.to_json too_many_nodes));
+  [%expect
+    {|
+    ok
+    ok
+    ok
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    {"expected":"expected at most 127 items","path":["nodes"],"suggestion":null,"type":"field"}
     |}]
 ;;

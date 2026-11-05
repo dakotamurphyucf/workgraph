@@ -222,9 +222,11 @@ let instantiate_plan t ~template ~template_revision ~id ~parameters ~bindings =
     @ [ Domain_command.Policy (Agent_run_policy.Command.Instance_register plan) ]
   in
   require
-    (List.length commands <= 32)
+    (List.length commands <= Transaction_limit.max_operations)
     Invalid_argument
-    "expanded template exceeds 32 atomic operations";
+    (sprintf
+       "expanded template exceeds %d atomic operations"
+       Transaction_limit.max_operations);
   plan, commands
 ;;
 
@@ -2393,9 +2395,10 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
       | command -> [ command ], false
     in
     require
-      ((not (List.is_empty commands)) && List.length commands <= 32)
+      ((not (List.is_empty commands))
+       && List.length commands <= Transaction_limit.max_operations)
       Invalid_argument
-      "transaction requires 1..32 operations";
+      (sprintf "transaction requires 1..%d operations" Transaction_limit.max_operations);
     let staged, changes, results, blobs, _ =
       List.fold
         commands
@@ -2463,9 +2466,11 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
             | Resource_link _ -> 1
           in
           require
-            (operations + count <= 32)
+            (operations + count <= Transaction_limit.max_operations)
             Invalid_argument
-            "expanded transaction exceeds 32 atomic operations";
+            (sprintf
+               "expanded transaction exceeds %d atomic operations"
+               Transaction_limit.max_operations);
           let state, changes, result, new_blobs =
             stage state command ~actor ~run ~timestamp ~now_unix_ms
           in

@@ -1,5 +1,5 @@
 Name:           workgraph
-Version:        0.6.0
+Version:        0.6.1
 Release:        1%{?dist}
 Summary:        Local durable project memory for agents
 License:        MIT

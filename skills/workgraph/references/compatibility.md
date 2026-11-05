@@ -1,8 +1,10 @@
 # Match binaries, APIs and stored formats
 
-Workgraph supports one current schema per representation. Package 0.6.0 uses
-application API 0.6, affected stored roots 5 and saved upload plan 2. This breaks
-0.5 and earlier requests and data; there are no legacy readers, automatic
+Workgraph supports one current schema per representation. Package 0.6.1 uses
+application API 0.6, affected stored roots 5 and saved upload plan 2, unchanged
+from 0.6.0. Upgrading from 0.6.0 retains existing data, contexts and exact journals;
+restart with a matching 0.6.1 client/daemon and replace the complete skill folder.
+The 0.6 line breaks 0.5 and earlier requests and data; there are no legacy readers, automatic
 migrations or backward compatibility promises. Package, API and independent
 stored-format identifiers serve different purposes and need not match.
 
@@ -51,7 +53,7 @@ outer planning envelope does not renumber every nested format.
 ## Start this preview without rewriting older data
 
 Use the matching released binary and its bundled guide to inspect older data.
-For this preview, create a fresh registry and fresh workspace roots for 0.6, with
+When upgrading from 0.5 or earlier, create a fresh registry and fresh workspace roots for 0.6, with
 a fresh socket, contexts and request journals. Preserve older data for use
 with its matching binary. Do not change a marker by hand or point the new daemon
 at old roots expecting a migration. Old saved requests and old exports are not a
@@ -94,7 +96,7 @@ decimal strings: no sign, leading zeros, separators, fractions, or exponent synt
 The wire decimal parser accepts the nonnegative signed 64-bit range, 0 through
 9223372036854775807. Native-domain conversion is checked separately. Supported
 runtime builds are 64-bit; native counters cannot exceed 4611686018427387903.
-Operational bounds are smaller: 100000 workspace transactions, 32 commands per
+Operational bounds are smaller: 100000 workspace transactions, 128 commands per
 transaction, 64MiB blobs, and the documented per-field/query limits. Values outside
 a field's supported range are rejected; arithmetic never relies on accepting the
 full int64 range for a sequence or allocation. JSON-RPC error codes and numeric
@@ -129,7 +131,7 @@ rejection; its optional data must be a valid diagnostic when present. This lets
 older peers reject the new application marker without implying that a write ran.
 Diagnostic envelopes are bounded to 64KiB with truncated text and bounded typed
 details; use the relevant readiness/query method to expand omitted detail. This restricted profile does not implement every general JSON-RPC error
-or feature. `transaction.apply` is an explicit 1..32-operation atomic method, not
+or feature. `transaction.apply` is an explicit 1..128-operation atomic method, not
 JSON-RPC batch dispatch. Operations check preconditions in order and validate the
 final graph; one success creates one revision, audit event, and receipt.
 

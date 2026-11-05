@@ -136,7 +136,7 @@ class ExecutionCliTest(unittest.TestCase):
                     proxy_path = root / "proxy"
                     proxy = DropFinishResponse(proxy_path, address)
                     lost = cli("evidence-publish", proxy_path, "--stage", stage, expected=1)
-                    self.assertIn("Outcome_unknown", lost.stderr)
+                    self.assertIn("Outcome_unknown", lost.stdout)
                     proxy.thread.join(timeout=10)
                     self.assertFalse(proxy.thread.is_alive())
                     self.assertIsNone(proxy.error)

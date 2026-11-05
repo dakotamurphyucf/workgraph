@@ -82,7 +82,7 @@ let node_fields allowed_actor_ids reviewers =
   req "alias" name
   <*> req "title" (nonblank 512)
   <*> req "description" (text 65_536)
-  <*> req "depends_on" (list name 31)
+  <*> req "depends_on" (list name (Transaction_limit.max_operations - 1))
   <*> req "parent" (nullable name)
   <*> req "capabilities" (list (nonblank 96) 100)
   <*> req "allowed_actor_ids" allowed_actor_ids
@@ -118,7 +118,10 @@ let node =
       , n.separate_actor ))
 ;;
 
-let spec_fields nodes = req "parameters" (list name 32) <*> req "nodes" (list nodes 31)
+let spec_fields nodes =
+  req "parameters" (list name 32)
+  <*> req "nodes" (list nodes (Transaction_limit.max_operations - 1))
+;;
 
 let spec =
   Api_codec.map
@@ -129,7 +132,10 @@ let spec =
     ~decode:(fun s -> Result.map (Workflow_template.Spec.validate s) ~f:(fun () -> s))
     ~encode:Fn.id
     ~description:
-      "Validated acyclic graph with 1..31 nodes and at most 32 atomic operations."
+      (sprintf
+         "Validated acyclic graph with 1..%d nodes and at most %d atomic operations."
+         (Transaction_limit.max_operations - 1)
+         Transaction_limit.max_operations)
 ;;
 
 let digest =
@@ -181,7 +187,7 @@ let planned_fields tickets allowed_actor_ids reviewers =
   <*> req "ticket_id" tickets
   <*> req "title" (nonblank 512)
   <*> req "description" (text 65_536)
-  <*> req "prerequisite_ticket_ids" (list tickets 31)
+  <*> req "prerequisite_ticket_ids" (list tickets (Transaction_limit.max_operations - 1))
   <*> req "parent_ticket_id" (nullable tickets)
   <*> req "capabilities" (list (nonblank 96) 100)
   <*> req "allowed_actor_ids" allowed_actor_ids
@@ -230,7 +236,7 @@ let instance_fields instances templates bindings tickets =
   <*> req "template_revision" positive
   <*> req "parameters" parameters
   <*> req "bindings" bindings
-  <*> req "tickets" (list tickets 31)
+  <*> req "tickets" (list tickets (Transaction_limit.max_operations - 1))
 ;;
 
 let instance =

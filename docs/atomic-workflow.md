@@ -86,7 +86,11 @@ with its unchanged bytes and identity. Inspect exit status before reading JSON;
 diagnostics and saved request paths are on stderr. A preview has no mutation ID and
 must never be treated as a durable receipt.
 
-Plans contain 1–32 operations within the normal request byte limit. Nested
+Plans contain 1–128 operations within the normal request byte limit. Template
+expansion shares this budget: each created ticket, dependency, policy and final
+instance registration counts. A template with no dependencies or policies can
+therefore create up to 127 tickets. Byte, event and retained-state admission
+limits still apply. Nested
 transactions, daemon administration and upload staging are not atomic plan
 operations. Large resource uploads must be prepared separately; link their exact
 published versions in the plan. No helper silently splits a plan into transactions.

@@ -26,7 +26,10 @@ val request : Jsonaf.t Api_codec.t
     snapshots and mutation receipts retain [request] without this current summary. *)
 val request_list : Jsonaf.t Api_codec.t
 
-(** Current request.get projection; requires the captured current thread revision.
+(** Current request.get projection; includes the original question body/version
+    under [question], validated against [comment_id]/[comment_revision], and the
+    pinned answer body/version under [answer]. Both bodies obey the query byte
+    budget and disclose clipping in response metadata. Requires the captured current thread revision.
     Historical snapshots and mutation results remain independent of live threads. *)
 val request_current : Jsonaf.t Api_codec.t
 

@@ -436,6 +436,7 @@ let%expect_test "answers and causal deliveries retain exact versions after edits
     "direct: %s; question revision=%d\n"
     (get (get current "answer") "body" |> Json.text)
     (get current "comment_revision" |> Json.integer);
+  printf "original question: %s\n" (get (get current "question") "body" |> Json.text);
   let inbox =
     query
       changed
@@ -472,6 +473,7 @@ let%expect_test "answers and causal deliveries retain exact versions after edits
     {|
     receipt: request=2 thread=4 answer=1
     direct: Pinned answer; question revision=1
+    original question: Which approach?
     request_created: Which approach? (resolved)
     request_resolved: Pinned answer (resolved)
     metadata without borrowed body: 2
@@ -752,9 +754,12 @@ let%expect_test "request scheduling links resolve typed aliases and reject cycli
 ;;
 
 let%expect_test
-    "bounded answer expansion keeps exact refs and rejects inconsistent public bodies"
+    "bounded question and answer expansion keeps exact refs and rejects inconsistent \
+     public bodies"
   =
-  let asked = prepare (empty ()) (ask ()) |> unwrap |> State.candidate in
+  let asked =
+    prepare (empty ()) (ask ~body:(String.make 60000 'q') ()) |> unwrap |> State.candidate
+  in
   let resolved =
     prepare
       asked
@@ -775,6 +780,11 @@ let%expect_test
   in
   let record = get bounded "record" in
   let answer = get record "answer" in
+  let question = get record "question" in
+  printf
+    "question_revision=%d clipped=%b\n"
+    (get question "revision" |> Json.integer)
+    (String.length (get question "body" |> Json.text) < 60000);
   printf
     "bounded=%b answer_revision=%d clipped=%b\n"
     (match get (get bounded "budget") "truncated" with
@@ -799,9 +809,20 @@ let%expect_test
     | _ -> assert false
   in
   report (Api_codec.decode Communication_wire.request_current broken);
+  let broken_question =
+    match record with
+    | `Object fields ->
+      Json.obj
+        (List.map fields ~f:(fun (key, value) ->
+           key, if String.equal key "question" then answer else value))
+    | _ -> assert false
+  in
+  report (Api_codec.decode Communication_wire.request_current broken_question);
   [%expect
     {|
+    question_revision=1 clipped=true
     bounded=true answer_revision=1 clipped=true
+    Invalid_argument
     Invalid_argument
     |}]
 ;;
@@ -1062,4 +1083,47 @@ let%expect_test "question board and thread destination aliases compose in one tr
        (State.to_json final)
        (State.replay initial (State.events prepared) |> unwrap |> State.to_json));
   [%expect {| revision=1 boards=1 threads=2 requests=2 replay=true |}]
+;;
+
+let%expect_test "requested nested message expansion cannot silently disappear" =
+  let prepared = prepare (empty ()) (ask ()) |> unwrap in
+  let state = State.candidate prepared in
+  let thread = get (State.result prepared) "thread_id" in
+  List.iter
+    [ "thread.get", "thread_id", thread
+    ; "request.get", "request_id", Communication_id.Request.jsonaf_of_t request
+    ]
+    ~f:(fun (method_, key, id) ->
+      let params = Json.obj [ key, id; "include_messages", `True ] in
+      let value =
+        query state method_ params |> Api_response.project (Domain_query Communication)
+      in
+      let data =
+        match Api_response.data value with
+        | `Object fields ->
+          Json.obj
+            (List.filter fields ~f:(fun (key, _) -> not (String.equal key "related")))
+        | _ -> assert false
+      in
+      let request =
+        Protocol.Request.create
+          ~id:"nested"
+          ~method_
+          ~params:
+            (Json.obj
+               [ key, id
+               ; "include_messages", `True
+               ; "workspace_id", Json.string "workspace"
+               ])
+        |> unwrap
+      in
+      report
+        (Nested_pagination.of_response
+           request
+           ~response:(Json.obj [ "data", data; "meta", Api_response.meta value ])));
+  [%expect
+    {|
+    Invalid_argument
+    Invalid_argument
+    |}]
 ;;

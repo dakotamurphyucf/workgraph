@@ -212,7 +212,7 @@ class StartupTest(unittest.TestCase):
         env = {**os.environ, "WORKGRAPH_STARTUP_FIXTURE_FAIL": "1"}
         response = self.init(address, registry, executable=FIXTURE, env=env)
         self.assertNotEqual(0, response.returncode)
-        problem = json.loads(response.stderr.splitlines()[-1])
+        problem = json.loads(response.stdout)["error"]["data"]
         self.assertEqual("Corrupt_store", problem["kind"], response.stderr)
         self.assertIn("fixture recovery failed", problem["message"])
         self.assertIn("17", problem["message"])
@@ -248,8 +248,8 @@ class StartupTest(unittest.TestCase):
         response = self.init(self.root / "s", self.root / "registry", executable=FIXTURE, env=env)
         self.assertNotEqual(0, response.returncode)
         self.assertLess(time.monotonic() - before, 2)
-        self.assertIn("18", response.stderr)
-        self.assertNotIn("startup deadline exceeded", response.stderr)
+        self.assertIn("18", response.stdout)
+        self.assertNotIn("startup deadline exceeded", response.stdout)
 
     def test_bootstrap_recovers_recognized_crash(self):
         address, registry = self.root / "s", self.root / "registry"
@@ -269,7 +269,7 @@ class StartupTest(unittest.TestCase):
         self.ready(address, process)
         response = self.init(self.root / "second", registry)
         self.assertNotEqual(0, response.returncode)
-        problem = json.loads(response.stderr.splitlines()[-1])
+        problem = json.loads(response.stdout)["error"]["data"]
         self.assertEqual("Conflict", problem["kind"], response.stderr)
         self.assertIn("registry already served", problem["message"])
         self.assertIn("daemon startup failed", problem["message"])
@@ -313,8 +313,8 @@ class StartupTest(unittest.TestCase):
                              observer=observe_tree)
         self.assertNotEqual(0, response.returncode)
         self.assertLess(time.monotonic() - before, 2)
-        self.assertIn("startup deadline exceeded", response.stderr)
-        self.assertIn("daemon may still start", response.stderr)
+        self.assertIn("startup deadline exceeded", response.stdout)
+        self.assertIn("daemon may still start", response.stdout)
         self.assertFalse((self.root / "context.json").exists())
         with self.assertRaises(ProcessLookupError):
             os.kill(observed["supervisor"], 0)
@@ -329,7 +329,7 @@ class StartupTest(unittest.TestCase):
         (registry / "registry.json").write_text('{"format_version":"wrong"}')
         response = self.init(address, registry)
         self.assertNotEqual(0, response.returncode)
-        problem = json.loads(response.stderr.splitlines()[-1])
+        problem = json.loads(response.stdout)["error"]["data"]
         self.assertEqual("Unsupported_version", problem["kind"], response.stderr)
         self.assertIn("daemon startup failed", problem["message"])
         self.assertIn("bootstrap.log", problem["message"])
@@ -360,8 +360,8 @@ class StartupTest(unittest.TestCase):
             self.assertFalse(worker.is_alive())
             self.assertEqual([], errors)
             self.assertNotEqual(0, response.returncode)
-            self.assertIn("last handshake", response.stderr)
-            self.assertIn(expected, response.stderr)
+            self.assertIn("last handshake", response.stdout)
+            self.assertIn(expected, response.stdout)
             self.assertEqual(before, address.stat().st_ino)
             self.assertFalse(registry.exists())
             self.assertFalse((self.root / "context.json").exists())

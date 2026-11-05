@@ -103,8 +103,27 @@ class Templates(unittest.TestCase):
                     write('ticket.update', ticket_id=ticket('z-parent'), expected_revision=current['revision'], title='Later edit')
                     write('allocation.ticket_policy_put', ticket_id=ticket('z-parent'), expected_revision='1', required_capabilities=[], pools=[], allowed_actor_ids=None)
                     self.assertEqual('Later edit',read('ticket.read',ticket_id=ticket('z-parent'))['data']['ticket']['title'])
+                    #127 plain nodes plus instance registration exactly fill the128-operation cap.
+                    large_nodes = [dict(parent, alias='bulk-' + str(i), title='Bulk ' + str(i),
+                                        depends_on=[], parent=None, capabilities=[], allowed_actor_ids=None,
+                                        reviewers=[], separate_actor=False) for i in range(127)]
+                    publish(dict(parameters=[], nodes=large_nodes), 3, root/'publish-large.json')
+                    bulk_args = dict(template_id='plan', template_revision='3', instance_id='bulk', parameters={})
+                    revision = read('workspace.get')['meta']['workspace_revision']
+                    # An extra operation beside a full expansion must reject atomically.
+                    counter += 1
+                    rejected = cli('call', address, 'transaction.apply', json.dumps(dict(
+                        workspace_id='w', actor_id='lead', mutation_id='m'+str(counter), operations=[
+                            dict(method='template.instantiate', params=bulk_args),
+                            dict(method='ticket.create', params=dict(ticket_id='too-many', title='Too many'))])), expected=1)
+                    self.assertEqual('Invalid_argument', rejected['error']['data']['kind'])
+                    self.assertEqual(revision, read('workspace.get')['meta']['workspace_revision'])
+                    bulk = write('template.instantiate', **bulk_args)['data']
+                    self.assertEqual(127, len(bulk['instance']['tickets']))
+                    self.assertEqual(128, len(bulk['results']))
                     stop()
                     start()
+                    self.assertEqual(bulk['instance'], read('template.instance_get', instance_id='bulk')['data'])
                     self.assertEqual(instance,read('template.instance_get',instance_id='tree')['data'])
                     self.assertEqual('Later edit',read('ticket.read',ticket_id=ticket('z-parent'))['data']['ticket']['title'])
                     self.assertIn(b'CONTENT version',subprocess.check_output([EXE,'help','template.register']))

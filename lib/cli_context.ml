@@ -62,7 +62,11 @@ let apply t ~method_ ~fields =
       in
       (match Api_method.mode descriptor with
        | Read ->
-         if String.equal method_ "transaction.preflight"
+         if
+           List.mem
+             [ "transaction.preflight"; "upload.status" ]
+             method_
+             ~equal:String.equal
          then fields
          else List.filter fields ~f:(String.equal "workspace_id")
        | Write | Mutation -> fields)
@@ -112,8 +116,12 @@ let apply_self context ~method_ ~fields =
       | "request.list"
       | "request.acknowledge"
       | "request.accept" -> "recipient"
-      | "run.get" | "run.transition" | "run.observe" | "run.link_session" ->
-        "target_run_id"
+      | "run.get"
+      | "run.transition"
+      | "run.observe"
+      | "run.link_session"
+      | "reservation.acquire"
+      | "reservation.paths.acquire" -> "target_run_id"
       | _ ->
         Json.fail
           Invalid_argument

@@ -28,13 +28,13 @@ with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
         assert local_help == call(directory, "--context", str(Path(directory) / "missing-context"), helper, "--help").stdout
         assert local_help == call(directory, "--context", str(Path(directory) / "missing-context"), "help", helper).stdout
     incomplete = call(directory, "request", expected=1)
-    assert "request ABS_SOCKET METHOD" in incomplete.stderr
+    assert "request ABS_SOCKET METHOD" in incomplete.stdout
     incomplete_socket = call(directory, "request", str(Path(directory) / "missing-socket"), expected=1)
-    assert "request ABS_SOCKET METHOD" in incomplete_socket.stderr
+    assert "request ABS_SOCKET METHOD" in incomplete_socket.stdout
     ambiguous = call(directory, "request", "relative-socket", "request.list", expected=1)
-    assert "unknown method" in ambiguous.stderr
+    assert "unknown method" in ambiguous.stdout
     no_transport = call(directory, "request", "get", expected=1)
-    assert "--context ABS_FILE" in no_transport.stderr
+    assert "--context ABS_FILE" in no_transport.stdout
     for spelling in [["ticket", "start"], ["ticket.start"], ["request", "ticket.start"], ["request", "ticket", "start"]]:
         missing = str(Path(directory) / "missing-context")
         assert "ticket.start [mutation]" in call(directory, "--context", missing, *spelling, "--help").stdout
@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
     assert "fact.put" in call(directory, "help", "fact.set", expected=1).stderr
     assert "ticket.start" in call(directory, "ticket.strat", "--help", expected=1).stderr
     assert "Parameters (JSON Schema):" in call(directory, "ticket", "start", "--help", "--full").stdout
-    assert "local CLI helper" in call(directory, "schema", "evidence-run", expected=1).stderr
+    assert "local CLI helper" in call(directory, "schema", "evidence-run", expected=1).stdout
     oversized = call(directory, "help", "🙂" * 100, expected=1)
     assert json.loads(oversized.stderr)["kind"] == "Not_found"
     assert len(oversized.stderr.encode()) < 512
@@ -109,7 +109,7 @@ with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
     assert call(directory, "help", "ticket.get").stdout == call(directory, "help", "ticket.context").stdout
     assert json.loads(call(directory, "schema", "ticket.get").stdout)["methods"][0]["name"] == "ticket.context"
     unknown = call(directory, "schema", "does.not.exist", expected=1)
-    assert "Not_found" in unknown.stderr
+    assert "Not_found" in unknown.stdout
     call(directory, "schema", "ticket.start", "unexpected", expected=1)
     call(directory, "methods", "--output", "xml", expected=1)
     assert not list(Path(directory).iterdir()), "offline discovery wrote files"

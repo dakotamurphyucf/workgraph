@@ -92,8 +92,12 @@ module Response = struct
             (F.required "validation" (literal "domain_preparation")
              ++ F.required "workspace_revision" (decimal ~max:Int.max_value)
              ++ F.required "proposed_revision" (decimal ~max:Int.max_value)
-             ++ F.required "operation_count" (decimal ~max:32)
-             ++ F.required "generated_ids" (list Generated_id.codec ~max_items:32)
+             ++ F.required
+                  "operation_count"
+                  (decimal ~max:Transaction_limit.max_operations)
+             ++ F.required
+                  "generated_ids"
+                  (list Generated_id.codec ~max_items:Transaction_limit.max_operations)
              ++ F.required "staged_blob_count" (decimal ~max:Int.max_value)
              ++ F.required "staged_blob_bytes" (decimal64 ~max:Int64.max_value))
             ~decode:

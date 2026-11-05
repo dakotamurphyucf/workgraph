@@ -25,11 +25,13 @@ model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE.t
 The harness owns agents, prompts, model calls, filesystem edits and external side
 effects; Workgraph records and coordinates their work.
 
-**Version 0.6.0 preview** uses application API **0.6**, affected stored roots
-**5** and saved upload plan **2**. Use fresh registry/workspace roots, socket,
+**Version 0.6.1 preview** uses application API **0.6**, affected stored roots
+**5** and saved upload plan **2**, unchanged from 0.6.0. Upgrading from 0.6.0
+retains existing data and journals; restart the daemon and use the matching client
+and complete skill. Use fresh registry/workspace roots, socket,
 contexts and request journals when moving from 0.5 or earlier. Preserve the old
 binary with its old data; exports and saved requests are not a migration path.
-See the [release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.0.md). Qualification records
+See the [release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.1.md). Qualification records
 bind exact source and package artifacts to their observed platform checks.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
@@ -39,7 +41,7 @@ and links to focused instructions, API schemas and runnable helpers. The bundled
 [orchestrator overview](README.md) retains this complete team
 guide, including worker prompts and independent review workflows.
 See [skill installation](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/agent-skill.md) for copying the full folder into a
-harness. Version 0.6.0 packaging includes the full skill folder; the standalone
+harness. Version 0.6.1 packaging includes the full skill folder; the standalone
 skill archive is described in the release notes. [Guide coverage](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
@@ -78,7 +80,7 @@ belong to this checkout's matching executable and current schema.
 
 | Need | Methods and focused guidance | State and lifecycle caveats |
 | --- | --- | --- |
-| Plan a bounded change | `transaction.preflight`, `transaction.apply`; [planning](references/planning.md) | Preflight commits and reserves nothing. Apply atomically commits supported operations; external tools remain harness work. |
+| Plan a bounded change | `transaction.preflight`, `transaction.apply`; [planning](references/planning.md) | Up to 128 expanded operations per atomic transaction, within the byte limit. Preflight commits and reserves nothing; external tools remain harness work. |
 | Organize inherited prerequisites | `ticket.hierarchy.get`, `ticket.hierarchy.put`; [planning](references/planning.md) | Containment alone adds no scheduling gate. Explicit policy can inherit ancestor prerequisites; ownership and child-completion gates never inherit. |
 | Route eligible work | `ticket.ready`, `ticket.readiness`, `allocation.ticket_policy_put`; [coordination](references/coordination.md) | Capabilities, pools and optional `allowed_actor_ids` cooperatively restrict registered-run eligibility; actor names are not authentication. |
 | Change instructions accountably | `ticket.amendment.publish`, `ticket.amendment.get`, `ticket.amendment.list`, `ticket.amendment.acknowledge`, `ticket.amendment.withdraw`; [evidence and review](references/communication-evidence.md) | Immutable attributed versions retain exact text/resource pins. Required current-version acknowledgement binds actor/run/claim; a replacement claim must acknowledge again before finishing. |
@@ -189,7 +191,7 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following commands install **v0.6.0 preview** with its matching bundled docs.
+The following commands install **v0.6.1 preview** with its matching bundled docs.
 Check the release qualification evidence for the exact artifacts and platform scope.
 For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
 before replacing its executable or RPM.
@@ -201,10 +203,10 @@ under your own machine policy.
 # AlmaLinux 10 x86_64, including AlmaLinux under WSL
 set -euo pipefail
 sudo dnf install -y jq python3 curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.6.0"
-cd "$HOME/Downloads/workgraph-0.6.0"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.0
-FILE=workgraph-0.6.0-1.el10.x86_64.rpm
+mkdir -p "$HOME/Downloads/workgraph-0.6.1"
+cd "$HOME/Downloads/workgraph-0.6.1"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.1
+FILE=workgraph-0.6.1-1.el10.x86_64.rpm
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
@@ -219,18 +221,18 @@ shell examples and helper; install it through your usual package manager.
 
 ```bash
 set -euo pipefail
-mkdir -p "$HOME/Downloads/workgraph-0.6.0"
-cd "$HOME/Downloads/workgraph-0.6.0"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.0
-FILE=workgraph-0.6.0-macos-arm64.tar.gz
+mkdir -p "$HOME/Downloads/workgraph-0.6.1"
+cd "$HOME/Downloads/workgraph-0.6.1"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.1
+FILE=workgraph-0.6.1-macos-arm64.tar.gz
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
 shasum -a 256 --check selected.sha256
-mkdir -p "$HOME/.local/opt/workgraph-0.6.0"
-tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.6.0"
+mkdir -p "$HOME/.local/opt/workgraph-0.6.1"
+tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.6.1"
 # Keep the versioned archive and docs together; select its executable explicitly.
-export PATH="$HOME/.local/opt/workgraph-0.6.0/workgraph-0.6.0-macos-arm64/bin:$PATH"
+export PATH="$HOME/.local/opt/workgraph-0.6.1/workgraph-0.6.1-macos-arm64/bin:$PATH"
 hash -r
 workgraph --version
 ```
@@ -251,6 +253,14 @@ unrelated opam switches or global defaults. See [engineering standards](https://
 
 ### Upgrade from an older preview
 
+From 0.6.0, preserve existing roots, contexts and exact journals; no reset or
+migration is required. Drain work, stop the daemon gracefully, install the verified
+0.6.1 client and daemon together, and replace the complete skill folder. Restart
+the daemon against its existing roots and check `--version` and `initialize`.
+See the [0.6.1 upgrade steps](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.1.md#upgrade-from-060), including
+the JSON error-output change for shell consumers.
+
+From 0.5 or earlier, use the following preservation and fresh-root procedure.
 Keep the matching older executable and downloaded archives before replacing the
 command on PATH or upgrading an RPM. With that executable, finish or retain exact
 uncertain requests, export and verify needed workspaces, stop its launchers and
@@ -295,6 +305,10 @@ wg() { "$WG" --context "$WG_CONTEXT" "$@"; }
 
 Smoke test with fresh IDs. Check the CLI exit before parsing its JSON. A
 `saved_request: …` line is a diagnostic on **stderr**, not corrupt JSON on stdout.
+In JSON mode, both local failures and daemon failures return an error envelope on
+stdout; inspect `.error.data.kind` after a nonzero exit. Text and raw-byte output
+modes keep errors on stderr to protect the streamed content. `Outcome_unknown`
+means a write might have committed: recover using its exact saved request.
 Do not suppress errors or combine both streams before `jq`.
 
 ```bash
@@ -1226,7 +1240,7 @@ rollover, not silent pruning or an automatic migration.
 - [macOS](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/macos-install.md), [AlmaLinux/WSL](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/wsl-quickstart.md), [gated review](references/gated-review-workflow.md)
 - [Coordination runner](scripts/coordination-runner.py), [coordination shell](scripts/coordination-workflow.sh), [notifications](scripts/notification-watcher.py), [history adapter](scripts/history-adapter.py), [Codex hooks](scripts/codex-hooks)
 - [Generated API reference](references/api/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
-- [v0.6.0 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.0.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
+- [v0.6.1 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.1.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
 
 ## Complete maintained scripts
 

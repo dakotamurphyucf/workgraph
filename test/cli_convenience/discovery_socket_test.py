@@ -97,7 +97,7 @@ with tempfile.TemporaryDirectory(prefix="wg-cli-") as temporary:
     legacy_alias = root / "noncanonical.json"
     legacy_alias.write_text(json.dumps(frozen))
     rejected = invoke("--socket", socket_path, "retry", legacy_alias, expected=1)
-    assert "saved retries never change methods" in rejected.stderr
+    assert "saved retries never change methods" in rejected.stdout
 
     # A listening socket and valid write context must remain untouched by help.
     offline_peer = socket.socket(socket.AF_UNIX)

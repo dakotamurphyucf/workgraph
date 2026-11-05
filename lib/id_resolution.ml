@@ -37,8 +37,15 @@ let resolve ~method_ ~params ~fresh =
     if String.equal method_ "transaction.apply"
     then (
       let operations = Json.list (Json.field params "operations") in
-      if List.is_empty operations || List.length operations > 32
-      then Json.fail Invalid_argument "transaction requires1..32 operations";
+      if
+        List.is_empty operations
+        || List.length operations > Transaction_limit.max_operations
+      then
+        Json.fail
+          Invalid_argument
+          (sprintf
+             "transaction requires 1..%d operations"
+             Transaction_limit.max_operations);
       let operations =
         List.map operations ~f:(fun operation ->
           let method_ = Json.text (Json.field operation "method") in

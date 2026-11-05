@@ -460,3 +460,56 @@ let%expect_test "metadata construction rejects original malformed request envelo
     rejected
     |}]
 ;;
+
+let%expect_test "nested metadata stays bounded and rejects ambiguous section paths" =
+  let request = request () |> Protocol.Request.to_json in
+  let section : Pagination_metadata.Section.t =
+    { path = "/data/children"
+    ; response_path = None
+    ; complete = false
+    ; stop = Page_limit
+    ; next_request = Some request
+    ; retry_request = None
+    }
+  in
+  let create sections =
+    Pagination_metadata.create_sections
+      ~consistency:"current_revision_guard"
+      ~capture:(Json.obj [ "workspace_revision", Json.int 7 ])
+      ~sections
+  in
+  let show result =
+    match result with
+    | Error (problem : Problem.t) -> print_s [%sexp (problem.kind : Problem.kind)]
+    | Ok metadata ->
+      let json = Pagination_metadata.to_json metadata in
+      printf
+        "stop=%s sections=%b bounded=%b\n"
+        (Pagination_metadata.Stop.to_string (Pagination_metadata.stop metadata))
+        (Option.is_some (Json.optional json "sections"))
+        (String.length (Json.canonical json) <= 65536)
+  in
+  show (create [ section ]);
+  show (create [ section; section ]);
+  show (create [ { section with complete = true } ]);
+  let large =
+    Protocol.Request.create
+      ~id:"large"
+      ~method_:"ticket.context"
+      ~params:
+        (Json.obj
+           [ "workspace_id", Json.string "w"
+           ; "text", Json.string (String.make 70000 'x')
+           ])
+    |> unwrap
+    |> Protocol.Request.to_json
+  in
+  show (create [ { section with next_request = Some large } ]);
+  [%expect
+    {|
+    stop=page_limit sections=true bounded=true
+    Invalid_argument
+    Invalid_argument
+    stop=metadata_limit sections=false bounded=true
+    |}]
+;;

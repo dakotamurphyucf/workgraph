@@ -162,7 +162,7 @@ class Publication(unittest.TestCase):
         response = self.invoke(['--context', str(self.context), 'resource.publish_text', '--ticket-id', 'task',
                                 '--expected-revision', '0', '--title', 'Too big', '--text', 'é' * 32769,
                                 '--save-request', str(saved)], expected=1)
-        self.assertEqual(response['kind'], 'Invalid_argument')
+        self.assertEqual(response['error']['data']['kind'], 'Invalid_argument')
         self.assertFalse(saved.exists())
         boundary = self.publish(resource_id='boundary', expected_revision='0', ticket_id='task',
                                 title='UTF8 boundary', mutation_id='boundary', stdin='é' * 32768)

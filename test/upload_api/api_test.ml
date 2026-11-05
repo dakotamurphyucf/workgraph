@@ -67,9 +67,9 @@ let%expect_test
     opaque bytes preserved=true
     upload.begin Write
     upload.chunk Write
-    upload.status Write
+    upload.status Read
     upload.abort Write
-    upload.list Write
+    upload.list Read
     |}]
 ;;
 

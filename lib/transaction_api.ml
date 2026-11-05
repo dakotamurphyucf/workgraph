@@ -101,7 +101,7 @@ end
 let response =
   let items =
     Api_codec.map
-      (Api_codec.list Result_item.codec ~max_items:32)
+      (Api_codec.list Result_item.codec ~max_items:Transaction_limit.max_operations)
       ~decode:(fun items ->
         if List.is_empty items
         then Error (Problem.create Invalid_argument "transaction requires results")
@@ -116,7 +116,10 @@ let method_ =
   Api_method.create
     ~name:"transaction.apply"
     ~summary:
-      "Commit 1..32 ordered planning operations atomically, with typed creation aliases."
+      (sprintf
+         "Commit 1..%d ordered planning operations atomically, with typed creation \
+          aliases."
+         Transaction_limit.max_operations)
     ~mode:Mutation
     ~request
     ~response

@@ -64,7 +64,7 @@ class InboxConvenienceTests(unittest.TestCase):
 
     def error(self, result, substring):
         self.assertEqual(result.returncode, 1, result.stdout)
-        value = json.loads(result.stderr.splitlines()[-1])
+        value = json.loads(result.stdout)["error"]["data"]
         self.assertEqual(value["kind"], "Invalid_argument", value)
         self.assertIn(substring, value["message"])
 

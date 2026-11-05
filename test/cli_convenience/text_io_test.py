@@ -84,7 +84,7 @@ with tempfile.TemporaryDirectory(prefix="wg-text-") as temporary:
             os.write(write_fd, untouched)
             process = subprocess.Popen([binary, "--context", str(context), "retry", str(saved), *unsupported], stdin=read_fd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             assert process.wait(timeout=2) == 1
-            assert b"retry cannot change" in process.stderr.read()
+            assert b"retry cannot change" in process.stdout.read()
             assert select.select([read_fd], [], [], 0)[0], "retry consumed stdin bytes"
             assert os.read(read_fd, len(untouched)) == untouched
             assert saved.read_bytes() == frozen and sorted(journal.iterdir()) == retry_journals
@@ -96,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix="wg-text-") as temporary:
             os.close(write_fd)
     for unsupported in [["--params-file", str(root / "missing-input")], ["--field-file", "text", str(root / "missing-input")]]:
         result = invoke("retry", root / "missing-saved", *unsupported, code=1)
-        assert b"retry cannot change" in result.stderr
+        assert b"retry cannot change" in result.stdout
         assert saved.read_bytes() == frozen and sorted(journal.iterdir()) == retry_journals
     exchange(["retry", saved, "--timeout", "1", "--output", "json"], [None], b"different ignored stdin", 1)
     assert requests[-1] == first and saved.read_bytes() == frozen
@@ -118,7 +118,7 @@ with tempfile.TemporaryDirectory(prefix="wg-text-") as temporary:
     ]
     for args, data, message in bad_inputs:
         result = invoke(*args, data=data, code=1)
-        assert message.lower() in result.stderr.decode().lower(), result.stderr
+        assert message.lower() in result.stdout.decode().lower(), result.stdout
         assert sorted(journal.iterdir()) == before
     # Reject duplicate consumers without waiting for an open stdin pipe.
     process = subprocess.Popen([binary, "--context", str(context), "resource.put_text", "--params-file", "-", "--field-file", "text", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -126,7 +126,7 @@ with tempfile.TemporaryDirectory(prefix="wg-text-") as temporary:
     process.stdin.close()
     fifo = root / "pipe"
     os.mkfifo(fifo)
-    assert b"regular file" in invoke("resource.put_text", "--params-file", fifo, code=1).stderr
+    assert b"regular file" in invoke("resource.put_text", "--params-file", fifo, code=1).stdout
     assert sorted(journal.iterdir()) == before
 
     content = (b"\x00\xffline\r\n" + "🙂".encode()) * 25000

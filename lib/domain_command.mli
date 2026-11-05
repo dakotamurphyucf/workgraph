@@ -244,7 +244,7 @@ type t = Planning_command.t =
 
 (** Decode method parameters, rejecting unknown fields and invalid identifiers.
     Creation identifiers are client-supplied stable opaque keys.
-    [transaction.apply] accepts 1..32 ordered operations. An optional [as] names
+    [transaction.apply] accepts 1..128 ordered operations. An optional [as] names
     a creation ID; ID-valued parameters may reference it as [$alias]. Aliases
     are resolved before domain decoding, including tagged evidence pins and
     revised-manifest reconciliation dispositions; nested batches are rejected. *)

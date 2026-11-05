@@ -63,7 +63,7 @@ The ticket's revision does not guard the policy. A failed gate write leaves the
 old policy in force, possibly with no restriction; stop before dispatching work.
 When creating a gated ticket, put ticket creation and allocation policy in one
 supported transaction, as in the README atomic plan, and check the apply receipt.
-Expanded template/policy operations count toward the 32-operation transaction cap.
+Expanded template/policy operations count toward the 128-operation transaction cap.
 Preflight previews admission without reserving it; it is not a grant.
 
 State participant roles explicitly: lead-only synthesis and dispatch are not
@@ -102,7 +102,9 @@ substitutes parameters once in titles/descriptions and validates the bounded
 dependency graph, rejecting cycles.
 Generated ticket IDs are deterministic for instance ID and node alias. Each
 expanded create, dependency and enabled allocation/review policy counts toward
-the atomic transaction limit; the registered instance records its full plan.
+the 128-operation transaction limit, as does the final instance registration.
+A template without dependencies or policies can contain up to 127 nodes. The
+registered instance records its full plan.
 
 | Method | Exact codec contract |
 | --- | --- |
@@ -346,7 +348,7 @@ for local acceptance gates. Actor-only restrictions create a policy even with no
 capabilities; full role requirements remain distinct from inherited project policy.
 
 The graph, dependencies, placement and gates publish together within the existing
-32-operation bound. Cycles, contradictory placement, missing references and
+128-operation bound. Cycles, contradictory placement, missing references and
 same-transaction policy stripping reject without creating runnable tickets. The
 initial registration is checked during durable replay; later ordinary ticket and
 policy edits remain allowed. Reusing an identical instance returns its recorded
@@ -559,10 +561,28 @@ For a database test pass:
      --json-field target_run_id '"waiter-run"' \
      --json-field requests '[{"reservation_id":"test-db","mode":"exclusive"}]' \
      --request-directory /absolute/private/wait-requests \
-     --wait-ms 150000 --max-attempts 100 --wait-slice-ms 25000
+     --wait-ms 150000 --max-attempts 100 --wait-slice-ms 25000 \
+     > /absolute/private/wait-result.json || exit 1
    ```
 
-   Inspect `data.wait.completed` and the actual `data.daemon_response` grant. Only
+   A private context with `run_id` and `request_directory` can supply those defaults:
+
+   ```sh
+   workgraph --context "$CONTEXT" reservation wait --self \
+     --json-field requests '[{"reservation_id":"test-db","mode":"exclusive"}]' \
+     --wait-ms 150000 --max-attempts 100 --wait-slice-ms 25000 \
+     > /absolute/private/wait-result.json || exit 1
+   jq -e '.result.data.wait.completed == true' /absolute/private/wait-result.json >/dev/null || exit 1
+   ```
+
+   `--self` also works for direct `reservation acquire` and path acquisition/wait.
+   It selects a missing ownership `target_run_id` from context; an explicit target
+   wins, and invocation `run_id` attribution remains a separate field. Context
+   `request_directory` is reused without repeating `--request-directory`.
+   When present, acquisition attribution must match the selected ownership run;
+   changing the target does not rewrite inherited attribution.
+
+   Inspect `result.data.wait.completed` and the actual `result.data.daemon_response` grant. Only
    a completed validated acquisition permits database work. The helper preserves
    exact saved requests on uncertainty; retry those bytes instead of changing
    identity or refreshing ownership guards. An advisory note is never evidence

@@ -191,6 +191,11 @@ Begin with exact size/digest, send canonical padded Base64 chunks at received, i
 status to resume, then finish with resource metadata and its observed expected_revision.
 A contained previously received range with identical bytes is a safe chunk retry; gaps,
 partial overlaps and changed bytes conflict. There is no implicit network retry or upload.finish daemon method.
+`upload.status` and `upload.list` are read-only methods in the schema. A context
+supplies the required owner actor for `upload.status`; `upload.list` needs only
+the workspace and shows all staging owners. Neither read changes staging progress
+or publishes a durable mutation.
+
 upload.list gives a complete upload-ID-ordered snapshot of the at most eight live
 entries, including actor_id, received/declared bytes, digest, creation/update epoch
 milliseconds and receiving/ready/installed lifecycle. Its observed_unix_ms permits

@@ -1309,10 +1309,10 @@ class Integration(unittest.TestCase):
         self.assertEqual(retry, json.loads(saved.read_text()))
         invalid = self.cli("retry", self.daemon.address, saved, "--title", "Changed")
         self.assertNotEqual(0, invalid.returncode)
-        self.assertEqual("Invalid_argument", json.loads(invalid.stderr.splitlines()[-1])["kind"])
+        self.assertEqual("Invalid_argument", json.loads(invalid.stdout)["error"]["data"]["kind"])
         missing_id = self.cli("ticket", "create", self.daemon.address, "--workspace-id", "demo", "--actor-id", "agent", "--ticket-id", "other", "--title", "Other")
         self.assertNotEqual(0, missing_id.returncode)
-        self.assertEqual("Invalid_argument", json.loads(missing_id.stderr.splitlines()[-1])["kind"])
+        self.assertEqual("Invalid_argument", json.loads(missing_id.stdout)["error"]["data"]["kind"])
 
     def test_complete_shell_workflow_replays_after_restart(self):
         source = self.root / "research.txt"
@@ -1424,12 +1424,12 @@ class Integration(unittest.TestCase):
         self.assertEqual("1", json.loads(downloaded.stdout)["result"]["data"]["version"])
         again = self.cli("resource", "download", self.daemon.address, "--workspace-id", "demo", "--resource-id", "binary", "--destination", destination)
         self.assertNotEqual(0, again.returncode)
-        self.assertEqual("Invalid_argument", json.loads(again.stderr.splitlines()[-1])["kind"])
+        self.assertEqual("Invalid_argument", json.loads(again.stdout)["error"]["data"]["kind"])
         self.assertEqual(content, destination.read_bytes())
         self.assertEqual([], list(self.root.glob("*.downloading-*")))
         # Reusing a committed mutation with different bytes cannot report success.
         conflict = self.cli("resource", "upload", self.daemon.address, "--workspace-id", "demo", "--actor-id", "agent", "--resource-id", "binary", "--expected-revision", "0", "--title", "Binary data", "--file", source, "--mutation-id", plan["params"]["mutation_id"])
-        self.assertEqual("Idempotency_conflict", json.loads(conflict.stderr.splitlines()[-1])["kind"])
+        self.assertEqual("Idempotency_conflict", json.loads(conflict.stdout)["error"]["data"]["kind"])
 
     def test_cli_upload_retry_before_connect_and_changed_source(self):
         source = self.root / "source"
@@ -1441,7 +1441,7 @@ class Integration(unittest.TestCase):
         self.assertTrue(saved.is_file())
         source.write_bytes(b"changed")
         rejected = self.cli("retry", self.daemon.address, saved)
-        self.assertEqual("Conflict", json.loads(rejected.stderr.splitlines()[-1])["kind"])
+        self.assertEqual("Conflict", json.loads(rejected.stdout)["error"]["data"]["kind"])
         self.assertEqual([], self.ok("resource.list", {"workspace_id": "demo"})["data"]["items"])
         source.write_bytes(b"original")
         accepted = self.cli("retry", self.daemon.address, saved)
@@ -1488,7 +1488,7 @@ class Integration(unittest.TestCase):
                 thread.join(timeout=4)
                 self.assertFalse(thread.is_alive())
                 self.assertEqual([], failures)
-                self.assertEqual("Outcome_unknown", json.loads(failed.stderr.splitlines()[-1])["kind"])
+                self.assertEqual("Outcome_unknown", json.loads(failed.stdout)["error"]["data"]["kind"])
                 self.assertEqual("upload.chunk", captured[-1]["method"])
             if restart:
                 self.daemon.stop(kill=True)
@@ -1525,10 +1525,10 @@ class Integration(unittest.TestCase):
                 self.assertFalse(thread.is_alive())
                 self.assertNotEqual(0, result.returncode)
                 if mode == "raced-destination":
-                    self.assertEqual("Invalid_argument", json.loads(result.stderr.splitlines()[-1])["kind"])
+                    self.assertEqual("Invalid_argument", json.loads(result.stdout)["error"]["data"]["kind"])
                     self.assertEqual(b"keep existing", destination.read_bytes())
                 else:
-                    self.assertEqual("Corrupt_store", json.loads(result.stderr.splitlines()[-1])["kind"])
+                    self.assertEqual("Corrupt_store", json.loads(result.stdout)["error"]["data"]["kind"])
                     self.assertFalse(destination.exists())
                 self.assertEqual([], list(self.root.glob("*.downloading-*")))
 
@@ -1566,8 +1566,8 @@ class Integration(unittest.TestCase):
                 self.assertEqual(1, len(captured))
                 self.assertEqual(captured[0], json.loads(saved.read_text()))
                 self.assertNotEqual(0, result.returncode)
-                self.assertEqual("Outcome_unknown", json.loads(result.stderr.splitlines()[-1])["kind"])
-                self.assertEqual("", result.stdout)
+                self.assertEqual("Outcome_unknown", json.loads(result.stdout)["error"]["data"]["kind"])
+                self.assertIn("saved_request:", result.stderr)
 
     def test_api_shutdown_drains_and_restarts(self):
         self.ticket()

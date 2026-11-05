@@ -11,6 +11,11 @@
     Method spellings resolve against that catalog, including dotted and nested
     forms. Help resolves before context loading, journaling or socket access;
     option values and literal child argv following [--] are never help flags.
+    JSON commands emit one JSON-RPC envelope on stdout for both local failures
+    and daemon replies, with a nonzero exit for failures. Local failure IDs are
+    ["cli"] until a saved request ID is available; saved IDs remain exact.
+    Stderr carries diagnostics such as saved-request paths. Text output and raw
+    byte streams keep failures on stderr, including failures before option parsing.
     [--params-file -] or [--field-file FIELD -] consumes stdin exactly once;
     multiple consumers reject before reading. Input is bounded to 4MiB, preserves
     bytes/newlines and is validated before journaling. Retry never rereads stdin.

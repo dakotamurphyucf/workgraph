@@ -149,7 +149,8 @@ val latest_serial : t -> int
     thread.get/request.get optionally include current message bodies and exact
     source revisions. request.get also exposes the current thread_revision,
     separately from the request record revision and communication revision.
-    Its direct [answer] is the pinned resolved body, while [related] deliberately
+    Its direct [question] is the original pinned question body and [answer] is
+    the pinned resolved body (or null), while [related] deliberately
     exposes labelled current conversation versions. Inbox causal bodies are labelled
     [captured] and can pin any positive comment revision. Question [comment_revision]
     and terminal answer references never change after later comment edits.

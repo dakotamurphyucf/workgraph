@@ -1,7 +1,9 @@
 # Workgraph 0.6 current operating contracts
 
-Package 0.6.0 uses API 0.6, affected roots 5 and upload plan 2. Independent
+Package 0.6.1 uses API 0.6, affected roots 5 and upload plan 2. Independent
 planning/history heads, history batches and heartbeat cache retain format 1.
+These identifiers are unchanged from 0.6.0; the [0.6.1 patch upgrade](releases/v0.6.1.md#upgrade-from-060)
+retains existing data and journals.
 Read the [breaking upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
 before replacing an older executable. These are operating contracts; release
 qualification separately records exact artifacts and observed checks.
@@ -19,7 +21,7 @@ qualification separately records exact artifacts and observed checks.
 | Read complete collections | Preserve exact guard/cursor and source/filter/first capture; expand byte budgets or immutable detail refs without advancing past omitted content | [Pagination](../skills/workgraph/references/cli-contract.md) |
 | Ask and answer | Reuse a discussion explicitly, designate resolver, expand request.answer exact pin; reassign responsibility never changes resolver | [Questions](../skills/workgraph/references/communication-evidence.md) |
 | Publish evidence | Immutable bytes/version/digest plus metadata/link revisions; discover/recover upload stages with exact saved plan | [Resources](../skills/workgraph/references/resources.md) |
-| Apply templates | Canonical pinned resource, preview expanded operation count/placement/actor policy; one transaction of at most 32 operations | [Templates](../skills/workgraph/references/coordination.md) |
+| Apply templates | Canonical pinned resource, preview expanded operation count/placement/actor policy; one transaction of at most 128 operations | [Templates](../skills/workgraph/references/coordination.md) |
 | Share inputs | Pin versions/digests and use explicit cache coverage; bounded scratch stays harness-owned, never managed storage | [Shared work](../skills/workgraph/references/team-workflows.md) |
 
 Small facts store summaries and links, not append-only reports. Their 4096-byte

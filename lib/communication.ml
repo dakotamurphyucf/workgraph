@@ -2000,6 +2000,13 @@ let query t ~discussion ~method_ ~params =
             Json.obj
               (fields
                @ [ "thread_revision", Json.int (find t.threads request.thread).revision
+                 ; ( "question"
+                   , pinned_version
+                       discussion
+                       { comment_id = request.message
+                       ; revision = request.message_revision
+                       }
+                     |> Discussion_wire.comment_json )
                  ; ( "superseded_by_request_ids"
                    , `Array
                        (Map.data t.requests

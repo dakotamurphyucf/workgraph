@@ -71,7 +71,7 @@ type options =
 
 let field_name value = String.tr value ~target:'-' ~replacement:'_'
 
-let parse_options ~fs ~stdin arguments =
+let parse_options ?(on_fields = fun _ -> ()) ~fs ~stdin arguments =
   let rec stdin_consumers = function
     | [] -> 0
     | "--params-file" :: "-" :: rest | "--field-file" :: _ :: "-" :: rest ->
@@ -115,7 +115,9 @@ let parse_options ~fs ~stdin arguments =
     let key = field_name key in
     if List.Assoc.mem options.fields key ~equal:String.equal
     then Json.fail Invalid_argument ("duplicate CLI field: " ^ key);
-    { options with fields = options.fields @ [ key, value ] }
+    let fields = options.fields @ [ key, value ] in
+    on_fields fields;
+    { options with fields }
   in
   let rec loop options = function
     | [] -> options
@@ -285,12 +287,139 @@ let normalize_help arguments =
   | _ -> arguments
 ;;
 
+module Output_mode = struct
+  type t =
+    | Json
+    | Text
+    | Bytes
+
+  (* Determine routing without consuming files/stdin or treating option values
+     and literal child argv as CLI controls. This remains available when context
+     loading or option parsing fails before a request can be prepared. *)
+  let scan arguments =
+    let destination value =
+      match Json.parse value with
+      | Ok (`String "-") -> true
+      | Ok _ | Error _ -> false
+    in
+    let rec scan words output raw = function
+      | [] | "--" :: _ -> List.rev words, output, raw
+      | "--output" :: value :: rest -> scan words (Some value) raw rest
+      | "--json" :: rest -> scan words (Some "json") raw rest
+      | "--destination" :: value :: rest ->
+        scan words output (String.equal value "-") rest
+      | "--json-field" :: key :: value :: rest ->
+        scan
+          words
+          output
+          (if String.equal (field_name key) "destination" then destination value else raw)
+          rest
+      | "--field-file" :: _ :: _ :: rest -> scan words output raw rest
+      | (( "--self"
+         | "--help"
+         | "--version"
+         | "--stdout"
+         | "--stderr"
+         | "--paginate"
+         | "--core"
+         | "--brief"
+         | "--full" ) as flag)
+        :: rest -> scan (flag :: words) output raw rest
+      | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" ->
+        scan words output raw rest
+      | word :: rest -> scan (word :: words) output raw rest
+    in
+    scan [] None false arguments
+  ;;
+
+  let rec download_command = function
+    | "resource.download" :: _ | "resource" :: "download" :: _ -> true
+    | _ :: rest -> download_command rest
+    | [] -> false
+  ;;
+
+  let is_download arguments =
+    let words, _, _ = scan arguments in
+    download_command words
+  ;;
+
+  let raw_destination fields =
+    match List.Assoc.find fields "destination" ~equal:String.equal with
+    | Some (`String "-") -> true
+    | Some _ | None -> false
+  ;;
+
+  let of_arguments arguments =
+    let words, selected, raw = scan arguments in
+    let raw_download = raw && download_command words in
+    let raw_call =
+      let parameters =
+        match words with
+        | "call" :: socket :: "resource.download" :: params :: _
+          when Filename.is_absolute socket -> Some params
+        | "call" :: "resource.download" :: params :: _ -> Some params
+        | _ -> None
+      in
+      match parameters with
+      | Some params ->
+        (match Json.parse params with
+         | Ok (`Object fields) -> raw_destination fields
+         | Ok _ | Error _ -> false)
+      | None -> false
+    in
+    if raw_download || raw_call
+    then Bytes
+    else (
+      match selected with
+      | Some "text" -> Text
+      | Some "bytes" ->
+        (match words with
+         | ("evidence-show" | "evidence.show") :: _ | "evidence" :: "show" :: _ -> Bytes
+         | _ -> Json)
+      | Some _ -> Json
+      | None ->
+        (match words with
+         | []
+         | ("--help" | "--version" | "version" | "serve" | "help" | "methods") :: _
+         | ("evidence-show" | "evidence.show") :: _
+         | "evidence" :: "show" :: _ -> Text
+         | _ -> Json))
+  ;;
+end
+
 let run ~env arguments =
   let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
   let output text = Platform.write_string (Eio.Stdenv.stdout env) (text ^ "\n") in
   let diagnostic text = Platform.write_string (Eio.Stdenv.stderr env) (text ^ "\n") in
+  let output_mode = ref (Output_mode.of_arguments arguments) in
+  let download_command = ref (Output_mode.is_download arguments) in
+  let response_id = ref (Json.string "cli") in
+  let parse_options ~fs ~stdin arguments =
+    let options =
+      parse_options
+        ~on_fields:(fun fields ->
+          if !download_command && Output_mode.raw_destination fields
+          then output_mode := Bytes)
+        ~fs
+        ~stdin
+        arguments
+    in
+    (match !output_mode with
+     | Bytes -> ()
+     | Json | Text -> output_mode := if options.text then Text else Json);
+    options
+  in
   let execute ?reservation_wait ?(continuations = true) socket options request =
+    response_id := Json.field (Protocol.Request.to_json request) "id";
     let method_ = Protocol.Request.method_ request in
+    if
+      String.equal method_ "resource.download"
+      && Option.exists
+           (Json.optional (Protocol.Request.params request) "destination")
+           ~f:(function
+             | `String "-" -> true
+             | _ -> false)
+    then output_mode := Bytes;
     if
       Option.is_none (Api_catalog.find method_)
       && not
@@ -482,11 +611,7 @@ let run ~env arguments =
     let response =
       match response, pagination with
       | Success value, None
-        when continuations
-             && Result.is_ok
-                  (Query_pagination.create
-                     request
-                     ~limits:Query_pagination.Limits.default) ->
+        when continuations && Query_pagination.Continuation.supports request ->
         let continuation =
           Query_pagination.Continuation.of_response request ~response:value |> Disk.unwrap
         in
@@ -541,6 +666,14 @@ let run ~env arguments =
   let context = ref None in
   let request ?reservation_wait ?(continuations = true) socket method_ options =
     let method_ = Cli_reference.canonical_method_name method_ in
+    if
+      String.equal method_ "resource.download"
+      && Option.exists
+           (List.Assoc.find options.fields "destination" ~equal:String.equal)
+           ~f:(function
+           | `String "-" -> true
+           | _ -> false)
+    then output_mode := Bytes;
     let options =
       if options.self
       then
@@ -667,6 +800,8 @@ let run ~env arguments =
       in
       let context_file, socket_override, arguments = select None None [] arguments in
       let arguments = normalize_help arguments in
+      output_mode := Output_mode.of_arguments arguments;
+      download_command := Output_mode.is_download arguments;
       let offline =
         match arguments with
         | []
@@ -952,6 +1087,10 @@ let run ~env arguments =
                  options only";
             Execution_publication.load ~fs ~directory |> Disk.unwrap
         in
+        response_id
+        := Json.field
+             (Protocol.Request.to_json (Execution_publication.request publication))
+             "id";
         diagnostic ("saved_request: " ^ Execution_publication.saved_request publication);
         let request_directory =
           match options.request_directory with
@@ -1215,13 +1354,14 @@ let run ~env arguments =
           || Option.is_some options.save_request
           || Option.is_some options.request_directory
         then Json.fail Invalid_argument "retry cannot change or resave request parameters";
-        let request =
+        let request_json =
           Local_file.read Eio.Path.(fs / file) ~operation:"read retry request"
           |> Json.parse
           |> Disk.unwrap
-          |> Protocol.Request.of_json
-          |> Disk.unwrap
         in
+        response_id
+        := Option.value (Protocol.server_request_id request_json) ~default:`Null;
+        let request = Protocol.Request.of_json request_json |> Disk.unwrap in
         if abort_upload
         then (
           if not (String.equal (Protocol.Request.method_ request) "resource.upload")
@@ -1301,6 +1441,11 @@ let run ~env arguments =
   match result with
   | Ok code -> code
   | Error error ->
-    diagnostic (Json.canonical (Problem.to_json error));
+    (match !output_mode with
+     | Json ->
+       Protocol.error_response_json ~id:!response_id ~code:Application_failure error
+       |> Json.canonical
+       |> output
+     | Text | Bytes -> diagnostic (Json.canonical (Problem.to_json error)));
     1
 ;;
