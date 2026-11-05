@@ -10,7 +10,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | --- | --- | --- |
 | `after` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;4611686018427387903&quot; |
 | `cursor` | optional | string; max UTF-8 bytes=4096; Nonblank UTF8 text. |
-| `filter` | optional | object; Validated cooperative coordination record. |
+| `filter` | optional | object; Validated cooperative coordination record.; For communication, select filter.recipient and filter.consumer_id together; use kinds:[&quot;communication&quot;] to exclude fact, ticket and readiness activity. |
 | `initial_readiness` | optional | boolean |
 | `limit` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;100&quot;; Validated cooperative coordination record. |
 | `max_bytes` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;1048576&quot;; Validated cooperative coordination record. |
@@ -65,239 +65,244 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
             "filter": {
               "allOf": [
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "consumer_id": {
-                      "allOf": [
-                        {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "consumer_id": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Validated coordination identity."
+                        },
+                        "exclude_self": {
+                          "type": "boolean"
+                        },
+                        "fact_prefix": {
                           "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Validated coordination identity."
-                    },
-                    "exclude_self": {
-                      "type": "boolean"
-                    },
-                    "fact_prefix": {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 128
-                    },
-                    "fact_scope": {
-                      "allOf": [
-                        {
+                          "x-maxUtf8Bytes": 128
+                        },
+                        "fact_scope": {
+                          "allOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "workspace",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 128
+                                        }
+                                      ],
+                                      "description": "Validated typed identity"
+                                    },
+                                    "kind": {
+                                      "const": "project",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "id"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 128
+                                        }
+                                      ],
+                                      "description": "Validated typed identity"
+                                    },
+                                    "kind": {
+                                      "const": "milestone",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "id"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 128
+                                        }
+                                      ],
+                                      "description": "Validated typed identity"
+                                    },
+                                    "kind": {
+                                      "const": "ticket",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "id"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            }
+                          ],
+                          "description": "An explicit fact scope; values never inherit between scopes."
+                        },
+                        "kinds": {
+                          "allOf": [
+                            {
+                              "items": {
+                                "enum": [
+                                  "communication",
+                                  "fact",
+                                  "ticket",
+                                  "readiness"
+                                ],
+                                "type": "string"
+                              },
+                              "maxItems": 4,
+                              "type": "array"
+                            }
+                          ],
+                          "description": "Validated cooperative coordination record."
+                        },
+                        "project_id": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Validated coordination identity."
+                        },
+                        "recipient": {
                           "oneOf": [
                             {
-                              "additionalProperties": false,
-                              "properties": {
-                                "kind": {
-                                  "const": "workspace",
-                                  "type": "string"
+                              "allOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Opaque validated recipient identity."
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "actor"
+                                      ],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "id"
+                                  ],
+                                  "type": "object"
                                 }
-                              },
-                              "required": [
-                                "kind"
                               ],
-                              "type": "object"
+                              "description": "Actor recipient."
                             },
                             {
-                              "additionalProperties": false,
-                              "properties": {
-                                "id": {
-                                  "allOf": [
-                                    {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 128
+                              "allOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Opaque validated recipient identity."
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "run"
+                                      ],
+                                      "type": "string"
                                     }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "id"
                                   ],
-                                  "description": "Validated typed identity"
-                                },
-                                "kind": {
-                                  "const": "project",
-                                  "type": "string"
+                                  "type": "object"
                                 }
-                              },
-                              "required": [
-                                "kind",
-                                "id"
                               ],
-                              "type": "object"
-                            },
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "id": {
-                                  "allOf": [
-                                    {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 128
-                                    }
-                                  ],
-                                  "description": "Validated typed identity"
-                                },
-                                "kind": {
-                                  "const": "milestone",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "id"
-                              ],
-                              "type": "object"
-                            },
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "id": {
-                                  "allOf": [
-                                    {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 128
-                                    }
-                                  ],
-                                  "description": "Validated typed identity"
-                                },
-                                "kind": {
-                                  "const": "ticket",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "id"
-                              ],
-                              "type": "object"
+                              "description": "Run recipient."
                             }
                           ]
-                        }
-                      ],
-                      "description": "An explicit fact scope; values never inherit between scopes."
-                    },
-                    "kinds": {
-                      "allOf": [
-                        {
-                          "items": {
-                            "enum": [
-                              "communication",
-                              "fact",
-                              "ticket",
-                              "readiness"
-                            ],
-                            "type": "string"
-                          },
-                          "maxItems": 4,
-                          "type": "array"
-                        }
-                      ],
-                      "description": "Validated cooperative coordination record."
-                    },
-                    "project_id": {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Validated coordination identity."
-                    },
-                    "recipient": {
-                      "oneOf": [
-                        {
-                          "allOf": [
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "id": {
-                                  "allOf": [
-                                    {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 96
-                                    }
-                                  ],
-                                  "description": "Opaque validated recipient identity."
-                                },
-                                "kind": {
-                                  "enum": [
-                                    "actor"
-                                  ],
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "id"
-                              ],
-                              "type": "object"
-                            }
-                          ],
-                          "description": "Actor recipient."
                         },
-                        {
+                        "run_id": {
                           "allOf": [
                             {
-                              "additionalProperties": false,
-                              "properties": {
-                                "id": {
-                                  "allOf": [
-                                    {
-                                      "type": "string",
-                                      "x-maxUtf8Bytes": 96
-                                    }
-                                  ],
-                                  "description": "Opaque validated recipient identity."
-                                },
-                                "kind": {
-                                  "enum": [
-                                    "run"
-                                  ],
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "id"
-                              ],
-                              "type": "object"
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
                             }
                           ],
-                          "description": "Run recipient."
+                          "description": "Validated coordination identity."
+                        },
+                        "ticket_ids": {
+                          "allOf": [
+                            {
+                              "items": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Validated coordination identity."
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            }
+                          ],
+                          "description": "Validated cooperative coordination record."
                         }
-                      ]
-                    },
-                    "run_id": {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Validated coordination identity."
-                    },
-                    "ticket_ids": {
-                      "allOf": [
-                        {
-                          "items": {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Validated coordination identity."
-                          },
-                          "maxItems": 100,
-                          "type": "array"
-                        }
-                      ],
-                      "description": "Validated cooperative coordination record."
+                      },
+                      "required": [],
+                      "type": "object"
                     }
-                  },
-                  "required": [],
-                  "type": "object"
+                  ],
+                  "description": "Validated cooperative coordination record."
                 }
               ],
-              "description": "Validated cooperative coordination record."
+              "description": "For communication, select filter.recipient and filter.consumer_id together; use kinds:[\"communication\"] to exclude fact, ticket and readiness activity."
             },
             "initial_readiness": {
               "type": "boolean"
@@ -897,6 +902,41 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
+    "assessment_e6fd13ee48629d3e4e9ebad661dad589daaa5b3cf49e94d71c0b6858e448706e": {
+      "allOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "graph",
+                "run",
+                "candidate"
+              ],
+              "type": "string"
+            },
+            "unknown_checks": {
+              "items": {
+                "enum": [
+                  "run_lifecycle",
+                  "run_budget",
+                  "required_path_ownership"
+                ],
+                "type": "string"
+              },
+              "maxItems": 3,
+              "type": "array"
+            }
+          },
+          "required": [
+            "scope",
+            "unknown_checks"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Scope of known checks; candidate run lifecycle/budget and required path ownership remain unknown. Readiness never authorizes acquisition."
+    },
     "attribution_7ecef7b9fb6b6224f3aca23590fabc25d266b53872ccd0ec1c7d3131611e7983": {
       "additionalProperties": false,
       "properties": {
@@ -942,9 +982,12 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
-    "blockers_2053c71dff27e98d2e41496a50be5a83ac8d32e4b523b7f60be5d96230644fe4": {
+    "blockers_0192b56d2ffc3d0f4e6eda4a1c7faa3458b5fd4fbabb1e1f82d5af97eb965533": {
       "additionalProperties": false,
       "properties": {
+        "assessment": {
+          "$ref": "#/$defs/assessment_e6fd13ee48629d3e4e9ebad661dad589daaa5b3cf49e94d71c0b6858e448706e"
+        },
         "completion": {
           "$ref": "#/$defs/completion_9fcffd070fbc357d68ec8d30aad55b43b7c06ab521f31ad5b3d791618f99aee7"
         },
@@ -957,7 +1000,7 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
           "x-maximumDecimal": "4611686018427387903"
         },
         "reasons": {
-          "$ref": "#/$defs/reasons_325e94548a6b4a7570ce0bccf822784ab48ab0ec3772475807b5cecb0c3343ac"
+          "$ref": "#/$defs/reasons_06f97e9275648a9adca07aa967a04867bed571e3762cf6776d73dd9122462771"
         },
         "reassessments": {
           "$ref": "#/$defs/reassessments_3d54897f577c6c8fcc5d78b25ddc2b9f8f8ff7681bf480d7ef61acf7cc71f7b9"
@@ -965,6 +1008,7 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       },
       "required": [
         "ready",
+        "assessment",
         "reasons",
         "reason_count",
         "reassessments",
@@ -972,10 +1016,10 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
-    "blockers_d6a721a71312c3842d584657dd58eab587c84d216b03d138a5f8ed2707051190": {
+    "blockers_37148c13c8eed2cb0403c73fa2ea788a90ccbe2e395727e44d7caa95fc50c398": {
       "allOf": [
         {
-          "$ref": "#/$defs/blockers_2053c71dff27e98d2e41496a50be5a83ac8d32e4b523b7f60be5d96230644fe4"
+          "$ref": "#/$defs/blockers_0192b56d2ffc3d0f4e6eda4a1c7faa3458b5fd4fbabb1e1f82d5af97eb965533"
         }
       ],
       "description": "Complete reasons retain ownership/control fields and exact count."
@@ -2126,6 +2170,38 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
+    "held_work_7791c215b6ab559c4109b9d89083bf407e10aea71e02128436c06b5f94a0e112": {
+      "additionalProperties": false,
+      "properties": {
+        "active_attempt_count": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "named_reservation_count": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "path_reservation_count": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "ticket_claim_count": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        }
+      },
+      "required": [
+        "ticket_claim_count",
+        "named_reservation_count",
+        "path_reservation_count",
+        "active_attempt_count"
+      ],
+      "type": "object"
+    },
     "holder_5b035561f9ab837dba8d10e985dfdc398e121b3405fb55e33db0da3f0cb42488": {
       "additionalProperties": false,
       "properties": {
@@ -2559,30 +2635,6 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
-    "metadata_1a9b919ed10700fa20e83ec4ff7f83a9b49cefff5102475885b85ddf938fe4a6": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_f7b0de70dbde1f7183e16e8b71ec9ec82cfd7418bdfda9817456e39d902a9ee0"
-        },
-        {
-          "properties": {
-            "liveness_is_advisory": {
-              "allOf": [
-                {
-                  "type": "boolean"
-                }
-              ],
-              "description": "Validated cooperative coordination record."
-            }
-          },
-          "required": [
-            "liveness_is_advisory"
-          ],
-          "type": "object"
-        }
-      ],
-      "unevaluatedProperties": false
-    },
     "metadata_1e79dee62b3b779f6fa4ca6431fc60781fb2930826729d8c43b2d544ac315291": {
       "additionalProperties": false,
       "properties": {
@@ -2617,43 +2669,6 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
         "reservation_id",
         "epoch",
         "holders"
-      ],
-      "type": "object"
-    },
-    "metadata_2f11b883ed328010e0aae68dbb4aa5f6cd6b6c0e787e15a6be2b8e3c666ada00": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_1a9b919ed10700fa20e83ec4ff7f83a9b49cefff5102475885b85ddf938fe4a6"
-        }
-      ],
-      "description": "Advisory current run liveness."
-    },
-    "metadata_3bf0ac4f08484bd6556b7b46fd153b7b6a634936ade532064cca2225498b1e1f": {
-      "additionalProperties": false,
-      "properties": {
-        "allocation_reasons": {
-          "$ref": "#/$defs/allocation_reasons_33e7597ee9394ab9de0d526c69070b4a6dc786385975e9285291a0ecf0110a52"
-        },
-        "blockers": {
-          "$ref": "#/$defs/blockers_d6a721a71312c3842d584657dd58eab587c84d216b03d138a5f8ed2707051190"
-        },
-        "eligibility_scope": {
-          "enum": [
-            "graph",
-            "run"
-          ],
-          "type": "string"
-        },
-        "title": {
-          "type": "string",
-          "x-maxUtf8Bytes": 512
-        }
-      },
-      "required": [
-        "title",
-        "blockers",
-        "eligibility_scope",
-        "allocation_reasons"
       ],
       "type": "object"
     },
@@ -2842,6 +2857,66 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
+    "metadata_4a54be787b7bf9873538af5f69fc341b141cd717d42f2f1032291a56763920bb": {
+      "properties": {
+        "clock_regressed": {
+          "type": "boolean"
+        },
+        "held_work": {
+          "$ref": "#/$defs/held_work_7791c215b6ab559c4109b9d89083bf407e10aea71e02128436c06b5f94a0e112"
+        },
+        "last_observed_unix_ms": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "liveness": {
+          "enum": [
+            "unobserved",
+            "stale"
+          ],
+          "type": "string"
+        },
+        "observation_age_ms": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "running",
+            "waiting",
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "last_observed_unix_ms",
+        "liveness",
+        "observation_age_ms",
+        "clock_regressed",
+        "held_work"
+      ],
+      "type": "object"
+    },
     "metadata_60d2bdf15a0a8249b428d743bcbbbe58c79be7715acb56e2c71611cbde54f0b0": {
       "allOf": [
         {
@@ -2850,13 +2925,34 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "description": "Submission with a matching effective policy ticket."
     },
-    "metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_8e81fb519ffaffb1e2a847c7d1ee11b029d04b32f58ec2ff4d72f28004017cc1"
+    "metadata_6206b0804a450f42bf77a3813515926a60c78199b1c6374fc329660f265c162f": {
+      "additionalProperties": false,
+      "properties": {
+        "allocation_reasons": {
+          "$ref": "#/$defs/allocation_reasons_33e7597ee9394ab9de0d526c69070b4a6dc786385975e9285291a0ecf0110a52"
+        },
+        "blockers": {
+          "$ref": "#/$defs/blockers_37148c13c8eed2cb0403c73fa2ea788a90ccbe2e395727e44d7caa95fc50c398"
+        },
+        "eligibility_scope": {
+          "enum": [
+            "graph",
+            "run"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "type": "string",
+          "x-maxUtf8Bytes": 512
         }
+      },
+      "required": [
+        "title",
+        "blockers",
+        "eligibility_scope",
+        "allocation_reasons"
       ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      "type": "object"
     },
     "metadata_6e3215a2483a60c10058a265ece5776694e5bcab210b2e452dd6dbc21f30b216": {
       "additionalProperties": false,
@@ -3157,231 +3253,6 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
-    "metadata_8e81fb519ffaffb1e2a847c7d1ee11b029d04b32f58ec2ff4d72f28004017cc1": {
-      "additionalProperties": false,
-      "properties": {
-        "budget": {
-          "allOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "details": {
-                  "items": {
-                    "allOf": [
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "kind": {
-                            "enum": [
-                              "text_bytes",
-                              "items"
-                            ],
-                            "type": "string"
-                          },
-                          "omitted": {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          },
-                          "path": {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 4194304
-                          }
-                        },
-                        "required": [
-                          "path",
-                          "kind",
-                          "omitted"
-                        ],
-                        "type": "object"
-                      }
-                    ],
-                    "description": "Path is a JSON pointer into the public result; omitted is positive."
-                  },
-                  "maxItems": 4,
-                  "type": "array"
-                },
-                "details_complete": {
-                  "type": "boolean"
-                },
-                "max_bytes": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "omitted_fields": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "omitted_items": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "returned_bytes": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "truncated": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "max_bytes",
-                "returned_bytes",
-                "truncated",
-                "omitted_fields",
-                "omitted_items",
-                "details",
-                "details_complete"
-              ],
-              "type": "object"
-            }
-          ],
-          "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
-        },
-        "durable": {
-          "type": "boolean"
-        },
-        "history_capture": {
-          "allOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "head": {
-                  "anyOf": [
-                    {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 64
-                        }
-                      ],
-                      "description": "64 lowercase hexadecimal SHA-256 characters."
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "sequence": {
-                  "allOf": [
-                    {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "1000000"
-                    }
-                  ],
-                  "description": "History journal commit sequence, independent of planning."
-                },
-                "sessions": {
-                  "items": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "session_id": {
-                        "allOf": [
-                          {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 96
-                          }
-                        ],
-                        "description": "Session identifier."
-                      },
-                      "through": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "1000000"
-                          }
-                        ],
-                        "description": "Event sequence within one history session."
-                      }
-                    },
-                    "required": [
-                      "session_id",
-                      "through"
-                    ],
-                    "type": "object"
-                  },
-                  "maxItems": 1000000,
-                  "type": "array"
-                },
-                "workspace_id": {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Workspace identifier."
-                }
-              },
-              "required": [
-                "workspace_id",
-                "head",
-                "sequence",
-                "sessions"
-              ],
-              "type": "object"
-            }
-          ],
-          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
-        },
-        "history_sequence": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "1000000"
-            }
-          ],
-          "description": "History journal commit sequence, independent of planning."
-        },
-        "query_revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Pagination capture revision within the accompanying query_scope."
-        },
-        "query_scope": {
-          "enum": [
-            "communication",
-            "runs",
-            "evidence",
-            "policy"
-          ],
-          "type": "string"
-        },
-        "snapshot": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 64
-            }
-          ],
-          "description": "64 lowercase hexadecimal SHA-256 characters."
-        },
-        "workspace_revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Workspace planning transaction revision."
-        }
-      },
-      "required": [],
-      "type": "object"
-    },
     "metadata_92f2b7d25941ffa21cf1c4261174ad9fcbddeac5d00b793e52dbe08e68a785b3": {
       "oneOf": [
         {
@@ -3578,6 +3449,14 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
+    "metadata_ad75a594ca36e685c61d3b74e696991044c28570f8a78b90d823e369ba94a149": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_cf37d88c21119301b7ffd7c5df82b1631c3ff9d1efd65c0aa28fd3c246fa9e64"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
     "metadata_c20fa74c12625d15cfce8539508f48009ee9df75fed2ed45d69356e3a8204c88": {
       "allOf": [
         {
@@ -3594,14 +3473,6 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "description": "Validated cooperative coordination record."
     },
-    "metadata_ca2686a6c9b3ec9c0788250b7c869433ee19f14844de446884d410357e91a2d3": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_e07bbaf6fe2a45a5e1652b6290ece9a41248f4dca6a32bab4f99aea5e0437ee7"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
     "metadata_cdd1c772481df3286fc5c668f1a59cbadb1d21a302a7d1d08725059507fef396": {
       "allOf": [
         {
@@ -3609,6 +3480,14 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
         }
       ],
       "description": "Validated reservation holders and ownership fences."
+    },
+    "metadata_cf37d88c21119301b7ffd7c5df82b1631c3ff9d1efd65c0aa28fd3c246fa9e64": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_d9d5ed157f1a49d13b84cad9cfb3521955ca243493c8d07a8efcf7c39587ece9"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
     },
     "metadata_d3affe21c02bade7785a5691493bf76ba1db389db3093d75c257e4a3859785c1": {
       "allOf": [
@@ -3618,13 +3497,13 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "description": "Validated cooperative coordination record."
     },
-    "metadata_e07bbaf6fe2a45a5e1652b6290ece9a41248f4dca6a32bab4f99aea5e0437ee7": {
+    "metadata_d9d5ed157f1a49d13b84cad9cfb3521955ca243493c8d07a8efcf7c39587ece9": {
       "allOf": [
         {
-          "$ref": "#/$defs/metadata_2f11b883ed328010e0aae68dbb4aa5f6cd6b6c0e787e15a6be2b8e3c666ada00"
+          "$ref": "#/$defs/metadata_f0725857f3c9839807ece1b682ee9a65317b6cb7594a861bff90f14ef8a4b43f"
         }
       ],
-      "description": "Validated cooperative coordination record."
+      "description": "Advisory current run liveness."
     },
     "metadata_e17347941605ed493829ec8bdac6526b39d6c17125e44101309929ad4bb2674f": {
       "additionalProperties": false,
@@ -3826,44 +3705,402 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
-    "metadata_f7b0de70dbde1f7183e16e8b71ec9ec82cfd7418bdfda9817456e39d902a9ee0": {
+    "metadata_f0725857f3c9839807ece1b682ee9a65317b6cb7594a861bff90f14ef8a4b43f": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_4a54be787b7bf9873538af5f69fc341b141cd717d42f2f1032291a56763920bb"
+        },
+        {
+          "properties": {
+            "liveness_is_advisory": {
+              "allOf": [
+                {
+                  "type": "boolean"
+                }
+              ],
+              "description": "Validated cooperative coordination record."
+            }
+          },
+          "required": [
+            "liveness_is_advisory"
+          ],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624": {
+      "additionalProperties": false,
       "properties": {
-        "last_observed_unix_ms": {
-          "anyOf": [
+        "budget": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "details": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "text_bytes",
+                              "items"
+                            ],
+                            "type": "string"
+                          },
+                          "omitted": {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "4611686018427387903"
+                          },
+                          "path": {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 4194304
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "kind",
+                          "omitted"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "description": "Path is a JSON pointer into the public result; omitted is positive."
+                  },
+                  "maxItems": 4,
+                  "type": "array"
+                },
+                "details_complete": {
+                  "type": "boolean"
+                },
+                "max_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_fields": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_items": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "max_bytes",
+                "returned_bytes",
+                "truncated",
+                "omitted_fields",
+                "omitted_items",
+                "details",
+                "details_complete"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
+        },
+        "durable": {
+          "type": "boolean"
+        },
+        "history_capture": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "head": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 64
+                        }
+                      ],
+                      "description": "64 lowercase hexadecimal SHA-256 characters."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sequence": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "1000000"
+                    }
+                  ],
+                  "description": "History journal commit sequence, independent of planning."
+                },
+                "sessions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "session_id": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Session identifier."
+                      },
+                      "through": {
+                        "allOf": [
+                          {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "1000000"
+                          }
+                        ],
+                        "description": "Event sequence within one history session."
+                      }
+                    },
+                    "required": [
+                      "session_id",
+                      "through"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1000000,
+                  "type": "array"
+                },
+                "workspace_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Workspace identifier."
+                }
+              },
+              "required": [
+                "workspace_id",
+                "head",
+                "sequence",
+                "sessions"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+        },
+        "history_sequence": {
+          "allOf": [
             {
               "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string",
-              "x-maximumDecimal": "9223372036854775807"
-            },
-            {
-              "type": "null"
+              "x-maximumDecimal": "1000000"
             }
-          ]
+          ],
+          "description": "History journal commit sequence, independent of planning."
         },
-        "liveness": {
+        "pagination": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "capture": {
+                  "x-maxCanonicalBytes": 4096,
+                  "x-maxDepth": 4
+                },
+                "complete": {
+                  "type": "boolean"
+                },
+                "consistency": {
+                  "enum": [
+                    "snapshot_guard",
+                    "current_revision_guard",
+                    "opaque_captured_cursor",
+                    "current_revision_cursor",
+                    "notification_through",
+                    "immutable_history_head"
+                  ],
+                  "type": "string"
+                },
+                "max_bytes": {
+                  "const": "65536",
+                  "type": "string"
+                },
+                "next_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "required_bytes": {
+                  "anyOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "retry_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "stop": {
+                  "enum": [
+                    "complete",
+                    "page_limit",
+                    "byte_limit",
+                    "no_progress",
+                    "needs_larger_budget",
+                    "indexing_incomplete",
+                    "server_field_omissions",
+                    "server_item_omissions",
+                    "error",
+                    "metadata_limit"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "complete",
+                "stop",
+                "consistency",
+                "capture",
+                "next_request",
+                "retry_request",
+                "required_bytes",
+                "returned_bytes",
+                "max_bytes"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "query_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Pagination capture revision within the accompanying query_scope."
+        },
+        "query_scope": {
           "enum": [
-            "unobserved",
-            "stale"
+            "communication",
+            "runs",
+            "evidence",
+            "policy"
           ],
           "type": "string"
         },
-        "status": {
-          "enum": [
-            "running",
-            "waiting",
-            "completed",
-            "failed",
-            "cancelled"
+        "snapshot": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            }
           ],
+          "description": "64 lowercase hexadecimal SHA-256 characters."
+        },
+        "workspace_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Workspace planning transaction revision."
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
           "type": "string"
         }
       },
       "required": [
-        "status",
-        "last_observed_unix_ms",
-        "liveness"
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
       ],
       "type": "object"
+    },
+    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc": {
       "oneOf": [
@@ -4841,6 +5078,13 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "type": "object"
     },
+    "reasons_06f97e9275648a9adca07aa967a04867bed571e3762cf6776d73dd9122462771": {
+      "items": {
+        "$ref": "#/$defs/reasons_5e6a81422a95403ef40e406079fd32497e829084b02f57715b05e7e4a10b1ce6"
+      },
+      "maxItems": 100000,
+      "type": "array"
+    },
     "reasons_06ffd9a431d5d15dcc4da892be2558e52c13a4cedab145d89155d65a0da825f0": {
       "allOf": [
         {
@@ -4849,7 +5093,86 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       ],
       "description": "Exact readiness reason allocation"
     },
-    "reasons_0e44a02a41084f1d0f2aaaf645e208a2c7ea6ce2b533a0169a8e6b68b97c7dd8": {
+    "reasons_165815690d6628de7f2f3cd60bbda9f97a2b07ec6baf602ab5eb4119a2197d0c": {
+      "items": {
+        "$ref": "#/$defs/reason_b88a571e72169db398c3a804178818c5296c87eede9052aa88f6bbe42ab47894"
+      },
+      "maxItems": 16,
+      "type": "array"
+    },
+    "reasons_2e2845bbf8bb42fd86168f8ed76b6f7de6cb0f5aafb850134c5e34893f29d9ea": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "additionalProperties": false,
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated coordination identity."
+            },
+            "reason": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 65536
+                }
+              ],
+              "description": "Nonblank UTF8 text."
+            },
+            "timestamp": {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          },
+          "required": [
+            "actor_id",
+            "reason",
+            "timestamp"
+          ],
+          "type": "object"
+        },
+        "kind": {
+          "const": "hold",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "details"
+      ],
+      "type": "object"
+    },
+    "reasons_459c651b33699f22b705f8847d404b922df260072d67875920da1a88dcfc1b7b": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "observation_time_required",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
+        }
+      },
+      "required": [
+        "kind",
+        "target"
+      ],
+      "type": "object"
+    },
+    "reasons_46b14455091a1f31376037039f501a33b966b3f585ec0d521c7af0f851a5e1bd": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reasons_7ba3df8371cc684cc1845c896d84eb2775ebc2b5cef581378e41b1dcd01cdf01"
+        }
+      ],
+      "description": "Exact readiness reason inherited_prerequisite"
+    },
+    "reasons_5e6a81422a95403ef40e406079fd32497e829084b02f57715b05e7e4a10b1ce6": {
       "oneOf": [
         {
           "allOf": [
@@ -4955,94 +5278,36 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
         },
         {
           "$ref": "#/$defs/reasons_06ffd9a431d5d15dcc4da892be2558e52c13a4cedab145d89155d65a0da825f0"
+        },
+        {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "capability": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Nonblank UTF8 text."
+                },
+                "kind": {
+                  "const": "missing_candidate_capability",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "capability"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Exact readiness reason missing_candidate_capability"
         }
       ]
-    },
-    "reasons_165815690d6628de7f2f3cd60bbda9f97a2b07ec6baf602ab5eb4119a2197d0c": {
-      "items": {
-        "$ref": "#/$defs/reason_b88a571e72169db398c3a804178818c5296c87eede9052aa88f6bbe42ab47894"
-      },
-      "maxItems": 16,
-      "type": "array"
-    },
-    "reasons_2e2845bbf8bb42fd86168f8ed76b6f7de6cb0f5aafb850134c5e34893f29d9ea": {
-      "additionalProperties": false,
-      "properties": {
-        "details": {
-          "additionalProperties": false,
-          "properties": {
-            "actor_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Validated coordination identity."
-            },
-            "reason": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 65536
-                }
-              ],
-              "description": "Nonblank UTF8 text."
-            },
-            "timestamp": {
-              "type": "string",
-              "x-maxUtf8Bytes": 128
-            }
-          },
-          "required": [
-            "actor_id",
-            "reason",
-            "timestamp"
-          ],
-          "type": "object"
-        },
-        "kind": {
-          "const": "hold",
-          "type": "string"
-        }
-      },
-      "required": [
-        "kind",
-        "details"
-      ],
-      "type": "object"
-    },
-    "reasons_325e94548a6b4a7570ce0bccf822784ab48ab0ec3772475807b5cecb0c3343ac": {
-      "items": {
-        "$ref": "#/$defs/reasons_0e44a02a41084f1d0f2aaaf645e208a2c7ea6ce2b533a0169a8e6b68b97c7dd8"
-      },
-      "maxItems": 100000,
-      "type": "array"
-    },
-    "reasons_459c651b33699f22b705f8847d404b922df260072d67875920da1a88dcfc1b7b": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "observation_time_required",
-          "type": "string"
-        },
-        "target": {
-          "$ref": "#/$defs/reservation_10b6627539855256969f83bfdae7b207570e6d0e00b3d3e1750e6e150083fd01"
-        }
-      },
-      "required": [
-        "kind",
-        "target"
-      ],
-      "type": "object"
-    },
-    "reasons_46b14455091a1f31376037039f501a33b966b3f585ec0d521c7af0f851a5e1bd": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/reasons_7ba3df8371cc684cc1845c896d84eb2775ebc2b5cef581378e41b1dcd01cdf01"
-        }
-      ],
-      "description": "Exact readiness reason inherited_prerequisite"
     },
     "reasons_7ba3df8371cc684cc1845c896d84eb2775ebc2b5cef581378e41b1dcd01cdf01": {
       "additionalProperties": false,
@@ -6441,7 +6706,7 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
                                 "type": "string"
                               },
                               "metadata": {
-                                "$ref": "#/$defs/metadata_3bf0ac4f08484bd6556b7b46fd153b7b6a634936ade532064cca2225498b1e1f"
+                                "$ref": "#/$defs/metadata_6206b0804a450f42bf77a3813515926a60c78199b1c6374fc329660f265c162f"
                               },
                               "source": {
                                 "$ref": "#/$defs/source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -6467,7 +6732,7 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
                                 "type": "string"
                               },
                               "metadata": {
-                                "$ref": "#/$defs/metadata_3bf0ac4f08484bd6556b7b46fd153b7b6a634936ade532064cca2225498b1e1f"
+                                "$ref": "#/$defs/metadata_6206b0804a450f42bf77a3813515926a60c78199b1c6374fc329660f265c162f"
                               },
                               "source": {
                                 "$ref": "#/$defs/source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -6493,7 +6758,7 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
                                 "type": "string"
                               },
                               "metadata": {
-                                "$ref": "#/$defs/metadata_ca2686a6c9b3ec9c0788250b7c869433ee19f14844de446884d410357e91a2d3"
+                                "$ref": "#/$defs/metadata_ad75a594ca36e685c61d3b74e696991044c28570f8a78b90d823e369ba94a149"
                               },
                               "source": {
                                 "$ref": "#/$defs/source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -6519,7 +6784,7 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
                                 "type": "string"
                               },
                               "metadata": {
-                                "$ref": "#/$defs/metadata_ca2686a6c9b3ec9c0788250b7c869433ee19f14844de446884d410357e91a2d3"
+                                "$ref": "#/$defs/metadata_ad75a594ca36e685c61d3b74e696991044c28570f8a78b90d823e369ba94a149"
                               },
                               "source": {
                                 "$ref": "#/$defs/source_8dfc897114edff5c8b02a0c349adb0cdccb5a4fb3676d35588f0000c863f3168"
@@ -6872,7 +7137,7 @@ For preconditions and a small example, run `workgraph help attention.wait`. Use 
       "type": "object"
     },
     "meta": {
-      "$ref": "#/$defs/metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773"
+      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
     }
   },
   "required": [

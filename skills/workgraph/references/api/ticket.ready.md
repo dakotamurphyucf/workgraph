@@ -10,6 +10,7 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | --- | --- | --- |
 | `assignee_id` | optional | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `at_revision` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;4611686018427387903&quot; |
+| `candidate` | optional | object (requires actor_id, capabilities); Prospective actor and distinct capabilities; read-only, without run registration. |
 | `include_archived` | optional | boolean |
 | `label_id` | optional | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `leaf_only` | optional | boolean |
@@ -65,6 +66,43 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
           "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
           "type": "string",
           "x-maximumDecimal": "4611686018427387903"
+        },
+        "candidate": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "actor_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated coordination identity."
+                },
+                "capabilities": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Nonblank UTF8 text."
+                  },
+                  "maxItems": 100,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "actor_id",
+                "capabilities"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Prospective actor and distinct capabilities; read-only, without run registration."
         },
         "include_archived": {
           "type": "boolean"
@@ -170,45 +208,27 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
     "data": {
       "allOf": [
         {
-          "additionalProperties": false,
-          "properties": {
-            "items": {
-              "items": {
-                "allOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "acceptance_criteria": {
-                        "type": "string",
-                        "x-maxUtf8Bytes": 65536
-                      },
-                      "archived": {
-                        "type": "boolean"
-                      },
-                      "assignee_id": {
-                        "anyOf": [
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "properties": {
+                    "items": {
+                      "items": {
+                        "allOf": [
                           {
-                            "allOf": [
-                              {
+                            "additionalProperties": false,
+                            "properties": {
+                              "acceptance_criteria": {
                                 "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Validated coordination identity."
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "claim": {
-                        "anyOf": [
-                          {
-                            "allOf": [
-                              {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "actor_id": {
+                                "x-maxUtf8Bytes": 65536
+                              },
+                              "archived": {
+                                "type": "boolean"
+                              },
+                              "assignee_id": {
+                                "anyOf": [
+                                  {
                                     "allOf": [
                                       {
                                         "type": "string",
@@ -217,51 +237,111 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
                                     ],
                                     "description": "Validated coordination identity."
                                   },
-                                  "lease": {
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "claim": {
+                                "anyOf": [
+                                  {
                                     "allOf": [
                                       {
                                         "additionalProperties": false,
                                         "properties": {
-                                          "deadline_unix_ms": {
-                                            "anyOf": [
-                                              {
-                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                "type": "string",
-                                                "x-maximumDecimal": "9223372036854775807"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
-                                          },
-                                          "duration_ms": {
-                                            "anyOf": [
-                                              {
-                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                "type": "string",
-                                                "x-maximumDecimal": "9223372036854775807"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
-                                          },
-                                          "epoch": {
+                                          "actor_id": {
                                             "allOf": [
                                               {
-                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
                                                 "type": "string",
-                                                "x-maximumDecimal": "4611686018427387903"
+                                                "x-maxUtf8Bytes": 96
                                               }
                                             ],
-                                            "description": "Positive decimal counter."
+                                            "description": "Validated coordination identity."
                                           },
-                                          "last_unix_ms": {
-                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                            "type": "string",
-                                            "x-maximumDecimal": "9223372036854775807"
+                                          "lease": {
+                                            "allOf": [
+                                              {
+                                                "additionalProperties": false,
+                                                "properties": {
+                                                  "deadline_unix_ms": {
+                                                    "anyOf": [
+                                                      {
+                                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                        "type": "string",
+                                                        "x-maximumDecimal": "9223372036854775807"
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "duration_ms": {
+                                                    "anyOf": [
+                                                      {
+                                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                        "type": "string",
+                                                        "x-maximumDecimal": "9223372036854775807"
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "epoch": {
+                                                    "allOf": [
+                                                      {
+                                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                        "type": "string",
+                                                        "x-maximumDecimal": "4611686018427387903"
+                                                      }
+                                                    ],
+                                                    "description": "Positive decimal counter."
+                                                  },
+                                                  "last_unix_ms": {
+                                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                    "type": "string",
+                                                    "x-maximumDecimal": "9223372036854775807"
+                                                  },
+                                                  "revision": {
+                                                    "allOf": [
+                                                      {
+                                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                        "type": "string",
+                                                        "x-maximumDecimal": "4611686018427387903"
+                                                      }
+                                                    ],
+                                                    "description": "Positive decimal counter."
+                                                  }
+                                                },
+                                                "required": [
+                                                  "epoch",
+                                                  "revision",
+                                                  "duration_ms",
+                                                  "last_unix_ms",
+                                                  "deadline_unix_ms"
+                                                ],
+                                                "type": "object"
+                                              }
+                                            ],
+                                            "description": "Actual Allocation_lease duration/deadline and counter invariants."
                                           },
-                                          "revision": {
+                                          "run_id": {
+                                            "anyOf": [
+                                              {
+                                                "allOf": [
+                                                  {
+                                                    "type": "string",
+                                                    "x-maxUtf8Bytes": 96
+                                                  }
+                                                ],
+                                                "description": "Validated coordination identity."
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "token": {
                                             "allOf": [
                                               {
                                                 "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -273,20 +353,64 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
                                           }
                                         },
                                         "required": [
-                                          "epoch",
-                                          "revision",
-                                          "duration_ms",
-                                          "last_unix_ms",
-                                          "deadline_unix_ms"
+                                          "actor_id",
+                                          "run_id",
+                                          "token",
+                                          "lease"
                                         ],
                                         "type": "object"
                                       }
                                     ],
-                                    "description": "Actual Allocation_lease duration/deadline and counter invariants."
+                                    "description": "Positive ownership token equals immutable lease epoch."
                                   },
-                                  "run_id": {
-                                    "anyOf": [
-                                      {
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "created_at": {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 128
+                              },
+                              "created_order": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive decimal counter."
+                              },
+                              "created_sequence": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive decimal counter."
+                              },
+                              "description": {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 65536
+                              },
+                              "display_key": {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Nonblank UTF8 text."
+                              },
+                              "hold": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "actor_id": {
                                         "allOf": [
                                           {
                                             "type": "string",
@@ -295,12 +419,220 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
                                         ],
                                         "description": "Validated coordination identity."
                                       },
-                                      {
-                                        "type": "null"
+                                      "reason": {
+                                        "allOf": [
+                                          {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 65536
+                                          }
+                                        ],
+                                        "description": "Nonblank UTF8 text."
+                                      },
+                                      "timestamp": {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 128
                                       }
-                                    ]
+                                    },
+                                    "required": [
+                                      "actor_id",
+                                      "reason",
+                                      "timestamp"
+                                    ],
+                                    "type": "object"
                                   },
-                                  "token": {
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "label_ids": {
+                                "allOf": [
+                                  {
+                                    "items": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "maxItems": 100,
+                                    "type": "array"
+                                  }
+                                ],
+                                "description": "Unique typed identities, original order retained."
+                              },
+                              "membership_revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive decimal counter."
+                              },
+                              "milestone_id": {
+                                "anyOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Validated coordination identity."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "next_token": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
+                                ],
+                                "description": "Positive decimal counter."
+                              },
+                              "parent_ticket_id": {
+                                "anyOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Validated coordination identity."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "prerequisite_ticket_ids": {
+                                "allOf": [
+                                  {
+                                    "items": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "maxItems": 100000,
+                                    "type": "array"
+                                  }
+                                ],
+                                "description": "Unique typed identities, original order retained."
+                              },
+                              "priority": {
+                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                "type": "string",
+                                "x-maximumDecimal": "4"
+                              },
+                              "project_id": {
+                                "anyOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Validated coordination identity."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "reassessments": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "actor_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "prerequisite_ticket_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "reason": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 65536
+                                        }
+                                      ],
+                                      "description": "Nonblank UTF8 text."
+                                    },
+                                    "reopened_revision": {
+                                      "allOf": [
+                                        {
+                                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                          "type": "string",
+                                          "x-maximumDecimal": "4611686018427387903"
+                                        }
+                                      ],
+                                      "description": "Positive decimal counter."
+                                    },
+                                    "timestamp": {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 128
+                                    }
+                                  },
+                                  "required": [
+                                    "prerequisite_ticket_id",
+                                    "reopened_revision",
+                                    "reason",
+                                    "actor_id",
+                                    "timestamp"
+                                  ],
+                                  "type": "object"
+                                },
+                                "maxItems": 100000,
+                                "type": "array"
+                              },
+                              "related_ticket_ids": {
+                                "allOf": [
+                                  {
+                                    "items": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "maxItems": 100000,
+                                    "type": "array"
+                                  }
+                                ],
+                                "description": "Unique typed identities, original order retained."
+                              },
+                              "reopened_token": {
+                                "anyOf": [
+                                  {
                                     "allOf": [
                                       {
                                         "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -309,67 +641,49 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
                                       }
                                     ],
                                     "description": "Positive decimal counter."
+                                  },
+                                  {
+                                    "type": "null"
                                   }
-                                },
-                                "required": [
-                                  "actor_id",
-                                  "run_id",
-                                  "token",
-                                  "lease"
+                                ]
+                              },
+                              "revision": {
+                                "allOf": [
+                                  {
+                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                    "type": "string",
+                                    "x-maximumDecimal": "4611686018427387903"
+                                  }
                                 ],
-                                "type": "object"
-                              }
-                            ],
-                            "description": "Positive ownership token equals immutable lease epoch."
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "created_at": {
-                        "type": "string",
-                        "x-maxUtf8Bytes": 128
-                      },
-                      "created_order": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          }
-                        ],
-                        "description": "Positive decimal counter."
-                      },
-                      "created_sequence": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          }
-                        ],
-                        "description": "Positive decimal counter."
-                      },
-                      "description": {
-                        "type": "string",
-                        "x-maxUtf8Bytes": 65536
-                      },
-                      "display_key": {
-                        "allOf": [
-                          {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 96
-                          }
-                        ],
-                        "description": "Nonblank UTF8 text."
-                      },
-                      "hold": {
-                        "anyOf": [
-                          {
-                            "additionalProperties": false,
-                            "properties": {
-                              "actor_id": {
+                                "description": "Positive decimal counter."
+                              },
+                              "status": {
+                                "enum": [
+                                  "backlog",
+                                  "todo",
+                                  "in_progress",
+                                  "done",
+                                  "canceled"
+                                ],
+                                "type": "string"
+                              },
+                              "status_id": {
+                                "anyOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Validated coordination identity."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "ticket_id": {
                                 "allOf": [
                                   {
                                     "type": "string",
@@ -378,411 +692,187 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
                                 ],
                                 "description": "Validated coordination identity."
                               },
-                              "reason": {
+                              "title": {
                                 "allOf": [
                                   {
                                     "type": "string",
-                                    "x-maxUtf8Bytes": 65536
+                                    "x-maxUtf8Bytes": 512
                                   }
                                 ],
                                 "description": "Nonblank UTF8 text."
                               },
-                              "timestamp": {
+                              "updated_at": {
                                 "type": "string",
                                 "x-maxUtf8Bytes": 128
+                              },
+                              "waivers": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "actor_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "prerequisite_ticket_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated coordination identity."
+                                    },
+                                    "reason": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 65536
+                                        }
+                                      ],
+                                      "description": "Nonblank UTF8 text."
+                                    },
+                                    "timestamp": {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 128
+                                    }
+                                  },
+                                  "required": [
+                                    "prerequisite_ticket_id",
+                                    "actor_id",
+                                    "reason",
+                                    "timestamp"
+                                  ],
+                                  "type": "object"
+                                },
+                                "maxItems": 100000,
+                                "type": "array"
                               }
                             },
                             "required": [
-                              "actor_id",
-                              "reason",
-                              "timestamp"
+                              "ticket_id",
+                              "display_key",
+                              "title",
+                              "description",
+                              "project_id",
+                              "membership_revision",
+                              "parent_ticket_id",
+                              "milestone_id",
+                              "archived",
+                              "status_id",
+                              "priority",
+                              "assignee_id",
+                              "label_ids",
+                              "acceptance_criteria",
+                              "status",
+                              "revision",
+                              "hold",
+                              "waivers",
+                              "prerequisite_ticket_ids",
+                              "related_ticket_ids",
+                              "claim",
+                              "created_order",
+                              "reopened_token",
+                              "reassessments",
+                              "created_sequence",
+                              "created_at",
+                              "updated_at",
+                              "next_token"
                             ],
                             "type": "object"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "label_ids": {
-                        "allOf": [
-                          {
-                            "items": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Validated coordination identity."
-                            },
-                            "maxItems": 100,
-                            "type": "array"
                           }
                         ],
-                        "description": "Unique typed identities, original order retained."
+                        "description": "Exact canonical ticket identity, counters, ownership and links; prose can disclose bounded prefixes."
                       },
-                      "membership_revision": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          }
-                        ],
-                        "description": "Positive decimal counter."
-                      },
-                      "milestone_id": {
-                        "anyOf": [
-                          {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Validated coordination identity."
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "next_token": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          }
-                        ],
-                        "description": "Positive decimal counter."
-                      },
-                      "parent_ticket_id": {
-                        "anyOf": [
-                          {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Validated coordination identity."
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "prerequisite_ticket_ids": {
-                        "allOf": [
-                          {
-                            "items": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Validated coordination identity."
-                            },
-                            "maxItems": 100000,
-                            "type": "array"
-                          }
-                        ],
-                        "description": "Unique typed identities, original order retained."
-                      },
-                      "priority": {
-                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                        "type": "string",
-                        "x-maximumDecimal": "4"
-                      },
-                      "project_id": {
-                        "anyOf": [
-                          {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Validated coordination identity."
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "reassessments": {
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "actor_id": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Validated coordination identity."
-                            },
-                            "prerequisite_ticket_id": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Validated coordination identity."
-                            },
-                            "reason": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 65536
-                                }
-                              ],
-                              "description": "Nonblank UTF8 text."
-                            },
-                            "reopened_revision": {
-                              "allOf": [
-                                {
-                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                  "type": "string",
-                                  "x-maximumDecimal": "4611686018427387903"
-                                }
-                              ],
-                              "description": "Positive decimal counter."
-                            },
-                            "timestamp": {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 128
-                            }
-                          },
-                          "required": [
-                            "prerequisite_ticket_id",
-                            "reopened_revision",
-                            "reason",
-                            "actor_id",
-                            "timestamp"
-                          ],
-                          "type": "object"
-                        },
-                        "maxItems": 100000,
-                        "type": "array"
-                      },
-                      "related_ticket_ids": {
-                        "allOf": [
-                          {
-                            "items": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Validated coordination identity."
-                            },
-                            "maxItems": 100000,
-                            "type": "array"
-                          }
-                        ],
-                        "description": "Unique typed identities, original order retained."
-                      },
-                      "reopened_token": {
-                        "anyOf": [
-                          {
-                            "allOf": [
-                              {
-                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                "type": "string",
-                                "x-maximumDecimal": "4611686018427387903"
-                              }
-                            ],
-                            "description": "Positive decimal counter."
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "revision": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          }
-                        ],
-                        "description": "Positive decimal counter."
-                      },
-                      "status": {
-                        "enum": [
-                          "backlog",
-                          "todo",
-                          "in_progress",
-                          "done",
-                          "canceled"
-                        ],
-                        "type": "string"
-                      },
-                      "status_id": {
-                        "anyOf": [
-                          {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Validated coordination identity."
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "ticket_id": {
-                        "allOf": [
-                          {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 96
-                          }
-                        ],
-                        "description": "Validated coordination identity."
-                      },
-                      "title": {
-                        "allOf": [
-                          {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 512
-                          }
-                        ],
-                        "description": "Nonblank UTF8 text."
-                      },
-                      "updated_at": {
-                        "type": "string",
-                        "x-maxUtf8Bytes": 128
-                      },
-                      "waivers": {
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "actor_id": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Validated coordination identity."
-                            },
-                            "prerequisite_ticket_id": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
-                                }
-                              ],
-                              "description": "Validated coordination identity."
-                            },
-                            "reason": {
-                              "allOf": [
-                                {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 65536
-                                }
-                              ],
-                              "description": "Nonblank UTF8 text."
-                            },
-                            "timestamp": {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 128
-                            }
-                          },
-                          "required": [
-                            "prerequisite_ticket_id",
-                            "actor_id",
-                            "reason",
-                            "timestamp"
-                          ],
-                          "type": "object"
-                        },
-                        "maxItems": 100000,
-                        "type": "array"
-                      }
+                      "maxItems": 100,
+                      "type": "array"
                     },
-                    "required": [
-                      "ticket_id",
-                      "display_key",
-                      "title",
-                      "description",
-                      "project_id",
-                      "membership_revision",
-                      "parent_ticket_id",
-                      "milestone_id",
-                      "archived",
-                      "status_id",
-                      "priority",
-                      "assignee_id",
-                      "label_ids",
-                      "acceptance_criteria",
-                      "status",
-                      "revision",
-                      "hold",
-                      "waivers",
-                      "prerequisite_ticket_ids",
-                      "related_ticket_ids",
-                      "claim",
-                      "created_order",
-                      "reopened_token",
-                      "reassessments",
-                      "created_sequence",
-                      "created_at",
-                      "updated_at",
-                      "next_token"
-                    ],
-                    "type": "object"
-                  }
-                ],
-                "description": "Exact canonical ticket identity, counters, ownership and links; prose can disclose bounded prefixes."
-              },
-              "maxItems": 100,
-              "type": "array"
-            },
-            "next_offset": {
-              "anyOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                {
-                  "type": "null"
+                    "next_offset": {
+                      "anyOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "remaining": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "offset",
+                    "remaining",
+                    "next_offset"
+                  ],
+                  "type": "object"
                 }
-              ]
+              ],
+              "description": "Ordered nonempty remaining pages advance by actual returned-item count."
             },
-            "offset": {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            },
-            "remaining": {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
+            {
+              "properties": {
+                "assessment": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "scope": {
+                          "enum": [
+                            "graph",
+                            "run",
+                            "candidate"
+                          ],
+                          "type": "string"
+                        },
+                        "unknown_checks": {
+                          "items": {
+                            "enum": [
+                              "run_lifecycle",
+                              "run_budget",
+                              "required_path_ownership"
+                            ],
+                            "type": "string"
+                          },
+                          "maxItems": 3,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "scope",
+                        "unknown_checks"
+                      ],
+                      "type": "object"
+                    }
+                  ],
+                  "description": "Scope of known checks; candidate run lifecycle/budget and required path ownership remain unknown. Readiness never authorizes acquisition."
+                }
+              },
+              "required": [
+                "assessment"
+              ],
+              "type": "object"
             }
-          },
-          "required": [
-            "items",
-            "offset",
-            "remaining",
-            "next_offset"
           ],
-          "type": "object"
+          "unevaluatedProperties": false
         }
       ],
-      "description": "Ordered nonempty remaining pages advance by actual returned-item count."
+      "description": "Ready candidates with explicit graph, run or candidate assessment scope."
     },
     "meta": {
       "allOf": [
@@ -969,6 +1059,88 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
               ],
               "description": "History journal commit sequence, independent of planning."
             },
+            "pagination": {
+              "allOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capture": {
+                      "x-maxCanonicalBytes": 4096,
+                      "x-maxDepth": 4
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    },
+                    "consistency": {
+                      "enum": [
+                        "snapshot_guard",
+                        "current_revision_guard",
+                        "opaque_captured_cursor",
+                        "current_revision_cursor",
+                        "notification_through",
+                        "immutable_history_head"
+                      ],
+                      "type": "string"
+                    },
+                    "max_bytes": {
+                      "const": "65536",
+                      "type": "string"
+                    },
+                    "next_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "required_bytes": {
+                      "anyOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retry_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "returned_bytes": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "stop": {
+                      "enum": [
+                        "complete",
+                        "page_limit",
+                        "byte_limit",
+                        "no_progress",
+                        "needs_larger_budget",
+                        "indexing_incomplete",
+                        "server_field_omissions",
+                        "server_item_omissions",
+                        "error",
+                        "metadata_limit"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "complete",
+                    "stop",
+                    "consistency",
+                    "capture",
+                    "next_request",
+                    "retry_request",
+                    "required_bytes",
+                    "returned_bytes",
+                    "max_bytes"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+            },
             "query_revision": {
               "allOf": [
                 {
@@ -1019,6 +1191,66 @@ For preconditions and a small example, run `workgraph help ticket.ready`. Use `-
     "data",
     "meta"
   ],
-  "type": "object"
+  "type": "object",
+  "$defs": {
+    "shape_001": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "shape_002": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_001"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
 }
 ```

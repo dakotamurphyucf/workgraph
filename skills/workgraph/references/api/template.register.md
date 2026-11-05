@@ -99,6 +99,44 @@ For preconditions and a small example, run `workgraph help template.register`. U
                     ],
                     "description": "Literal ASCII graph or parameter name."
                   },
+                  "allowed_actor_ids": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Validated entity ID."
+                                },
+                                {
+                                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "maxLength": 97,
+                              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Literal entity ID or $alias resolved within transaction.apply."
+                        },
+                        "maxItems": 100,
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "capabilities": {
                     "items": {
                       "allOf": [
@@ -145,33 +183,101 @@ For preconditions and a small example, run `workgraph help template.register`. U
                       }
                     ]
                   },
-                  "reviewer_ids": {
+                  "reviewers": {
                     "items": {
-                      "anyOf": [
+                      "oneOf": [
                         {
-                          "allOf": [
-                            {
-                              "allOf": [
+                          "additionalProperties": false,
+                          "properties": {
+                            "actor_id": {
+                              "anyOf": [
                                 {
-                                  "type": "string",
-                                  "x-maxUtf8Bytes": 96
+                                  "allOf": [
+                                    {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated ASCII identifier."
+                                    },
+                                    {
+                                      "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "maxLength": 97,
+                                  "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                  "type": "string"
                                 }
                               ],
-                              "description": "Validated entity ID."
+                              "description": "Literal entity ID or $alias resolved within transaction.apply."
                             },
-                            {
-                              "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "kind": {
+                              "const": "actor",
                               "type": "string"
                             }
-                          ]
+                          },
+                          "required": [
+                            "kind",
+                            "actor_id"
+                          ],
+                          "type": "object"
                         },
                         {
-                          "maxLength": 97,
-                          "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                          "type": "string"
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "role",
+                              "type": "string"
+                            },
+                            "member_ids": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 96
+                                          }
+                                        ],
+                                        "description": "Validated ASCII identifier."
+                                      },
+                                      {
+                                        "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "maxLength": 97,
+                                    "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                ],
+                                "description": "Literal entity ID or $alias resolved within transaction.apply."
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "name": {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "name",
+                            "member_ids"
+                          ],
+                          "type": "object"
                         }
-                      ],
-                      "description": "Literal entity ID or $alias resolved within transaction.apply."
+                      ]
                     },
                     "maxItems": 100,
                     "type": "array"
@@ -196,7 +302,8 @@ For preconditions and a small example, run `workgraph help template.register`. U
                   "depends_on",
                   "parent",
                   "capabilities",
-                  "reviewer_ids",
+                  "allowed_actor_ids",
+                  "reviewers",
                   "separate_actor"
                 ],
                 "type": "object"
@@ -484,6 +591,88 @@ For preconditions and a small example, run `workgraph help template.register`. U
               ],
               "description": "History journal commit sequence, independent of planning."
             },
+            "pagination": {
+              "allOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capture": {
+                      "x-maxCanonicalBytes": 4096,
+                      "x-maxDepth": 4
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    },
+                    "consistency": {
+                      "enum": [
+                        "snapshot_guard",
+                        "current_revision_guard",
+                        "opaque_captured_cursor",
+                        "current_revision_cursor",
+                        "notification_through",
+                        "immutable_history_head"
+                      ],
+                      "type": "string"
+                    },
+                    "max_bytes": {
+                      "const": "65536",
+                      "type": "string"
+                    },
+                    "next_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "required_bytes": {
+                      "anyOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retry_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "returned_bytes": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "stop": {
+                      "enum": [
+                        "complete",
+                        "page_limit",
+                        "byte_limit",
+                        "no_progress",
+                        "needs_larger_budget",
+                        "indexing_incomplete",
+                        "server_field_omissions",
+                        "server_item_omissions",
+                        "error",
+                        "metadata_limit"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "complete",
+                    "stop",
+                    "consistency",
+                    "capture",
+                    "next_request",
+                    "retry_request",
+                    "required_bytes",
+                    "returned_bytes",
+                    "max_bytes"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+            },
             "query_revision": {
               "allOf": [
                 {
@@ -534,6 +723,66 @@ For preconditions and a small example, run `workgraph help template.register`. U
     "data",
     "meta"
   ],
-  "type": "object"
+  "type": "object",
+  "$defs": {
+    "shape_001": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "shape_002": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_001"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
 }
 ```

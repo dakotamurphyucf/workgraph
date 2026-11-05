@@ -9,6 +9,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | Input | Presence | Type and constraints |
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `bindings` | required | object (requires project_id, milestone_id, parent_ticket_id) |
 | `instance_id` | required | string; max UTF-8 bytes=96; Validated entity ID.; string; pattern=&quot;^[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; &#124; string; pattern=&quot;^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `parameters` | required | object; At most 32 named literal substitutions; values never undergo alias interpretation. |
@@ -75,6 +76,119 @@ For preconditions and a small example, run `workgraph help template.instance_reg
     },
     {
       "properties": {
+        "bindings": {
+          "additionalProperties": false,
+          "properties": {
+            "milestone_id": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Resolved placement identity."
+                        },
+                        {
+                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "maxLength": 97,
+                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  ],
+                  "description": "Literal entity ID or $alias resolved within transaction.apply."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parent_ticket_id": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Resolved placement identity."
+                        },
+                        {
+                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "maxLength": 97,
+                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  ],
+                  "description": "Literal entity ID or $alias resolved within transaction.apply."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "project_id": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Resolved placement identity."
+                        },
+                        {
+                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "maxLength": 97,
+                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  ],
+                  "description": "Literal entity ID or $alias resolved within transaction.apply."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "project_id",
+            "milestone_id",
+            "parent_ticket_id"
+          ],
+          "type": "object"
+        },
         "instance_id": {
           "anyOf": [
             {
@@ -169,6 +283,44 @@ For preconditions and a small example, run `workgraph help template.instance_reg
                 ],
                 "description": "Literal ASCII graph or parameter name."
               },
+              "allowed_actor_ids": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated entity ID."
+                            },
+                            {
+                              "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "maxLength": 97,
+                          "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Literal entity ID or $alias resolved within transaction.apply."
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "capabilities": {
                 "items": {
                   "allOf": [
@@ -251,33 +403,101 @@ For preconditions and a small example, run `workgraph help template.instance_reg
                 "maxItems": 31,
                 "type": "array"
               },
-              "reviewer_ids": {
+              "reviewers": {
                 "items": {
-                  "anyOf": [
+                  "oneOf": [
                     {
-                      "allOf": [
-                        {
-                          "allOf": [
+                      "additionalProperties": false,
+                      "properties": {
+                        "actor_id": {
+                          "anyOf": [
                             {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 96
+                              "allOf": [
+                                {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Validated ASCII identifier."
+                                },
+                                {
+                                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "maxLength": 97,
+                              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
                             }
                           ],
-                          "description": "Validated entity ID."
+                          "description": "Literal entity ID or $alias resolved within transaction.apply."
                         },
-                        {
-                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                        "kind": {
+                          "const": "actor",
                           "type": "string"
                         }
-                      ]
+                      },
+                      "required": [
+                        "kind",
+                        "actor_id"
+                      ],
+                      "type": "object"
                     },
                     {
-                      "maxLength": 97,
-                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                      "type": "string"
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "role",
+                          "type": "string"
+                        },
+                        "member_ids": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 96
+                                      }
+                                    ],
+                                    "description": "Validated ASCII identifier."
+                                  },
+                                  {
+                                    "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              {
+                                "maxLength": 97,
+                                "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            ],
+                            "description": "Literal entity ID or $alias resolved within transaction.apply."
+                          },
+                          "maxItems": 100,
+                          "type": "array"
+                        },
+                        "name": {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "name",
+                        "member_ids"
+                      ],
+                      "type": "object"
                     }
-                  ],
-                  "description": "Literal entity ID or $alias resolved within transaction.apply."
+                  ]
                 },
                 "maxItems": 100,
                 "type": "array"
@@ -330,7 +550,8 @@ For preconditions and a small example, run `workgraph help template.instance_reg
               "prerequisite_ticket_ids",
               "parent_ticket_id",
               "capabilities",
-              "reviewer_ids",
+              "allowed_actor_ids",
+              "reviewers",
               "separate_actor"
             ],
             "type": "object"
@@ -344,6 +565,7 @@ For preconditions and a small example, run `workgraph help template.instance_reg
         "template_id",
         "template_revision",
         "parameters",
+        "bindings",
         "tickets"
       ],
       "type": "object"
@@ -562,6 +784,88 @@ For preconditions and a small example, run `workgraph help template.instance_reg
               ],
               "description": "History journal commit sequence, independent of planning."
             },
+            "pagination": {
+              "allOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capture": {
+                      "x-maxCanonicalBytes": 4096,
+                      "x-maxDepth": 4
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    },
+                    "consistency": {
+                      "enum": [
+                        "snapshot_guard",
+                        "current_revision_guard",
+                        "opaque_captured_cursor",
+                        "current_revision_cursor",
+                        "notification_through",
+                        "immutable_history_head"
+                      ],
+                      "type": "string"
+                    },
+                    "max_bytes": {
+                      "const": "65536",
+                      "type": "string"
+                    },
+                    "next_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "required_bytes": {
+                      "anyOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retry_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "returned_bytes": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "stop": {
+                      "enum": [
+                        "complete",
+                        "page_limit",
+                        "byte_limit",
+                        "no_progress",
+                        "needs_larger_budget",
+                        "indexing_incomplete",
+                        "server_field_omissions",
+                        "server_item_omissions",
+                        "error",
+                        "metadata_limit"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "complete",
+                    "stop",
+                    "consistency",
+                    "capture",
+                    "next_request",
+                    "retry_request",
+                    "required_bytes",
+                    "returned_bytes",
+                    "max_bytes"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+            },
             "query_revision": {
               "allOf": [
                 {
@@ -612,6 +916,66 @@ For preconditions and a small example, run `workgraph help template.instance_reg
     "data",
     "meta"
   ],
-  "type": "object"
+  "type": "object",
+  "$defs": {
+    "shape_001": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "shape_002": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_001"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
 }
 ```

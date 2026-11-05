@@ -128,6 +128,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [milestone.list](milestone.list.md) | advanced | read | List milestone records matching the explicit filters. |
 | [milestone.schedule](milestone.schedule.md) | advanced | mutation | Schedule milestone state. |
 | [milestone.update](milestone.update.md) | advanced | mutation | Update selected milestone fields with revision guards. |
+| [participant.list](participant.list.md) | advanced | read | Discover catalog actors and retained attributed participants without inferring liveness. |
 | [project.archive](project.archive.md) | advanced | mutation | Archive project metadata while preserving retained history. |
 | [project.brief](project.brief.md) | core | read | Read a bounded captured project summary, tickets and milestones. |
 | [project.create](project.create.md) | core | mutation | Create a new project with explicit identity and metadata. |
@@ -155,7 +156,9 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [request.reassign](request.reassign.md) | advanced | mutation | Reassign request state. |
 | [request.resolve](request.resolve.md) | core | mutation | Resolve an accountable request as its resolver, optionally attaching an answer. |
 | [reservation.acquire](reservation.acquire.md) | advanced | mutation | Acquire reservation state. |
+| [reservation.contention](reservation.contention.md) | advanced | read | Read actual holders and explicit advisory waiters/expected-release notes; no FIFO or automatic grant. |
 | [reservation.get](reservation.get.md) | advanced | read | Read one reservation record and its current revision. |
+| [reservation.holder_note.put](reservation.holder_note.put.md) | advanced | mutation | Create or update reservation holder note metadata with revision guards. |
 | [reservation.list](reservation.list.md) | advanced | read | List reservation records matching the explicit filters. |
 | [reservation.path.get](reservation.path.get.md) | advanced | read | Read one reservation path record and its current revision. |
 | [reservation.path.list](reservation.path.list.md) | advanced | read | List reservation path records matching the explicit filters. |
@@ -166,6 +169,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [reservation.recover](reservation.recover.md) | advanced | mutation | Recover reservation state. |
 | [reservation.release](reservation.release.md) | advanced | mutation | Release reservation state. |
 | [reservation.renew](reservation.renew.md) | advanced | mutation | Renew reservation state. |
+| [reservation.waiter.put](reservation.waiter.put.md) | advanced | mutation | Create or update reservation waiter metadata with revision guards. |
 | [resource.archive](resource.archive.md) | advanced | mutation | Archive resource metadata while preserving retained history. |
 | [resource.brief](resource.brief.md) | advanced | read | Read an explicit bounded brief with exact expansion references and omission counts. |
 | [resource.finish_upload](resource.finish_upload.md) | advanced | mutation | Finish upload resource state. |
@@ -174,8 +178,9 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [resource.link](resource.link.md) | advanced | mutation | Link resource state. |
 | [resource.list](resource.list.md) | core | read | List resource records matching the explicit filters. |
 | [resource.put_text](resource.put_text.md) | core | mutation | Publish immutable UTF-8 content with required title and retained metadata. |
-| [resource.read](resource.read.md) | core | read | Read complete bounded UTF-8 content by resource ID and latest or explicit version. |
+| [resource.read](resource.read.md) | core | read | Read complete UTF-8 content up to 65536 bytes (64KiB); use resource.read_text for larger text ranges or resource.read_chunk/download for binary. |
 | [resource.read_chunk](resource.read_chunk.md) | advanced | read | Read a verified binary byte range by resource ID and immutable version. |
+| [resource.read_text](resource.read_text.md) | advanced | read | Read a bounded UTF-8 text range with byte-correct continuation and immutable version/digest. |
 | [resource.unlink](resource.unlink.md) | advanced | mutation | Unlink resource state. |
 | [resource.update](resource.update.md) | advanced | mutation | Update selected resource fields with revision guards. |
 | [restore.cancel](restore.cancel.md) | advanced | mutation | Cancel restore state. |
@@ -248,7 +253,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [ticket.finish](ticket.finish.md) | core | mutation | Record completion evidence and finish an active attempt atomically. |
 | [ticket.hierarchy.get](ticket.hierarchy.get.md) | advanced | read | Read stored hierarchy policy and effective flat-plan defaults. |
 | [ticket.hierarchy.put](ticket.hierarchy.put.md) | advanced | mutation | Create or update ticket hierarchy metadata with revision guards. |
-| [ticket.hold](ticket.hold.md) | advanced | mutation | Hold ticket state. |
+| [ticket.hold](ticket.hold.md) | advanced | mutation | Set a ticket hold reason; JSON null lifts the hold. |
 | [ticket.list](ticket.list.md) | core | read | List ticket records matching the explicit filters. |
 | [ticket.metadata](ticket.metadata.md) | core | mutation | Update a ticket&#x27;s priority, assignee, labels, acceptance criteria or status. |
 | [ticket.move](ticket.move.md) | advanced | mutation | Move ticket state. |
@@ -256,6 +261,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [ticket.paths.list](ticket.paths.list.md) | advanced | read | List ticket paths records matching the explicit filters. |
 | [ticket.paths.put](ticket.paths.put.md) | advanced | mutation | Create or update ticket paths metadata with revision guards. |
 | [ticket.progress](ticket.progress.md) | core | mutation | Append an attributed progress comment under current ownership. |
+| [ticket.read](ticket.read.md) | advanced | read | Read complete ticket description, acceptance criteria and ownership without related histories. Expand ticket.context for handoffs, amendments and evidence. |
 | [ticket.readiness](ticket.readiness.md) | core | read | Explain graph readiness and optional target_run_id allocation admission. |
 | [ticket.ready](ticket.ready.md) | core | read | List graph-ready tickets, or allocatable work for target_run_id under current admission. |
 | [ticket.reassign](ticket.reassign.md) | advanced | mutation | Reassign ticket state. |
@@ -268,7 +274,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [ticket.resolve](ticket.resolve.md) | advanced | read | Resolve a human display key to its canonical ticket ID. |
 | [ticket.resume](ticket.resume.md) | core | read | Recover bounded recorded task context with exact historical sources. |
 | [ticket.start](ticket.start.md) | core | mutation | Claim a ready ticket and optionally start an attempt atomically. |
-| [ticket.update](ticket.update.md) | core | mutation | Update selected ticket fields with revision guards. |
+| [ticket.update](ticket.update.md) | core | mutation | Update title, description or status; use ticket.metadata for priority. |
 | [transaction.apply](transaction.apply.md) | core | mutation | Commit 1..32 ordered planning operations atomically, with typed creation aliases. |
 | [transaction.preflight](transaction.preflight.md) | advanced | read | Validate an atomic plan with actual domain preparation, without committing it. |
 | [upload.abort](upload.abort.md) | advanced | write | Discard private staging and free upload admission. |

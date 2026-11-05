@@ -81,6 +81,65 @@ For preconditions and a small example, run `workgraph help template.instance_get
         {
           "additionalProperties": false,
           "properties": {
+            "bindings": {
+              "additionalProperties": false,
+              "properties": {
+                "milestone_id": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Resolved placement identity."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "parent_ticket_id": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Resolved placement identity."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "project_id": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Resolved placement identity."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "project_id",
+                "milestone_id",
+                "parent_ticket_id"
+              ],
+              "type": "object"
+            },
             "instance_id": {
               "allOf": [
                 {
@@ -139,6 +198,31 @@ For preconditions and a small example, run `workgraph help template.instance_get
                     ],
                     "description": "Literal ASCII graph or parameter name."
                   },
+                  "allowed_actor_ids": {
+                    "allOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated coordination identity."
+                            },
+                            "maxItems": 100,
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "description": "Null is unrestricted; a nonempty distinct actor allowlist is canonicalized by ID."
+                  },
                   "capabilities": {
                     "items": {
                       "allOf": [
@@ -185,18 +269,78 @@ For preconditions and a small example, run `workgraph help template.instance_get
                     "maxItems": 31,
                     "type": "array"
                   },
-                  "reviewer_ids": {
-                    "items": {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Validated entity ID."
-                    },
-                    "maxItems": 100,
-                    "type": "array"
+                  "reviewers": {
+                    "allOf": [
+                      {
+                        "items": {
+                          "allOf": [
+                            {
+                              "oneOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "actor_id": {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated ASCII identifier."
+                                    },
+                                    "kind": {
+                                      "const": "actor",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "actor_id"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "const": "role",
+                                      "type": "string"
+                                    },
+                                    "member_ids": {
+                                      "items": {
+                                        "allOf": [
+                                          {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 96
+                                          }
+                                        ],
+                                        "description": "Validated ASCII identifier."
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "name",
+                                    "member_ids"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            }
+                          ],
+                          "description": "Named reviewer or nonempty explicit reviewer role."
+                        },
+                        "maxItems": 100,
+                        "type": "array"
+                      }
+                    ],
+                    "description": "Canonical unique named actors and explicit nonempty reviewer roles."
                   },
                   "separate_actor": {
                     "type": "boolean"
@@ -228,7 +372,8 @@ For preconditions and a small example, run `workgraph help template.instance_get
                   "prerequisite_ticket_ids",
                   "parent_ticket_id",
                   "capabilities",
-                  "reviewer_ids",
+                  "allowed_actor_ids",
+                  "reviewers",
                   "separate_actor"
                 ],
                 "type": "object"
@@ -242,6 +387,7 @@ For preconditions and a small example, run `workgraph help template.instance_get
             "template_id",
             "template_revision",
             "parameters",
+            "bindings",
             "tickets"
           ],
           "type": "object"
@@ -434,6 +580,88 @@ For preconditions and a small example, run `workgraph help template.instance_get
               ],
               "description": "History journal commit sequence, independent of planning."
             },
+            "pagination": {
+              "allOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capture": {
+                      "x-maxCanonicalBytes": 4096,
+                      "x-maxDepth": 4
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    },
+                    "consistency": {
+                      "enum": [
+                        "snapshot_guard",
+                        "current_revision_guard",
+                        "opaque_captured_cursor",
+                        "current_revision_cursor",
+                        "notification_through",
+                        "immutable_history_head"
+                      ],
+                      "type": "string"
+                    },
+                    "max_bytes": {
+                      "const": "65536",
+                      "type": "string"
+                    },
+                    "next_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "required_bytes": {
+                      "anyOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retry_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "returned_bytes": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "stop": {
+                      "enum": [
+                        "complete",
+                        "page_limit",
+                        "byte_limit",
+                        "no_progress",
+                        "needs_larger_budget",
+                        "indexing_incomplete",
+                        "server_field_omissions",
+                        "server_item_omissions",
+                        "error",
+                        "metadata_limit"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "complete",
+                    "stop",
+                    "consistency",
+                    "capture",
+                    "next_request",
+                    "retry_request",
+                    "required_bytes",
+                    "returned_bytes",
+                    "max_bytes"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+            },
             "query_revision": {
               "allOf": [
                 {
@@ -484,6 +712,66 @@ For preconditions and a small example, run `workgraph help template.instance_get
     "data",
     "meta"
   ],
-  "type": "object"
+  "type": "object",
+  "$defs": {
+    "shape_001": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "shape_002": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_001"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
 }
 ```

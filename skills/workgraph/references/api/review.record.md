@@ -301,15 +301,7 @@ For preconditions and a small example, run `workgraph help review.record`. Use `
       ],
       "type": "object"
     },
-    "metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_8e81fb519ffaffb1e2a847c7d1ee11b029d04b32f58ec2ff4d72f28004017cc1"
-        }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
-    },
-    "metadata_8e81fb519ffaffb1e2a847c7d1ee11b029d04b32f58ec2ff4d72f28004017cc1": {
+    "metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -492,6 +484,88 @@ For preconditions and a small example, run `workgraph help review.record`. Use `
           ],
           "description": "History journal commit sequence, independent of planning."
         },
+        "pagination": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "capture": {
+                  "x-maxCanonicalBytes": 4096,
+                  "x-maxDepth": 4
+                },
+                "complete": {
+                  "type": "boolean"
+                },
+                "consistency": {
+                  "enum": [
+                    "snapshot_guard",
+                    "current_revision_guard",
+                    "opaque_captured_cursor",
+                    "current_revision_cursor",
+                    "notification_through",
+                    "immutable_history_head"
+                  ],
+                  "type": "string"
+                },
+                "max_bytes": {
+                  "const": "65536",
+                  "type": "string"
+                },
+                "next_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "required_bytes": {
+                  "anyOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "retry_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "stop": {
+                  "enum": [
+                    "complete",
+                    "page_limit",
+                    "byte_limit",
+                    "no_progress",
+                    "needs_larger_budget",
+                    "indexing_incomplete",
+                    "server_field_omissions",
+                    "server_item_omissions",
+                    "error",
+                    "metadata_limit"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "complete",
+                "stop",
+                "consistency",
+                "capture",
+                "next_request",
+                "retry_request",
+                "required_bytes",
+                "returned_bytes",
+                "max_bytes"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
         "query_revision": {
           "allOf": [
             {
@@ -533,6 +607,72 @@ For preconditions and a small example, run `workgraph help review.record`. Use `
       },
       "required": [],
       "type": "object"
+    },
+    "metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "reviewers_6b7f03e21694e496735138a7f340f74bc0dbaa160ea31ff8098b22ba002cb15e": {
       "items": {
@@ -1064,7 +1204,7 @@ For preconditions and a small example, run `workgraph help review.record`. Use `
       "description": "Review with a matching effective policy ticket."
     },
     "meta": {
-      "$ref": "#/$defs/metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773"
+      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
     }
   },
   "required": [

@@ -9,8 +9,10 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | Input | Presence | Type and constraints |
 | --- | --- | --- |
 | `actor_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
+| `board_id` | optional | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted.; string; pattern=&quot;^[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; &#124; string; pattern=&quot;^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; |
 | `body` | required | string; max UTF-8 bytes=65536; Nonblank UTF8 text. |
 | `deadline_unix_ms` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;9223372036854775807&quot;; Canonical nonnegative Unix milliseconds within signed int64. |
+| `expected_thread_revision` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;4611686018427387903&quot; |
 | `kind` | optional | string; enum=[&quot;clarification&quot;,&quot;review&quot;,&quot;help&quot;,&quot;blocker_resolution&quot;,&quot;handoff&quot;] |
 | `mutation_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `priority` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;4&quot;; Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low. |
@@ -20,8 +22,9 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 | `resolver_id` | required | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted. |
 | `run_id` | optional | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 | `supersedes_request_ids` | optional | array; max items=32 |
+| `thread_id` | optional | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted.; string; pattern=&quot;^[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; &#124; string; pattern=&quot;^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; |
 | `ticket_id` | optional | string; max UTF-8 bytes=96; Resolved local identity; aliases are not accepted.; string; pattern=&quot;^[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; &#124; string; pattern=&quot;^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])&quot; |
-| `title` | required | string; max UTF-8 bytes=512; Nonblank UTF-8 title, at most 512 bytes. |
+| `title` | optional | string; max UTF-8 bytes=512; Nonblank UTF-8 title, at most 512 bytes. |
 | `workspace_id` | required | string; max UTF-8 bytes=96; 1..96 ASCII letters, digits, underscores or hyphens |
 
 For preconditions and a small example, run `workgraph help request.ask`. Use `--full` for the complete contracts below.
@@ -118,6 +121,33 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
           "allOf": [
             {
               "properties": {
+                "board_id": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Resolved local identity; aliases are not accepted."
+                        },
+                        {
+                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "maxLength": 97,
+                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  ],
+                  "description": "Literal entity ID or $alias resolved within transaction.apply."
+                },
                 "body": {
                   "allOf": [
                     {
@@ -136,6 +166,11 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
                     }
                   ],
                   "description": "Canonical nonnegative Unix milliseconds within signed int64."
+                },
+                "expected_thread_revision": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
                 },
                 "kind": {
                   "enum": [
@@ -281,6 +316,33 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
                 "supersedes_request_ids": {
                   "$ref": "#/$defs/related_request_ids_22b6b6c0caea5fef4c3ab843b51e19495287aa82c299f4c21c1d22550f66ecf9"
                 },
+                "thread_id": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Resolved local identity; aliases are not accepted."
+                        },
+                        {
+                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "maxLength": 97,
+                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  ],
+                  "description": "Literal entity ID or $alias resolved within transaction.apply."
+                },
                 "ticket_id": {
                   "anyOf": [
                     {
@@ -320,7 +382,6 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
               },
               "required": [
                 "request_id",
-                "title",
                 "body",
                 "recipients",
                 "resolver_id"
@@ -331,7 +392,7 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
           "description": "Raw command object preserving explicit references."
         }
       ],
-      "description": "Atomically create a question, request and explicit scheduling metadata."
+      "description": "Atomically create a question and request. New threads require title and may use board_id/ticket_id. Existing thread_id requires expected_thread_revision and forbids title, board_id and ticket_id."
     }
   ],
   "unevaluatedProperties": false
@@ -629,6 +690,88 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
               ],
               "description": "History journal commit sequence, independent of planning."
             },
+            "pagination": {
+              "allOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capture": {
+                      "x-maxCanonicalBytes": 4096,
+                      "x-maxDepth": 4
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    },
+                    "consistency": {
+                      "enum": [
+                        "snapshot_guard",
+                        "current_revision_guard",
+                        "opaque_captured_cursor",
+                        "current_revision_cursor",
+                        "notification_through",
+                        "immutable_history_head"
+                      ],
+                      "type": "string"
+                    },
+                    "max_bytes": {
+                      "const": "65536",
+                      "type": "string"
+                    },
+                    "next_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "required_bytes": {
+                      "anyOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retry_request": {
+                      "$ref": "#/$defs/shape_002"
+                    },
+                    "returned_bytes": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "stop": {
+                      "enum": [
+                        "complete",
+                        "page_limit",
+                        "byte_limit",
+                        "no_progress",
+                        "needs_larger_budget",
+                        "indexing_incomplete",
+                        "server_field_omissions",
+                        "server_item_omissions",
+                        "error",
+                        "metadata_limit"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "complete",
+                    "stop",
+                    "consistency",
+                    "capture",
+                    "next_request",
+                    "retry_request",
+                    "required_bytes",
+                    "returned_bytes",
+                    "max_bytes"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+            },
             "query_revision": {
               "allOf": [
                 {
@@ -679,6 +822,66 @@ For preconditions and a small example, run `workgraph help request.ask`. Use `--
     "data",
     "meta"
   ],
-  "type": "object"
+  "type": "object",
+  "$defs": {
+    "shape_001": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "shape_002": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_001"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
 }
 ```

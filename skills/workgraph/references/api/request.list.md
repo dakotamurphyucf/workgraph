@@ -370,161 +370,7 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
       ],
       "type": "object"
     },
-    "messages_368ae459de8276686eb0c06cd8a775e044b7c1c92413f0f140e4260e11fe6844": {
-      "additionalProperties": false,
-      "properties": {
-        "actor_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved local identity."
-        },
-        "author_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved local identity."
-        },
-        "body": {
-          "type": "string",
-          "x-maxUtf8Bytes": 65536
-        },
-        "comment_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          ],
-          "description": "Resolved local identity."
-        },
-        "created_at": {
-          "type": "string",
-          "x-maxUtf8Bytes": 128
-        },
-        "kind": {
-          "enum": [
-            "comment",
-            "progress",
-            "decision",
-            "blocker",
-            "evidence"
-          ],
-          "type": "string"
-        },
-        "origin": {
-          "enum": [
-            "authored",
-            "completion"
-          ],
-          "type": "string"
-        },
-        "reply_to_comment_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Resolved local identity."
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive revision/activity counter."
-        },
-        "sequence": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive revision/activity counter."
-        },
-        "serial": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive revision/activity counter."
-        },
-        "target": {
-          "$ref": "#/$defs/target_49d891b6abc3c797ca4f422ae4134bdc120559cb09f934b7d4b5ee5ac6204d04"
-        },
-        "timestamp": {
-          "type": "string",
-          "x-maxUtf8Bytes": 128
-        },
-        "tombstone": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "comment_id",
-        "target",
-        "author_id",
-        "created_at",
-        "reply_to_comment_id",
-        "kind",
-        "origin",
-        "revision",
-        "serial",
-        "sequence",
-        "actor_id",
-        "timestamp",
-        "body",
-        "tombstone"
-      ],
-      "type": "object"
-    },
-    "messages_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/messages_f94a184db7b7251f2a14ba7954a7f58ed5954d2c48b8c24b8023274e3e39d7bf"
-        }
-      ],
-      "description": "A tombstone preserves provenance and an empty body."
-    },
-    "messages_f94a184db7b7251f2a14ba7954a7f58ed5954d2c48b8c24b8023274e3e39d7bf": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/messages_368ae459de8276686eb0c06cd8a775e044b7c1c92413f0f140e4260e11fe6844"
-        }
-      ],
-      "description": "Public comment/version view; complete provenance and explicitly budgeted prose."
-    },
-    "metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_8e81fb519ffaffb1e2a847c7d1ee11b029d04b32f58ec2ff4d72f28004017cc1"
-        }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
-    },
-    "metadata_8e81fb519ffaffb1e2a847c7d1ee11b029d04b32f58ec2ff4d72f28004017cc1": {
+    "metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -707,6 +553,88 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
           ],
           "description": "History journal commit sequence, independent of planning."
         },
+        "pagination": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "capture": {
+                  "x-maxCanonicalBytes": 4096,
+                  "x-maxDepth": 4
+                },
+                "complete": {
+                  "type": "boolean"
+                },
+                "consistency": {
+                  "enum": [
+                    "snapshot_guard",
+                    "current_revision_guard",
+                    "opaque_captured_cursor",
+                    "current_revision_cursor",
+                    "notification_through",
+                    "immutable_history_head"
+                  ],
+                  "type": "string"
+                },
+                "max_bytes": {
+                  "const": "65536",
+                  "type": "string"
+                },
+                "next_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "required_bytes": {
+                  "anyOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "retry_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "stop": {
+                  "enum": [
+                    "complete",
+                    "page_limit",
+                    "byte_limit",
+                    "no_progress",
+                    "needs_larger_budget",
+                    "indexing_incomplete",
+                    "server_field_omissions",
+                    "server_item_omissions",
+                    "error",
+                    "metadata_limit"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "complete",
+                "stop",
+                "consistency",
+                "capture",
+                "next_request",
+                "retry_request",
+                "required_bytes",
+                "returned_bytes",
+                "max_bytes"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
         "query_revision": {
           "allOf": [
             {
@@ -748,6 +676,72 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
       },
       "required": [],
       "type": "object"
+    },
+    "metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "recipient_72ee8295eb9c3a45accd3876ea2d3e1eabc18ffb494bfd7f353d2e2dbd2716bd": {
       "oneOf": [
@@ -810,133 +804,6 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
             }
           ],
           "description": "Run recipient."
-        }
-      ]
-    },
-    "target_49d891b6abc3c797ca4f422ae4134bdc120559cb09f934b7d4b5ee5ac6204d04": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/target_50d54700b3be690d1afd683465322dd7f6a9ba9585d5e2a500c3793bf6a930fc"
-        }
-      ],
-      "description": "Resolved tagged discussion target."
-    },
-    "target_50d54700b3be690d1afd683465322dd7f6a9ba9585d5e2a500c3793bf6a930fc": {
-      "oneOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "enum": [
-                "workspace"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 97
-                }
-              ],
-              "description": "Opaque entity ID or transaction $alias."
-            },
-            "kind": {
-              "enum": [
-                "project"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind",
-            "id"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 97
-                }
-              ],
-              "description": "Opaque entity ID or transaction $alias."
-            },
-            "kind": {
-              "enum": [
-                "milestone"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind",
-            "id"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 97
-                }
-              ],
-              "description": "Opaque entity ID or transaction $alias."
-            },
-            "kind": {
-              "enum": [
-                "ticket"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind",
-            "id"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 97
-                }
-              ],
-              "description": "Opaque entity ID or transaction $alias."
-            },
-            "kind": {
-              "enum": [
-                "resource"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind",
-            "id"
-          ],
-          "type": "object"
         }
       ]
     }
@@ -1062,165 +929,6 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
                               }
                             ],
                             "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
-                          },
-                          "related": {
-                            "allOf": [
-                              {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "discussion_serial": {
-                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                    "type": "string",
-                                    "x-maximumDecimal": "4611686018427387903"
-                                  },
-                                  "messages": {
-                                    "allOf": [
-                                      {
-                                        "allOf": [
-                                          {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                              "items": {
-                                                "items": {
-                                                  "$ref": "#/$defs/messages_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f"
-                                                },
-                                                "maxItems": 100,
-                                                "type": "array"
-                                              },
-                                              "next_offset": {
-                                                "anyOf": [
-                                                  {
-                                                    "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                    "type": "string",
-                                                    "x-maximumDecimal": "4611686018427387903"
-                                                  },
-                                                  {
-                                                    "type": "null"
-                                                  }
-                                                ]
-                                              },
-                                              "offset": {
-                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                "type": "string",
-                                                "x-maximumDecimal": "4611686018427387903"
-                                              },
-                                              "remaining": {
-                                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                "type": "string",
-                                                "x-maximumDecimal": "4611686018427387903"
-                                              }
-                                            },
-                                            "required": [
-                                              "items",
-                                              "offset",
-                                              "remaining",
-                                              "next_offset"
-                                            ],
-                                            "type": "object"
-                                          }
-                                        ],
-                                        "description": "Exact public communication record; bounded views disclose omissions separately."
-                                      }
-                                    ],
-                                    "description": "Resumable page after budget fitting, with explicit remaining count."
-                                  },
-                                  "request_revision": {
-                                    "allOf": [
-                                      {
-                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                        "type": "string",
-                                        "x-maximumDecimal": "4611686018427387903"
-                                      }
-                                    ],
-                                    "description": "Positive entity revision or activity serial."
-                                  },
-                                  "source_message": {
-                                    "$ref": "#/$defs/messages_62d29d0ed89486a9d208f5a8ea4665b3056c79f87dc9b1d37444ef2dab702b5f"
-                                  },
-                                  "source_message_reference": {
-                                    "allOf": [
-                                      {
-                                        "additionalProperties": false,
-                                        "properties": {
-                                          "comment_id": {
-                                            "allOf": [
-                                              {
-                                                "type": "string",
-                                                "x-maxUtf8Bytes": 96
-                                              }
-                                            ],
-                                            "description": "Resolved local identity; aliases are not accepted."
-                                          },
-                                          "revision": {
-                                            "allOf": [
-                                              {
-                                                "anyOf": [
-                                                  {
-                                                    "allOf": [
-                                                      {
-                                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                                        "type": "string",
-                                                        "x-maximumDecimal": "4611686018427387903"
-                                                      }
-                                                    ],
-                                                    "description": "Positive entity revision or activity serial."
-                                                  },
-                                                  {
-                                                    "type": "null"
-                                                  }
-                                                ]
-                                              }
-                                            ],
-                                            "description": "Null denotes current source version; initial message bodies have a positive pinned revision."
-                                          }
-                                        },
-                                        "required": [
-                                          "comment_id",
-                                          "revision"
-                                        ],
-                                        "type": "object"
-                                      }
-                                    ],
-                                    "description": "Exact public communication record; bounded views disclose omissions separately."
-                                  },
-                                  "source_message_version": {
-                                    "const": "current",
-                                    "type": "string"
-                                  },
-                                  "thread_id": {
-                                    "allOf": [
-                                      {
-                                        "type": "string",
-                                        "x-maxUtf8Bytes": 96
-                                      }
-                                    ],
-                                    "description": "Resolved local identity; aliases are not accepted."
-                                  },
-                                  "thread_revision": {
-                                    "allOf": [
-                                      {
-                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                        "type": "string",
-                                        "x-maximumDecimal": "4611686018427387903"
-                                      }
-                                    ],
-                                    "description": "Positive entity revision or activity serial."
-                                  }
-                                },
-                                "required": [
-                                  "thread_id",
-                                  "thread_revision",
-                                  "discussion_serial",
-                                  "messages",
-                                  "request_revision",
-                                  "source_message",
-                                  "source_message_version",
-                                  "source_message_reference"
-                                ],
-                                "type": "object"
-                              }
-                            ],
-                            "description": "Exact public communication record; bounded views disclose omissions separately."
                           },
                           "related_request_ids": {
                             "items": {
@@ -1441,6 +1149,232 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
                               }
                             ],
                             "description": "Resolved local identity; aliases are not accepted."
+                          },
+                          "thread_summary": {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "link_count": {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "100"
+                                      },
+                                      "links": {
+                                        "items": {
+                                          "allOf": [
+                                            {
+                                              "oneOf": [
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "kind": {
+                                                      "enum": [
+                                                        "workspace"
+                                                      ],
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "id": {
+                                                      "allOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "x-maxUtf8Bytes": 97
+                                                        }
+                                                      ],
+                                                      "description": "Opaque entity ID or transaction $alias."
+                                                    },
+                                                    "kind": {
+                                                      "enum": [
+                                                        "project"
+                                                      ],
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind",
+                                                    "id"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "id": {
+                                                      "allOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "x-maxUtf8Bytes": 97
+                                                        }
+                                                      ],
+                                                      "description": "Opaque entity ID or transaction $alias."
+                                                    },
+                                                    "kind": {
+                                                      "enum": [
+                                                        "milestone"
+                                                      ],
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind",
+                                                    "id"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "id": {
+                                                      "allOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "x-maxUtf8Bytes": 97
+                                                        }
+                                                      ],
+                                                      "description": "Opaque entity ID or transaction $alias."
+                                                    },
+                                                    "kind": {
+                                                      "enum": [
+                                                        "ticket"
+                                                      ],
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind",
+                                                    "id"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "id": {
+                                                      "allOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "x-maxUtf8Bytes": 97
+                                                        }
+                                                      ],
+                                                      "description": "Opaque entity ID or transaction $alias."
+                                                    },
+                                                    "kind": {
+                                                      "enum": [
+                                                        "resource"
+                                                      ],
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind",
+                                                    "id"
+                                                  ],
+                                                  "type": "object"
+                                                }
+                                              ]
+                                            }
+                                          ],
+                                          "description": "Resolved tagged entity link."
+                                        },
+                                        "maxItems": 100,
+                                        "type": "array"
+                                      },
+                                      "scope": {
+                                        "oneOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "additionalProperties": false,
+                                                "properties": {
+                                                  "kind": {
+                                                    "const": "workspace",
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind"
+                                                ],
+                                                "type": "object"
+                                              }
+                                            ],
+                                            "description": "Workspace scope."
+                                          },
+                                          {
+                                            "allOf": [
+                                              {
+                                                "additionalProperties": false,
+                                                "properties": {
+                                                  "id": {
+                                                    "allOf": [
+                                                      {
+                                                        "type": "string",
+                                                        "x-maxUtf8Bytes": 96
+                                                      }
+                                                    ],
+                                                    "description": "Resolved local identity; aliases are not accepted."
+                                                  },
+                                                  "kind": {
+                                                    "const": "project",
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "id"
+                                                ],
+                                                "type": "object"
+                                              }
+                                            ],
+                                            "description": "Project scope."
+                                          }
+                                        ]
+                                      },
+                                      "thread_revision": {
+                                        "allOf": [
+                                          {
+                                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                            "type": "string",
+                                            "x-maximumDecimal": "4611686018427387903"
+                                          }
+                                        ],
+                                        "description": "Positive entity revision or activity serial."
+                                      },
+                                      "title": {
+                                        "type": "string",
+                                        "x-maxUtf8Bytes": 512
+                                      },
+                                      "title_bytes": {
+                                        "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                        "type": "string",
+                                        "x-maximumDecimal": "512"
+                                      }
+                                    },
+                                    "required": [
+                                      "thread_revision",
+                                      "title",
+                                      "title_bytes",
+                                      "scope",
+                                      "links",
+                                      "link_count"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ],
+                                "description": "Exact public communication record; bounded views disclose omissions separately."
+                              }
+                            ],
+                            "description": "Captured thread title, scope and work links. Original byte/link totals survive bounded prefix omissions; source thread revision is independent of the request."
                           }
                         },
                         "required": [
@@ -1460,7 +1394,8 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
                           "created",
                           "deliveries",
                           "responsibility",
-                          "status"
+                          "status",
+                          "thread_summary"
                         ],
                         "type": "object"
                       }
@@ -1508,7 +1443,7 @@ For preconditions and a small example, run `workgraph help request.list`. Use `-
       "description": "Resumable page after budget fitting, with explicit remaining count."
     },
     "meta": {
-      "$ref": "#/$defs/metadata_6c80ab0626fb219685219467747da2fa5b0699361d9cbef9926da2d1ecc83773"
+      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
     }
   },
   "required": [

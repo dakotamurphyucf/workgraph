@@ -466,6 +466,505 @@ For preconditions and a small example, run `workgraph help acceptance.policy.put
 
 ```json
 {
+  "$defs": {
+    "metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624": {
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "details": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "text_bytes",
+                              "items"
+                            ],
+                            "type": "string"
+                          },
+                          "omitted": {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "4611686018427387903"
+                          },
+                          "path": {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 4194304
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "kind",
+                          "omitted"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "description": "Path is a JSON pointer into the public result; omitted is positive."
+                  },
+                  "maxItems": 4,
+                  "type": "array"
+                },
+                "details_complete": {
+                  "type": "boolean"
+                },
+                "max_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_fields": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_items": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "max_bytes",
+                "returned_bytes",
+                "truncated",
+                "omitted_fields",
+                "omitted_items",
+                "details",
+                "details_complete"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
+        },
+        "durable": {
+          "type": "boolean"
+        },
+        "history_capture": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "head": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 64
+                        }
+                      ],
+                      "description": "64 lowercase hexadecimal SHA-256 characters."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sequence": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "1000000"
+                    }
+                  ],
+                  "description": "History journal commit sequence, independent of planning."
+                },
+                "sessions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "session_id": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Session identifier."
+                      },
+                      "through": {
+                        "allOf": [
+                          {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "1000000"
+                          }
+                        ],
+                        "description": "Event sequence within one history session."
+                      }
+                    },
+                    "required": [
+                      "session_id",
+                      "through"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1000000,
+                  "type": "array"
+                },
+                "workspace_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Workspace identifier."
+                }
+              },
+              "required": [
+                "workspace_id",
+                "head",
+                "sequence",
+                "sessions"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+        },
+        "history_sequence": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "1000000"
+            }
+          ],
+          "description": "History journal commit sequence, independent of planning."
+        },
+        "pagination": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "capture": {
+                  "x-maxCanonicalBytes": 4096,
+                  "x-maxDepth": 4
+                },
+                "complete": {
+                  "type": "boolean"
+                },
+                "consistency": {
+                  "enum": [
+                    "snapshot_guard",
+                    "current_revision_guard",
+                    "opaque_captured_cursor",
+                    "current_revision_cursor",
+                    "notification_through",
+                    "immutable_history_head"
+                  ],
+                  "type": "string"
+                },
+                "max_bytes": {
+                  "const": "65536",
+                  "type": "string"
+                },
+                "next_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "required_bytes": {
+                  "anyOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "retry_request": {
+                  "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "stop": {
+                  "enum": [
+                    "complete",
+                    "page_limit",
+                    "byte_limit",
+                    "no_progress",
+                    "needs_larger_budget",
+                    "indexing_incomplete",
+                    "server_field_omissions",
+                    "server_item_omissions",
+                    "error",
+                    "metadata_limit"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "complete",
+                "stop",
+                "consistency",
+                "capture",
+                "next_request",
+                "retry_request",
+                "required_bytes",
+                "returned_bytes",
+                "max_bytes"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "query_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Pagination capture revision within the accompanying query_scope."
+        },
+        "query_scope": {
+          "enum": [
+            "communication",
+            "runs",
+            "evidence",
+            "policy"
+          ],
+          "type": "string"
+        },
+        "snapshot": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            }
+          ],
+          "description": "64 lowercase hexadecimal SHA-256 characters."
+        },
+        "workspace_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Workspace planning transaction revision."
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_f3be75c84e222b31e607ca3fee200d26fe48b3d70114589d39a19303dfa8e624"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 256
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "jsonrpc": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "method": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 128
+            }
+          ],
+          "description": "Nonempty exact request field."
+        },
+        "params": {
+          "allOf": [
+            {
+              "x-maxCanonicalBytes": 4194304,
+              "x-maxDepth": 64
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "workgraph_api": {
+          "const": "0.6",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "workgraph_api",
+        "id",
+        "method",
+        "params"
+      ],
+      "type": "object"
+    },
+    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reviewers_6b7f03e21694e496735138a7f340f74bc0dbaa160ea31ff8098b22ba002cb15e": {
+      "items": {
+        "$ref": "#/$defs/reviewers_f8c04dc02227b77284d9cd00c0ca1309f9def3c7176e6631e898c58a6855f1c5"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "reviewers_7e6c13c69521c1d79c68eacae68fe64365398954f5129a22580022ce9335b790": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated ASCII identifier."
+            },
+            "kind": {
+              "const": "actor",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "actor_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "role",
+              "type": "string"
+            },
+            "member_ids": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Validated ASCII identifier."
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "name": {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "member_ids"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "reviewers_f8c04dc02227b77284d9cd00c0ca1309f9def3c7176e6631e898c58a6855f1c5": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewers_7e6c13c69521c1d79c68eacae68fe64365398954f5129a22580022ce9335b790"
+        }
+      ],
+      "description": "Named reviewer or nonempty explicit reviewer role."
+    },
+    "scope_142a5418c5291926be3bc554b9818414d4a900bb5cb50dbe1264ba6f928d9081": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "project",
+              "type": "string"
+            },
+            "project_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated ASCII identifier."
+            }
+          },
+          "required": [
+            "kind",
+            "project_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "ticket",
+              "type": "string"
+            },
+            "ticket_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "Validated ASCII identifier."
+            }
+          },
+          "required": [
+            "kind",
+            "ticket_id"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
   "additionalProperties": false,
   "properties": {
     "data": {
@@ -578,7 +1077,7 @@ For preconditions and a small example, run `workgraph help acceptance.policy.put
                                       "x-maximumDecimal": "4611686018427387903"
                                     },
                                     "scope": {
-                                      "$ref": "#/$defs/shape_004"
+                                      "$ref": "#/$defs/scope_142a5418c5291926be3bc554b9818414d4a900bb5cb50dbe1264ba6f928d9081"
                                     }
                                   },
                                   "required": [
@@ -613,7 +1112,7 @@ For preconditions and a small example, run `workgraph help acceptance.policy.put
                               "x-maxUtf8Bytes": 4096
                             },
                             "reviewers": {
-                              "$ref": "#/$defs/shape_002"
+                              "$ref": "#/$defs/reviewers_6b7f03e21694e496735138a7f340f74bc0dbaa160ea31ff8098b22ba002cb15e"
                             },
                             "validators": {
                               "items": {
@@ -647,7 +1146,7 @@ For preconditions and a small example, run `workgraph help acceptance.policy.put
                   ]
                 },
                 "reviewers": {
-                  "$ref": "#/$defs/shape_002"
+                  "$ref": "#/$defs/reviewers_6b7f03e21694e496735138a7f340f74bc0dbaa160ea31ff8098b22ba002cb15e"
                 },
                 "revision": {
                   "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -655,7 +1154,7 @@ For preconditions and a small example, run `workgraph help acceptance.policy.put
                   "x-maximumDecimal": "4611686018427387903"
                 },
                 "scope": {
-                  "$ref": "#/$defs/shape_004"
+                  "$ref": "#/$defs/scope_142a5418c5291926be3bc554b9818414d4a900bb5cb50dbe1264ba6f928d9081"
                 },
                 "separate_actor": {
                   "type": "boolean"
@@ -704,366 +1203,13 @@ For preconditions and a small example, run `workgraph help acceptance.policy.put
       "type": "object"
     },
     "meta": {
-      "allOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "budget": {
-              "allOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "details": {
-                      "items": {
-                        "allOf": [
-                          {
-                            "additionalProperties": false,
-                            "properties": {
-                              "kind": {
-                                "enum": [
-                                  "text_bytes",
-                                  "items"
-                                ],
-                                "type": "string"
-                              },
-                              "omitted": {
-                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                "type": "string",
-                                "x-maximumDecimal": "4611686018427387903"
-                              },
-                              "path": {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 4194304
-                              }
-                            },
-                            "required": [
-                              "path",
-                              "kind",
-                              "omitted"
-                            ],
-                            "type": "object"
-                          }
-                        ],
-                        "description": "Path is a JSON pointer into the public result; omitted is positive."
-                      },
-                      "maxItems": 4,
-                      "type": "array"
-                    },
-                    "details_complete": {
-                      "type": "boolean"
-                    },
-                    "max_bytes": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "omitted_fields": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "omitted_items": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "returned_bytes": {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    },
-                    "truncated": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "max_bytes",
-                    "returned_bytes",
-                    "truncated",
-                    "omitted_fields",
-                    "omitted_items",
-                    "details",
-                    "details_complete"
-                  ],
-                  "type": "object"
-                }
-              ],
-              "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
-            },
-            "durable": {
-              "type": "boolean"
-            },
-            "history_capture": {
-              "allOf": [
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "head": {
-                      "anyOf": [
-                        {
-                          "allOf": [
-                            {
-                              "type": "string",
-                              "x-maxUtf8Bytes": 64
-                            }
-                          ],
-                          "description": "64 lowercase hexadecimal SHA-256 characters."
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sequence": {
-                      "allOf": [
-                        {
-                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                          "type": "string",
-                          "x-maximumDecimal": "1000000"
-                        }
-                      ],
-                      "description": "History journal commit sequence, independent of planning."
-                    },
-                    "sessions": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "session_id": {
-                            "allOf": [
-                              {
-                                "type": "string",
-                                "x-maxUtf8Bytes": 96
-                              }
-                            ],
-                            "description": "Session identifier."
-                          },
-                          "through": {
-                            "allOf": [
-                              {
-                                "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                                "type": "string",
-                                "x-maximumDecimal": "1000000"
-                              }
-                            ],
-                            "description": "Event sequence within one history session."
-                          }
-                        },
-                        "required": [
-                          "session_id",
-                          "through"
-                        ],
-                        "type": "object"
-                      },
-                      "maxItems": 1000000,
-                      "type": "array"
-                    },
-                    "workspace_id": {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Workspace identifier."
-                    }
-                  },
-                  "required": [
-                    "workspace_id",
-                    "head",
-                    "sequence",
-                    "sessions"
-                  ],
-                  "type": "object"
-                }
-              ],
-              "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
-            },
-            "history_sequence": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "1000000"
-                }
-              ],
-              "description": "History journal commit sequence, independent of planning."
-            },
-            "query_revision": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                }
-              ],
-              "description": "Pagination capture revision within the accompanying query_scope."
-            },
-            "query_scope": {
-              "enum": [
-                "communication",
-                "runs",
-                "evidence",
-                "policy"
-              ],
-              "type": "string"
-            },
-            "snapshot": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 64
-                }
-              ],
-              "description": "64 lowercase hexadecimal SHA-256 characters."
-            },
-            "workspace_revision": {
-              "allOf": [
-                {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                }
-              ],
-              "description": "Workspace planning transaction revision."
-            }
-          },
-          "required": [],
-          "type": "object"
-        }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      "$ref": "#/$defs/metadata_fd865a3ac09e8ea17791271711b21b679d225e656a19dc146c00a7b1db637e01"
     }
   },
   "required": [
     "data",
     "meta"
   ],
-  "type": "object",
-  "$defs": {
-    "shape_001": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/shape_003"
-        }
-      ],
-      "description": "Named reviewer or nonempty explicit reviewer role."
-    },
-    "shape_002": {
-      "items": {
-        "$ref": "#/$defs/shape_001"
-      },
-      "maxItems": 100,
-      "type": "array"
-    },
-    "shape_003": {
-      "oneOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "actor_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Validated ASCII identifier."
-            },
-            "kind": {
-              "const": "actor",
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind",
-            "actor_id"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "role",
-              "type": "string"
-            },
-            "member_ids": {
-              "items": {
-                "allOf": [
-                  {
-                    "type": "string",
-                    "x-maxUtf8Bytes": 96
-                  }
-                ],
-                "description": "Validated ASCII identifier."
-              },
-              "maxItems": 100,
-              "type": "array"
-            },
-            "name": {
-              "type": "string",
-              "x-maxUtf8Bytes": 96
-            }
-          },
-          "required": [
-            "kind",
-            "name",
-            "member_ids"
-          ],
-          "type": "object"
-        }
-      ]
-    },
-    "shape_004": {
-      "oneOf": [
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "project",
-              "type": "string"
-            },
-            "project_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Validated ASCII identifier."
-            }
-          },
-          "required": [
-            "kind",
-            "project_id"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "ticket",
-              "type": "string"
-            },
-            "ticket_id": {
-              "allOf": [
-                {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 96
-                }
-              ],
-              "description": "Validated ASCII identifier."
-            }
-          },
-          "required": [
-            "kind",
-            "ticket_id"
-          ],
-          "type": "object"
-        }
-      ]
-    }
-  }
+  "type": "object"
 }
 ```
