@@ -10,7 +10,7 @@ let outcome result =
 let%expect_test "current registry roundtrip and strict invariants" =
   let decoded =
     Registry.decode
-      {|{"version":"4","workspaces":{"demo":{"root":"/tmp/demo","open":false,"known_head":null,"known_history_head":null}},"receipts":{},"creates":{},"exports":{},"restores":{}}|}
+      {|{"version":"4","workspaces":{"demo":{"root":"/tmp/demo","known_name":"Demo","open":false,"known_head":null,"known_history_head":null}},"receipts":{},"creates":{},"exports":{},"restores":{}}|}
     |> Disk.unwrap
   in
   let encoded = Registry.encode decoded |> Disk.unwrap in
@@ -29,6 +29,7 @@ let%expect_test "current registry roundtrip and strict invariants" =
       ~key:"second"
       ~data:
         { Registry.Registration.root = "/tmp/demo"
+        ; known_name = "Demo"
         ; is_open = false
         ; known_head = None
         ; known_history_head = None
@@ -51,7 +52,7 @@ let%expect_test "current registry roundtrip and strict invariants" =
     };
   [%expect
     {|
-    {"creates":{},"exports":{},"receipts":{},"restores":{},"version":"4","workspaces":{"demo":{"known_head":null,"known_history_head":null,"open":false,"root":"/tmp/demo"}}}
+    {"creates":{},"exports":{},"receipts":{},"restores":{},"version":"4","workspaces":{"demo":{"known_head":null,"known_history_head":null,"known_name":"Demo","open":false,"root":"/tmp/demo"}}}
     Unsupported_version
     Corrupt_store
     Corrupt_store
@@ -121,6 +122,7 @@ let%expect_test "restore intents reserve roots and identities independently of r
         String.Map.singleton
           "demo"
           { Registry.Registration.root = "/tmp/other"
+          ; known_name = "Demo"
           ; is_open = false
           ; known_head = None
           ; known_history_head = None
@@ -132,6 +134,7 @@ let%expect_test "restore intents reserve roots and identities independently of r
         String.Map.singleton
           "other"
           { Registry.Registration.root = "/tmp/restored"
+          ; known_name = "Demo"
           ; is_open = false
           ; known_head = None
           ; known_history_head = None

@@ -99,6 +99,13 @@ let inspect_all ~fs ~source ~roots =
       target verified ~source ~root:(Map.find_exn roots id)))
 ;;
 
+module Installed = struct
+  type t =
+    { target : Restore_plan.Target.t
+    ; name : string
+    }
+end
+
 let install plan ~sw ~fs ~attempt =
   Disk.protect (fun () ->
     Restore_plan.validate plan;
@@ -114,7 +121,7 @@ let install plan ~sw ~fs ~attempt =
       | Some (parent, _) -> Platform.sync_directory parent
       | None -> assert false
     in
-    List.iter plan.targets ~f:(fun target ->
+    List.map plan.targets ~f:(fun target ->
       let root = Eio.Path.(fs / target.root) in
       let replay root ~verified =
         let store, state = Store.open_existing ~sw ~fs ~root |> Disk.unwrap in
@@ -136,7 +143,8 @@ let install plan ~sw ~fs ~attempt =
             then Json.fail Corrupt_store "restored state differs from captured revision";
             Option.iter verified ~f:(fun verified ->
               let snapshot = Store.capture store ~state |> Disk.unwrap in
-              Snapshot.validate_canonical verified ~snapshot |> Disk.unwrap))
+              Snapshot.validate_canonical verified ~snapshot |> Disk.unwrap);
+            State.name state)
       in
       match Eio.Path.kind ~follow:false root with
       | `Directory ->
@@ -145,15 +153,16 @@ let install plan ~sw ~fs ~attempt =
          | _ -> Json.fail Conflict "existing restore root has no ownership marker");
         if not (String.equal (Disk.read Eio.Path.(root / ".local/restore.json")) marker)
         then Json.fail Conflict "existing restore root belongs to another operation";
-        replay target.root ~verified:None;
-        sync_parent root
+        let name = replay target.root ~verified:None in
+        sync_parent root;
+        { Installed.target; name }
       | `Not_found ->
         let verified = Snapshot.verify ~fs ~directory:target.source |> Disk.unwrap in
         if not (String.equal (manifest_hash verified) target.manifest_hash)
         then Json.fail Conflict "restore source changed after admission";
         let stage = target.root ^ ".restoring-" ^ plan.token ^ "-" ^ attempt in
         Snapshot.copy_portable verified ~fs ~destination:stage |> Disk.unwrap;
-        replay stage ~verified:(Some verified);
+        let name = replay stage ~verified:(Some verified) in
         let stage_path = Eio.Path.(fs / stage) in
         Disk.write_new Eio.Path.(stage_path / ".local/restore.json") marker;
         Platform.sync_directory stage_path;
@@ -163,6 +172,7 @@ let install plan ~sw ~fs ~attempt =
          | Error error ->
            Json.fail
              Outcome_unknown
-             ("restore installed but parent sync failed: " ^ error.message))
+             ("restore installed but parent sync failed: " ^ error.message));
+        { Installed.target; name }
       | _ -> Json.fail Conflict "restore destination already exists"))
 ;;

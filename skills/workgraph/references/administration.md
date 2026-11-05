@@ -71,7 +71,27 @@ An unavailable workspace can be quarantined independently while others are usabl
 
 [Request and result contract](api/workspace.list.md).
 
-An unavailable workspace can be quarantined independently while others are usable. If registry_requires_restart is true, restart the daemon before non-diagnostic operations.
+Every entry includes a nonblank UTF-8 `name` (at most 512 bytes) and explicit
+`name_source`. `current` comes from the verified loaded workspace snapshot.
+`last_known` comes from a durable registry checkpoint when the workspace was
+created, registered, successfully opened or closed, or restored through verified
+replay. Closed and unavailable workspaces retain that checkpoint without being
+opened, inspected or replayed by listing. `daemon.health` uses the same fields.
+
+Rename is an ordinary workspace transaction; it does not depend on a second registry
+commit. Its current loaded name changes immediately. A successful close checkpoints
+that name, so rename-close-restart retains it in closed listings. If the process
+stops before a successful open/close checkpoint and the workspace is then unavailable,
+`last_known` may predate the rename. An external writer can also change a closed
+workspace's name. Open the workspace explicitly to replay its verified current name
+and refresh the checkpoint; do not infer a current-disk name from `last_known`.
+
+`open` reports whether the workspace is currently loaded; `open_intent` records the
+registry's requested open state. A failed configured-open attempt reports its error
+while retaining the last-known name. A deliberately closed workspace has no current
+archive state (`archived=null`); listing does not probe whether its root is reachable.
+An unavailable workspace can be quarantined independently while others are usable.
+If registry_requires_restart is true, restart the daemon before non-diagnostic operations.
 
 ### `daemon.shutdown`
 

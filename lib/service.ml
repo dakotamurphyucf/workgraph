@@ -363,7 +363,8 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
             ~active_exports:(Map.length !active_exports)
             ~workspace_status:(fun workspace ->
               let id = Id.Workspace.to_string workspace in
-              ( Option.map (Map.find !loaded id) ~f:(fun v -> State.archived v.state)
+              ( Option.map (Map.find !loaded id) ~f:(fun v -> State.name v.state)
+              , Option.map (Map.find !loaded id) ~f:(fun v -> State.archived v.state)
               , Map.mem !loaded id
               , Map.find !failures id
               , Option.bind (Map.find !loaded id) ~f:(fun value ->
@@ -574,18 +575,21 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  plan, response
              in
              let attempt = secure_token () in
-             worker (fun () -> Restore.install plan ~sw:worker_sw ~fs ~attempt)
-             |> Disk.unwrap;
+             let installed =
+               worker (fun () -> Restore.install plan ~sw:worker_sw ~fs ~attempt)
+               |> Disk.unwrap
+             in
              let registrations =
                List.fold
-                 plan.targets
+                 installed
                  ~init:!registry_state.registrations
-                 ~f:(fun registrations target ->
+                 ~f:(fun registrations { Restore.Installed.target; name } ->
                    Map.set
                      registrations
                      ~key:(Id.Workspace.to_string target.capture.workspace)
                      ~data:
                        { Registry.Registration.root = target.root
+                       ; known_name = name
                        ; is_open = false
                        ; known_head = target.capture.head
                        ; known_history_head = target.capture.history_head
@@ -779,6 +783,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                          ~key:id
                          ~data:
                            { Registry.Registration.root
+                           ; known_name = State.name state
                            ; is_open = true
                            ; known_head
                            ; known_history_head =
@@ -816,7 +821,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                       (Map.set
                          !registry_state.registrations
                          ~key:id
-                         ~data:{ r with is_open = true })
+                         ~data:{ r with is_open = true; known_name = State.name state })
                       (Json.obj [ "opened", `True ]))
                 in
                 (match result with
@@ -848,6 +853,10 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                   | None -> r.known_history_head
                   | Some v -> worker (fun () -> Store.known_history_head v.store)
                 in
+                let known_name =
+                  Option.value_map value ~default:r.known_name ~f:(fun v ->
+                    State.name v.state)
+                in
                 Option.iter value ~f:(fun v ->
                   match worker (fun () -> Store.flush_heartbeats v.store) with
                   | Ok () -> ()
@@ -861,7 +870,13 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                     Map.set
                       !registry_state.registrations
                       ~key:id
-                      ~data:{ r with is_open = false; known_head; known_history_head }
+                      ~data:
+                        { r with
+                          is_open = false
+                        ; known_name
+                        ; known_head
+                        ; known_history_head
+                        }
                 in
                 let response =
                   complete

@@ -15,6 +15,15 @@ val inspect_all
   -> roots:string String.Map.t
   -> (Restore_plan.Target.t list, Problem.t) Result.t
 
+module Installed : sig
+  (** Name from the same verified replay used to install this target, not from an
+      untrusted projection or the original descriptor before recorded renames. *)
+  type t =
+    { target : Restore_plan.Target.t
+    ; name : string
+    }
+end
+
 (** Persistence domain only. Copy, replay and validate each target, then publish
     with an exclusive rename. Installed roots are recognized only by the synced
     private intent marker and are replayed on retry. [attempt] is a fresh secure
@@ -26,4 +35,4 @@ val install
   -> sw:Eio.Switch.t
   -> fs:Eio.Fs.dir_ty Eio.Path.t
   -> attempt:string
-  -> (unit, Problem.t) Result.t
+  -> (Installed.t list, Problem.t) Result.t

@@ -1,8 +1,14 @@
 open Core
 
 module Registration : sig
+  (** [known_name] is a verified nonblank UTF8 display name of at most 512 bytes,
+      checkpointed by successful registration/open/close. It is advisory while the
+      workspace is not loaded: a later rename or an external writer may make it old.
+      Loaded state remains authoritative; planning commits never depend on updating
+      this registry checkpoint. Current-format decoding requires this field. *)
   type t =
     { root : string
+    ; known_name : string
     ; is_open : bool
     ; known_head : string option
     ; known_history_head : string option

@@ -3,6 +3,7 @@ open Core
 module Registration = struct
   type t =
     { root : string
+    ; known_name : string
     ; is_open : bool
     ; known_head : string option
     ; known_history_head : string option
@@ -85,6 +86,11 @@ let validate t =
   Map.iteri t.registrations ~f:(fun ~key:id ~data:r ->
     ignore (unwrap (Id.Workspace.of_string id) : Id.Workspace.t);
     reserve r.root id;
+    (match
+       Api_codec.decode (Api_codec.text ~max_bytes:512) (Json.string r.known_name)
+     with
+     | Ok name when not (String.is_empty (String.strip name)) -> ()
+     | Ok _ | Error _ -> Json.fail Corrupt_store "invalid known workspace name");
     Option.iter r.known_head ~f:digest;
     Option.iter r.known_history_head ~f:digest);
   Map.iteri t.receipts ~f:(fun ~key:k ~data:r ->
@@ -123,6 +129,7 @@ let encode t =
              , object_map t.registrations ~f:(fun r ->
                  Json.obj
                    [ "root", Json.string r.root
+                   ; "known_name", Json.string r.known_name
                    ; ("open", if r.is_open then `True else `False)
                    ; ( "known_history_head"
                      , Option.value_map r.known_history_head ~default:`Null ~f:Json.string
@@ -167,7 +174,9 @@ let decode bytes =
     in
     let registrations =
       map "workspaces" (fun id json ->
-        Json.fields json ~allowed:[ "root"; "open"; "known_head"; "known_history_head" ];
+        Json.fields
+          json
+          ~allowed:[ "root"; "known_name"; "open"; "known_head"; "known_history_head" ];
         ignore (unwrap (Id.Workspace.of_string id) : Id.Workspace.t);
         let root = Json.text (Json.field json "root") in
         absolute root;
@@ -183,6 +192,7 @@ let decode bytes =
           | j -> Some (Json.text j)
         in
         { Registration.root
+        ; known_name = Json.text (Json.field json "known_name")
         ; is_open
         ; known_head
         ; known_history_head =

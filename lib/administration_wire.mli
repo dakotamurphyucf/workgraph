@@ -14,9 +14,18 @@ val flag : bool -> unit Api_codec.t
 
 module Health : sig
   module Workspace : sig
+    module Name_source : sig
+      type t =
+        | Current
+        | Last_known
+      [@@deriving equal, sexp]
+    end
+
     type t =
       { workspace : Id.Workspace.t
       ; root : string
+      ; name : string
+      ; name_source : Name_source.t
       ; archived : bool option
       ; is_open : bool
       ; open_intent : bool
@@ -27,6 +36,7 @@ module Health : sig
     val create
       :  workspace:Id.Workspace.t
       -> registration:Registry.Registration.t
+      -> name:string option
       -> archived:bool option
       -> is_open:bool
       -> error:Problem.t option
@@ -43,14 +53,20 @@ module Health : sig
     }
 
   (** Immutable registry capture with caller-supplied current loaded/error status.
-      The callback must describe the same serialized dispatcher capture. *)
+      The callback must describe the same serialized dispatcher capture. Loaded
+      entries supply their current name; closed/unavailable entries use the
+      registry lifecycle checkpoint, explicitly marked Last_known. No I/O/open. *)
   val capture
     :  Registry.t
     -> registry_requires_restart:bool
     -> active_exports:int
     -> workspace_status:
          (Id.Workspace.t
-          -> bool option * bool * Problem.t option * Admission.Summary.t option)
+          -> string option
+             * bool option
+             * bool
+             * Problem.t option
+             * Admission.Summary.t option)
     -> t
 
   val codec : t Api_codec.t

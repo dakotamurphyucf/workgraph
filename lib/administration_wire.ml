@@ -159,9 +159,20 @@ let problem = Problem_wire.codec
 
 module Health = struct
   module Workspace = struct
+    module Name_source = struct
+      type t =
+        | Current
+        | Last_known
+      [@@deriving equal, sexp]
+
+      let codec = Api_codec.enum [ "current", Current; "last_known", Last_known ] ~equal
+    end
+
     type t =
       { workspace : Id.Workspace.t
       ; root : string
+      ; name : string
+      ; name_source : Name_source.t
       ; archived : bool option
       ; is_open : bool
       ; open_intent : bool
@@ -172,6 +183,7 @@ module Health = struct
     let create
           ~workspace
           ~(registration : Registry.Registration.t)
+          ~name
           ~archived
           ~is_open
           ~error
@@ -179,6 +191,8 @@ module Health = struct
       =
       { workspace
       ; root = registration.root
+      ; name = Option.value name ~default:registration.known_name
+      ; name_source = (if Option.is_some name then Current else Last_known)
       ; archived
       ; is_open
       ; open_intent = registration.is_open
@@ -192,6 +206,8 @@ module Health = struct
         (obj
            (req "workspace_id" workspace
             <*> req "root" path
+            <*> req "name" (Api_codec.text ~max_bytes:512)
+            <*> req "name_source" Name_source.codec
             <*> req "archived" (Api_codec.nullable Api_codec.boolean)
             <*> req "open" Api_codec.boolean
             <*> req "open_intent" Api_codec.boolean
@@ -199,12 +215,31 @@ module Health = struct
             <*> req "capacity" (Api_codec.nullable Admission.Summary.codec))
            ~decode:
              (fun
-               ((((((workspace, root), archived), is_open), open_intent), error), capacity) ->
-             { workspace; root; archived; is_open; open_intent; error; capacity })
+               ( ( ( (((((workspace, root), name), name_source), archived), is_open)
+                   , open_intent )
+                 , error )
+               , capacity ) ->
+             { workspace
+             ; root
+             ; name
+             ; name_source
+             ; archived
+             ; is_open
+             ; open_intent
+             ; error
+             ; capacity
+             })
            ~encode:(fun w ->
-             ( (((((w.workspace, w.root), w.archived), w.is_open), w.open_intent), w.error)
+             ( ( ( ( ((((w.workspace, w.root), w.name), w.name_source), w.archived)
+                   , w.is_open )
+                 , w.open_intent )
+               , w.error )
              , w.capacity )))
         (fun w ->
+           require (not (String.is_empty (String.strip w.name))) "invalid workspace name";
+           require
+             (Bool.equal w.is_open (Name_source.equal w.name_source Current))
+             "workspace name provenance disagrees with loaded state";
            require
              (Bool.equal w.is_open (Option.is_some w.archived))
              "loaded workspace archived state disagrees";
@@ -214,8 +249,10 @@ module Health = struct
            require
              (w.is_open || Option.is_none w.capacity)
              "closed workspace cannot report current cached capacity")
-        "Current local registration status; archived is known only when the workspace is \
-         loaded."
+        "Current local registration status. Loaded name_source=current uses verified \
+         state; closed/unavailable name_source=last_known uses the name checkpoint at \
+         registration/open/close, which may predate later renames. No implicit open. \
+         Archived is known only while loaded."
     ;;
   end
 
@@ -232,8 +269,15 @@ module Health = struct
       Map.to_alist registry.Registry.registrations
       |> List.map ~f:(fun (id, registration) ->
         let workspace = unwrap (Id.Workspace.of_string id) in
-        let archived, is_open, error, capacity = workspace_status workspace in
-        Workspace.create ~workspace ~registration ~archived ~is_open ~error ~capacity)
+        let name, archived, is_open, error, capacity = workspace_status workspace in
+        Workspace.create
+          ~workspace
+          ~registration
+          ~name
+          ~archived
+          ~is_open
+          ~error
+          ~capacity)
     in
     { registry_requires_restart
     ; pending_creates = Map.length registry.creates

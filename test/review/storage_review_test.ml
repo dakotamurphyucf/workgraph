@@ -20,6 +20,7 @@ let without json field =
 let%expect_test "current history head fields are required nullable digests" =
   let registration =
     { Registry.Registration.root = "/tmp/review"
+    ; known_name = "Demo"
     ; is_open = false
     ; known_head = None
     ; known_history_head = None
