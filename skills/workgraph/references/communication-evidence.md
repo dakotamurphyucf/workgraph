@@ -398,6 +398,8 @@ Reads current request metadata, pinned question/answer references, current threa
 
 [Request and result contract](api/request.list.md).
 
+Each list item includes `thread_summary` from the same immutable communication capture: `thread_revision`, `title`, `title_bytes`, `scope`, `links` and `link_count`. These labels and work references require no client joins. `title_bytes` and `link_count` describe the original source even when the response budget returns prefixes; inspect `.result.meta.budget.details` for omitted paths. Ordinary CLI reads expose an exact same-page `meta.pagination.retry_request` when summaries are clipped. Increase its `max_bytes` to expand at the captured communication revision; intervening communication edits produce `Conflict`. `thread.get` reads current state: compare its returned revision with the captured `thread_revision` before treating it as the same source. Request history and mutation receipts retain their own snapshot fields without current thread summaries.
+
 List current requests by ID; filters intersect before pagination and byte fitting. Optional ticket_id matches linked ticket threads and resolver_id selects the designated resolver. Reading/filtering acknowledges no delivery or inbox entry. recipient matches frozen delivery, responsible matches accepted ownership, unanswered means Open with unacknowledged delivery, overdue means an Open deadline strictly before the supplied instant.
 
 ### `request.history`

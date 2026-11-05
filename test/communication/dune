@@ -13,3 +13,9 @@
   ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps request_summaries_test.py)
+ (action
+  (run python3 %{dep:request_summaries_test.py} %{exe:../../bin/main.exe})))

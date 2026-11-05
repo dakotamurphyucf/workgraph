@@ -165,7 +165,7 @@ let query_entries =
     , Communication_wire.request_current )
   ; ( "request.list"
     , page request_filters
-    , Communication_wire.page Communication_wire.request )
+    , Communication_wire.page Communication_wire.request_list )
   ; ( "request.history"
     , page [ required "request_id" request_id ]
     , Communication_wire.page Communication_wire.request )

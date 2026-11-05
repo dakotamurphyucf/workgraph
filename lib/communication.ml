@@ -2111,7 +2111,10 @@ let query t ~discussion ~method_ ~params =
             Request.Status.equal request.status Open
             && Option.value_map request.deadline_unix_ms ~default:false ~f:(fun ms ->
               Int64.(Json.integer64 (Json.string ms) < now))))
-        |> List.map ~f:Communication_wire.request_json
+        |> List.map ~f:(fun request ->
+          let thread = find t.threads request.Request.thread in
+          Communication_wire.request_list_json request ~thread ~scope:(scope t thread)
+          |> unwrap)
         |> page
       | "subscription.get" ->
         direct

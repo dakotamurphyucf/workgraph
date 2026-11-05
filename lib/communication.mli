@@ -153,6 +153,12 @@ val latest_serial : t -> int
     exposes labelled current conversation versions. Inbox causal bodies are labelled
     [captured] and can pin any positive comment revision. Question [comment_revision]
     and terminal answer references never change after later comment edits.
+    request.list joins each current thread title, scope and work links from [t].
+    [thread_summary] retains its source thread revision and original title byte/link
+    totals when budget fitting returns prefixes. Historical request snapshots and
+    mutation receipts never gain these current thread fields. A captured list retry
+    may raise Conflict after edits; thread.get reads current state and its revision
+    must be compared with the summary when used for expansion.
     request.list ticket_id, resolver_id, priority and relationship filters apply
     before pagination. Related links are queried in either direction;
     supersedes/superseded_by selectors preserve directed replacement links.

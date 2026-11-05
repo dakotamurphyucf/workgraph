@@ -20,6 +20,12 @@ val subscription : Jsonaf.t Api_codec.t
 val thread : Jsonaf.t Api_codec.t
 val request : Jsonaf.t Api_codec.t
 
+(** request.list alone joins the source thread from the same immutable capture.
+    [thread_summary] preserves its revision, scope, original UTF-8 title byte count
+    and original link count while bounded views may disclose prefixes. Historical
+    snapshots and mutation receipts retain [request] without this current summary. *)
+val request_list : Jsonaf.t Api_codec.t
+
 (** Current request.get projection; requires the captured current thread revision.
     Historical snapshots and mutation results remain independent of live threads. *)
 val request_current : Jsonaf.t Api_codec.t
@@ -34,6 +40,16 @@ val team_json : Communication_event.Team.t -> Jsonaf.t
 val subscription_json : Communication_event.Subscription.t -> Jsonaf.t
 val thread_json : Communication_event.Thread.t -> Jsonaf.t
 val request_json : Communication_event.Request.t -> Jsonaf.t
+
+(** Reject a mismatched thread identity. Query revision belongs to the surrounding
+    page metadata; source thread revision belongs to each summary. A larger-budget
+    same-page retry preserves the communication revision or conflicts. thread.get
+    is current state: callers must compare its revision with the summary. *)
+val request_list_json
+  :  Communication_event.Request.t
+  -> thread:Communication_event.Thread.t
+  -> scope:Communication_event.Scope.t
+  -> (Jsonaf.t, Problem.t) Result.t
 
 (** Complete historical snapshots reuse these same owning field declarations;
     related live discussion is absent and cannot enter retained audit payloads. *)

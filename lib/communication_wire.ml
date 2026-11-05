@@ -470,6 +470,34 @@ let request_fields =
 
 let request = record (request_fields @ [ optional "related" related_request ])
 
+let thread_summary =
+  record
+    [ field "thread_revision" positive
+    ; field "title" (Api_codec.text ~max_bytes:512)
+    ; field "title_bytes" (Api_codec.decimal ~max:512)
+    ; field "scope" scope
+    ; field "links" (Api_codec.list target ~max_items:100)
+    ; field "link_count" (Api_codec.decimal ~max:100)
+    ]
+  |> Api_codec.map
+       ~decode:(fun json ->
+         Json.decode (fun () ->
+           if
+             String.length (Json.text (Json.field json "title"))
+             > Json.integer (Json.field json "title_bytes")
+             || List.length (Json.list (Json.field json "links"))
+                > Json.integer (Json.field json "link_count")
+           then Json.fail Invalid_argument "thread summary prefix exceeds source totals";
+           json))
+       ~encode:Fn.id
+       ~description:
+         "Captured thread title, scope and work links. Original byte/link totals survive \
+          bounded prefix omissions; source thread revision is independent of the \
+          request."
+;;
+
+let request_list = record (request_fields @ [ field "thread_summary" thread_summary ])
+
 let answer_matches_record json ~body =
   let status = Json.field json "status" in
   let expected =
@@ -673,6 +701,37 @@ let request_json (value : Event.Request.t) =
     ; "responsibility", responsibility_json value.responsibility
     ; "status", status_json value.status
     ]
+;;
+
+let request_list_json
+      (request : Event.Request.t)
+      ~(thread : Event.Thread.t)
+      ~scope:thread_scope
+  =
+  Json.decode (fun () ->
+    if not (Communication_id.Thread.equal request.thread thread.id)
+    then Json.fail Invalid_argument "request summary source thread differs";
+    let summary =
+      Json.obj
+        [ "thread_revision", Json.int thread.revision
+        ; "title", Json.string thread.title
+        ; "title_bytes", Json.int (String.length thread.title)
+        ; "scope", unwrap (Api_codec.encode scope thread_scope)
+        ; ( "links"
+          , `Array
+              (List.map thread.links ~f:(fun link ->
+                 unwrap (Api_codec.encode target link))) )
+        ; "link_count", Json.int (List.length thread.links)
+        ]
+    in
+    let fields =
+      match request_json request with
+      | `Object fields -> fields
+      | _ -> assert false
+    in
+    let result = Json.obj (fields @ [ "thread_summary", summary ]) in
+    ignore (Api_codec.decode request_list result |> unwrap : Jsonaf.t);
+    result)
 ;;
 
 let snapshot codec ~decode ~encode =
