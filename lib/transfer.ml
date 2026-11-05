@@ -111,6 +111,27 @@ module Upload_plan = struct
               "ticket_id", Id.Ticket.jsonaf_of_t ticket)))
   ;;
 
+  let finish_request t =
+    Protocol.Request.create
+      ~id:"file-transfer"
+      ~method_:"resource.finish_upload"
+      ~params:
+        (Json.obj
+           ([ "workspace_id", Id.Workspace.jsonaf_of_t t.workspace
+            ; "actor_id", Id.Actor.jsonaf_of_t t.actor
+            ; "mutation_id", Id.Mutation.jsonaf_of_t t.mutation
+            ; "upload_id", Id.Upload.jsonaf_of_t t.upload
+            ; "resource_id", Id.Resource.jsonaf_of_t t.resource
+            ; "expected_revision", Json.int t.expected_revision
+            ; "title", Json.string t.title
+            ; "filename", Json.string t.filename
+            ; "mime_type", Json.string t.mime_type
+            ]
+            @ Option.to_list
+                (Option.map t.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run))))
+    |> Disk.unwrap
+  ;;
+
   let prepare ~fs ~params =
     Disk.protect (fun () ->
       if Option.is_some (Json.optional params "transfer_version")
@@ -212,19 +233,7 @@ let upload_publication (plan : Upload_plan.t) ~client ~fs =
       ]
     in
     let upload_id = Id.Upload.to_string (Upload_plan.upload_id plan) in
-    let finish =
-      identity
-      @ Option.to_list
-          (Option.map plan.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run))
-      @ [ "mutation_id", Id.Mutation.jsonaf_of_t plan.mutation
-        ; "upload_id", Json.string upload_id
-        ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
-        ; "expected_revision", Json.int plan.expected_revision
-        ; "title", Json.string plan.title
-        ; "filename", Json.string plan.filename
-        ; "mime_type", Json.string plan.mime_type
-        ]
-    in
+    let finish = Upload_plan.finish_request plan in
     let receipt =
       invoke
         client
@@ -294,7 +303,7 @@ let upload_publication (plan : Upload_plan.t) ~client ~fs =
        in
        chunks offset
      | _ -> Json.fail Invalid_argument "invalid workspace receipt status");
-    let response = invoke_result client "resource.finish_upload" finish in
+    let response = Client.invoke client finish |> Disk.unwrap in
     let decoded = Api_response.of_json response |> Disk.unwrap in
     Api_response.require_durable decoded |> Disk.unwrap;
     response)

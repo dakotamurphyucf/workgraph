@@ -10,52 +10,13 @@ let saved_request t = t.saved_request
 let request t = t.request
 let request_path directory = Filename.concat directory "publication.json"
 
-let sync_existing_request path ~bytes =
-  let invalid message =
-    Json.fail
-      Invalid_argument
-      (sprintf "sync publication request %S: %s" (Eio.Path.native_exn path) message)
-  in
-  (match Eio.Path.kind ~follow:false path with
-   | `Regular_file -> ()
-   | _ -> invalid "requires a regular file");
-  Eio.Path.with_open_out ~append:true ~create:`Never path (fun file ->
-    let length = String.length bytes in
-    let check_size () =
-      if not (Optint.Int63.equal (Eio.File.size file) (Optint.Int63.of_int length))
-      then invalid "differs from authoritative stage"
-    in
-    check_size ();
-    let content = Cstruct.create length in
-    (try Eio.File.pread_exact file ~file_offset:Optint.Int63.zero [ content ] with
-     | End_of_file -> invalid "changed during read");
-    check_size ();
-    if not (String.equal bytes (Cstruct.to_string content))
-    then invalid "differs from authoritative stage";
-    Eio.File.sync file);
-  match Eio.Path.split path with
-  | Some (parent, _) -> Platform.sync_directory parent
-  | None -> invalid "requires a parent directory"
+let journal t ~fs ~random ~destination =
+  Result.map
+    (Request_journal.save t.request ~fs ~random ~destination)
+    ~f:(fun (_ : Request_journal.Saved.t) -> ())
 ;;
 
-let journal t ~fs ~destination =
-  Local_file.protect ~operation:"save publication journal" ~path:destination (fun () ->
-    Disk.absolute destination;
-    let path = Eio.Path.(fs / destination) in
-    let bytes = Protocol.Request.to_json t.request |> Json.canonical in
-    match Eio.Path.kind ~follow:false path with
-    | `Not_found ->
-      (try Disk.write_new path bytes with
-       | Eio.Io (Eio.Fs.E (Already_exists _), _) -> sync_existing_request path ~bytes)
-    | _ -> sync_existing_request path ~bytes)
-;;
-
-let journal_path t ~directory =
-  Json.decode (fun () ->
-    Disk.absolute directory;
-    let hash = Protocol.Request.to_json t.request |> Json.canonical |> Json.hash in
-    Filename.concat directory (hash ^ ".json"))
-;;
+let journal_path t ~directory = Request_journal.path t.request ~directory
 
 let load ~fs ~directory =
   Local_file.protect ~operation:"load publication stage" ~path:directory (fun () ->
@@ -91,7 +52,7 @@ let load ~fs ~directory =
            (Filename.concat directory "capture.json"))
     then Json.fail Corrupt_store "execution publication source differs from stage";
     let t = { saved_request; request; plan } in
-    journal t ~fs ~destination:saved_request |> Disk.unwrap;
+    Request_journal.sync_existing request ~fs ~destination:saved_request |> Disk.unwrap;
     t)
 ;;
 

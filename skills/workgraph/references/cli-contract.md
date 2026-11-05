@@ -157,8 +157,8 @@ Options for named requests:
 --params-file FILE|-         Merge a JSON parameter object (duplicate fields reject).
 --json-field FIELD JSON      Supply a JSON object, array, boolean, number or null.
 --field-file FIELD FILE|-    Read exact UTF-8 bytes, including trailing newlines.
---save-request ABS_FILE      Sync a fresh exact retry file before transmission.
---request-directory ABS_DIR  Sync a fresh random-named file for each durable write.
+--save-request ABS_FILE      Sync exact retry bytes; reuse only identical existing bytes.
+--request-directory ABS_DIR  Sync an ordinary durable write under its envelope-hash filename.
 --self                      Explicit context actor recipient or current run selector.
 --FIELD VALUE               Hyphens become underscores. Declared Boolean fields accept
                             true/false; text and decimal fields remain strings.
@@ -174,8 +174,11 @@ array. The CLI reports this distinction before sending a malformed request.
 Raw JSON, --json-field, --field-file and --params-file values are never coerced.
 For example --include-markdown true is Boolean, while --title true is the text "true".
 Configured request directories must already exist for ordinary calls; init creates
-the chosen directory. Files are private, created exclusively and synced with their
-parent before sending; stderr reports saved_request: ABS_FILE. A failed save sends
+the chosen directory. Ordinary request files are private, published atomically without
+replacement and synced with their parent before sending; stderr reports
+saved_request: ABS_FILE. Existing identical full-envelope bytes may be verified and
+re-synced. Different bytes at the same destination reject without overwriting.
+A failed save sends
 nothing. When mutation_id is absent, journaling generates a fresh stable identity.
 A command reissue is a new operation; retry submits the identical saved operation,
 without context field injection or an additional journal file. Explicit mutation_id
@@ -186,6 +189,65 @@ no parameter overrides and also understands saved resource-upload plans. A norma
 request is the full JSON-RPC request object shown below, with its exact method and params.
 A harness can create/sync such a fresh file itself, then use retry for its first send and
 later retries.
+
+### Inspect local mutation journals
+
+`workgraph journal inspect /absolute/request.json` shows metadata for one current
+saved request. `workgraph journal list /absolute/requests` scans sorted, nonrecursive
+`.json` files, with per-file validation diagnostics. These offline helpers do not load
+context defaults, contact a daemon, replay a mutation or read an upload's source file.
+They expose the exact saved method, canonical full `envelope_hash`, and `mutation`
+scope/actor/mutation/run plus server `request_hash` when applicable. They omit payloads.
+
+Receipt namespaces differ. `planning` hashes the method, unscoped command fields and
+optional run attribution; workspace/actor/mutation identify its receipt scope/key.
+`registry` hashes the method and original full parameters. `history` uses the same
+full-parameter hash formula in an independent per-workspace receipt journal.
+Generated entity IDs and transaction aliases remain unresolved in the saved request
+hash. Saved method aliases are never rewritten. A local `resource.upload` plan exposes
+its own envelope hash and a distinct `resource.finish_upload` planning mutation/hash;
+an optional later ticket link is a separate workflow. No plan hash proves either commit.
+
+`commit_status=unchecked` and `transmission_status=unknown` are deliberate. A journal
+is a saved attempt: it can precede failed transport, rejection, cancellation, or a
+nondurable empty allocation observation. Its presence, absence or duplicate count
+does not establish a commit. Confirm actual durable receipts separately, and use
+`retry` with the original file after uncertainty. Files do not bind an authenticated
+server; the caller chooses the intended endpoint for receipt lookup or retry.
+
+Listing accepts `--limit COUNT` (1..1000; default100), `--after BASENAME` and
+`--max-bytes BYTES` (aggregate input budget4..64MiB; default16MiB). Each file is bounded
+to4MiB; a directory may contain at most10000 names. Output is capped at1MiB. Inspect
+`complete`, `next_after` and `stop` before treating results as complete; continue with
+the same limits and returned `next_after`. `charged_bytes` conservatively charges
+failed reads against the input budget. `groups` reports duplicate or conflicting
+request hashes within the same namespace/actor/mutation scope and **returned entries
+only**. A different request ID can change the envelope hash while preserving the
+server request hash. Partial pages cannot prove there are no other conflicting files.
+The scan is a local observation; concurrent changes can require restarting it.
+If a file cannot be read within the remaining page input budget, the page stops
+before that filename. Resuming from `next_after` retries the same file with the full
+budget and can then return its per-file diagnostic.
+
+Ordinary request-directory filenames are SHA-256 of the canonical complete envelope,
+followed by `.json`. An exact explicit identity/request can reuse the same durable
+file. A fresh generated mutation remains a new operation with a new filename; an
+existing `--save-request` never supplies or replaces that generated identity.
+Changed payloads with an explicitly reused identity at different paths remain
+inspectable as a potential hash conflict; the daemon decides actual idempotency.
+Bootstrap and reservation-wait retain their documented separate journal naming rules.
+
+New journal publication syncs a private sibling stage, links it without replacement,
+then syncs the parent. Concurrent identical saves verify/re-sync one complete winner;
+different bytes have one winner and a rejecting loser. Existing symlinks, special
+files, truncated or different bytes reject unchanged. Identical regular hardlinks
+are permitted; journal directories and their files must remain private and immutable.
+Cancellation and unexpected
+exceptions propagate. Interrupted stages or installed files remain inspectable;
+private `.journal-*.stage` siblings are excluded from ordinary `.json` listings and
+may be inspected explicitly. Re-sync an exact installed file to recover interrupted
+local publication; no network request starts unless saving succeeds. Never delete
+the only saved identity after an uncertain remote outcome.
 
 ### Transport
 

@@ -1516,13 +1516,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
           let run = identity.run in
           let key = Mutation_request.key identity in
           let request_hash =
-            Json.hash
-              (Json.canonical
-                 (Json.obj
-                    ([ "method", Json.string method_; "params", command_params ]
-                     @ Option.to_list
-                         (Option.map run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run))
-                    )))
+            Mutation_request.request_hash identity ~method_ ~parameters:command_params
           in
           let receipt = worker (fun () -> Store.receipt value.store ~key) in
           (match receipt with

@@ -15,6 +15,8 @@ let canonical_method_name = function
 let local_methods =
   [ "resource.upload"
   ; "request.wait"
+  ; "journal.inspect"
+  ; "journal.list"
   ; "resource.publish_text"
   ; "resource.upload-abort"
   ; "resource.download"
@@ -42,6 +44,25 @@ with the last result. Read errors stop unchanged; cancellation propagates.
 Data is bounded to 1MiB; clipped replies stop as incomplete, never a full answer.
 This is a local helper, not a daemon method or a saved mutation to retry.
 Journal, --self and --paginate options reject. A context's journal default is unused.|}
+  | "journal" | "journal.inspect" | "journal.list" ->
+    Some
+      {|journal inspect ABS_REQUEST / journal list ABS_DIRECTORY [offline helpers]
+Inspect one current saved request, or list sorted nonrecursive .json entries.
+List options: --after BASENAME --limit COUNT (1..1000; default100),
+--max-bytes BYTES (4194304..67108864 aggregate input; default16777216).
+Output caps at1MiB; inspect complete/next_after/stop before treating a scan as complete.
+Groups cover returned entries only; they distinguish same scoped request hashes
+from conflicting payloads. Registry, planning and history receipt namespaces differ.
+envelope_hash covers the saved request; mutation.request_hash matches its actual
+receipt namespace. Upload plans expose a distinct finish_upload identity/hash;
+their optional ticket link is a separate workflow.
+commit_status=unchecked and transmission_status=unknown: saved attempts prove no
+send or commit. These commands never contact a daemon, retry, rewrite aliases or
+read upload source bytes. No actor/run/context defaults are applied.
+Automatic request-directory filenames hash the full frozen envelope. Identical
+bytes may be re-synced/reused; different same-path bytes reject without overwrite.
+Fresh generated mutation identities remain fresh operations; use retry for recovery.
+See skills/workgraph/references/cli-contract.md. --output json|text is local.|}
   | "fields" ->
     Some
       {|fields [local helper]
@@ -1158,8 +1179,9 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
           ^ ":\n"
           ^ rendered
           ^ "\n\
-             CLI helpers (local workflows): init, bootstrap, resource.publish_text, \
-             upload, download, evidence-run, evidence-publish, retry.\n\
+             CLI helpers (local workflows): init, bootstrap, journal.inspect, \
+             journal.list, resource.publish_text, upload, download, evidence-run, \
+             evidence-publish, retry.\n\
              CLI spelling: ticket.get (canonical ticket.context); request get/list/... \
              select request-domain methods with --context/--socket.\n\
              Generic transport: request ABS_SOCKET METHOD; dotted METHOD is also accepted.\n\

@@ -35,6 +35,15 @@ let codec = Api_codec.object_ fields
 let names = Api_codec.Fields.names fields
 let key t = Id.Actor.to_string t.actor ^ ":" ^ Id.Mutation.to_string t.mutation
 
+let request_hash t ~method_ ~parameters =
+  Json.hash
+    (Json.canonical
+       (Json.obj
+          ([ "method", Json.string method_; "params", parameters ]
+           @ Option.to_list
+               (Option.map t.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run)))))
+;;
+
 let of_params params =
   Json.decode (fun () ->
     match params with

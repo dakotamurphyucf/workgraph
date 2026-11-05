@@ -14,6 +14,11 @@ module Upload_plan : sig
   val upload_id : t -> Id.Upload.t
 
   val params : t -> Jsonaf.t
+
+  (** Exact durable planning operation represented by this frozen local plan.
+      Pure: reads no source and generates no identity. The plan itself and its
+      optional later ticket link are not finish-upload commit evidence. *)
+  val finish_request : t -> Protocol.Request.t
 end
 
 (** Abort only the saved plan's actor-owned staging. Guard supplied context scope

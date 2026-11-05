@@ -39,7 +39,12 @@ val journal_path : t -> directory:string -> (string, Problem.t) Result.t
     authoritative retry intent: a later deliberate stage-only retry can omit the
     journal, retaining exact identity. Invalid paths/collisions use Invalid_argument;
     other expected local I/O uses Local_io. Cancellation propagates. *)
-val journal : t -> fs:_ Eio.Path.t -> destination:string -> (unit, Problem.t) Result.t
+val journal
+  :  t
+  -> fs:_ Eio.Path.t
+  -> random:_ Eio.Flow.source
+  -> destination:string
+  -> (unit, Problem.t) Result.t
 
 (** Returns a durable resource publication envelope or an explicit failure.
     Failure/retry never reruns execution. Network timeouts follow Client semantics;

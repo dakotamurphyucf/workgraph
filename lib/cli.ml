@@ -41,7 +41,7 @@ Request options:
   --params-file FILE|-          Read a JSON object (one bounded stdin source)
   --json-field FIELD JSON       Typed parameter
   --field-file FIELD FILE|-     Read exact UTF-8 bytes (including newlines)
-  --save-request ABS_FILE       Sync a new exact retry file before sending
+  --save-request ABS_FILE       Sync exact retry bytes; identical existing bytes may be reused
   --paginate                   Traverse one supported captured read collection
   --page-limit COUNT           Bound requests (default 100; range 1..1000)
   --total-bytes BYTES          Bound collection JSON (default 16MiB; max 64MiB)
@@ -392,17 +392,19 @@ let run ~env arguments =
       | Some path, _ -> Some path
       | None, Some directory when needs_mutation_id request ->
         Local_file.require_directory Eio.Path.(fs / directory) ~operation:"save request";
-        let bytes = Cstruct.create 32 in
-        Eio.Flow.read_exact (Eio.Stdenv.secure_random env) bytes;
-        Some (Filename.concat directory (Json.hash (Cstruct.to_string bytes) ^ ".json"))
+        Some (Request_journal.path request ~directory |> Disk.unwrap)
       | None, _ -> None
     in
     Option.iter save_request ~f:(fun file ->
       Disk.absolute file;
-      Local_file.write_new
-        ~operation:"save request"
-        Eio.Path.(fs / file)
-        (Json.canonical (Protocol.Request.to_json request));
+      ignore
+        (Request_journal.save
+           request
+           ~fs
+           ~random:(Eio.Stdenv.secure_random env)
+           ~destination:file
+         |> Disk.unwrap
+         : Request_journal.Saved.t);
       diagnostic ("saved_request: " ^ file));
     let raw_download =
       String.equal method_ "resource.download"
@@ -650,6 +652,8 @@ let run ~env arguments =
         | "methods" :: _
         | "schema" :: _
         | "fields" :: _
+        | "journal" :: _
+        | ("journal.inspect" | "journal.list") :: _
         | [ ("init" | "bootstrap"); "--help" ]
         | ("evidence-show" | "evidence.show" | "evidence-clean" | "evidence.clean") :: _
         | "evidence" :: ("show" | "clean") :: _ -> true
@@ -937,7 +941,12 @@ let run ~env arguments =
           | None, None -> None
         in
         Option.iter journal ~f:(fun destination ->
-          Execution_publication.journal publication ~fs ~destination |> Disk.unwrap;
+          Execution_publication.journal
+            publication
+            ~fs
+            ~random:(Eio.Stdenv.secure_random env)
+            ~destination
+          |> Disk.unwrap;
           diagnostic ("saved_request: " ^ destination));
         let client =
           Client.create
@@ -969,6 +978,65 @@ let run ~env arguments =
          | Link_failed _ -> 1)
       | [] | [ "--help" ] | [ "help" ] ->
         output usage;
+        0
+      | "journal" :: (("inspect" | "list") as operation) :: path :: rest
+      | (("journal.inspect" | "journal.list") as operation) :: path :: rest ->
+        let operation =
+          if String.is_prefix operation ~prefix:"journal."
+          then String.drop_prefix operation 8
+          else operation
+        in
+        let rec validate = function
+          | [] -> ()
+          | "--output" :: ("json" | "text") :: rest -> validate rest
+          | "--json" :: rest -> validate rest
+          | ("--after" | "--limit" | "--max-bytes") :: _ :: rest
+            when String.equal operation "list" -> validate rest
+          | _ ->
+            Json.fail
+              Invalid_argument
+              "journal options: --output json|text; list also accepts --after, --limit \
+               and --max-bytes"
+        in
+        validate rest;
+        let options = parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest in
+        if
+          options.self
+          || options.paginate
+          || Option.is_some options.save_request
+          || Option.is_some options.request_directory
+        then
+          Json.fail
+            Invalid_argument
+            "journal inspection accepts only output and explicit listing limits";
+        let params = Json.obj options.fields in
+        let value =
+          if String.equal operation "inspect"
+          then (
+            Json.fields params ~allowed:[];
+            Request_journal.inspect path ~fs
+            |> Disk.unwrap
+            |> Request_journal.Entry.to_json)
+          else (
+            Json.fields params ~allowed:[ "after"; "limit"; "max_bytes" ];
+            Request_journal.list
+              path
+              ~fs
+              ~after:(Option.map (Json.optional params "after") ~f:Json.text)
+              ~limit:
+                (Option.value_map
+                   (Json.optional params "limit")
+                   ~default:100
+                   ~f:Json.integer)
+              ~max_bytes:
+                (Option.value_map
+                   (Json.optional params "max_bytes")
+                   ~default:(16 * 1024 * 1024)
+                   ~f:Json.integer)
+            |> Disk.unwrap
+            |> Request_journal.Page.to_json)
+        in
+        output (if options.text then Json.pretty value else Json.canonical value);
         0
       | [ "version" ] | [ "--version" ] ->
         output Version.value;

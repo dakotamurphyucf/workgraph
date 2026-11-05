@@ -34,23 +34,24 @@ let require_directory path ~operation =
     | _ -> invalid path ~operation "requires an existing real directory")
 ;;
 
-let read path ~operation =
+let read ?(max_bytes = 4 * 1024 * 1024) path ~operation =
   with_path path ~operation (fun () ->
-    let max_bytes = 4 * 1024 * 1024 in
+    if max_bytes < 1 || max_bytes > 4 * 1024 * 1024
+    then invalid path ~operation "invalid input byte bound";
     (match Eio.Path.kind ~follow:false path with
      | `Regular_file -> ()
      | _ ->
        invalid path ~operation "requires an existing regular file (no pipes or devices)");
     Eio.Path.with_open_in path (fun file ->
       if Optint.Int63.compare (Eio.File.size file) (Optint.Int63.of_int max_bytes) > 0
-      then invalid path ~operation "file exceeds 4194304-byte limit";
+      then invalid path ~operation (sprintf "file exceeds %d-byte limit" max_bytes);
       let bytes =
         try Eio.Buf_read.(of_flow file ~max_size:(max_bytes + 1) |> take_all) with
         | Eio.Buf_read.Buffer_limit_exceeded ->
-          invalid path ~operation "file grew beyond 4194304-byte limit"
+          invalid path ~operation (sprintf "file grew beyond %d-byte limit" max_bytes)
       in
       if String.length bytes > max_bytes
-      then invalid path ~operation "file grew beyond 4194304-byte limit";
+      then invalid path ~operation (sprintf "file grew beyond %d-byte limit" max_bytes);
       bytes))
 ;;
 

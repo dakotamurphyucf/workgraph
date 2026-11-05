@@ -8,9 +8,10 @@ open Core
 val protect : operation:string -> path:string -> (unit -> 'a) -> ('a, Problem.t) Result.t
 
 (** Bounded regular-file input, rejecting links, pipes/devices and missing files
-    before opening. At most 4 MiB; oversize/growing input is Invalid_argument.
+    before opening. max_bytes defaults to 4MiB and must be 1..4MiB;
+    oversize/growing input is Invalid_argument.
     Raises Json.Decode_error for expected failures; cancellation propagates. *)
-val read : _ Eio.Path.t -> operation:string -> string
+val read : ?max_bytes:int -> _ Eio.Path.t -> operation:string -> string
 
 val require_directory : _ Eio.Path.t -> operation:string -> unit
 

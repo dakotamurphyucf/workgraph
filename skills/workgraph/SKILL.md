@@ -117,6 +117,7 @@ method. `"$WG" help ticket.finish` gives short offline help;
 | Measure external CLI calls, errors and latency | [Evaluation](references/evaluation.md) |
 | Start or stop the service, manage workspaces, recover receipts, export, verify, restore or prepare a Git handoff | [Administration](references/administration.md) |
 | Use bounded convenience views and waiting helpers | [wgx](references/wgx.md) |
+| Inspect saved mutation identities and exact request hashes; distinguish local attempts from durable commits | [CLI and wire contract](references/cli-contract.md) |
 | Wire explicit notification callbacks or runner startup/compaction hooks | [Harness hooks](references/harness-hooks.md) |
 | Follow shell recipes, team checkpoints, or deliberate capacity rollover | [Workflows](references/workflows.md), [team workflows](references/team-workflows.md), [capacity rollover](references/capacity-rollover.md) |
 
