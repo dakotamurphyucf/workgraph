@@ -224,15 +224,20 @@ module Page = struct
                  || row.byte_offset <> 0
                  || row.revision < before.revision
                  || (row.revision = before.revision
-                     && row.change_index <> before.change_index + 1)
+                     && (row.change_index <> before.change_index + 1
+                         || row.change_count <> before.change_count))
+                 || (row.revision > before.revision
+                     && (before.change_index <> before.change_count - 1
+                         || row.change_index <> 0))
                then
                  Json.fail Invalid_argument "audit changes are not contiguous and ordered");
              Some row)
          in
          if
-           Option.exists last ~f:(fun row -> not (complete row))
+           Option.exists last ~f:(fun row ->
+             (not (complete row)) || row.change_index <> row.change_count - 1)
            && Option.is_none t.cursor
-         then Json.fail Invalid_argument "partial audit change requires continuation";
+         then Json.fail Invalid_argument "incomplete audit commit requires continuation";
          if List.is_empty t.items && Option.is_some t.cursor
          then Json.fail Invalid_argument "audit continuation requires progress")
   ;;

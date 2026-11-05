@@ -40,6 +40,10 @@ module Row : sig
   val codec : t Api_codec.t
 end
 
+(** The first row may resume in the middle of a commit or chunk. Later rows
+    must account for every intervening ordinal and byte; entering a later commit
+    requires completing the earlier commit and starting at ordinal zero. A null
+    cursor requires the final change of the final returned commit to be complete. *)
 module Page : sig
   type t =
     { through : int

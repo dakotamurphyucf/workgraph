@@ -282,3 +282,55 @@ let%expect_test "exact audit traversal validates source identity and byte ranges
  Invalid_argument
  Invalid_argument |}]
 ;;
+
+let%expect_test "audit pages reject skipped ordinals at commit and terminal boundaries" =
+  (* Construct public JSON independently of the row/page encoders. *)
+  let row revision index count =
+    let fact = Json.field fixture "changes" |> Json.list |> List.hd_exn in
+    let fact =
+      modify_field fact "fact" (fun value ->
+        replace value "changed_at_revision" (Json.int revision))
+    in
+    let value =
+      replace (replace fixture "revision" (Json.int revision)) "changes" (`Array [ fact ])
+    in
+    let bytes = Json.canonical value in
+    Json.obj
+      [ "kind", Json.string "change"
+      ; "revision", Json.int revision
+      ; "change_index", Json.int index
+      ; "change_count", Json.int count
+      ; "byte_offset", Json.int 0
+      ; "total_bytes", Json.int (String.length bytes)
+      ; "digest", Json.string (Json.hash bytes)
+      ; "value", value
+      ]
+  in
+  let page ?(terminal = false) items =
+    Json.obj
+      [ "through", Json.int 4
+      ; "lineage", Json.string (String.make 64 '0')
+      ; "items", `Array items
+      ; ("cursor", if terminal then `Null else Json.string "opaque")
+      ; "remaining_changes", Json.int (if terminal then 0 else 1)
+      ]
+    |> report Activity_read_api.Page.codec
+  in
+  page [ row 3 0 32; row 4 5 8 ];
+  page [ row 3 0 32; row 4 0 8 ];
+  page [ row 3 31 32; row 4 5 8 ];
+  page ~terminal:true [ row 3 0 32 ];
+  page [ row 3 0 32; row 3 1 8 ];
+  page [ row 3 31 32; row 4 0 8 ];
+  page [ row 3 5 8; row 3 6 8 ];
+  page ~terminal:true [ row 3 7 8 ];
+  [%expect
+    {| Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ ok
+ ok
+ ok |}]
+;;
