@@ -253,6 +253,11 @@ let codec =
 
 let create ~complete ~stop ~consistency ~capture ~next_request ~retry_request =
   Json.decode (fun () ->
+    (* Validate the caller's original envelopes before encoding can reconstruct
+       their fixed fields, or an oversized marker can omit their requests. *)
+    List.iter [ next_request; retry_request ] ~f:(fun request ->
+      Option.iter request ~f:(fun json ->
+        ignore (Api_codec.decode request_codec json |> unwrap : Jsonaf.t)));
     let rec sized t =
       let bytes = Api_codec.encode base t |> unwrap |> Json.canonical |> String.length in
       if bytes = t.returned_bytes then t else sized { t with returned_bytes = bytes }

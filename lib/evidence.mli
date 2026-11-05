@@ -220,6 +220,9 @@ val encode : Command.t -> (string * Jsonaf.t, Problem.t) Result.t
 val mutation_methods : string list
 val query_methods : string list
 
+(** List queries require the observed evidence revision at positive offsets.
+    A supplied revision is enforced at every offset, including zero, so exact
+    captured page retries conflict after evidence changes. *)
 val query
   :  t
   -> ticket_context:(Id.Ticket.t -> Ticket_context.t option)

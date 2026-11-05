@@ -22,8 +22,10 @@ end
 
 type t
 
-(** Validate exact request envelopes and family-specific captures. Canonical
-    metadata bytes alone are capped at 65536, independently of daemon byte budgets.
+(** Validate original exact request envelopes and family-specific captures. Wrong
+    protocol versions and unknown envelope fields reject before encoding or size
+    limiting. Canonical metadata bytes alone are capped at 65536, independently
+    of daemon byte budgets.
     An oversized continuation becomes an explicit incomplete [Metadata_limit]
     marker with exact required byte count, preserving the original page rather
     than clipping a request or inventing a new capture. *)

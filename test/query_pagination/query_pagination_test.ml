@@ -412,3 +412,51 @@ let%expect_test "client metadata remains strict and separately bounded" =
  Invalid_argument
  Invalid_argument |}]
 ;;
+
+let%expect_test "metadata construction rejects original malformed request envelopes" =
+  let valid = Protocol.Request.to_json (request ()) in
+  let replace value name field =
+    match value with
+    | `Object fields -> Json.obj (List.Assoc.add fields ~equal:String.equal name field)
+    | _ -> failwith "object expected"
+  in
+  let check invalid =
+    match
+      Pagination_metadata.create
+        ~complete:false
+        ~stop:Page_limit
+        ~consistency:"current_revision_guard"
+        ~capture:
+          (Json.obj [ "query_revision", Json.int 7; "query_scope", Json.string "runs" ])
+        ~next_request:(Some invalid)
+        ~retry_request:None
+    with
+    | Ok _ -> failwith "malformed original request accepted"
+    | Error _ -> print_endline "rejected"
+  in
+  List.iter
+    [ "jsonrpc", Json.string "1.0"
+    ; "workgraph_api", Json.string "unreleased"
+    ; "extra", `True
+    ; "method", Json.string ""
+    ]
+    ~f:(fun (name, value) ->
+      check (replace valid name value);
+      let oversized =
+        replace valid "params" (Json.obj [ "text", Json.string (String.make 70000 'x') ])
+      in
+      check (replace oversized name value));
+  check (replace valid "params" `Null);
+  [%expect
+    {|
+    rejected
+    rejected
+    rejected
+    rejected
+    rejected
+    rejected
+    rejected
+    rejected
+    rejected
+    |}]
+;;

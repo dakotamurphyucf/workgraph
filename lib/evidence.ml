@@ -2537,7 +2537,10 @@ let query t ~ticket_context ~method_ ~params =
         (limit > 0 && limit <= 100)
         Invalid_argument
         "evidence page limit must be 1..100";
-      if offset > 0 then expected t.revision (Json.integer (get "revision"));
+      (match optional params "revision" Json.integer with
+       | Some revision -> expected t.revision revision
+       | None ->
+         require (offset = 0) Invalid_argument "pagination requires evidence revision");
       let selected = List.take (List.drop records offset) limit in
       let result items =
         let remaining = Int.max 0 (List.length records - offset - List.length items) in

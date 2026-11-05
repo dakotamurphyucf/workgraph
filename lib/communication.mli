@@ -142,7 +142,9 @@ val latest_serial : t -> int
 
 (** Listing is ID ordered; inbox notifications are activity ordered. JSON queries
     use 50 items by default, at most 100, and a 4KiB..1MiB byte budget. Offsets
-    require the observed revision; inbox captures use fixed upper serials.
+    require the observed revision. A supplied revision is checked even at offset zero;
+    stale page retries conflict instead of reading newer state. Inbox captures use
+    fixed upper serials.
     [discussion] must be the immutable discussion snapshot paired with [t].
     thread.get/request.get optionally include current message bodies and exact
     source revisions. request.get also exposes the current thread_revision,

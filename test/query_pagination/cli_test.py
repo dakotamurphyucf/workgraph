@@ -317,6 +317,41 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual(first["meta"]["snapshot"], metadata["next_request"]["params"]["at_snapshot"])
         self.assertEqual(1, len(self.follow(metadata["next_request"])["result"]["data"]["items"]))
 
+    def test_page_zero_domain_capture_retries_conflict_after_mutation(self):
+        # Evidence fits whole rows and advertises item omissions. A client total
+        # bound can retain the exact captured page-zero request without the page.
+        version = self.write("resource.put_text", resource_id="retry-schema", expected_revision="0", title="Schema", text='{"type":"object"}')["data"]["version"]
+        contract = dict(expected_revision="0", schema_version="1", schema={"resource_id": "retry-schema", "revision": version["revision"], "digest": version["digest"]}, required_inputs=[], required_outputs=[])
+        for i in range(20):
+            self.write("contract.put", contract_id="retry-contract-%02d" % i, **contract)
+        captured = self.collect("contract.list", {"limit": "100", "max_bytes": "4096"}, options=["--total-bytes", "4096"], expected=1)
+        metadata = captured["data"]["pagination"]
+        self.assertEqual("byte_limit", metadata["stop"])
+        self.assertEqual([], captured["data"]["pages"])
+        retry = metadata["next_request"]
+        self.assertEqual("0", retry["params"].get("offset", "0"))
+        original = self.follow(retry)["result"]
+        self.assertGreater(int(original["meta"]["budget"]["omitted_items"]), 0)
+        self.assertEqual(metadata["capture"]["query_revision"], original["meta"]["query_revision"])
+        self.write("contract.put", contract_id="retry-contract-later", **contract)
+        self.assertEqual("Conflict", self.follow(retry, expected=1)["error"]["data"]["kind"])
+
+        # Communication's nested delivery omissions produce a direct page-zero retry.
+        recipients = [{"kind": "actor", "id": "recipient-%02d-" % i + "x" * 70} for i in range(40)]
+        self.write("request.ask", request_id="guarded-request", title="Question", body="Captured body", resolver_id="a", recipients=recipients)
+        first = self.single("request.list", {"max_bytes": "4096"})
+        metadata = first["meta"]["pagination"]
+        self.assertEqual("server_item_omissions", metadata["stop"])
+        retry = metadata["retry_request"]
+        self.assertEqual("0", retry["params"].get("offset", "0"))
+        self.assertEqual(first["meta"]["query_revision"], retry["params"]["revision"])
+        self.assertEqual(first["data"], self.follow(retry)["result"]["data"])
+        self.write("board.put", board_id="retry-board", expected_revision="0", scope={"kind": "workspace"}, title="Changed communication")
+        self.assertEqual("Conflict", self.follow(retry, expected=1)["error"]["data"]["kind"])
+        for method in ["request.list", "contract.list"]:
+            response = json.loads(self.cli("call", self.socket, method, json.dumps({"workspace_id": "w", "offset": "1"}), expected=1).stdout)
+            self.assertEqual("Invalid_argument", response["error"]["data"]["kind"])
+
     def test_single_page_immutable_audit_resume_inbox_and_history(self):
         before = self.read("workspace.get")["meta"]["workspace_revision"]
         self.write("transaction.apply", operations=[{"method": "comment.add", "params": {"comment_id": "single-decision-" + str(i), "target": {"kind": "ticket", "id": "a"}, "kind": "decision", "body": "Decision " + str(i)}} for i in range(4)])
