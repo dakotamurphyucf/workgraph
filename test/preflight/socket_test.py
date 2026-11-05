@@ -78,7 +78,7 @@ class PreflightTest(unittest.TestCase):
                     generated = call("transaction.preflight", actor_id="agent", operations=alias_ops)["data"]["generated_ids"]
                     self.assertEqual([g["kind"] for g in generated], ["project", "ticket"])
                     self.assertEqual(call("project.list")["data"]["items"], [])
-                    # CLI reads require explicit simulation attribution and never use the write journal.
+                    # Without context, simulation attribution is explicit; reads never journal.
                     journal = root / "requests"
                     args = [str(EXE), "request", str(address), "transaction.preflight",
                             "--workspace-id", "w", "--actor-id", "agent",
@@ -108,6 +108,36 @@ class PreflightTest(unittest.TestCase):
                     self.assertEqual(applied["meta"]["workspace_revision"], preview["data"]["proposed_revision"])
                     self.assertEqual(call("resource.read", resource_id="notes")["data"]["text"], "done\n")
                     self.assertEqual(call("ticket.context", ticket_id="task")["data"]["ticket"]["status"], "done")
+                    # Context-only preflight and apply use the same intended actor/run.
+                    write("run.register", target_run_id="agent-run", capabilities=[], objective="Context parity")
+                    write("ticket.create", ticket_id="owned", title="Run-owned task")
+                    owned = write("ticket.start", ticket_id="owned", run_id="agent-run", attempt_id="owned-attempt")
+                    context = root / "context.json"
+                    context.write_text(json.dumps(dict(socket=str(address), workspace_id="w",
+                                                       actor_id="agent", run_id="agent-run",
+                                                       request_directory=str(journal))))
+                    finish = [{"method": "ticket.finish", "params": dict(ticket_id="owned",
+                               token=owned["data"]["token"], evidence="Context parity verified")}]
+                    def context_cli(method, *extra):
+                        return subprocess.run([str(EXE), "--context", str(context), method,
+                                               "--json-field", "operations", json.dumps(finish), *extra],
+                                              capture_output=True, text=True, timeout=10)
+                    preview = context_cli("transaction.preflight")
+                    self.assertEqual(0, preview.returncode, preview.stderr + preview.stdout)
+                    self.assertFalse(journal.exists())
+                    journal.mkdir()
+                    self.assertEqual("in_progress", call("ticket.context", ticket_id="owned")["data"]["ticket"]["status"])
+                    invalid_preview = context_cli("transaction.preflight", "--actor-id", "other")
+                    invalid_apply = context_cli("transaction.apply", "--actor-id", "other")
+                    self.assertNotEqual(0, invalid_preview.returncode)
+                    self.assertNotEqual(0, invalid_apply.returncode)
+                    self.assertEqual(json.loads(invalid_preview.stdout)["error"]["data"]["kind"],
+                                     json.loads(invalid_apply.stdout)["error"]["data"]["kind"])
+                    applied = context_cli("transaction.apply")
+                    self.assertEqual(0, applied.returncode, applied.stderr + applied.stdout)
+                    self.assertEqual(json.loads(preview.stdout)["result"]["data"]["proposed_revision"],
+                                     json.loads(applied.stdout)["result"]["meta"]["workspace_revision"])
+                    self.assertEqual("done", call("ticket.context", ticket_id="owned")["data"]["ticket"]["status"])
                     client.call("daemon.shutdown", {})
                     self.assertEqual(daemon.wait(timeout=10), 0)
                 finally:

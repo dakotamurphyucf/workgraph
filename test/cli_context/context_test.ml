@@ -48,6 +48,8 @@ let%expect_test "context attribution does not become a read filter" =
     [ "ticket.list"
     ; "coordinator.overview"
     ; "changes.read"
+    ; "transaction.preflight"
+    ; "transaction.apply"
     ; "ticket.create"
     ; "workspace.create"
     ; "upload.chunk"
@@ -68,12 +70,58 @@ let%expect_test "context attribution does not become a read filter" =
     ticket.list {"workspace_id":"explicit"}
     coordinator.overview {"workspace_id":"explicit"}
     changes.read {"workspace_id":"explicit"}
+    transaction.preflight {"actor_id":"worker","run_id":"run","workspace_id":"explicit"}
+    transaction.apply {"actor_id":"worker","run_id":"run","workspace_id":"explicit"}
     ticket.create {"actor_id":"worker","run_id":"run","workspace_id":"explicit"}
     workspace.create {"actor_id":"worker","workspace_id":"explicit"}
     upload.chunk {"actor_id":"worker","workspace_id":"explicit"}
     resource.upload {"actor_id":"worker","run_id":"run","workspace_id":"explicit"}
     resource.download {"workspace_id":"explicit"}
     unknown.method {"workspace_id":"explicit"} |}]
+;;
+
+let%expect_test "preflight intended writer defaults preserve explicit attribution" =
+  let context =
+    Cli_context.of_json
+      (Json.obj
+         [ "socket", Json.string "/tmp/s"
+         ; "workspace_id", Json.string "demo"
+         ; "actor_id", Json.string "worker"
+         ; "run_id", Json.string "run"
+         ])
+    |> Disk.unwrap
+  in
+  Cli_context.apply
+    context
+    ~method_:"transaction.preflight"
+    ~fields:[ "actor_id", Json.string "other"; "run_id", Json.string "other-run" ]
+  |> Json.obj
+  |> Json.canonical
+  |> print_endline;
+  let observer =
+    Cli_context.of_json
+      (Json.obj [ "socket", Json.string "/tmp/s"; "workspace_id", Json.string "demo" ])
+    |> Disk.unwrap
+  in
+  print_s
+    [%sexp
+      (Result.is_error
+         (Json.decode (fun () ->
+            Cli_context.apply observer ~method_:"transaction.preflight" ~fields:[]))
+       : bool)];
+  Cli_context.apply
+    observer
+    ~method_:"transaction.preflight"
+    ~fields:[ "actor_id", Json.string "explicit" ]
+  |> Json.obj
+  |> Json.canonical
+  |> print_endline;
+  [%expect
+    {|
+    {"actor_id":"other","run_id":"other-run","workspace_id":"demo"}
+    true
+    {"actor_id":"explicit","workspace_id":"demo"}
+    |}]
 ;;
 
 let%expect_test "explicit query selectors override context without implicit filtering" =

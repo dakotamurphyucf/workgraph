@@ -101,8 +101,12 @@ bootstrap creation requests are saved beside the context for exact recovery.
 Ordinary calls never create/select a workspace from cwd. Supply --context ABS_FILE
 on each invocation to use that agent's defaults. The positional socket is optional
 with a context or --socket ABS_SOCKET; --socket overrides a positional/context socket.
-Explicit --workspace-id, --actor-id and --run-id override context defaults. Reads
-receive workspace scope but no automatic actor filter or run attribution. There is
+Explicit --workspace-id, --actor-id and --run-id override context defaults. Ordinary
+reads receive workspace scope but no automatic actor filter or run attribution.
+`transaction.preflight` uses the context's intended writer actor/run, just like
+`transaction.apply`, to check the same ownership rules without making a change or
+saving a mutation journal. An observer context must supply an explicit actor to
+preview a write. There is
 no shared current ticket or global mutable actor. A context with no run_id supplies
 no run identity; target_run_id and fresh attempt_id remain explicit for claim_next.
 Raw API envelopes require all schema-required inputs. Context defaults supply only

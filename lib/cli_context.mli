@@ -12,9 +12,11 @@ val socket : t -> string
 val request_directory : t -> string option
 
 (** Inserts missing scope/attribution defaults admitted by executable schemas.
-    Read methods receive only the workspace default: actor/run query filters and
-    target identities remain explicit. Write methods receive applicable actor/run
-    defaults, including actor-owned upload staging. Local upload/download helpers
+    Ordinary read methods receive only the workspace default: actor/run query
+    filters and target identities remain explicit. [transaction.preflight] receives
+    the intended writer actor/run defaults, matching [transaction.apply] without
+    performing a write. Write methods receive applicable actor/run defaults,
+    including actor-owned upload staging. Local upload/download helpers
     have explicit scope rules; unknown methods receive no defaults. Explicit fields
     always win. Observer defaults reject a missing write actor before journaling
     via [Json.Decode_error Invalid_argument]; an explicit actor enables writes. *)

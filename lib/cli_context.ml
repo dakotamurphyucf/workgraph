@@ -61,7 +61,10 @@ let apply t ~method_ ~fields =
         Api_codec.field_names (Api_method.request_codec descriptor) |> Option.value_exn
       in
       (match Api_method.mode descriptor with
-       | Read -> List.filter fields ~f:(String.equal "workspace_id")
+       | Read ->
+         if String.equal method_ "transaction.preflight"
+         then fields
+         else List.filter fields ~f:(String.equal "workspace_id")
        | Write | Mutation -> fields)
     | None ->
       (match method_ with

@@ -842,7 +842,8 @@ let brief method_ =
      @ inputs
      @ [ "Input defaults:"
        ; "  Raw API envelopes require every required input. --context supplies missing \
-          workspace_id and write actor_id/run_id only when admitted by the method."
+          workspace_id and writer actor_id/run_id only when admitted by the method, \
+          including the intended writer for transaction.preflight."
        ; "  A context without run_id supplies no run identity. Read filters and target \
           identities remain explicit; supported --self selectors require their context \
           identity."
