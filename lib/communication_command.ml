@@ -5,11 +5,25 @@ module Thread = Communication_event.Thread
 module Request = Communication_event.Request
 module Subscription = Communication_event.Subscription
 
+module Ask_destination = struct
+  type t =
+    | New_thread of
+        { board : Communication_id.Board.t option
+        ; title : string
+        ; ticket : Id.Ticket.t option
+        }
+    | Existing_thread of
+        { thread : Communication_id.Thread.t
+        ; expected_revision : int
+        }
+  [@@deriving sexp]
+end
+
 (** Domain communication commands. Input codecs preserve distinctions between
     omission, explicit clearing, tagged values and plain lowercase enums.
     [Request_ask] and [Request_resolve] with a body compose discussion and
-    communication changes through [State.prepare]. Ask threads list the author
-    and resolver as participants; recipients receive accountable request
+    communication changes through [State.prepare]. New ask threads list the author
+    and resolver as participants; existing thread metadata is preserved; recipients receive accountable request
     deliveries independently of that participant list. [Communication.prepare]
     accepts only commands requiring a communication snapshot. *)
 type t =
@@ -50,11 +64,10 @@ type t =
       }
   | Request_ask of
       { id : Communication_id.Request.t
-      ; title : string
+      ; destination : Ask_destination.t
       ; body : string
       ; recipients : Recipient.t list
       ; resolver : Id.Actor.t
-      ; ticket : Id.Ticket.t option
       ; kind : Request.Kind.t
       ; priority : int
       ; deadline_unix_ms : string option
@@ -317,6 +330,60 @@ let validate_request_recipients params =
   else Error (Problem.create Invalid_argument "request requires recipients or teams")
 ;;
 
+let validate_ask params =
+  let open Result.Let_syntax in
+  let%bind () = validate_request_recipients params in
+  let present name = Option.is_some (Json.optional params name) in
+  if present "thread_id"
+  then
+    if
+      present "expected_thread_revision"
+      && not (List.exists [ "title"; "ticket_id"; "board_id" ] ~f:present)
+    then Ok ()
+    else
+      Error
+        (Problem.create
+           Invalid_argument
+           "thread_id requires expected_thread_revision and forbids title, ticket_id and \
+            board_id")
+  else if present "title" && not (present "expected_thread_revision")
+  then Ok ()
+  else
+    Error
+      (Problem.create
+         Invalid_argument
+         "new question threads require title; expected_thread_revision requires thread_id")
+;;
+
+let ask_destination_fields =
+  Fields.both
+    (Fields.both
+       (Fields.optional "title" title)
+       (Fields.optional ~raw:(reference ticket_id) "ticket_id" ticket_id))
+    (Fields.both
+       (Fields.optional ~raw:(reference board_id) "board_id" board_id)
+       (Fields.both
+          (Fields.optional ~raw:(reference thread_id) "thread_id" thread_id)
+          (Fields.optional "expected_thread_revision" decimal)))
+;;
+
+let decode_ask_destination = function
+  | (Some title, ticket), (board, (None, None)) ->
+    Ok (Ask_destination.New_thread { board; title; ticket })
+  | (None, None), (None, (Some thread, Some expected_revision)) ->
+    Ok (Ask_destination.Existing_thread { thread; expected_revision })
+  | _ ->
+    Error
+      (Problem.create Invalid_argument "conflicting or incomplete question destination")
+;;
+
+let encode_ask_destination = function
+  | Ask_destination.New_thread { board; title; ticket } ->
+    (Some title, ticket), (board, (None, None))
+  | Existing_thread { thread; expected_revision } ->
+    (None, None), (None, (Some thread, Some expected_revision))
+;;
+
 let link_list =
   Api_codec.map
     (Api_codec.list request_id ~max_items:32)
@@ -543,34 +610,34 @@ let entries =
            and transitions." )
   ; ( "request.ask"
     , Request_codec.map
-        ~validate_raw:validate_request_recipients
+        ~validate_raw:validate_ask
         (Request_codec.object_
            (Fields.required "request_id" request_id
-            ++ Fields.required "title" title
+            ++ ask_destination_fields
             ++ Fields.required "body" body
             ++ Fields.required
                  ~raw:(Api_codec.as_json (Api_codec.list raw_recipient ~max_items:1000))
                  "recipients"
                  (Api_codec.list Communication_recipient.codec ~max_items:1000)
             ++ Fields.required "resolver_id" actor_id
-            ++ Fields.optional ~raw:(reference ticket_id) "ticket_id" ticket_id
             ++ Fields.optional "kind" Communication_wire.request_kind
             ++ request_options))
         ~decode:
           (fun
-            ( ((((((id, title), body), recipients), resolver), ticket), kind)
+            ( (((((id, destination), body), recipients), resolver), kind)
             , ((priority, deadline_unix_ms), (related, supersedes)) ) ->
+          let open Result.Let_syntax in
+          let%bind destination = decode_ask_destination destination in
           if List.is_empty recipients
           then Error (Problem.create Invalid_argument "request requires recipients")
           else
             Ok
               (Request_ask
                  { id
-                 ; title
+                 ; destination
                  ; body
                  ; recipients
                  ; resolver
-                 ; ticket
                  ; kind = Option.value kind ~default:Clarification
                  ; priority = Option.value priority ~default:0
                  ; deadline_unix_ms
@@ -580,18 +647,18 @@ let entries =
         ~encode:(function
           | Request_ask
               { id
-              ; title
+              ; destination
               ; body
               ; recipients
               ; resolver
-              ; ticket
               ; kind
               ; priority
               ; deadline_unix_ms
               ; related
               ; supersedes
               } ->
-            ( ((((((id, title), body), recipients), resolver), ticket), Some kind)
+            ( ( ((((id, encode_ask_destination destination), body), recipients), resolver)
+              , Some kind )
             , ((Some priority, deadline_unix_ms), (Some related, Some supersedes)) )
           | Board_put _
           | Thread_put _
@@ -608,7 +675,9 @@ let entries =
           | Subscription_put _
           | Inbox_ack _ -> Json.fail Invalid_argument "wrong communication command")
         ~description:
-          "Atomically create a question, request and explicit scheduling metadata." )
+          "Atomically create a question and request. New threads require title and may \
+           use board_id/ticket_id. Existing thread_id requires expected_thread_revision \
+           and forbids title, board_id and ticket_id." )
   ; ( "request.create"
     , Request_codec.map
         ~validate_raw:validate_request_recipients

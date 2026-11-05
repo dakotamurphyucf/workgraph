@@ -246,8 +246,31 @@ class CommunicationSocketTest(unittest.TestCase):
                                            expected_revision="1", priority="3", deadline_unix_ms=None, related_request_ids=[]), metadata)
                     reject("request.metadata", expected_kind="Conflict", actor_id="alice", mutation_id="stale-metadata",
                            request_id="scheduled", expected_revision="1", priority="2")
+                    board_ask_path = root / "board-ask.json"
+                    board_asked = saved_mutation("request.ask", board_ask_path, request_id="board-ask",
+                                                title="Shared board question", board_id="board",
+                                                body="Use this shared board", recipients=[bob], resolver_id="alice")
+                    self.assertEqual(board_asked["data"]["board_id"], "board")
+                    thread_id = board_asked["data"]["thread_id"]
+                    before_thread = read("thread.get", thread_id=thread_id)["data"]
+                    thread_ask_path = root / "thread-ask.json"
+                    thread_asked = saved_mutation("request.ask", thread_ask_path, request_id="thread-ask",
+                                                 thread_id=thread_id, expected_thread_revision=before_thread["revision"],
+                                                 body="Follow up here", recipients=[bob], resolver_id="alice")
+                    after_thread = read("thread.get", thread_id=thread_id)["data"]
+                    self.assertEqual(thread_asked["data"]["thread_revision"], after_thread["revision"])
+                    for field in ["board_id", "title", "participants", "links", "closure_policy"]:
+                        self.assertEqual(before_thread[field], after_thread[field])
+                    before_bad_destination = call("workspace.get", workspace_id="communication")
+                    reject("request.ask", expected_kind="Conflict", actor_id="alice", mutation_id="stale-destination",
+                           request_id="stale-destination", thread_id=thread_id,
+                           expected_thread_revision=before_thread["revision"], body="Stale", recipients=[bob], resolver_id="alice")
+                    reject("request.ask", actor_id="alice", mutation_id="conflicting-destination",
+                           request_id="bad-destination", thread_id=thread_id, title="Ignored",
+                           expected_thread_revision=after_thread["revision"], body="Conflicting", recipients=[bob], resolver_id="alice")
+                    self.assertEqual(call("workspace.get", workspace_id="communication"), before_bad_destination)
                     retry_inbox = read("inbox.read", consumer_id="ask-consumer", recipient=bob)
-                    for path, original in [(ask_path, asked), (answer_path, answered)]:
+                    for path, original in [(ask_path, asked), (answer_path, answered), (board_ask_path, board_asked), (thread_ask_path, thread_asked)]:
                         self.assertEqual(json.loads(subprocess.check_output([str(EXE), "retry", str(address), str(path)]))["result"], original)
                     self.assertEqual(read("inbox.read", consumer_id="ask-consumer", recipient=bob), retry_inbox)
                     audit = call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576")
@@ -267,7 +290,7 @@ class CommunicationSocketTest(unittest.TestCase):
                     process = start()
                     retried = mutate("request.create", "request", request_id="request", thread_id="thread", kind="review", comment_id="comment", resolver_id="alice", teams=["team"])
                     self.assertEqual(retried, created)
-                    for path, original in [(ask_path, asked), (answer_path, answered)]:
+                    for path, original in [(ask_path, asked), (answer_path, answered), (board_ask_path, board_asked), (thread_ask_path, thread_asked)]:
                         self.assertEqual(json.loads(subprocess.check_output([str(EXE), "retry", str(address), str(path)]))["result"], original)
                     self.assertEqual(read("inbox.read", consumer_id="ask-consumer", recipient=bob), retry_inbox)
                     self.assertEqual(call("activity.since", workspace_id="communication", limit="100", max_bytes="1048576"), audit)

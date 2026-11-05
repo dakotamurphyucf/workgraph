@@ -5,11 +5,30 @@ module Thread = Communication_event.Thread
 module Request = Communication_event.Request
 module Subscription = Communication_event.Subscription
 
+(** Atomic question destination. New threads require a title and may link one
+    ticket. [board = None] creates a dedicated board in that ticket's project or
+    workspace scope; [Some board] uses an existing board. Existing threads retain
+    their metadata and require their observed revision. The wire decoder rejects
+    conflicting selectors and ignored title/ticket fields. *)
+module Ask_destination : sig
+  type t =
+    | New_thread of
+        { board : Communication_id.Board.t option
+        ; title : string
+        ; ticket : Id.Ticket.t option
+        }
+    | Existing_thread of
+        { thread : Communication_id.Thread.t
+        ; expected_revision : int
+        }
+  [@@deriving sexp]
+end
+
 (** Domain communication commands. Input codecs preserve distinctions between
     omission, explicit clearing, tagged values and plain lowercase enums.
     [Request_ask] and [Request_resolve] with a body compose discussion and
-    communication changes through [State.prepare]. Ask threads list the author
-    and resolver as participants; recipients receive accountable request
+    communication changes through [State.prepare]. New ask threads list the author
+    and resolver as participants; existing thread metadata is preserved; recipients receive accountable request
     deliveries independently of that participant list. [Communication.prepare]
     accepts only commands requiring a communication snapshot. Switching a thread
     to [When_all_requests_terminal] with existing terminal requests explicitly
@@ -52,11 +71,10 @@ type t =
       }
   | Request_ask of
       { id : Communication_id.Request.t
-      ; title : string
+      ; destination : Ask_destination.t
       ; body : string
       ; recipients : Recipient.t list
       ; resolver : Id.Actor.t
-      ; ticket : Id.Ticket.t option
       ; kind : Request.Kind.t
       ; priority : int
       ; deadline_unix_ms : string option

@@ -61,13 +61,39 @@ Reading these results acknowledges neither request delivery nor inbox processing
 ## Choose a communication record
 
 Use message.send for a durable direct message; it needs no board or thread.
-Use request.ask to create a question, discussion board/thread and accountable request
-in one saved mutation. Supply request_id, title, nonblank body, nonempty recipients and
-resolver_id; optional kind defaults to clarification. Without ticket_id it has workspace
-scope. With a ticket it links that ticket and uses its project scope when applicable.
-Thread participants are the author and resolver; request delivery recipients remain a
-separate set and do not automatically become thread participants.
-Internal board/thread/question IDs are deterministic; collisions publish none of the parts.
+Use `request.ask` to author a question and create an accountable request in one saved
+mutation. Always supply `request_id`, nonblank `body`, nonempty `recipients` and
+`resolver_id`; optional `kind` defaults to `clarification`. Choose its destination:
+
+- **New discussion:** supply `title`. Workgraph creates a dedicated board and thread.
+  Optional `ticket_id` links the ticket and selects its project scope when applicable;
+  otherwise the discussion has workspace scope.
+- **Existing board, new thread:** also supply `board_id`. The existing board is kept.
+  A project board accepts only a ticket from that project; a workspace board can link
+  any existing ticket. The author and resolver are the new thread's participants.
+- **Existing thread:** supply `thread_id` and its observed `expected_thread_revision`.
+  Omit `title`, `ticket_id` and `board_id`: these conflict rather than silently changing
+  the existing thread. Its title, participants, links and closure policy remain intact;
+  normal thread/request lifecycle rules still apply.
+
+Request delivery recipients are separate from thread participants. A new thread ID
+and the question ID are deterministic. Missing destinations, stale thread revisions,
+scope conflicts or identity collisions publish none of the question/request changes.
+An exact saved retry returns the original receipt, including after a restart.
+
+```sh
+# Start a topic on an existing shared board.
+"$WG" --context "$CONTEXT" request ask --request-id design-choice \
+  --board-id team-board --title "Choose a design" --body "Which approach should we use?" \
+  --resolver-id lead --json-field recipients '[{"kind":"actor","id":"lead"}]'
+
+# Ask another question in an existing thread. Use its actual observed revision.
+"$WG" --context "$CONTEXT" request ask --request-id design-followup \
+  --thread-id existing-thread --expected-thread-revision 3 \
+  --body "Should this also cover the retry path?" --resolver-id lead \
+  --json-field recipients '[{"kind":"actor","id":"lead"}]'
+```
+
 Retain returned request_id/request_revision, board_id, thread_id/thread_revision and
 question {comment_id,revision}; use them instead of deriving internal IDs yourself.
 Use request.resolve with expected_revision and optional nonblank body to attach an answer
@@ -258,7 +284,7 @@ Replace a deduplicated named recipient set. Only future sends/request creation u
 
 [Request and result contract](api/request.ask.md).
 
-Create the scoped board, thread, authored question and accountable request together. Required request_id/title/body/recipients/resolver_id; optional ticket_id and kind (default clarification). The result returns request/thread identifiers and revisions plus the exact question reference. Existing lower-level APIs remain available.
+Atomically author a question and create its accountable request. New topics require title and optionally board_id/ticket_id; an existing thread requires thread_id/expected_thread_revision and rejects those new-topic fields. The result identifies the board, request and actual final thread revision, plus the exact question reference. See the destination choices above.
 
 ### `request.create`
 

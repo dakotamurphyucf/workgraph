@@ -1268,11 +1268,10 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
     | Domain_command.Communication
         (Request_ask
            { id
-           ; title
+           ; destination
            ; body
            ; recipients
            ; resolver
-           ; ticket
            ; kind
            ; priority
            ; deadline_unix_ms
@@ -1288,73 +1287,116 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                 Request
                 ~id:(Communication_id.Request.to_string id)));
       let prefix = "ask-" ^ Json.hash (Communication_id.Request.to_string id) in
-      let board = Communication_id.Board.of_string (prefix ^ "-board") |> unwrap_domain in
-      let thread =
-        Communication_id.Thread.of_string (prefix ^ "-thread") |> unwrap_domain
-      in
       let question = Id.Comment.of_string (prefix ^ "-question") |> unwrap_domain in
-      let scope, links =
-        match ticket with
-        | None -> Communication.Scope.Workspace, []
-        | Some id ->
-          let ticket = find_ticket t id in
-          ( Option.value_map
-              ticket.project
-              ~default:Communication.Scope.Workspace
-              ~f:(fun project -> Communication.Scope.Project project)
-          , [ Entity_ref.Ticket id ] )
-      in
-      let participants =
-        List.dedup_and_sort [ actor; resolver ] ~compare:Id.Actor.compare
+      let board, thread, thread_revision, setup =
+        match destination with
+        | Communication_command.Ask_destination.Existing_thread
+            { thread; expected_revision } ->
+          let current =
+            match Communication.get_thread t.communication thread with
+            | Some current -> current
+            | None -> Json.fail Not_found "question thread not found"
+          in
+          current.board, thread, expected_revision, []
+        | New_thread { board; title; ticket } ->
+          let ticket = Option.map ticket ~f:(find_ticket t) in
+          let default_scope =
+            Option.bind ticket ~f:(fun ticket -> ticket.Ticket.project)
+            |> Option.value_map ~default:Communication.Scope.Workspace ~f:(fun project ->
+              Communication.Scope.Project project)
+          in
+          let board, board_setup =
+            match board with
+            | None ->
+              let id =
+                Communication_id.Board.of_string (prefix ^ "-board") |> unwrap_domain
+              in
+              ( id
+              , [ Domain_command.Communication
+                    (Board_put { id; expected_revision = 0; scope = default_scope; title })
+                ] )
+            | Some id ->
+              let existing =
+                match Communication.get_board t.communication id with
+                | Some board -> board
+                | None -> Json.fail Not_found "question board not found"
+              in
+              Option.iter ticket ~f:(fun ticket ->
+                match existing.scope with
+                | Workspace -> ()
+                | Project project ->
+                  require
+                    (Option.equal Id.Project.equal ticket.project (Some project))
+                    Conflict
+                    "question ticket is outside the selected board project");
+              id, []
+          in
+          let thread =
+            Communication_id.Thread.of_string (prefix ^ "-thread") |> unwrap_domain
+          in
+          let participants =
+            List.dedup_and_sort [ actor; resolver ] ~compare:Id.Actor.compare
+          in
+          let links =
+            Option.to_list
+              (Option.map ticket ~f:(fun ticket -> Entity_ref.Ticket ticket.Ticket.id))
+          in
+          let setup =
+            board_setup
+            @ [ Domain_command.Communication
+                  (Thread_put
+                     { id = thread
+                     ; expected_revision = 0
+                     ; board
+                     ; title
+                     ; participants
+                     ; mentions = []
+                     ; links
+                     ; state = Awaiting_response
+                     ; closure_policy = Some When_all_requests_terminal
+                     ; pinned = false
+                     })
+              ]
+          in
+          board, thread, 1, setup
       in
       let commands =
-        [ Domain_command.Communication
-            (Board_put { id = board; expected_revision = 0; scope; title })
-        ; Communication
-            (Thread_put
-               { id = thread
-               ; expected_revision = 0
-               ; board
-               ; title
-               ; participants
-               ; mentions = []
-               ; links
-               ; state = Awaiting_response
-               ; closure_policy = Some When_all_requests_terminal
-               ; pinned = false
-               })
-        ; Thread_reply
-            { id = thread
-            ; expected_revision = 1
-            ; comment_id = Some question
-            ; reply_to = None
-            ; kind = Discussion.Kind.Comment
-            ; body
-            }
-        ; Communication
-            (Request_create
-               { id
-               ; thread
-               ; kind
-               ; message = question
-               ; recipients
-               ; teams = []
-               ; resolver
-               ; correlation_id = None
-               ; reply_to = None
-               ; deadline_unix_ms
-               ; priority
-               ; related
-               ; supersedes
-               })
-        ]
+        setup
+        @ [ Domain_command.Thread_reply
+              { id = thread
+              ; expected_revision = thread_revision
+              ; comment_id = Some question
+              ; reply_to = None
+              ; kind = Discussion.Kind.Comment
+              ; body
+              }
+          ; Communication
+              (Request_create
+                 { id
+                 ; thread
+                 ; kind
+                 ; message = question
+                 ; recipients
+                 ; teams = []
+                 ; resolver
+                 ; correlation_id = None
+                 ; reply_to = None
+                 ; deadline_unix_ms
+                 ; priority
+                 ; related
+                 ; supersedes
+                 })
+          ]
       in
-      let _, reversed =
+      let candidate, reversed =
         List.fold commands ~init:(t, []) ~f:(fun (state, events) command ->
           let state, changes, _, _ =
             stage state command ~actor ~run ~timestamp ~now_unix_ms
           in
           state, List.rev_append changes events)
+      in
+      let current_thread =
+        Communication.get_thread candidate.communication thread |> Option.value_exn
       in
       ( List.rev reversed
       , Json.obj
@@ -1362,7 +1404,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
           ; "request_revision", Json.int 1
           ; "board_id", Communication_id.Board.jsonaf_of_t board
           ; "thread_id", Communication_id.Thread.jsonaf_of_t thread
-          ; "thread_revision", Json.int 2
+          ; "thread_revision", Json.int current_thread.revision
           ; ( "question"
             , Json.obj
                 [ "comment_id", Id.Comment.jsonaf_of_t question; "revision", Json.int 1 ]

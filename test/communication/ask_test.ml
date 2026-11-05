@@ -19,11 +19,10 @@ let ask ?ticket ?(id = request) ?(resolver = alice) ?(body = "Which approach?") 
   Domain_command.Communication
     (Request_ask
        { id
-       ; title = "Choose an approach"
+       ; destination = New_thread { board = None; title = "Choose an approach"; ticket }
        ; body
        ; recipients = [ Actor bob ]
        ; resolver
-       ; ticket
        ; kind = Clarification
        ; priority = 0
        ; deadline_unix_ms = None
@@ -291,7 +290,7 @@ let%expect_test "new public inputs validate authored text and recipient bounds" 
       report (Communication_command.decode ~method_:"request.ask" ~params));
   let command = Communication_command.decode ~method_:"request.ask" ~params |> unwrap in
   (match command with
-   | Request_ask { kind; ticket; _ } ->
+   | Request_ask { kind; destination = New_thread { ticket; _ }; _ } ->
      printf
        "defaults=%s/%b\n"
        (Communication.Request.Kind.sexp_of_t kind |> Sexp.to_string)
@@ -371,11 +370,10 @@ let%expect_test "ask accepts the full declared recipient and UTF-8 body bounds" 
     Domain_command.Communication
       (Request_ask
          { id = request
-         ; title = "Question"
+         ; destination = New_thread { board = None; title = "Question"; ticket = None }
          ; body = String.make 65536 'x'
          ; recipients
          ; resolver = alice
-         ; ticket = None
          ; kind = Clarification
          ; priority = 0
          ; deadline_unix_ms = None
@@ -806,4 +804,262 @@ let%expect_test
     bounded=true answer_revision=1 clipped=true
     Invalid_argument
     |}]
+;;
+
+let ask_params fields =
+  Json.obj
+    ([ "request_id", Json.string "destination-question"
+     ; "body", Json.string "Use the shared discussion?"
+     ; ( "recipients"
+       , `Array [ Json.obj [ "kind", Json.string "actor"; "id", Json.string "bob" ] ] )
+     ; "resolver_id", Json.string "alice"
+     ]
+     @ fields)
+;;
+
+let prepare_ask state fields =
+  let open Result.Let_syntax in
+  let%bind command =
+    Communication_command.decode ~method_:"request.ask" ~params:(ask_params fields)
+  in
+  prepare state (Communication command)
+;;
+
+let%expect_test "question destinations reject conflicting or incomplete wire inputs" =
+  List.iter
+    [ []
+    ; [ "thread_id", Json.string "thread" ]
+    ; [ "title", Json.string "Title"; "expected_thread_revision", Json.int 1 ]
+    ; [ "thread_id", Json.string "thread"
+      ; "expected_thread_revision", Json.int 1
+      ; "title", Json.string "Ignored"
+      ]
+    ; [ "thread_id", Json.string "thread"
+      ; "expected_thread_revision", Json.int 1
+      ; "ticket_id", Json.string "ignored"
+      ]
+    ; [ "thread_id", Json.string "thread"
+      ; "expected_thread_revision", Json.int 1
+      ; "board_id", Json.string "ignored"
+      ]
+    ; [ "thread_id", Json.string "thread"; "expected_thread_revision", Json.int 1 ]
+    ; [ "board_id", Json.string "board"; "title", Json.string "Title" ]
+    ]
+    ~f:(fun fields ->
+      let params = ask_params fields in
+      let public =
+        Communication_command.raw_request_codec ~method_:"request.ask" |> Option.value_exn
+      in
+      printf "raw=%b " (Result.is_ok (Api_codec.decode public params));
+      report (Communication_command.decode ~method_:"request.ask" ~params));
+  [%expect
+    {|
+    raw=false Invalid_argument
+    raw=false Invalid_argument
+    raw=false Invalid_argument
+    raw=false Invalid_argument
+    raw=false Invalid_argument
+    raw=false Invalid_argument
+    raw=true ok
+    raw=true ok
+    |}]
+;;
+
+let%expect_test
+    "existing board and thread questions preserve metadata and replay atomically"
+  =
+  let original = prepare (empty ()) (ask ()) |> unwrap |> State.candidate in
+  let board = List.hd_exn (Communication.boards (State.communication original)) in
+  let placed =
+    prepare_ask
+      original
+      [ "board_id", Communication_id.Board.jsonaf_of_t board.id
+      ; "title", Json.string "Second topic"
+      ]
+    |> unwrap
+  in
+  let after_board = State.candidate placed in
+  let receipt = State.result placed in
+  let thread_id = get receipt "thread_id" |> Communication_id.Thread.t_of_jsonaf in
+  let thread =
+    Communication.get_thread (State.communication after_board) thread_id
+    |> Option.value_exn
+  in
+  printf
+    "boards=%d threads=%d thread_revision=%d\n"
+    (List.length (Communication.boards (State.communication after_board)))
+    (List.length (Communication.threads (State.communication after_board)))
+    thread.revision;
+  let params =
+    ask_params
+      [ "thread_id", Communication_id.Thread.jsonaf_of_t thread_id
+      ; "expected_thread_revision", Json.int thread.revision
+      ]
+  in
+  let params =
+    match params with
+    | `Object fields ->
+      Json.obj
+        (("request_id", Json.string "followup")
+         :: List.Assoc.remove fields "request_id" ~equal:String.equal)
+    | _ -> assert false
+  in
+  let command = Communication_command.decode ~method_:"request.ask" ~params |> unwrap in
+  let appended = prepare after_board (Communication command) |> unwrap in
+  let final = State.candidate appended in
+  let current =
+    Communication.get_thread (State.communication final) thread_id |> Option.value_exn
+  in
+  printf
+    "appended=%d receipt=%d metadata_preserved=%b replay=%b\n"
+    (List.length current.messages)
+    (get (State.result appended) "thread_revision" |> Json.integer)
+    (String.equal current.title thread.title
+     && List.equal Entity_ref.equal current.links thread.links
+     && List.equal Id.Actor.equal current.participants thread.participants
+     && Communication.Thread.Closure_policy.equal
+          current.closure_policy
+          thread.closure_policy)
+    (same
+       (State.to_json final)
+       (State.replay after_board (State.events appended) |> unwrap |> State.to_json));
+  let changed =
+    match params with
+    | `Object fields ->
+      Json.obj
+        (("request_id", Json.string "stale")
+         :: List.Assoc.remove fields "request_id" ~equal:String.equal)
+    | _ -> assert false
+  in
+  report
+    (Communication_command.decode ~method_:"request.ask" ~params:changed
+     |> Result.bind ~f:(fun c -> prepare final (Communication c)));
+  printf
+    "unchanged messages=%d requests=%d\n"
+    (List.length current.messages)
+    (List.length (Communication.requests (State.communication final)));
+  report
+    (prepare_ask
+       original
+       [ "title", Json.string "Missing"; "board_id", Json.string "missing" ]);
+  [%expect
+    {|
+    boards=1 threads=2 thread_revision=2
+    appended=2 receipt=3 metadata_preserved=true replay=true
+    Conflict
+    unchanged messages=2 requests=3
+    Not_found
+    |}]
+;;
+
+let%expect_test
+    "selected board scope and late request failure cannot publish partial questions"
+  =
+  let project = Id.Project.of_string "project" |> unwrap in
+  let ticket = Id.Ticket.of_string "outside" |> unwrap in
+  let board = Communication_id.Board.of_string "project-board" |> unwrap in
+  let state =
+    prepare
+      (empty ())
+      (Batch
+         [ Project_create { id = project; title = "Project"; description = "" }
+         ; Ticket_create
+             { id = ticket
+             ; title = "Outside"
+             ; description = ""
+             ; project = None
+             ; parent = None
+             ; milestone = None
+             }
+         ; Communication
+             (Board_put
+                { id = board
+                ; expected_revision = 0
+                ; scope = Project project
+                ; title = "Board"
+                })
+         ])
+    |> unwrap
+    |> State.candidate
+  in
+  report
+    (prepare_ask
+       state
+       [ "title", Json.string "Question"
+       ; "board_id", Communication_id.Board.jsonaf_of_t board
+       ; "ticket_id", Id.Ticket.jsonaf_of_t ticket
+       ]);
+  report
+    (prepare_ask
+       state
+       [ "title", Json.string "Question"
+       ; "board_id", Communication_id.Board.jsonaf_of_t board
+       ; "related_request_ids", `Array [ Json.string "missing" ]
+       ]);
+  printf
+    "retained threads=%d requests=%d\n"
+    (List.length (Communication.threads (State.communication state)))
+    (List.length (Communication.requests (State.communication state)));
+  let prepared =
+    prepare_ask
+      state
+      [ "title", Json.string "Question"
+      ; "board_id", Communication_id.Board.jsonaf_of_t board
+      ]
+    |> unwrap
+  in
+  let final = State.candidate prepared in
+  let question =
+    State.result prepared
+    |> fun r -> get (get r "question") "comment_id" |> Id.Comment.t_of_jsonaf
+  in
+  printf
+    "project authored=%b replay=%b\n"
+    (same
+       (query
+          final
+          "comment.get"
+          (Json.obj [ "comment_id", Id.Comment.jsonaf_of_t question ])
+        |> fun j -> get (get j "data") "target")
+       (Entity_ref.jsonaf_of_t (Project project)))
+    (same
+       (State.to_json final)
+       (State.replay state (State.events prepared) |> unwrap |> State.to_json));
+  [%expect
+    {|
+    Conflict
+    Not_found
+    retained threads=0 requests=0
+    project authored=true replay=true
+    |}]
+;;
+
+let%expect_test "question board and thread destination aliases compose in one transaction"
+  =
+  let command =
+    Domain_command.decode
+      ~method_:"transaction.apply"
+      ~params:
+        (Jsonaf.of_string
+           {|{"operations":[
+      {"method":"board.put","as":"shared","params":{"board_id":"shared-board","expected_revision":"0","scope":{"kind":"workspace"},"title":"Shared"}},
+      {"method":"request.ask","params":{"request_id":"on-board","board_id":"$shared","title":"Topic","body":"Question","resolver_id":"alice","recipients":[{"kind":"actor","id":"bob"}]}},
+      {"method":"thread.put","as":"topic","params":{"thread_id":"shared-thread","expected_revision":"0","board_id":"$shared","title":"Existing topic","state":"open","participants":[],"mentions":[]}},
+      {"method":"request.ask","params":{"request_id":"on-thread","thread_id":"$topic","expected_thread_revision":"1","body":"Follow-up","resolver_id":"alice","recipients":[{"kind":"actor","id":"bob"}]}}
+    ]}|})
+    |> unwrap
+  in
+  let initial = empty () in
+  let prepared = prepare initial command |> unwrap in
+  let final = State.candidate prepared in
+  printf
+    "revision=%d boards=%d threads=%d requests=%d replay=%b\n"
+    (State.revision final)
+    (List.length (Communication.boards (State.communication final)))
+    (List.length (Communication.threads (State.communication final)))
+    (List.length (Communication.requests (State.communication final)))
+    (same
+       (State.to_json final)
+       (State.replay initial (State.events prepared) |> unwrap |> State.to_json));
+  [%expect {| revision=1 boards=1 threads=2 requests=2 replay=true |}]
 ;;
