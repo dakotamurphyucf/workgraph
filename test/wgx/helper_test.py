@@ -388,12 +388,14 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
         self.assertNotIn('\u202e'.encode(),failed.stderr)
         self.assertIn(b'\\u009b',failed.stderr)
         self.assertIn(b'incomplete collection',failed.stderr)
-        packet={'data':{'pages':[{'data':{'items':[{'request_id':'partial','created':{'actor_id':'ci'},'resolver_id':'lead','status':{'kind':'open'},'responsibility':{'kind':'unaccepted'}}]},'meta':{'budget':{'truncated':True,'omitted_fields':'1','omitted_items':'0'}}}],'pagination':{'complete':True}},'meta':{}}
+        packet={'data':{'pages':[{'data':{'items':[{'request_id':'partial','thread_id':'captured-thread','thread_summary':{'thread_revision':'7','title':'Pre','title_bytes':'120','scope':{'kind':'workspace'},'links':[],'link_count':'2'},'created':{'actor_id':'ci'},'resolver_id':'lead','status':{'kind':'open'},'responsibility':{'kind':'unaccepted'}}]},'meta':{'budget':{'truncated':True,'omitted_fields':'1','omitted_items':'0'}}}],'pagination':{'complete':True}},'meta':{}}
         packet['data']['pages'][0]['meta']['query_revision']='1'
         thread_packet={'data':{'pages':[{'data':{'items':[]},'meta':{'query_revision':'1'}}],'pagination':{'complete':True}},'meta':{}}
         proxy.write_text('#!/usr/bin/env python3\nimport sys\nprint('+repr(json.dumps({'result':thread_packet}))+' if sys.argv[3]=="thread.list" else '+repr(json.dumps({'result':packet}))+')\n')
         partial=self.helper('questions',executable=str(proxy))
         self.assertIn(b'partial',partial.stdout)
+        self.assertIn(b'thread.get --thread-id captured-thread',partial.stdout)
+        self.assertIn(b'captured thread revision 7',partial.stdout)
         self.assertIn(b'omitted fields/bodies',partial.stderr)
         self.assertIn(b'"omitted_fields":"1"',partial.stderr)
         for malformed in ['not json','{"result":{}}\n{"result":{}}']:

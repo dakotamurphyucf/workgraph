@@ -1528,7 +1528,7 @@ def request_rows:
   "    \(.created.actor_id) -> " + $B + .resolver_id + $R + "  (\(.responsibility.kind))  priority=\(.priority // "0")  " +
     $D + (.created.timestamp|ago(now)) + $R +
     (if .deadline_unix_ms then "  deadline(ms)=\(.deadline_unix_ms)" else "" end) + "  scope=" + ($thread.scope|tojson),
-  (if ($thread.title|utf8bytelength) < ($thread.title_bytes|tonumber) or ($thread.links|length) < ($thread.link_count|tonumber) then "    [thread summary prefix; expand request.get]" else empty end),
+  (if ($thread.title|utf8bytelength) < ($thread.title_bytes|tonumber) or ($thread.links|length) < ($thread.link_count|tonumber) then "    [thread summary prefix; expand thread.get --thread-id " + $q.thread_id + "; compare returned .result.data.revision with captured thread revision " + $thread.thread_revision + "]" else empty end),
   ([$thread.links[]? | select(.kind=="ticket") | .id] | if length > 0 then "    on " + join(", ") else empty end);
 def run_rows($tickets):
   . as $run | [$tickets[] | select(.claim != null and .claim.run_id == $run.run_id) | .ticket_id] as $work |

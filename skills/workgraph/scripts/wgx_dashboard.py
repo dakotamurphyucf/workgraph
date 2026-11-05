@@ -302,7 +302,7 @@ class Client:
         for request in requests:
             summary = request['thread_summary']
             if len(summary['title'].encode()) < int(summary['title_bytes']) or len(summary['links']) < int(summary['link_count']):
-                warnings.append('request ' + request['request_id'] + ': thread summary is a bounded prefix; expand request.get.')
+                warnings.append('request ' + request['request_id'] + ': thread summary is a bounded prefix; expand thread.get --thread-id ' + request['thread_id'] + '; compare returned .result.data.revision with captured thread revision ' + summary['thread_revision'] + '.')
         runs, _ = collection('run.list')
         paths, _ = collection('reservation.path.list')
         reservations, _ = collection('reservation.list')

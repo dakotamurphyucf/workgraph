@@ -112,6 +112,23 @@ class Dashboard(unittest.TestCase):
         self.assertNotIn('999999',view.overlay_rows[0].text)
         self.assertEqual(self.call('workspace.overview'),before)
 
+    def test_truncated_thread_summary_expands_thread_identity_and_compares_revision(self):
+        self.sample()
+        client=self.client();original=client.pages
+        def clipped(method,**params):
+            items,meta,notes=original(method,**params)
+            if method=='request.list':
+                items=[{**q,'thread_summary':{**q['thread_summary'],'title':'Pre','title_bytes':'120','links':[],'link_count':'2'}} for q in items]
+            return items,meta,notes
+        client.pages=clipped
+        snapshot=client.snapshot()
+        request=snapshot.requests[0]
+        hint=next(w for w in snapshot.warnings if 'bounded prefix' in w)
+        self.assertIn('thread.get --thread-id '+request['thread_id'],hint)
+        self.assertIn('captured thread revision '+request['thread_summary']['thread_revision'],hint)
+        self.assertIn('returned .result.data.revision',hint)
+        self.assertNotIn('expand request.get',hint)
+
     def test_buffered_cursor_failure_and_limit_preserve_original_restart_selectors(self):
         for method,field,selectors in [
             ('activity.digest','entries',{'after':'0','scope':{'kind':'ticket','ticket_id':'task'}}),
