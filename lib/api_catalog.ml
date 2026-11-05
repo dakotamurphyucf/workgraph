@@ -267,7 +267,10 @@ let methods =
       ; Pack Communication_inbox.ack_method
       ]
       ~f:scoped
-  @ [ Api_method.Packed.Pack Resource_read.text_method; Pack Resource_read.chunk_method ]
+  @ [ Api_method.Packed.Pack Resource_read.text_method
+    ; Pack Resource_read.chunk_method
+    ; Pack Resource_read.text_range_method
+    ]
   @ declared_methods Planning_api.methods ~descriptor:Planning_api.descriptor
   @ declared_methods
       (Agent_run_api.mutation_methods @ Agent_run_api.query_methods)

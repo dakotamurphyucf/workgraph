@@ -58,7 +58,8 @@ using metadata as complete. details_complete=false means the omission detail lis
 incomplete. Text/target arrays may be shortened; identities and immutable version
 identity remain complete. Budget trimming can shorten a page further than its requested
 limit. Use resource.read for complete small UTF-8 content; it rejects large/non-UTF-8
-bytes with Invalid_argument and points to resource.read_chunk. Neither byte read accepts
+bytes with Invalid_argument and points to resource.read_text for larger UTF-8 ranges,
+resource.read_chunk for binary, or the CLI downloader. None of these byte reads accepts
 max_bytes. With omitted version, reads select latest at execution. Pin the first
 returned content version for every later byte request, independently of metadata
 revisions/planning changes. read_chunk offsets count bytes and lengths are 1..262144
@@ -66,6 +67,35 @@ bytes. Verify resource/version, offset, whole digest and size identity, every
 chunk_digest, and the final assembled SHA-256. Advance with next_offset until null/EOF;
 offset=size_bytes returns an empty EOF chunk. Empty files and arbitrary binary bytes are
 supported. The CLI downloader does this verification.
+
+### Read large UTF-8 text without Base64
+
+resource.read_text accepts the same workspace/resource/version selectors as read_chunk,
+plus byte offset (default 0) and length (default 65536, 1..262144). The whole resource
+may be up to 64MiB. Its response includes plain UTF-8 text, resource_id, immutable
+version/digest, whole size_bytes, offset, chunk_digest, next_offset and eof. Pin the
+first version and digest for every continuation even if newer content is published.
+Verify each chunk_digest against the UTF-8 bytes and the assembled whole SHA-256.
+
+A range ends at a complete Unicode scalar. A valid trailing partial scalar at a
+non-EOF boundary is retained for the next read; next_offset advances by the returned
+text's UTF-8 byte length, which can be less than requested length. Never advance by
+character count or the requested length. Offset must start a scalar. A request too
+short to contain its first scalar rejects with Invalid_argument; length at least 4
+always accommodates one valid scalar. Offset equal to size_bytes returns empty EOF.
+Offsets past EOF reject. Invalid selected bytes or a truncated scalar at actual EOF
+reject without replacement characters or skipping bytes. Validation covers the selected
+range; bytes outside it can still be invalid. Use read_chunk/download for opaque bytes.
+No planning capture or max_bytes budget is needed because versions are immutable and
+the byte range itself is bounded.
+
+```text
+resource.read_text {"workspace_id":"demo","resource_id":"report","offset":"0","length":"65536"}
+resource.read_text {"workspace_id":"demo","resource_id":"report","version":"1","offset":"65534","length":"65536"}
+```
+
+The second request is illustrative: use the actual first response's version and
+next_offset, retaining its digest and verifying each chunk before assembling it.
 
 ## Stage large uploads and recover publication
 
@@ -137,6 +167,7 @@ Read a method schema for exact required fields and result types.
 | [`resource.list`](api/resource.list.md) | Discover summaries ordered by resource ID with target/archive filters. Continue using planning at_revision and next_offset; inspect budget omissions. |
 | [`resource.history`](api/resource.history.md) | Read retained immutable content versions in increasing version order, including archived resources. Use planning capture paging; metadata-only edits add no versions. |
 | [`resource.read`](api/resource.read.md) | Fetch latest or pinned complete UTF-8 content up to 65536 bytes with verified version, SHA-256 and full size. Unknown resource/version returns Not_found; larger/binary content requires read_chunk. |
+| [`resource.read_text`](api/resource.read_text.md) | Read a bounded plain UTF-8 range, retaining incomplete trailing scalars for exact byte continuation. Pin version/digest; invalid selected UTF-8 rejects. |
 | [`resource.read_chunk`](api/resource.read_chunk.md) | Fetch a verified binary byte range; pin the first selected version and follow next_offset to EOF. Verify identities, every chunk digest and assembled digest. |
 | [`upload.begin`](api/upload.begin.md) | Begin/resume the same actor/ID/size/digest staging entry. Changed owner/size/digest conflicts; admission exhaustion is Invalid_argument. Empty staging is supported. |
 | [`upload.chunk`](api/upload.chunk.md) | Stage a contiguous nonempty chunk of at most 256KiB, or exactly retry an identical contained range. Missing/restarted upload is Not_found; chunks after install conflict. |

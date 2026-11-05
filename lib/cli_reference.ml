@@ -693,6 +693,9 @@ let result_paths = function
      .result.data.current_version.{revision,digest} (content pin)"
   | "resource.read" ->
     ".result.data.text; .result.data.version (content version); .result.data.digest"
+  | "resource.read_text" ->
+    ".result.data.text; .result.data.{version,digest,offset,next_offset,eof}; offsets \
+     and lengths count UTF-8 bytes"
   | "resource.list" | "fact.list" ->
     ".result.data.items; .result.data.next_offset; .result.meta.workspace_revision"
   | "fact.keys" -> ".result.data.items; .result.data.remaining; .result.data.total"

@@ -114,3 +114,125 @@ let%expect_test "constructors reject content versions different from explicit se
     Invalid_argument
     Invalid_argument |}]
 ;;
+
+let%expect_test "text ranges retain whole UTF8 scalars and reject invalid selected bytes" =
+  let actor = Id.Actor.of_string "a" |> Disk.unwrap in
+  let range bytes ~offset ~length =
+    let request =
+      Api_codec.decode
+        Resource_read.Chunk_request.codec
+        (Json.obj
+           [ "workspace_id", Json.string "w"
+           ; "resource_id", Json.string "r"
+           ; "offset", Json.int offset
+           ; "length", Json.int length
+           ])
+      |> Disk.unwrap
+    in
+    let version =
+      { Resource.Version.revision = 1
+      ; digest = Json.hash bytes
+      ; size_bytes = Some (String.length bytes)
+      ; actor
+      ; timestamp = "test"
+      ; filename = "r.txt"
+      ; mime_type = "text/plain"
+      }
+    in
+    Resource_read.Text_range.create
+      request
+      ~version
+      ~bytes:
+        (String.sub
+           bytes
+           ~pos:offset
+           ~len:(Int.min length (String.length bytes - offset)))
+      ~total_bytes:(String.length bytes)
+  in
+  let text = "a💖é€z" in
+  List.iter
+    [ 0, 1; 0, 4; 1, 4; 5, 3; 7, 4; 11, 4 ]
+    ~f:(fun (offset, length) ->
+      let result = range text ~offset ~length |> Disk.unwrap in
+      let json = Api_codec.encode Resource_read.Text_range.codec result |> Disk.unwrap in
+      printf
+        "%s next=%s eof=%b\n"
+        (Json.text (Json.field json "text"))
+        (Json.canonical (Json.field json "next_offset"))
+        (match Json.field json "eof" with
+         | `True -> true
+         | _ -> false));
+  List.iter
+    [ 1, 3; 2, 4 ]
+    ~f:(fun (offset, length) -> print_result (range text ~offset ~length));
+  List.iter
+    [ "\192\128"; "\237\160\128"; "\244\144\128\128"; "a\255b"; "a\240\159" ]
+    ~f:(fun bytes -> print_result (range bytes ~offset:0 ~length:4));
+  (* A malformed trailing lead must not be silently postponed as if truncated. *)
+  print_result (range "a\255suffix" ~offset:0 ~length:2);
+  (* Valid incomplete scalars of each width are retained for a later range. *)
+  List.iter [ "aéz"; "a€z"; "a💖z" ] ~f:(fun bytes ->
+    let result = range bytes ~offset:0 ~length:2 |> Disk.unwrap in
+    let json = Api_codec.encode Resource_read.Text_range.codec result |> Disk.unwrap in
+    printf
+      "boundary=%s next=%s\n"
+      (Json.text (Json.field json "text"))
+      (Json.canonical (Json.field json "next_offset")));
+  [%expect
+    {|
+    a next="1" eof=false
+    a next="1" eof=false
+    💖 next="5" eof=false
+    é next="7" eof=false
+    €z next=null eof=true
+     next=null eof=true
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    boundary=a next="1"
+    boundary=a next="1"
+    boundary=a next="1"
+  |}]
+;;
+
+let%expect_test "public UTF8 range decoder rejects forged bytes and continuations" =
+  let fields =
+    [ "resource_id", Json.string "r"
+    ; "version", Json.int 1
+    ; "digest", Json.string (Json.hash "é!")
+    ; "size_bytes", Json.int 3
+    ; "offset", Json.int 0
+    ; "text", Json.string "é"
+    ; "chunk_digest", Json.string (Json.hash "é")
+    ; "next_offset", Json.int 2
+    ; "eof", `False
+    ]
+  in
+  print_result (Api_codec.decode Resource_read.Text_range.codec (Json.obj fields));
+  List.iter
+    [ "text", Json.string "\255"
+    ; "chunk_digest", Json.string (Json.hash "other")
+    ; "next_offset", Json.int 1
+    ; "eof", `True
+    ; "offset", Json.int 4
+    ]
+    ~f:(fun (key, value) ->
+      let json =
+        Json.obj ((key, value) :: List.Assoc.remove fields key ~equal:String.equal)
+      in
+      print_result (Api_codec.decode Resource_read.Text_range.codec json));
+  [%expect
+    {|
+    ok
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+  |}]
+;;

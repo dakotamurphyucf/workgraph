@@ -71,6 +71,72 @@ class DirectReadTest(unittest.TestCase):
                 rejected('resource.read', resource_id='missing', kind='Not_found')
                 rejected('resource.read_chunk', resource_id='note', length='0')
                 rejected('resource.read_chunk', resource_id='note', length='262145')
+                # Large text stays byte-correct across UTF8 boundaries, with an
+                # immutable version pin independent of later metadata/publication.
+                def publish_bytes(resource, payload):
+                    source = root / (resource + '.bin')
+                    source.write_bytes(payload)
+                    result = subprocess.run(
+                        [str(EXE), 'resource', 'upload', str(address), '--workspace-id', 'demo',
+                         '--actor-id', 'agent', '--resource-id', resource, '--expected-revision', '0',
+                         '--title', resource, '--file', str(source), '--save-request', str(root / (resource + '.json'))],
+                        capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    return json.loads(result.stdout)['result']['data']
+                payload = ('a' + '💖é€z' * 16000).encode('utf-8')
+                published = publish_bytes('large-text', payload)
+                oversized = call('resource.read', resource_id='large-text')['error']['data']
+                self.assertEqual(oversized['kind'], 'Invalid_argument')
+                self.assertIn('65536', oversized['message'])
+                self.assertIn('resource.read_text', oversized['message'])
+                first_text = ok('resource.read_text', resource_id='large-text', length='65536')['data']
+                self.assertNotIn('data_base64', first_text)
+                self.assertLessEqual(len(first_text['text'].encode()), 65536)
+                self.assertEqual(first_text['version'], '1')
+                self.assertEqual(first_text['digest'], hashlib.sha256(payload).hexdigest())
+                self.assertEqual(first_text['size_bytes'], str(len(payload)))
+                mutate('resource.put_text', resource_id='large-text', expected_revision=published['revision'],
+                       title='Replacement', text='latest')
+                assembled = bytearray()
+                current = first_text
+                while True:
+                    segment = current['text'].encode('utf-8')
+                    self.assertEqual(int(current['offset']), len(assembled))
+                    self.assertEqual(current['version'], '1')
+                    self.assertEqual(current['digest'], first_text['digest'])
+                    self.assertEqual(current['chunk_digest'], hashlib.sha256(segment).hexdigest())
+                    assembled.extend(segment)
+                    if current['eof']:
+                        self.assertIsNone(current['next_offset'])
+                        break
+                    self.assertEqual(int(current['next_offset']), len(assembled))
+                    current = ok('resource.read_text', resource_id='large-text', version='1',
+                                 offset=current['next_offset'], length='65536')['data']
+                self.assertEqual(bytes(assembled), payload)
+                self.assertEqual(hashlib.sha256(assembled).hexdigest(), first_text['digest'])
+                self.assertEqual(ok('resource.read_text', resource_id='large-text')['data']['text'], 'latest')
+                eof = ok('resource.read_text', resource_id='large-text', version='1', offset=str(len(payload)))['data']
+                self.assertEqual(eof['text'], '')
+                self.assertTrue(eof['eof'])
+                for params in [dict(offset='2', length='4'), dict(offset='1', length='3'),
+                               dict(offset=str(len(payload) + 1)), dict(length='0'), dict(length='262145'),
+                               dict(max_bytes='4096')]:
+                    rejected('resource.read_text', resource_id='large-text', version='1', **params)
+                publish_bytes('invalid-text', b'a\xffsuffix')
+                self.assertEqual(ok('resource.read_text', resource_id='invalid-text', length='1')['data']['text'], 'a')
+                rejected('resource.read_text', resource_id='invalid-text', offset='1', length='4')
+                rejected('resource.read_text', resource_id='invalid-text', offset='0', length='2')
+                binary = ok('resource.read_chunk', resource_id='invalid-text')['data']
+                self.assertEqual(base64.b64decode(binary['data_base64']), b'a\xffsuffix')
+                publish_bytes('truncated-text', b'a\xf0\x9f')
+                rejected('resource.read_text', resource_id='truncated-text')
+                mutate('resource.put_text', resource_id='empty-text', expected_revision='0', title='Empty', text='')
+                empty = ok('resource.read_text', resource_id='empty-text')['data']
+                self.assertEqual(empty['text'], '')
+                self.assertTrue(empty['eof'])
+                help_text = subprocess.check_output([str(EXE), 'help', 'resource.read'], text=True)
+                self.assertIn('65536', help_text)
+                self.assertIn('resource.read_text', help_text)
                 mutate('board.put', board_id='board', expected_revision='0', scope={'kind': 'workspace'}, title='Board')
                 mutate('thread.put', thread_id='thread', expected_revision='0', board_id='board', title='Thread', participants=['agent'], mentions=[], links=[], state='open', pinned=False)
                 mutate('comment.add', comment_id='source', target={'kind': 'workspace'}, body='Original question')
@@ -110,6 +176,7 @@ class DirectReadTest(unittest.TestCase):
                 daemon.wait(timeout=10)
                 start()
                 self.assertEqual(latest, ok('resource.read', resource_id='note')['data'])
+                self.assertEqual(first_text, ok('resource.read_text', resource_id='large-text', version='1', length='65536')['data'])
                 restored = ok('request.get', request_id='request', include_messages=True)['data']['related']
                 self.assertEqual('Corrected question', restored['source_message']['body'])
                 self.assertEqual('2', restored['source_message']['revision'])

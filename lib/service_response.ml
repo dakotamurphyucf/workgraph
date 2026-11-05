@@ -101,6 +101,7 @@ let layout method_ =
     | "upload.list"
     | "resource.read"
     | "resource.read_chunk"
+    | "resource.read_text"
     | "run.heartbeat"
     | "run.heartbeat_get" -> Value
     | _ -> Planning_write)

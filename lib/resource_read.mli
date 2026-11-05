@@ -50,8 +50,29 @@ module Chunk : sig
   val codec : t Api_codec.t
 end
 
+module Text_range : sig
+  (** A UTF-8 range of at most the requested byte length and 262144 bytes. Offset
+      must start a scalar; a non-EOF trailing partial scalar is retained for the
+      next request. Invalid selected bytes, truncated UTF-8 at actual EOF, or a
+      length too small for one scalar return Invalid_argument without replacement.
+      Validation covers the selected bytes, not unrequested parts of the resource.
+      Byte offsets advance by String.length text; pin version/digest for later
+      reads independently of resource metadata revisions. *)
+  type t
+
+  val create
+    :  Chunk_request.t
+    -> version:Resource.Version.t
+    -> bytes:string
+    -> total_bytes:int
+    -> (t, Problem.t) Result.t
+
+  val codec : t Api_codec.t
+end
+
 (** Executable descriptors: service invocation uses these exact request/result
     codecs; schema generation cannot diverge from validation. *)
 val text_method : (Request.t, Text.t) Api_method.t
 
 val chunk_method : (Chunk_request.t, Chunk.t) Api_method.t
+val text_range_method : (Chunk_request.t, Text_range.t) Api_method.t

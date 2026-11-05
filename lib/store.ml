@@ -165,7 +165,11 @@ let read_blob t ~digest =
     require_storage_directories t;
     let size = verify_blob t ~digest ~size_bytes:None in
     if size > 65_536
-    then Json.fail Invalid_argument "use resource.read_chunk for files over 64KiB";
+    then
+      Json.fail
+        Invalid_argument
+        "resource.read is limited to 65536 bytes (64KiB); use resource.read_text for \
+         text ranges, resource.read_chunk for binary, or CLI resource download";
     let bytes = Disk.read (path t ("blobs/" ^ digest)) in
     if
       not

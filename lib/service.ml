@@ -1175,6 +1175,30 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
             in
             Resource_read.Chunk.create request ~version ~bytes ~total_bytes)
           |> Disk.unwrap
+        | "resource.read_text" ->
+          Api_method.invoke Resource_read.text_range_method ~params ~f:(fun request ->
+            let open Result.Let_syntax in
+            let selector = Resource_read.Chunk_request.request request in
+            let value =
+              get_loaded
+                (Id.Workspace.to_string (Resource_read.Request.workspace selector))
+            in
+            let%bind version =
+              State.resource_version
+                value.state
+                (Resource_read.Request.resource selector)
+                ~revision:(Resource_read.Request.version selector)
+            in
+            let%bind bytes, total_bytes =
+              worker (fun () ->
+                Store.read_blob_range
+                  value.store
+                  ~digest:version.digest
+                  ~offset:(Resource_read.Chunk_request.byte_offset request)
+                  ~length:(Resource_read.Chunk_request.max_bytes request))
+            in
+            Resource_read.Text_range.create request ~version ~bytes ~total_bytes)
+          |> Disk.unwrap
         | "resource.read" ->
           Api_method.invoke Resource_read.text_method ~params ~f:(fun request ->
             let open Result.Let_syntax in

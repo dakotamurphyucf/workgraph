@@ -150,7 +150,9 @@ module Text = struct
         else Ok { resource; version; digest; size_bytes; text })
       ~encode:(fun t -> ((t.resource, t.version), t.digest), (t.size_bytes, t.text))
       ~description:
-        "Complete UTF-8 bytes, exact immutable content version and verified digest."
+        "Complete UTF-8 content up to 65536 bytes (64KiB), exact immutable content \
+         version and verified digest. Larger text uses resource.read_text; binary uses \
+         resource.read_chunk or CLI resource download."
   ;;
 
   let create request ~(version : Resource.Version.t) ~text =
@@ -173,6 +175,31 @@ module Text = struct
       Api_codec.encode codec t |> unwrap |> Api_codec.decode codec |> unwrap)
   ;;
 end
+
+let range_fields payload =
+  let identity =
+    Fields.both
+      (Fields.both
+         (Fields.required "resource_id" resource_codec)
+         (Fields.required "version" version_codec))
+      (Fields.required "digest" digest_codec)
+  in
+  let content =
+    Fields.both
+      (Fields.both
+         (Fields.required "size_bytes" (Api_codec.decimal ~max:Resource.max_blob_bytes))
+         (Fields.required "offset" decimal))
+      payload
+  in
+  let position =
+    Fields.both
+      (Fields.both
+         (Fields.required "chunk_digest" digest_codec)
+         (Fields.required "next_offset" (Api_codec.nullable decimal)))
+      (Fields.required "eof" Api_codec.boolean)
+  in
+  Fields.both (Fields.both identity content) position
+;;
 
 module Chunk = struct
   type t =
@@ -210,29 +237,10 @@ module Chunk = struct
   ;;
 
   let codec =
-    let identity =
-      Fields.both
-        (Fields.both
-           (Fields.required "resource_id" resource_codec)
-           (Fields.required "version" version_codec))
-        (Fields.required "digest" digest_codec)
-    in
-    let content =
-      Fields.both
-        (Fields.both
-           (Fields.required "size_bytes" (Api_codec.decimal ~max:Resource.max_blob_bytes))
-           (Fields.required "offset" decimal))
-        (Fields.required "data_base64" (Api_codec.text ~max_bytes:349_528))
-    in
-    let position =
-      Fields.both
-        (Fields.both
-           (Fields.required "chunk_digest" digest_codec)
-           (Fields.required "next_offset" (Api_codec.nullable decimal)))
-        (Fields.required "eof" Api_codec.boolean)
-    in
     Api_codec.map
-      (Api_codec.object_ (Fields.both (Fields.both identity content) position))
+      (Api_codec.object_
+         (range_fields
+            (Fields.required "data_base64" (Api_codec.text ~max_bytes:349_528))))
       ~decode:
         (fun
           ( (((resource, version), digest), ((size_bytes, offset), encoded))
@@ -293,11 +301,114 @@ module Chunk = struct
   ;;
 end
 
+module Text_range = struct
+  type t = Chunk.t
+
+  let codec =
+    Api_codec.map
+      (Api_codec.object_
+         (range_fields (Fields.required "text" (Api_codec.text ~max_bytes:262_144))))
+      ~decode:
+        (fun
+          ( (((resource, version), digest), ((size_bytes, offset), text))
+          , ((chunk_digest, next_offset), eof) ) ->
+        if
+          (not (String.equal chunk_digest (Json.hash text)))
+          || not (Bool.equal eof (Option.is_none next_offset))
+        then
+          Error (Problem.create Invalid_argument "resource text range hash/EOF mismatch")
+        else
+          Chunk.validate
+            { resource; version; digest; size_bytes; offset; bytes = text; next_offset })
+      ~encode:(fun (t : t) ->
+        ( (((t.resource, t.version), t.digest), ((t.size_bytes, t.offset), t.bytes))
+        , ((Json.hash t.bytes, t.next_offset), Option.is_none t.next_offset) ))
+      ~description:
+        "Valid UTF-8 text range up to 262144 bytes, exact immutable version/digest, \
+         chunk digest and byte offsets. No replacement characters."
+  ;;
+
+  (* Uutf validates complete scalars. A final malformed span may be retained only
+     when its bytes can still become exactly one valid scalar after more input. *)
+  let incomplete_scalar_prefix suffix =
+    let length = String.length suffix in
+    if length = 0 || length > 3
+    then false
+    else (
+      let byte index = Char.to_int suffix.[index] in
+      let first = byte 0 in
+      let width =
+        if first >= 0xc2 && first <= 0xdf
+        then 2
+        else if first >= 0xe0 && first <= 0xef
+        then 3
+        else if first >= 0xf0 && first <= 0xf4
+        then 4
+        else 0
+      in
+      length < width
+      && String.for_alli suffix ~f:(fun index char ->
+        if index = 0
+        then true
+        else (
+          let value = Char.to_int char in
+          value >= 0x80
+          && value <= 0xbf
+          && (index <> 1
+              || ((first <> 0xe0 || value >= 0xa0)
+                  && (first <> 0xed || value <= 0x9f)
+                  && (first <> 0xf0 || value >= 0x90)
+                  && (first <> 0xf4 || value <= 0x8f))))))
+  ;;
+
+  let create request ~version ~bytes ~total_bytes =
+    Json.decode (fun () ->
+      let range = Chunk.create request ~version ~bytes ~total_bytes |> unwrap in
+      let malformed =
+        Uutf.String.fold_utf_8
+          (fun first offset -> function
+             | `Uchar _ -> first
+             | `Malformed _ -> Option.first_some first (Some offset))
+          None
+          bytes
+      in
+      let length =
+        match malformed with
+        | None -> String.length bytes
+        | Some boundary ->
+          if
+            Option.is_none range.next_offset
+            || not (incomplete_scalar_prefix (String.drop_prefix bytes boundary))
+          then
+            Json.fail
+              Invalid_argument
+              "resource range is not UTF-8 or offset is not a scalar boundary; use \
+               resource.read_chunk for binary";
+          if boundary = 0
+          then
+            Json.fail
+              Invalid_argument
+              "resource text length is too small for the next UTF-8 scalar; use length \
+               at least 4";
+          boundary
+      in
+      let next = range.offset + length in
+      let result =
+        { range with
+          bytes = String.prefix bytes length
+        ; next_offset = (if next = total_bytes then None else Some next)
+        }
+      in
+      Chunk.validate result |> unwrap)
+  ;;
+end
+
 let text_method =
   Api_method.create
     ~name:"resource.read"
     ~summary:
-      "Read complete bounded UTF-8 content by resource ID and latest or explicit version."
+      "Read complete UTF-8 content up to 65536 bytes (64KiB); use resource.read_text for \
+       larger text ranges or resource.read_chunk/download for binary."
     ~mode:Read
     ~request:Request.codec
     ~response:Text.codec
@@ -310,4 +421,15 @@ let chunk_method =
     ~mode:Read
     ~request:Chunk_request.codec
     ~response:Chunk.codec
+;;
+
+let text_range_method =
+  Api_method.create
+    ~name:"resource.read_text"
+    ~summary:
+      "Read a bounded UTF-8 text range with byte-correct continuation and immutable \
+       version/digest."
+    ~mode:Read
+    ~request:Chunk_request.codec
+    ~response:Text_range.codec
 ;;
