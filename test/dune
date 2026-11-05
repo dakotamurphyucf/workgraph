@@ -47,6 +47,22 @@
 (rule
  (alias runtest)
  (deps
+  ../tools/generate_discovery_reference.py
+  ../tools/generate_api_reference.py
+  (source_tree ../skills/workgraph))
+ (action
+  (run
+   python3
+   %{dep:../tools/generate_discovery_reference.py}
+   --binary
+   %{exe:../bin/main.exe}
+   --output
+   ../skills/workgraph/references/discovery
+   --check)))
+
+(rule
+ (alias runtest)
+ (deps
   integration.py
   daemon_ready.py
   ../bin/main.exe

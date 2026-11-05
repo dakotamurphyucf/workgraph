@@ -3,7 +3,7 @@
 A skill is a folder an agent can discover and read when a task calls for it.
 Workgraph's skill explains how to plan work, preserve useful context and coordinate
 workers through the Workgraph CLI. It includes the full README workflow overview,
-focused guides, complete API schemas and runnable helpers. Installing the skill does not start a daemon or
+focused guides, offline capability/intent discovery, complete API schemas and runnable helpers. Installing the skill does not start a daemon or
 install the Workgraph executable.
 
 ## Where to find it
@@ -16,6 +16,7 @@ workgraph/
 ├── README.md         Full overview and orchestration examples
 ├── LICENSE.txt       MIT license
 ├── references/       Setup, concepts and task-specific instructions
+│   ├── discovery/    Generated capability, family and workflow decision cards
 │   └── api/          Generated request/result schemas, one file per method
 └── scripts/          Optional workflow, dashboard and history helpers
 ```
@@ -25,8 +26,8 @@ helper imports stay within this folder, so the copy does not need a repository
 checkout beside it. Keep the skill matched to its CLI version. This skill targets
 Workgraph 0.6 / application API 0.6; changing documentation does not migrate data.
 
-**Packaging:** v0.6.1 native/source packages include this folder. The standalone
-`workgraph-0.6.1-skill.tar.gz` contains the standalone `workgraph/` skill without a
+**Packaging:** v0.6.2 native/source packages include this folder. The standalone
+`workgraph-0.6.2-skill.tar.gz` contains the standalone `workgraph/` skill without a
 binary. Use a matching 0.6 executable; a new skill does not make 0.5 data or requests
 compatible. Release qualification records identify the exact packaged files.
 
@@ -49,8 +50,8 @@ change only the destination. Refresh or restart skill discovery as your harness
 requires. A harness without skill support can read `SKILL.md` directly and follow
 its local reference links.
 
-Version 0.6.1 native tarballs keep the folder at `skills/workgraph/` inside the extracted
-bundle. Version 0.6.1 RPM packages place it at
+Version 0.6.2 native tarballs keep the folder at `skills/workgraph/` inside the extracted
+bundle. Version 0.6.2 RPM packages place it at
 `/usr/share/doc/workgraph/skills/workgraph/`. Copy that whole folder using the same
 procedure. These paths describe packages built after the skill conversion.
 
@@ -100,3 +101,30 @@ Edit the repository's root `README.md`, then run
 local links to bundled references and scripts, and online links for repository-only
 material. It preserves the inline script bodies. The test suite rejects a stale
 copy, so the overview cannot silently drift from the maintained README.
+
+## Maintain discovery references
+
+The executable owns curated capability, family, method and workflow descriptions.
+Use `workgraph capabilities` to browse categories, `workgraph discover 'intent text'`
+for ranked choices, `help FAMILY` for a decision card and `help workflow.ID` for
+recipe steps. These commands need no context, daemon or workspace. Feature discovery
+searches CLI metadata; `search.query` searches recorded workspace content and
+`history.search` searches imported history. Run eligibility capabilities and the
+core/advanced convenience tiers do not grant permissions.
+
+After changing executable discovery metadata or codecs, regenerate both inventories:
+
+```sh
+python3 tools/generate_api_reference.py --binary /absolute/workgraph \
+  --output skills/workgraph/references/api
+python3 tools/generate_discovery_reference.py --binary /absolute/workgraph \
+  --output skills/workgraph/references/discovery
+python3 tools/check_skill.py skills/workgraph --binary /absolute/workgraph
+```
+
+Add `--check` to either generator to detect stale content without writing. The API
+generator keeps schemas derived from codecs and adds selection guidance from the
+discovery catalog; the discovery generator emits metadata and links without copying
+schemas. Both use owned file manifests and refuse to overwrite edited generated
+files. The bundle checker verifies both inventories and internal links, including
+when the whole skill has been copied away from the repository.

@@ -66,26 +66,38 @@ def check(directory, binary=None):
             resolved = (path.parent / location).resolve()
             if not resolved.is_relative_to(skill) or not resolved.exists():
                 raise ValueError(f'Skill reference escapes or is missing: {path.relative_to(skill)} -> {target}')
-    api = skill / 'references/api'
-    manifest = json.loads((api / 'MANIFEST.json').read_text())
-    if manifest.get('generator') != 'workgraph-api-reference':
-        raise ValueError('Missing generated API inventory')
-    declared = manifest['files']
-    actual = {p.name for p in api.iterdir() if p.is_file() and p.name != 'MANIFEST.json'}
-    if set(declared) != actual:
-        raise ValueError('API file inventory differs from manifest')
-    for name, digest in declared.items():
-        if Path(name).name != name or sha((api / name).read_bytes()) != digest:
-            raise ValueError('API reference content mismatch: ' + name)
-    methods = set(declared) - {'index.md', 'common.md'}
+    def generated_inventory(relative, generator):
+        directory = skill / relative
+        manifest = json.loads((directory / 'MANIFEST.json').read_text())
+        if manifest.get('generator') != generator:
+            raise ValueError('Missing generated inventory: ' + relative)
+        declared = manifest['files']
+        actual = {p.name for p in directory.iterdir() if p.is_file() and p.name != 'MANIFEST.json'}
+        if set(declared) != actual:
+            raise ValueError('Generated file inventory differs from manifest: ' + relative)
+        for name, digest in declared.items():
+            if Path(name).name != name or sha((directory / name).read_bytes()) != digest:
+                raise ValueError('Generated reference content mismatch: ' + relative + '/' + name)
+        return manifest
+
+    manifest = generated_inventory('references/api', 'workgraph-api-reference')
+    discovery_manifest = generated_inventory('references/discovery', 'workgraph-discovery-reference')
+    methods = set(manifest['files']) - {'index.md', 'common.md'}
     if len(methods) != manifest['method_count']:
         raise ValueError('API method count differs from inventory')
+    if manifest.get('discovery_catalog_sha256') != discovery_manifest['catalog_sha256']:
+        raise ValueError('API guidance and discovery metadata inventories differ')
     if binary is not None:
-        catalog = json.loads(subprocess.check_output([str(Path(binary).resolve(strict=True)), 'schema'], timeout=30))
+        executable = str(Path(binary).resolve(strict=True))
+        catalog = json.loads(subprocess.check_output([executable, 'schema'], timeout=30))
         implemented = {method['name'] + '.md' for method in catalog['methods']}
         canonical = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
         if implemented != methods or len(implemented) != len(catalog['methods']) or sha(canonical) != manifest['catalog_sha256']:
             raise ValueError('Skill API reference differs from executable catalog')
+        discovery = json.loads(subprocess.check_output([executable, 'discover', '--catalog'], timeout=30))
+        canonical = json.dumps(discovery, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
+        if sha(canonical) != discovery_manifest['catalog_sha256']:
+            raise ValueError('Skill discovery reference differs from executable catalog')
     return {'status': 'passed', 'skill': metadata['name'], 'files': files, 'methods': len(methods)}
 
 

@@ -27,6 +27,12 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 For preconditions and a small example, run `workgraph help handoff.set`. Use `--full` for the complete contracts below.
 
+**Use when:** A current owner must save progress and context before compaction or handoff. Set covers_through to the last planning sequence actually inspected; omission defaults to zero and causes freshness warnings.
+
+**Capability:** [recovery](../discovery/capability.recovery.md).
+
+**Related:** [handoff.get](handoff.get.md), [handoff.history](handoff.history.md).
+
 **Effect:** mutation. Changes durable state using a saved request identity, so an exact retry can recover its receipt.
 
 ## Request parameters

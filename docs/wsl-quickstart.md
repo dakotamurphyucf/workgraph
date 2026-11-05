@@ -1,16 +1,17 @@
 # Workgraph on AlmaLinux 10 in WSL: install and quick start
 
-Version 0.6.1 uses application API 0.6 and affected stored roots 5, unchanged
-from 0.6.0. An upgrade from 0.6.0 retains existing roots, contexts and journals;
+Version 0.6.2 uses application API 0.6 and affected stored roots 5, unchanged
+from 0.6.0 and 0.6.1. An upgrade from either retains existing roots, contexts
+and journals;
 stop the daemon gracefully, install the matching client/daemon, replace the complete
 [agent skill](agent-skill.md), and restart. No data reset is required. Read the
-[0.6.1 upgrade notes](releases/v0.6.1.md#upgrade-from-060) before replacing an executable.
+[0.6.2 upgrade notes](releases/v0.6.2.md#upgrade-from-060-or-061) before replacing an executable.
 For 0.5 or earlier, follow the separate
 [preservation-first fresh-root procedure](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
 Release qualification records identify exact source, artifacts and observed platform
 checks; installation instructions do not substitute for that evidence.
 
-This walkthrough installs **Workgraph v0.6.1 preview** on **x86_64/AMD64 AlmaLinux
+This walkthrough installs **Workgraph v0.6.2 preview** on **x86_64/AMD64 AlmaLinux
 10** userspace inside WSL. It uses API **0.6** and affected stored roots **5**.
 Run commands in your AlmaLinux terminal as your normal user; use `sudo` only where
 shown. No OCaml, opam or systemd setup is required for the RPM.
@@ -18,12 +19,12 @@ shown. No OCaml, opam or systemd setup is required for the RPM.
 Native AlmaLinux tar/RPM qualification does not qualify an actual WSL kernel,
 Windows or SELinux policy. The standard AlmaLinux 10 AMD64 image requires an
 x86-64-v3-capable CPU. Keep registry/workspace data and the socket under your
-Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.6.1.md#qualification-and-limits).
+Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.6.2.md#qualification-and-limits).
 
 ## Preserve an older setup before upgrading
 
-For a first installation, continue with [Install v0.6.1](#install-v061).
-For an existing 0.6.0 setup, follow the [patch upgrade](releases/v0.6.1.md#upgrade-from-060)
+For a first installation, continue with [Install v0.6.2](#install-v062).
+For an existing 0.6.0 or 0.6.1 setup, follow the [patch upgrade](releases/v0.6.2.md#upgrade-from-060-or-061)
 and keep its existing state paths; the fresh bootstrap below is for new installations.
 For any 0.5 or earlier setup, complete the preservation steps below and the
 [release upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
@@ -36,7 +37,7 @@ For any 0.5 or earlier setup, complete the preservation steps below and the
    request journals, export and verify needed data, then stop custom launchers
    and shut down the old daemon gracefully. Preserve complete stopped registry
    and workspace roots, contexts, journals, logs and exports separately.
-3. Install 0.6.1 and use the fresh version-specific paths below. Do not reuse an
+3. Install 0.6.2 and use the fresh version-specific paths below. Do not reuse an
    old socket, context, request directory or managed root. Older exports cannot
    be restored by 0.6. Do not change format markers or copy old managed files.
 
@@ -47,28 +48,28 @@ and contexts you intend to discard. Deleting only a registry leaves custom
 workspace roots elsewhere; never broadly delete paths named `workgraph`, socket
 guards or locks to force a new setup.
 
-## Install v0.6.1
+## Install v0.6.2
 
 Download the RPM and checksums from the
-[v0.6.1 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.1):
+[v0.6.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.2):
 
 ```bash
 set -euo pipefail
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
 sudo dnf install -y jq python3
 
-mkdir -p "$HOME/Downloads/workgraph-0.6.1"
-cd "$HOME/Downloads/workgraph-0.6.1" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.6.2"
+cd "$HOME/Downloads/workgraph-0.6.2" || exit
 
-RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.1"
+RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.2"
 
-curl -fLO "$RELEASE/workgraph-0.6.1-1.el10.x86_64.rpm"
+curl -fLO "$RELEASE/workgraph-0.6.2-1.el10.x86_64.rpm"
 curl -fLO "$RELEASE/SHA256SUMS"
 
-awk '$2 == "workgraph-0.6.1-1.el10.x86_64.rpm" { print; count++ }
+awk '$2 == "workgraph-0.6.2-1.el10.x86_64.rpm" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > rpm.SHA256SUMS &&
   sha256sum --check rpm.SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.6.1-1.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.6.2-1.el10.x86_64.rpm
 
 hash -r
 command -v workgraph
@@ -80,7 +81,7 @@ version:
 
 ```text
 /usr/bin/workgraph
-0.6.1
+0.6.2
 ```
 
 The executable uses standard AlmaLinux system libraries. `jq` supports the shell examples and optional WGX viewer. WGX
@@ -216,7 +217,7 @@ For example, after copying it to your harness's configured skills directory, its
 entry point might be `$HOME/.agents/skills/workgraph/SKILL.md`. The folder includes
 its own references, API schemas and scripts.
 
-The v0.6.1 RPM installs the full folder at
+The v0.6.2 RPM installs the full folder at
 `/usr/share/doc/workgraph/skills/workgraph/`. Copy that folder into your harness
 using the skill installation instructions above. Keep old skill copies separately;
 do not merge them into the current folder.

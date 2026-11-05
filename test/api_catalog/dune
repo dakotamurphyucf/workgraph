@@ -1,6 +1,6 @@
 (library
  (name workgraph_api_catalog_tests)
- (modules api_catalog_test discovery_test)
+ (modules api_catalog_test discovery_test intent_discovery_test)
  (libraries workgraph core expect_test_helpers_core)
  (inline_tests)
  (preprocess
@@ -11,3 +11,9 @@
  (deps cli_reference_test.py)
  (action
   (run python3 %{dep:cli_reference_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps intent_discovery_test.py)
+ (action
+  (run python3 %{dep:intent_discovery_test.py} %{exe:../../bin/main.exe})))

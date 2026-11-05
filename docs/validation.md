@@ -1,6 +1,6 @@
 # Validation and limits
 
-Version 0.6.1 requires a new final integrated source and installed-package
+Version 0.6.2 requires a new final integrated source and installed-package
 qualification. The 2026-10-09 macOS ARM64 run documented in
 [integration evidence](acceptance/integrated-validation.md) is historical: its
 68-case process/socket suite and 238-method generated-reference count do not

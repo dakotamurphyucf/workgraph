@@ -1,6 +1,6 @@
 # API and runtime reference
 
-This guide describes the 0.6.1 preview contracts (API 0.6, affected stored roots 5).
+This guide describes the 0.6.2 preview contracts (API 0.6, affected stored roots 5).
 Use matching packaged docs and fresh registry/workspace roots, socket, contexts and
 request journals when upgrading from older previews. Older exports are not a
 migration path; preserve the matching old binary and data. See [compatibility](../skills/workgraph/references/compatibility.md) for independent format identifiers.

@@ -31,6 +31,34 @@ def run(arguments):
     return subprocess.run(arguments, env=environment, capture_output=True, text=True, check=True)
 
 
+def check_offline_discovery():
+    # An explicitly absent context must not be read by metadata-only commands.
+    missing_context = root / "offline-missing-context.json"
+
+    def offline(*arguments):
+        completed = run([str(exe), "--context", str(missing_context), *arguments])
+        evidence.write(json.dumps({"offline": list(arguments), "stdout": completed.stdout}) + "\n")
+        evidence.flush()
+        return completed.stdout
+
+    capabilities = json.loads(offline("capabilities", "--output", "json"))
+    assert len(capabilities["capabilities"]) == 8
+    discovered = json.loads(offline("discover", "ask another agent a question",
+                                    "--limit", "3", "--output", "json"))
+    results = discovered["results"]
+    assert 1 <= len(results) <= 3
+    assert discovered["returned_count"] == str(len(results))
+    assert {"request.ask", "workflow.ask_question"} <= {item["name"] for item in results}
+    assert all(item["next"] == "workgraph help " + item["name"] for item in results)
+    group = offline("help", "evidence")
+    assert "evidence.context" in group and "evidence-run" in group
+    helper = offline("help", "evidence-run")
+    assert "[local helper]" in helper and "--stage" in helper
+    workflow = offline("help", "workflow.import_history")
+    assert "session.append" in workflow and "history.payload" in workflow
+    assert not missing_context.exists()
+
+
 def call(method, params):
     try:
         completed = run([str(exe), "call", address, method, json.dumps(params)])
@@ -68,7 +96,7 @@ def start(registry):
             raise RuntimeError("daemon exited: " + (root / "daemon.log").read_text())
         try:
             initialization = call("initialize", {})
-            assert initialization["version"] == "0.6.1"
+            assert initialization["version"] == "0.6.2"
             assert initialization["workgraph_api"] == "0.6"
             assert initialization["registry_format_version"] == "5"
             return
@@ -130,7 +158,8 @@ def check_memory():
 
 
 try:
-    assert run([str(exe), "--version"]).stdout.strip() == "0.6.1"
+    assert run([str(exe), "--version"]).stdout.strip() == "0.6.2"
+    check_offline_discovery()
     start("registry-1")
     admin("workspace.create", workspace_id="smoke", name="Installed workflow", root=str(root / "workspace"))
     mutate("project.create", project_id="project", title="Standalone qualification")
@@ -179,7 +208,7 @@ try:
     check_memory()
     stop()
     print(json.dumps({"result": "passed", "executable": str(exe), "runtime": str(root),
-                      "checks": ["version", "create", "start", "claimed-resume", "progress", "handoff", "finish",
+                      "checks": ["version", "offline-discovery", "create", "start", "claimed-resume", "progress", "handoff", "finish",
                                  "facts-and-key-discovery", "resume-selected-facts", "activity-digest", "metrics",
                                  "resource", "export", "verify", "git-clone-resume", "restore"]}))
 finally:

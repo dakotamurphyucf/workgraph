@@ -3,6 +3,8 @@ open Core
 let usage =
   {|Usage:
   workgraph --version
+  workgraph capabilities [ID] [--output json|text]
+  workgraph discover "intent" [--limit 5] [--capability ID] [--kind method|helper|workflow]
   workgraph methods [--core] [--output json|text]
   workgraph help METHOD [--brief|--full] [--output json|text]
   workgraph schema [METHOD]
@@ -240,7 +242,14 @@ let normalize_help arguments =
     | [] | "--" :: _ -> false
     | "--help" :: _ -> true
     | ("--json-field" | "--field-file") :: _ :: _ :: rest -> help_flag rest
-    | ("--self" | "--json" | "--brief" | "--full" | "--stdout" | "--stderr" | "--paginate")
+    | ( "--self"
+      | "--json"
+      | "--brief"
+      | "--full"
+      | "--stdout"
+      | "--stderr"
+      | "--paginate"
+      | "--catalog" )
       :: rest -> help_flag rest
     | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> help_flag rest
     | _ :: rest -> help_flag rest
@@ -261,8 +270,14 @@ let normalize_help arguments =
     | (("--full" | "--brief") as flag) :: rest -> flag :: reference_options rest
     | "--output" :: value :: rest -> "--output" :: value :: reference_options rest
     | ("--json-field" | "--field-file") :: _ :: _ :: rest -> reference_options rest
-    | ("--self" | "--json" | "--help" | "--stdout" | "--stderr" | "--paginate") :: rest ->
-      reference_options rest
+    | ( "--self"
+      | "--json"
+      | "--help"
+      | "--stdout"
+      | "--stderr"
+      | "--paginate"
+      | "--catalog" )
+      :: rest -> reference_options rest
     | flag :: _ :: rest when String.is_prefix flag ~prefix:"--" -> reference_options rest
     | _ :: rest -> reference_options rest
   in
@@ -272,6 +287,8 @@ let normalize_help arguments =
     let names, options = words [] rest in
     let prefix = List.hd_exn arguments in
     if List.is_empty names then arguments else prefix :: name names :: options
+  | (("discover" | "capabilities") as command) :: rest when help_flag rest ->
+    [ "help"; command ]
   | [] | [ "--help" ] -> arguments
   | _ when help_flag arguments ->
     let names, _ =
@@ -321,6 +338,7 @@ module Output_mode = struct
          | "--stdout"
          | "--stderr"
          | "--paginate"
+         | "--catalog"
          | "--core"
          | "--brief"
          | "--full" ) as flag)
@@ -380,7 +398,15 @@ module Output_mode = struct
       | None ->
         (match words with
          | []
-         | ("--help" | "--version" | "version" | "serve" | "help" | "methods") :: _
+         | ( "--help"
+           | "--version"
+           | "version"
+           | "serve"
+           | "help"
+           | "methods"
+           | "discover"
+           | "capabilities" )
+           :: _
          | ("evidence-show" | "evidence.show") :: _
          | "evidence" :: "show" :: _ -> Text
          | _ -> Json))
@@ -791,7 +817,8 @@ let run ~env arguments =
            | "--self"
            | "--stdout"
            | "--stderr"
-           | "--paginate" ) as flag)
+           | "--paginate"
+           | "--catalog" ) as flag)
           :: rest -> select context_file socket (flag :: reversed) rest
         | flag :: value :: rest when String.is_prefix flag ~prefix:"--" ->
           select context_file socket (value :: flag :: reversed) rest
@@ -810,6 +837,8 @@ let run ~env arguments =
         | [ "version" ]
         | "help" :: _
         | "methods" :: _
+        | "discover" :: _
+        | "capabilities" :: _
         | "schema" :: _
         | "fields" :: _
         | "journal" :: _
@@ -1204,6 +1233,9 @@ let run ~env arguments =
         0
       | [ "version" ] | [ "--version" ] ->
         output Version.value;
+        0
+      | ("discover" | "capabilities") :: _ ->
+        output (Cli_discovery.run arguments |> Disk.unwrap);
         0
       | "fields" :: rest ->
         let method_name =

@@ -20,6 +20,12 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 For preconditions and a small example, run `workgraph help ticket.start`. Use `--full` for the complete contracts below.
 
+**Use when:** A worker is beginning known work and needs actual ownership before acting.
+
+**Capability:** [planning](../discovery/capability.planning.md).
+
+**Related:** [ticket.readiness](ticket.readiness.md), [ticket.claim_next](ticket.claim_next.md), [ticket.progress](ticket.progress.md).
+
 **Effect:** mutation. Changes durable state using a saved request identity, so an exact retry can recover its receipt.
 
 ## Request parameters

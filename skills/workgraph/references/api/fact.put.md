@@ -20,6 +20,12 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 For preconditions and a small example, run `workgraph help fact.put`. Use `--full` for the complete contracts below.
 
+**Use when:** Small structured shared context must be created or replaced safely.
+
+**Capability:** [context](../discovery/capability.context.md).
+
+**Related:** [fact.keys](fact.keys.md), [fact.get](fact.get.md).
+
 **Effect:** mutation. Changes durable state using a saved request identity, so an exact retry can recover its receipt.
 
 ## Request parameters

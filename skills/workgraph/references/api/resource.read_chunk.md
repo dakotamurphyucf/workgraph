@@ -16,6 +16,12 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 
 For preconditions and a small example, run `workgraph help resource.read_chunk`. Use `--full` for the complete contracts below.
 
+**Use when:** A binary or large resource must be retrieved in bounded exact chunks.
+
+**Capability:** [context](../discovery/capability.context.md).
+
+**Related:** [resource.download](../resources.md), [resource.read_text](resource.read_text.md), [resource.get](resource.get.md).
+
 **Effect:** read. Reads recorded state without changing it.
 
 ## Request parameters

@@ -29,6 +29,12 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 For preconditions and a small example, run `workgraph help request.ask`. Use `--full` for the complete contracts below.
 
+**Use when:** A question needs a designated resolver, exact question body and durable answer lifecycle.
+
+**Capability:** [communication](../discovery/capability.communication.md).
+
+**Related:** [request.get](request.get.md), [request.resolve](request.resolve.md), [request.wait](../communication-evidence.md).
+
 **Effect:** mutation. Changes durable state using a saved request identity, so an exact retry can recover its receipt.
 
 ## Request parameters

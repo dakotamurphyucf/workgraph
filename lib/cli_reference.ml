@@ -26,7 +26,7 @@ let local_methods =
   ]
 ;;
 
-let helper_help = function
+let existing_helper_help = function
   | "request.wait" ->
     Some
       {|request wait [local read helper]
@@ -345,6 +345,24 @@ No automatic idle expiry; inspect upload.list and explicitly abort abandoned wor
        for the exact schema and skills/workgraph/references/cli-contract.md for retry \
        rules."
   | _ -> None
+;;
+
+let helper_help name =
+  match Cli_discovery.help name with
+  | Some _ as help -> help
+  | None ->
+    (match Discovery.workflow_help name with
+     | Some _ as help -> help
+     | None ->
+       (match existing_helper_help name with
+        | Some _ as help -> help
+        | None ->
+          if Option.is_some (Discovery.group_help name)
+          then None
+          else (
+            match Discovery.capabilities (Some name) with
+            | Ok value -> Some (Discovery.render_capabilities value)
+            | Error _ -> None)))
 ;;
 
 let method_names =
@@ -1189,7 +1207,13 @@ let brief method_ =
   in
   String.concat
     ~sep:"\n"
-    ([ "Inputs:" ]
+    ([ "Use when: " ^ (Discovery_content.find_method name |> Option.value_exn).use_when
+     ; "Related: "
+       ^ String.concat
+           ~sep:", "
+           (Discovery_content.find_method name |> Option.value_exn).related
+     ; "Inputs:"
+     ]
      @ inputs
      @ [ "Input defaults:"
        ; "  Raw API envelopes require every required input. --context supplies missing \
@@ -1222,7 +1246,13 @@ let brief method_ =
 
 let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
   match Option.bind method_name ~f:helper_help with
-  | Some usage -> Ok usage
+  | Some usage ->
+    Ok
+      (match method_name with
+       | Some name ->
+         Option.value_map (Discovery.group_help name) ~default:usage ~f:(fun card ->
+           if String.contains name '.' then usage else card ^ "\n" ^ usage)
+       | None -> usage)
   | None ->
     let family_methods =
       Option.value_map method_name ~default:[] ~f:(fun name ->
@@ -1235,7 +1265,8 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
     if not (List.is_empty family_methods)
     then
       Ok
-        ("Daemon method family "
+        (Option.value (Discovery.group_help (Option.value_exn method_name)) ~default:""
+         ^ "\nDaemon method family "
          ^ Option.value_exn method_name
          ^ ":\n"
          ^ String.concat
@@ -1286,6 +1317,9 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
           |> String.concat ~sep:"\n"
         in
         match method_name with
+        | Some name when not (String.contains name '.') ->
+          Option.value_map (Discovery.group_help name) ~default:rendered ~f:(fun card ->
+            card ^ "\n" ^ rendered)
         | Some _ -> rendered
         | None ->
           "Daemon methods"

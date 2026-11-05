@@ -8,7 +8,7 @@ messages used by direct clients; ordinary CLI users can skip the transport secti
 Return to [the capability guide](../SKILL.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for v0.6.1 preview/API 0.6. Preserve 0.5 and earlier data with its
+contracts for v0.6.2 preview/API 0.6. Preserve 0.5 and earlier data with its
 matching executable; use fresh registry/workspace folders, socket, contexts and
 request journals for 0.6. Old exports cannot be restored into this current format.
 See [compatibility and fresh-data setup](compatibility.md).
@@ -116,6 +116,20 @@ ticket.get is a CLI alias for ticket.context, canonicalized before saving retry 
 The daemon has only the canonical ticket.context method; raw socket callers use it.
 Brief help shows one level of nested object/array/tagged inputs; --full or schema METHOD
 provides complete contracts.
+
+For offline feature discovery, use `workgraph capabilities [ID]` to browse the
+feature map or `workgraph discover 'intent text'` for a ranked set of methods,
+local helpers and workflow recipes. `--capability ID`, `--kind
+method|helper|workflow` and `--limit 1..20` (default 5) narrow discovery. Both
+commands support `--output text|json`; `discover --catalog` emits the full metadata
+inventory without schemas. `help FAMILY` explains a family's distinctions and
+starting points; `help workflow.ID` gives an advisory recipe. Continue with
+`help METHOD`, `fields METHOD` or `schema METHOD` for its actual contract. The
+[discovery index](discovery/index.md) provides portable copies of the decision cards.
+These commands need no context, socket or daemon and search CLI metadata.
+`search.query` searches recorded workspace content; `history.search` searches
+imported conversation history. Feature categories are distinct from a run's
+eligibility capabilities; neither discovery nor core/advanced tiers grant permissions.
 
 For machine-readable input discovery, `workgraph fields METHOD` runs offline and
 needs no context or daemon. It returns `fields` ordered by name, each with a

@@ -159,7 +159,7 @@ let%expect_test
     {|
     1
     Mutation
-    Update a ticket's priority, assignee, labels, acceptance criteria or status.
+    Update guarded priority, assignee, labels, acceptance criteria or status.
     |}]
 ;;
 

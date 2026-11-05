@@ -19,6 +19,12 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 For preconditions and a small example, run `workgraph help ticket.finish`. Use `--full` for the complete contracts below.
 
+**Use when:** The current owner has finished and wants one durable transition for ticket and active try.
+
+**Capability:** [planning](../discovery/capability.planning.md).
+
+**Related:** [ticket.complete](ticket.complete.md), [review.gate](review.gate.md), [handoff.set](handoff.set.md).
+
 **Effect:** mutation. Changes durable state using a saved request identity, so an exact retry can recover its receipt.
 
 ## Request parameters

@@ -21,6 +21,12 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 For preconditions and a small example, run `workgraph help inbox.read`. Use `--full` for the complete contracts below.
 
+**Use when:** You need unread delivery for an actor or run without marking anything processed.
+
+**Capability:** [communication](../discovery/capability.communication.md).
+
+**Related:** [inbox.wait](inbox.wait.md), [inbox.ack](inbox.ack.md).
+
 **Effect:** read. Reads recorded state without changing it.
 
 ## Request parameters

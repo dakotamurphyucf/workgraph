@@ -1,8 +1,8 @@
 # Workgraph 0.6 current operating contracts
 
-Package 0.6.1 uses API 0.6, affected roots 5 and upload plan 2. Independent
+Package 0.6.2 uses API 0.6, affected roots 5 and upload plan 2. Independent
 planning/history heads, history batches and heartbeat cache retain format 1.
-These identifiers are unchanged from 0.6.0; the [0.6.1 patch upgrade](releases/v0.6.1.md#upgrade-from-060)
+These identifiers are unchanged from 0.6.0 and 0.6.1; the [0.6.2 patch upgrade](releases/v0.6.2.md#upgrade-from-060-or-061)
 retains existing data and journals.
 Read the [breaking upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
 before replacing an older executable. These are operating contracts; release

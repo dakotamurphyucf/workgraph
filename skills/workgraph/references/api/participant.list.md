@@ -16,6 +16,12 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 
 For preconditions and a small example, run `workgraph help participant.list`. Use `--full` for the complete contracts below.
 
+**Use when:** You need the authors who actually wrote retained workspace state, including uncatalogued actors.
+
+**Capability:** [coordination](../discovery/capability.coordination.md).
+
+**Related:** [actor.list](actor.list.md), [actor.overview](actor.overview.md), [run.list](run.list.md).
+
 **Effect:** read. Reads recorded state without changing it.
 
 ## Request parameters

@@ -1,9 +1,10 @@
 # Match binaries, APIs and stored formats
 
-Workgraph supports one current schema per representation. Package 0.6.1 uses
+Workgraph supports one current schema per representation. Package 0.6.2 uses
 application API 0.6, affected stored roots 5 and saved upload plan 2, unchanged
-from 0.6.0. Upgrading from 0.6.0 retains existing data, contexts and exact journals;
-restart with a matching 0.6.1 client/daemon and replace the complete skill folder.
+from 0.6.0 and 0.6.1. Upgrading from either retains existing data, contexts and
+exact journals; restart with a matching 0.6.2 client/daemon and replace the complete
+skill folder.
 The 0.6 line breaks 0.5 and earlier requests and data; there are no legacy readers, automatic
 migrations or backward compatibility promises. Package, API and independent
 stored-format identifiers serve different purposes and need not match.

@@ -30,6 +30,12 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 For preconditions and a small example, run `workgraph help request.list`. Use `--full` for the complete contracts below.
 
+**Use when:** You need outstanding accountable work for a participant or ticket.
+
+**Capability:** [communication](../discovery/capability.communication.md).
+
+**Related:** [request.ask](request.ask.md), [request.get](request.get.md), [request.resolve](request.resolve.md).
+
 **Effect:** read. Reads recorded state without changing it.
 
 ## Request parameters
