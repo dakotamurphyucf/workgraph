@@ -33,6 +33,7 @@ Title is required on creation (revision 0); omitted resource_id generates an ID.
 Optional filename, mime-type and run-id follow resource.put_text semantics.
 Publishes text and links the ticket atomically through one transaction.apply.
 A missing ticket, stale guard or existing link fails without publishing content.
+For already-linked text updates use resource.put_text; existing links are preserved.
 Save with --save-request ABS_NEW_FILE or --request-directory ABS_PRIVATE_DIR;
 otherwise provide a stable --mutation-id. Retry only that exact saved request.
 Saved bytes are the expanded transaction, so retry never rereads the text source.

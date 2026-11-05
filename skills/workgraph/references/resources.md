@@ -55,7 +55,9 @@ workgraph --context /absolute/agent.json resource publish_text \
 The helper expands to one `transaction.apply`: `resource.put_text` at the supplied
 metadata revision, followed by `resource.link` at that revision plus one. A missing
 ticket, stale revision or already existing link fails the whole transaction without
-publishing content or changing metadata. Omit resource-id to generate an ID on
+publishing content or changing metadata. To update text that is already linked to the
+same ticket, use `resource.put_text` with the current metadata revision; it preserves
+existing links. Do not unlink a resource just to use this helper. Omit resource-id to generate an ID on
 creation; keep the returned ID. Title is required on creation; omitted title,
 filename and MIME type on update follow the normal put_text preservation rules.
 Use `--field-file text -` for stdin. The usual explicit workspace/actor/run defaults
