@@ -257,9 +257,54 @@ Reads complete current holders, tokens and leases. A previously released name ma
 
 Reads reservations in stable name order from the run coordination projection.
 
+### `template.publish` (local helper)
+
+This helper prepares one exact transaction: canonical `resource.put_text`, then
+`template.register` with that immutable content version and digest. It performs
+one read-only resource capture before saving the transaction. The resource metadata
+guard and its immutable content version are different counters, especially after
+resource links or metadata edits. Saved retries use the expanded transaction and
+never read or rebuild it again.
+
+For a small specification, put this params object in a private file:
+
+```json
+{"spec":{"parameters":["topic"],"nodes":[{"alias":"build","title":"Build {{topic}}","description":"Publish evidence","depends_on":[],"parent":null,"capabilities":[],"allowed_actor_ids":["lead"],"reviewers":[{"kind":"role","name":"review","member_ids":["reviewer"]}],"separate_actor":true}]}}
+```
+
+Use actual registered reviewer IDs and an intended allowed actor. Then publish and
+instantiate with explicit placement:
+
+```sh
+"$WG" --context "$CONTEXT" template publish --template-id build-plan \
+  --expected-revision 0 --title "Build plan" --params-file "$SPEC_PARAMS" \
+  --save-request "$PUBLISH_REQUEST"
+# Read results[0].data.version.revision for the immutable template content version.
+"$WG" --context "$CONTEXT" template instantiate --template-id build-plan \
+  --template-revision 1 --instance-id build-one --json-field parameters '{"topic":"parser"}' \
+  --project-id project --milestone-id milestone --parent-ticket-id parent \
+  --save-request "$INSTANCE_REQUEST"
+```
+
+`expected_revision` guards resource metadata; zero requires a new resource. Use
+its current metadata revision on update. The helper computes canonical bytes and
+SHA256, then captures the next immutable content version. Its canonical text must
+fit the 65536-byte `resource.put_text` limit. Larger specifications use
+`resource.upload` followed by explicit `template.register` with the exact uploaded
+canonical content version and digest. The ordinary durable transaction receipt
+contains publication/version pin in `results[0].data`; `results[1].data` is the
+policy revision/duplicate receipt. Read the full registered value with `template.get`.
+
 ### `template.register`
 
-Pins an immutable resource content version whose digest equals the canonical JSON template specification digest. Identical versions are duplicates; conflicting content cannot replace them.
+Publish the canonical Spec JSON as a resource with the same `template_id` first.
+`template_revision` selects its immutable **content version**, rather than the
+resource metadata revision. `digest` must equal SHA256 of those exact canonical
+bytes and the decoded Spec. The `template.publish` helper does this atomically for
+small specifications. Missing resources, missing content versions, and differing
+stored digests produce distinct typed field diagnostics; a submitted Spec/digest
+disagreement is invalid input. Identical registered versions are duplicates;
+conflicting content cannot replace them.
 
 ### `template.get`
 
@@ -271,7 +316,22 @@ Reads registered template versions.
 
 ### `template.instantiate`
 
-Expands literal parameters and creates the deterministic ticket graph and enabled policies in one serialized transaction. Reusing an identical instance returns its original graph; changed parameters conflict.
+Expands literal parameters and creates the deterministic parent-before-child graph
+and declared policies in one serialized transaction. Optional `project_id`,
+`milestone_id` and `parent_ticket_id` become immutable instance bindings. Placement
+is explicit: omission leaves it unassigned, and supplied project, milestone and
+parent must agree. The external parent applies only to roots without an internal
+parent. Nodes use `allowed_actor_ids:null|[ID,...]` for allocation and
+`reviewers:[{kind:"actor",actor_id:ID}|{kind:"role",name:NAME,member_ids:[ID,...]}]`
+for local acceptance gates. Actor-only restrictions create a policy even with no
+capabilities; full role requirements remain distinct from inherited project policy.
+
+The graph, dependencies, placement and gates publish together within the existing
+32-operation bound. Cycles, contradictory placement, missing references and
+same-transaction policy stripping reject without creating runnable tickets. The
+initial registration is checked during durable replay; later ordinary ticket and
+policy edits remain allowed. Reusing an identical instance returns its recorded
+plan; changed parameters or placement bindings conflict.
 
 ### `template.instance_register`
 

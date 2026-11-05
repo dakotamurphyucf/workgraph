@@ -53,6 +53,55 @@ let optional json f =
   | j -> Some (f j)
 ;;
 
+module Bindings = struct
+  type t =
+    { project : Id.Project.t option
+    ; milestone : Id.Milestone.t option
+    ; parent : Id.Ticket.t option
+    }
+  [@@deriving sexp, equal]
+
+  let empty = { project = None; milestone = None; parent = None }
+
+  let id of_string to_string =
+    Api_codec.map
+      (Api_codec.text ~max_bytes:96)
+      ~decode:of_string
+      ~encode:to_string
+      ~description:"Resolved placement identity."
+  ;;
+
+  let project = id Id.Project.of_string Id.Project.to_string
+  let milestone = id Id.Milestone.of_string Id.Milestone.to_string
+  let ticket = id Id.Ticket.of_string Id.Ticket.to_string
+
+  let fields project milestone parent =
+    let open Api_codec.Fields in
+    both
+      (both
+         (required "project_id" (Api_codec.nullable project))
+         (required "milestone_id" (Api_codec.nullable milestone)))
+      (required "parent_ticket_id" (Api_codec.nullable parent))
+  ;;
+
+  let codec =
+    Api_codec.object_
+      (Api_codec.Fields.map
+         (fields project milestone ticket)
+         ~decode:(fun ((project, milestone), parent) -> { project; milestone; parent })
+         ~encode:(fun t -> (t.project, t.milestone), t.parent))
+  ;;
+
+  let raw_codec =
+    Api_codec.as_json
+      (Api_codec.object_
+         (fields
+            (Api_codec.reference project)
+            (Api_codec.reference milestone)
+            (Api_codec.reference ticket)))
+  ;;
+end
+
 module Node = struct
   type t =
     { alias : string
@@ -61,7 +110,8 @@ module Node = struct
     ; depends_on : string list
     ; parent : string option
     ; capabilities : string list
-    ; reviewers : Id.Actor.t list
+    ; allowed_actor_ids : Actor_eligibility.t
+    ; reviewers : Acceptance_policy.Requirement.t list
     ; separate_actor : bool
     }
   [@@deriving sexp, equal]
@@ -74,7 +124,9 @@ module Node = struct
       ; "depends_on", `Array (List.map t.depends_on ~f:Json.string)
       ; "parent", Option.value_map t.parent ~default:`Null ~f:Json.string
       ; "capabilities", `Array (List.map t.capabilities ~f:Json.string)
-      ; "reviewer_ids", `Array (List.map t.reviewers ~f:Id.Actor.jsonaf_of_t)
+      ; "allowed_actor_ids", Actor_eligibility.jsonaf_of_t t.allowed_actor_ids
+      ; ( "reviewers"
+        , `Array (List.map t.reviewers ~f:Acceptance_policy.Requirement.jsonaf_of_t) )
       ; ("separate_actor", if t.separate_actor then `True else `False)
       ]
   ;;
@@ -89,7 +141,8 @@ module Node = struct
         ; "depends_on"
         ; "parent"
         ; "capabilities"
-        ; "reviewer_ids"
+        ; "allowed_actor_ids"
+        ; "reviewers"
         ; "separate_actor"
         ];
     let get = Json.field json in
@@ -99,7 +152,10 @@ module Node = struct
     ; depends_on = List.map (Json.list (get "depends_on")) ~f:Json.text
     ; parent = optional (get "parent") Json.text
     ; capabilities = List.map (Json.list (get "capabilities")) ~f:Json.text
-    ; reviewers = List.map (Json.list (get "reviewer_ids")) ~f:Id.Actor.t_of_jsonaf
+    ; allowed_actor_ids = Actor_eligibility.t_of_jsonaf (get "allowed_actor_ids")
+    ; reviewers =
+        checked
+          (Api_codec.decode Acceptance_policy.reviewer_requirements (get "reviewers"))
     ; separate_actor =
         (match get "separate_actor" with
          | `True -> true
@@ -143,9 +199,18 @@ module Spec = struct
         Invalid_argument
         "Workflow node links exceed limit";
       List.iter n.capabilities ~f:(fun c -> nonempty c 96);
+      ignore
+        (checked
+           (Api_codec.decode
+              Acceptance_policy.reviewer_requirements
+              (`Array (List.map n.reviewers ~f:Acceptance_policy.Requirement.jsonaf_of_t)))
+         : Acceptance_policy.Requirement.t list);
       require
         ((not (List.contains_dup n.capabilities ~compare:String.compare))
-         && (not (List.contains_dup n.reviewers ~compare:Id.Actor.compare))
+         && (not
+               (List.contains_dup
+                  n.reviewers
+                  ~compare:Acceptance_policy.Requirement.compare))
          && not (List.contains_dup n.depends_on ~compare:String.compare))
         Invalid_argument
         "Duplicate workflow node link";
@@ -177,8 +242,12 @@ module Spec = struct
           ~f:(fun n ->
             1
             + List.length n.Node.depends_on
-            + (if List.is_empty n.capabilities then 0 else 1)
-            + if List.is_empty n.reviewers then 0 else 1)
+            + (if
+                 List.is_empty n.capabilities
+                 && Option.is_none (Actor_eligibility.allowed_actors n.allowed_actor_ids)
+               then 0
+               else 1)
+            + if List.is_empty n.reviewers && not n.separate_actor then 0 else 1)
     in
     require
       (operations <= 32)
@@ -225,7 +294,8 @@ module Planned_ticket = struct
     ; dependencies : Id.Ticket.t list
     ; parent : Id.Ticket.t option
     ; capabilities : string list
-    ; reviewers : Id.Actor.t list
+    ; allowed_actor_ids : Actor_eligibility.t
+    ; reviewers : Acceptance_policy.Requirement.t list
     ; separate_actor : bool
     }
   [@@deriving sexp, equal]
@@ -239,7 +309,9 @@ module Planned_ticket = struct
       ; "dependencies", `Array (List.map t.dependencies ~f:Id.Ticket.jsonaf_of_t)
       ; "parent", Option.value_map t.parent ~default:`Null ~f:Id.Ticket.jsonaf_of_t
       ; "capabilities", `Array (List.map t.capabilities ~f:Json.string)
-      ; "reviewers", `Array (List.map t.reviewers ~f:Id.Actor.jsonaf_of_t)
+      ; "allowed_actor_ids", Actor_eligibility.jsonaf_of_t t.allowed_actor_ids
+      ; ( "reviewers"
+        , `Array (List.map t.reviewers ~f:Acceptance_policy.Requirement.jsonaf_of_t) )
       ; ("separate_actor", if t.separate_actor then `True else `False)
       ]
   ;;
@@ -255,6 +327,7 @@ module Planned_ticket = struct
         ; "dependencies"
         ; "parent"
         ; "capabilities"
+        ; "allowed_actor_ids"
         ; "reviewers"
         ; "separate_actor"
         ];
@@ -266,7 +339,10 @@ module Planned_ticket = struct
     ; dependencies = List.map (Json.list (get "dependencies")) ~f:Id.Ticket.t_of_jsonaf
     ; parent = optional (get "parent") Id.Ticket.t_of_jsonaf
     ; capabilities = List.map (Json.list (get "capabilities")) ~f:Json.text
-    ; reviewers = List.map (Json.list (get "reviewers")) ~f:Id.Actor.t_of_jsonaf
+    ; allowed_actor_ids = Actor_eligibility.t_of_jsonaf (get "allowed_actor_ids")
+    ; reviewers =
+        checked
+          (Api_codec.decode Acceptance_policy.reviewer_requirements (get "reviewers"))
     ; separate_actor =
         (match get "separate_actor" with
          | `True -> true
@@ -282,6 +358,7 @@ module Instance = struct
     ; template : Id.Resource.t
     ; template_revision : int
     ; parameters : (string * string) list
+    ; bindings : Bindings.t
     ; tickets : Planned_ticket.t list
     }
   [@@deriving sexp, equal]
@@ -292,6 +369,7 @@ module Instance = struct
       ; "template", Id.Resource.jsonaf_of_t t.template
       ; "template_revision", Json.int t.template_revision
       ; "parameters", Json.obj (List.map t.parameters ~f:(fun (k, v) -> k, Json.string v))
+      ; "bindings", checked (Api_codec.encode Bindings.codec t.bindings)
       ; "tickets", `Array (List.map t.tickets ~f:Planned_ticket.to_json)
       ]
   ;;
@@ -300,7 +378,8 @@ module Instance = struct
     Json.decode (fun () ->
       Json.fields
         json
-        ~allowed:[ "id"; "template"; "template_revision"; "parameters"; "tickets" ];
+        ~allowed:
+          [ "id"; "template"; "template_revision"; "parameters"; "bindings"; "tickets" ];
       let get = Json.field json in
       let parameters =
         match get "parameters" with
@@ -313,6 +392,7 @@ module Instance = struct
       ; template = Id.Resource.t_of_jsonaf (get "template")
       ; template_revision = Json.integer (get "template_revision")
       ; parameters
+      ; bindings = checked (Api_codec.decode Bindings.codec (get "bindings"))
       ; tickets = List.map (Json.list (get "tickets")) ~f:Planned_ticket.of_json
       })
   ;;
@@ -321,6 +401,7 @@ end
 let create ~resource ~resource_revision ~spec =
   Json.decode (fun () ->
     Spec.validate_exn spec;
+    let spec = checked (Spec.of_json (Spec.to_json spec)) in
     require
       (resource_revision > 0)
       Invalid_argument
@@ -332,7 +413,7 @@ let create ~resource ~resource_revision ~spec =
     })
 ;;
 
-let instantiate t ~id ~parameters =
+let instantiate t ~id ~(bindings : Bindings.t) ~parameters =
   Json.decode (fun () ->
     Spec.validate_exn t.spec;
     require
@@ -389,9 +470,31 @@ let instantiate t ~id ~parameters =
         (Id.Ticket.of_string
            ("wi_" ^ String.prefix (Json.hash (Instance_id.to_string id ^ ":" ^ alias)) 24))
     in
-    let nodes =
+    let sorted =
       List.sort t.spec.nodes ~compare:(fun a b -> String.compare a.Node.alias b.alias)
     in
+    let visited = ref String.Set.empty in
+    let rec visit acc node =
+      if Set.mem !visited node.Node.alias
+      then acc
+      else (
+        let acc =
+          Option.value_map node.parent ~default:acc ~f:(fun parent ->
+            visit
+              acc
+              (List.find_exn sorted ~f:(fun node -> String.equal node.Node.alias parent)))
+        in
+        visited := Set.add !visited node.alias;
+        node :: acc)
+    in
+    let nodes = List.fold sorted ~init:[] ~f:visit |> List.rev in
+    Option.iter bindings.parent ~f:(fun parent ->
+      require
+        (not
+           (List.exists nodes ~f:(fun node ->
+              Id.Ticket.equal parent (ticket node.Node.alias))))
+        Dependency_cycle
+        "external parent is an instance ticket");
     let tickets =
       List.map nodes ~f:(fun n ->
         let title = substitute n.Node.title ~max_bytes:512 in
@@ -403,9 +506,15 @@ let instantiate t ~id ~parameters =
         ; title
         ; description
         ; dependencies = List.map n.depends_on ~f:ticket
-        ; parent = Option.map n.parent ~f:ticket
+        ; parent = Option.first_some (Option.map n.parent ~f:ticket) bindings.parent
         ; capabilities = n.capabilities
-        ; reviewers = n.reviewers
+        ; allowed_actor_ids = n.allowed_actor_ids
+        ; reviewers =
+            checked
+              (Api_codec.decode
+                 Acceptance_policy.reviewer_requirements
+                 (`Array
+                     (List.map n.reviewers ~f:Acceptance_policy.Requirement.jsonaf_of_t)))
         ; separate_actor = n.separate_actor
         })
     in
@@ -413,6 +522,7 @@ let instantiate t ~id ~parameters =
     ; template = t.resource
     ; template_revision = t.resource_revision
     ; parameters = List.sort parameters ~compare:(fun (a, _) (b, _) -> String.compare a b)
+    ; bindings
     ; tickets
     })
 ;;

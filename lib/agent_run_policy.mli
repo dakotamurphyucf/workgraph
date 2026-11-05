@@ -23,6 +23,7 @@ val changes : prepared -> Change.t list
 val result : prepared -> Jsonaf.t
 val apply : t -> Change.t -> (t, Problem.t) Result.t
 val get_template : t -> Id.Resource.t -> revision:int -> Workflow_template.t option
+val instances : t -> Workflow_template.Instance.t list
 
 val get_instance
   :  t
@@ -49,7 +50,7 @@ val attention : t -> runs:Agent_run.t -> Run_budget.Attention.t list
 
 val validate_references
   :  t
-  -> resource_version:(Id.Resource.t -> revision:int -> string option)
+  -> resource_version:(Id.Resource.t -> revision:int -> (string, Problem.t) Result.t)
   -> run_exists:(Id.Run.t -> bool)
   -> attempt_exists:(Attempt.Id.t -> bool)
   -> ticket_exists:(Id.Ticket.t -> bool)

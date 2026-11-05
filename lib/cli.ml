@@ -583,7 +583,9 @@ let run ~env arguments =
     let fields =
       Option.value_map !context ~default:options.fields ~f:(fun context ->
         let method_ =
-          if String.equal method_ "resource.publish_text"
+          if
+            String.equal method_ "resource.publish_text"
+            || String.equal method_ "template.publish"
           then "resource.put_text"
           else method_
         in
@@ -599,7 +601,30 @@ let run ~env arguments =
       }
     in
     let method_, parameters =
-      if String.equal method_ "resource.publish_text"
+      if String.equal method_ "template.publish"
+      then (
+        if options.paginate || Option.is_some reservation_wait
+        then
+          Json.fail
+            Invalid_argument
+            "template.publish does not admit read pagination or reservation waiting";
+        let publication =
+          Template_publication.of_params (Json.obj options.fields) |> Disk.unwrap
+        in
+        let client =
+          Client.create
+            ~net:(Eio.Stdenv.net env)
+            ~clock:(Eio.Stdenv.mono_clock env)
+            ~socket
+            ~timeout_seconds:options.timeout_seconds
+          |> Disk.unwrap
+        in
+        let prepared =
+          Template_publication.prepare publication ~fetch:(Client.invoke client)
+          |> Disk.unwrap
+        in
+        Protocol.Request.method_ prepared, Protocol.Request.params prepared)
+      else if String.equal method_ "resource.publish_text"
       then
         ( "transaction.apply"
         , Text_publication.of_params (Json.obj options.fields)

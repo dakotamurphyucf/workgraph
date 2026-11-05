@@ -199,6 +199,7 @@ let%expect_test "template receipts use canonical typed projections and closed op
     ; template = get (Id.Resource.of_string "template")
     ; template_revision = 1
     ; parameters = [ "title", "Literal $value" ]
+    ; bindings = Workflow_template.Bindings.empty
     ; tickets =
         [ { alias = "build"
           ; ticket = get (Id.Ticket.of_string "instance-build")
@@ -207,6 +208,7 @@ let%expect_test "template receipts use canonical typed projections and closed op
           ; dependencies = []
           ; parent = None
           ; capabilities = []
+          ; allowed_actor_ids = Actor_eligibility.unrestricted
           ; reviewers = []
           ; separate_actor = false
           }
@@ -243,7 +245,7 @@ let%expect_test "template receipts use canonical typed projections and closed op
   print_result (Planning_result.Template.operation Review_policy_put ~data:review);
   [%expect
     {|
-    {"duplicate":true,"instance":{"instance_id":"instance","parameters":{"title":"Literal $value"},"template_id":"template","template_revision":"1","tickets":[{"alias":"build","capabilities":[],"description":"","parent_ticket_id":null,"prerequisite_ticket_ids":[],"reviewer_ids":[],"separate_actor":false,"ticket_id":"instance-build","title":"Build"}]},"results":[{"data":{"duplicate":true,"revision":"4"},"kind":"instance_register"}]}
+    {"duplicate":true,"instance":{"bindings":{"milestone_id":null,"parent_ticket_id":null,"project_id":null},"instance_id":"instance","parameters":{"title":"Literal $value"},"template_id":"template","template_revision":"1","tickets":[{"alias":"build","allowed_actor_ids":null,"capabilities":[],"description":"","parent_ticket_id":null,"prerequisite_ticket_ids":[],"reviewers":[],"separate_actor":false,"ticket_id":"instance-build","title":"Build"}]},"results":[{"data":{"duplicate":true,"revision":"4"},"kind":"instance_register"}]}
     ok
     /extra: unknown field
     {"enabled":true,"reviewers":[{"kind":"role","member_ids":["actor"],"name":"reviewer"}],"revision":"1","separate_actor":true,"ticket_id":"instance-build","validators":[]}
@@ -307,6 +309,7 @@ let%expect_test "template staging validates exact initial and duplicate receipts
     ; depends_on = []
     ; parent = None
     ; capabilities = []
+    ; allowed_actor_ids = Actor_eligibility.unrestricted
     ; reviewers = []
     ; separate_actor = false
     }
@@ -317,7 +320,8 @@ let%expect_test "template staging validates exact initial and duplicate receipts
     ; title = "Second"
     ; depends_on = [ "first" ]
     ; capabilities = [ "ocaml" ]
-    ; reviewers = [ reviewer ]
+    ; allowed_actor_ids = Actor_eligibility.unrestricted
+    ; reviewers = [ Acceptance_policy.Requirement.Named_actor reviewer ]
     ; separate_actor = true
     }
   in
@@ -343,6 +347,7 @@ let%expect_test "template staging validates exact initial and duplicate receipts
       ; template_revision = 1
       ; id = get (Workflow_template.Instance_id.of_string "instance")
       ; parameters = []
+      ; bindings = Workflow_template.Bindings.empty
       }
   in
   let prepared = prepare state command in

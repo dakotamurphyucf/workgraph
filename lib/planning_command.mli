@@ -20,6 +20,7 @@ type t =
       ; template_revision : int
       ; id : Workflow_template.Instance_id.t
       ; parameters : (string * string) list
+      ; bindings : Workflow_template.Bindings.t
       }
   | Claim_next of
       { attempt : Attempt.Id.t

@@ -1,6 +1,24 @@
 open Core
 module Instance_id : Id.S
 
+(** Placement is explicit: None leaves tickets unassigned. An external parent
+    applies only to template roots; internal parents retain the graph. The owning
+    immutable planning capture validates membership and reference coherence. *)
+module Bindings : sig
+  type t =
+    { project : Id.Project.t option
+    ; milestone : Id.Milestone.t option
+    ; parent : Id.Ticket.t option
+    }
+  [@@deriving sexp, equal]
+
+  val empty : t
+  val codec : t Api_codec.t
+
+  (** Same placement fields with declared transaction ID/$alias references. *)
+  val raw_codec : Jsonaf.t Api_codec.t
+end
+
 module Node : sig
   type t =
     { alias : string
@@ -9,7 +27,8 @@ module Node : sig
     ; depends_on : string list
     ; parent : string option
     ; capabilities : string list
-    ; reviewers : Id.Actor.t list
+    ; allowed_actor_ids : Actor_eligibility.t
+    ; reviewers : Acceptance_policy.Requirement.t list
     ; separate_actor : bool
     }
   [@@deriving sexp, equal]
@@ -44,7 +63,8 @@ module Planned_ticket : sig
     ; dependencies : Id.Ticket.t list
     ; parent : Id.Ticket.t option
     ; capabilities : string list
-    ; reviewers : Id.Actor.t list
+    ; allowed_actor_ids : Actor_eligibility.t
+    ; reviewers : Acceptance_policy.Requirement.t list
     ; separate_actor : bool
     }
   [@@deriving sexp, equal]
@@ -56,6 +76,7 @@ module Instance : sig
     ; template : Id.Resource.t
     ; template_revision : int
     ; parameters : (string * string) list
+    ; bindings : Bindings.t
     ; tickets : Planned_ticket.t list
     }
   [@@deriving sexp, equal]
@@ -71,7 +92,10 @@ end
     interpreted as further placeholders. Parameter ordering has no effect.
     Cycles, unknown aliases and plans over 32 mutations reject
     before publishing any runnable tickets. The integration owner stages the
-    complete returned plan and instance registration in one transaction. *)
+    complete returned plan and instance registration in one transaction. Allocation
+    actor restrictions and full named/role review requirements are part of the
+    deterministic plan identity. Tickets are parent-before-child with stable alias
+    tie breaking; external generated-ID parents and graph cycles reject. *)
 val create
   :  resource:Id.Resource.t
   -> resource_revision:int
@@ -81,6 +105,7 @@ val create
 val instantiate
   :  t
   -> id:Instance_id.t
+  -> bindings:Bindings.t
   -> parameters:(string * string) list
   -> (Instance.t, Problem.t) Result.t
 

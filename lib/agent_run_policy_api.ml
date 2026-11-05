@@ -152,7 +152,22 @@ let entries =
         in
         if not (String.equal template.digest digest)
         then
-          Json.fail Invalid_argument "template digest differs from canonical Spec asset";
+          raise
+            (Json.Decode_error
+               (Problem.create
+                  Invalid_argument
+                  "template digest differs from canonical specification"
+                |> fun problem ->
+                Problem.with_details
+                  problem
+                  (Field
+                     { path = [ "digest" ]
+                     ; expected = "SHA256 of canonical Spec JSON"
+                     ; suggestion =
+                         Some
+                           "Use template.publish to canonicalize and publish the \
+                            specification."
+                     })));
         Command.Template_register template)
       ~encode:(function
         | Template_register t ->

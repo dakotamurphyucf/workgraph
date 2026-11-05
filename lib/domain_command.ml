@@ -17,6 +17,7 @@ type t = Planning_command.t =
       ; template_revision : int
       ; id : Workflow_template.Instance_id.t
       ; parameters : (string * string) list
+      ; bindings : Workflow_template.Bindings.t
       }
   | Claim_next of
       { attempt : Attempt.Id.t
@@ -366,8 +367,11 @@ let decode ~method_ ~params =
         let kind =
           match key with
           | "id" -> context
-          | "actor_id" | "reported_actor_id" | "reviewer_ids" | "member_ids" ->
-            Some "actor"
+          | "actor_id"
+          | "reported_actor_id"
+          | "reviewer_ids"
+          | "allowed_actor_ids"
+          | "member_ids" -> Some "actor"
           | "session_id" -> Some "session"
           | "project_id" -> Some "project"
           | "milestone_id" -> Some "milestone"

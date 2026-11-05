@@ -18,6 +18,7 @@ let local_methods =
   ; "journal.inspect"
   ; "journal.list"
   ; "resource.publish_text"
+  ; "template.publish"
   ; "resource.upload-abort"
   ; "resource.download"
   ; "evidence.show"
@@ -71,6 +72,24 @@ Offline JSON input descriptors plus the original validation_schema.
 Use .fields for names, requirements, summaries, nested schemas and JSON argument form.
 Full cross-field validation cannot be reconstructed from a flat field list.
 No daemon, socket or context is needed.|}
+  | "template.publish" ->
+    Some
+      {|template.publish [local canonical template helper]
+Usage: workgraph --context ABS_FILE template publish --template-id ID
+  --expected-revision RESOURCE_METADATA_REV --title TEXT --params-file ABS_SPEC_PARAMS
+Supply spec:{parameters:[],nodes:[...]} in the params object or --json-field spec.
+The Spec uses allowed_actor_ids:null|[ID,...] and reviewers:[actor/role requirements].
+Validates graph and canonicalizes JSON before a single read-only resource.get capture.
+Then saves one transaction.apply containing resource.put_text and template.register.
+Resource metadata revision guards updates; immutable content version is derived from
+that capture and advances separately. A missing resource with guard 0 creates version 1.
+Canonical text must fit resource.put_text's 65536-byte limit; larger specifications
+use resource.upload followed by explicit template.register with the exact content pin.
+Save with --save-request ABS_NEW_FILE or --request-directory ABS_PRIVATE_DIR;
+otherwise supply a stable --mutation-id. Saved retries never reread or rebuild.
+The receipt keeps results[0].data.version (content pin) and results[1].data
+(policy revision/duplicate marker). template.get reads the full registered template.
+No daemon method is added. Read skills/workgraph/references/coordination.md.|}
   | "resource.publish_text" ->
     Some
       {|resource.publish_text [local atomic text helper]
@@ -726,6 +745,21 @@ let preconditions name mode request =
   in
   let specific =
     match name with
+    | "template.register" ->
+      [ "First publish canonical Spec JSON as resource template_id. template_revision is \
+         the immutable CONTENT version, not its metadata revision; digest is SHA256 of \
+         those exact canonical bytes."
+      ; "Use local template.publish to capture the version and atomically \
+         publish/register without computing a digest manually. Missing resource, missing \
+         content version and digest mismatch have distinct typed field diagnostics."
+      ]
+    | "template.instantiate" ->
+      [ "Optional project_id/milestone_id/parent_ticket_id bind placement at creation. \
+         External parent applies only to template roots; membership must be coherent."
+      ; "Creates the parent-before-child graph, actor/capability allocation gates and \
+         full actor/role review requirements atomically within 32 operations. No \
+         follow-up ungated interval; changed instance bindings conflict."
+      ]
     | "transaction.apply" ->
       [ "operations: 1..32 ordered {method, params, as?} objects; all commit or none do."
       ; "as is only for creation methods, unique ASCII IDs (1..96 bytes)."
@@ -1171,6 +1205,8 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
            "\n\
             Local helpers: resource.publish_text, resource.upload, \
             resource.upload-abort, resource.download (help each helper)."
+         else if Option.equal String.equal method_name (Some "template")
+         then "\nLocal helper: template.publish (help template.publish)."
          else if
            Option.equal String.equal method_name (Some "reservation")
            || Option.equal String.equal method_name (Some "reservation.paths")
@@ -1214,8 +1250,8 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
           ^ rendered
           ^ "\n\
              CLI helpers (local workflows): init, bootstrap, journal.inspect, \
-             journal.list, resource.publish_text, upload, download, evidence-run, \
-             evidence-publish, retry.\n\
+             journal.list, template.publish, resource.publish_text, upload, download, \
+             evidence-run, evidence-publish, retry.\n\
              CLI spelling: ticket.get (canonical ticket.context); request get/list/... \
              select request-domain methods with --context/--socket.\n\
              Generic transport: request ABS_SOCKET METHOD; dotted METHOD is also accepted.\n\

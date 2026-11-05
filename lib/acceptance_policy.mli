@@ -30,9 +30,15 @@ module Requirement : sig
       A role requires 1..100 distinct actor IDs, sorted canonically. *)
   val codec : t Api_codec.t
 
+  (** Same tagged fields with declared actor ID/$alias references for transactions. *)
+  val raw_codec : Jsonaf.t Api_codec.t
+
   val jsonaf_of_t : t -> Jsonaf.t
   val t_of_jsonaf : Jsonaf.t -> t
 end
+
+(** Canonical unique named/role requirements, including distinct role names. *)
+val reviewer_requirements : Requirement.t list Api_codec.t
 
 module Criterion : sig
   module Key : Id.S

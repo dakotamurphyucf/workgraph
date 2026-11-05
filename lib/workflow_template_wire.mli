@@ -11,7 +11,7 @@ val instance : Workflow_template.Instance.t Api_codec.t
 
 module Raw : sig
   (** Same structural declarations with explicit entity ID/$alias references;
-      only actor/ticket/template/instance entity references admit aliases. *)
+      only entity references (including placement) admit aliases. *)
   val spec : Jsonaf.t Api_codec.t
 
   val instance : Jsonaf.t Api_codec.t

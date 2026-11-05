@@ -471,6 +471,7 @@ let%expect_test
     ; depends_on = deps
     ; parent = None
     ; capabilities = []
+    ; allowed_actor_ids = Actor_eligibility.unrestricted
     ; reviewers = []
     ; separate_actor = false
     }
@@ -484,7 +485,12 @@ let%expect_test
   let template = ok (Workflow_template.create ~resource ~resource_revision:3 ~spec) in
   let id = ok (Workflow_template.Instance_id.of_string "workflow") in
   let instance =
-    ok (Workflow_template.instantiate template ~id ~parameters:[ "subject", "parser" ])
+    ok
+      (Workflow_template.instantiate
+         ~bindings:Workflow_template.Bindings.empty
+         template
+         ~id
+         ~parameters:[ "subject", "parser" ])
   in
   print_s
     [%sexp
@@ -497,11 +503,17 @@ let%expect_test
          instance
          (ok
             (Workflow_template.instantiate
+               ~bindings:Workflow_template.Bindings.empty
                template
                ~id
                ~parameters:[ "subject", "parser" ]))
        : bool)];
-  report (Workflow_template.instantiate template ~id ~parameters:[]);
+  report
+    (Workflow_template.instantiate
+       ~bindings:Workflow_template.Bindings.empty
+       template
+       ~id
+       ~parameters:[]);
   report
     (Workflow_template.Spec.validate
        { spec with nodes = [ node "first" [ "second" ]; node "second" [ "first" ] ] });
@@ -525,14 +537,16 @@ let%expect_test
     (Agent_run_policy.validate_references
        state
        ~resource_version:(fun _ ~revision ->
-         if revision = 3 then Some template.digest else None)
+         if revision = 3
+         then Ok template.digest
+         else Error (Problem.create Not_found "missing version"))
        ~run_exists:(Fn.const true)
        ~attempt_exists:(Fn.const true)
        ~ticket_exists:(Fn.const true));
   report
     (Agent_run_policy.validate_references
        state
-       ~resource_version:(fun _ ~revision:_ -> Some "wrong")
+       ~resource_version:(fun _ ~revision:_ -> Ok "wrong")
        ~run_exists:(Fn.const true)
        ~attempt_exists:(Fn.const true)
        ~ticket_exists:(Fn.const true));
@@ -545,7 +559,7 @@ let%expect_test
     0
     true
     ok
-    Not_found
+    Conflict
     |}]
 ;;
 
@@ -754,6 +768,7 @@ let%expect_test "workflow substitutions are literal and independent of parameter
     ; depends_on = []
     ; parent = None
     ; capabilities = []
+    ; allowed_actor_ids = Actor_eligibility.unrestricted
     ; reviewers = []
     ; separate_actor = false
     }
@@ -767,7 +782,11 @@ let%expect_test "workflow substitutions are literal and independent of parameter
   in
   let id = ok (Workflow_template.Instance_id.of_string "instance") in
   let instantiate template parameters =
-    Workflow_template.instantiate template ~id ~parameters
+    Workflow_template.instantiate
+      ~bindings:Workflow_template.Bindings.empty
+      template
+      ~id
+      ~parameters
   in
   let parameters = [ "a", "{{b}}"; "b", "literal }} text" ] in
   let forward = ok (instantiate (template "{{a}} / {{b}}") parameters) in

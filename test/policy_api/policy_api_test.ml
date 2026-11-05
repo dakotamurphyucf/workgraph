@@ -30,7 +30,8 @@ let spec description =
         ; depends_on = []
         ; parent = None
         ; capabilities = []
-        ; reviewers = [ actor ]
+        ; allowed_actor_ids = Actor_eligibility.unrestricted
+        ; reviewers = [ Acceptance_policy.Requirement.Named_actor actor ]
         ; separate_actor = true
         }
       ]
@@ -186,6 +187,7 @@ let%expect_test "raw aliases are explicit and opaque template parameters remain 
   let instance =
     ok
       (Workflow_template.instantiate
+         ~bindings:Workflow_template.Bindings.empty
          t
          ~id:(ok (Workflow_template.Instance_id.of_string "instance"))
          ~parameters:[ "ticket_id", "$runner" ])
@@ -312,16 +314,16 @@ let%expect_test "template digest and byte limits protect complete canonical reco
 ;;
 
 let%expect_test
-    "independent canonical asset digest uses reviewer_ids and rejects prototype keys"
+    "independent canonical asset digest includes typed gates and rejects prototype keys"
   =
   let current =
     json
-      {|{"template_id":"plan","template_revision":"1","digest":"5c4ace10a576c42c8dad419f66a1795a59505d6ddaae50937691cf1c532b1c37","spec":{"parameters":["topic"],"nodes":[{"alias":"build","title":"Build {{topic}}","description":"Save evidence","depends_on":[],"parent":null,"capabilities":["ocaml"],"reviewer_ids":["reviewer"],"separate_actor":true}]}}|}
+      {|{"template_id":"plan","template_revision":"1","digest":"e92f8d5daae332d04ba73cfc7b7b06862b917b6ba91713efacc0b22bbd2135ff","spec":{"parameters":["topic"],"nodes":[{"alias":"build","title":"Build {{topic}}","description":"Save evidence","depends_on":[],"parent":null,"capabilities":["ocaml"],"separate_actor":true,"allowed_actor_ids":null,"reviewers":[{"kind":"actor","actor_id":"reviewer"}]}]}}|}
   in
   report (Agent_run_policy.decode ~method_:"template.register" ~params:current);
   let legacy =
     Json.canonical current
-    |> String.substr_replace_all ~pattern:"reviewer_ids" ~with_:"reviewers"
+    |> String.substr_replace_all ~pattern:"reviewers" ~with_:"reviewer_ids"
     |> json
   in
   report (Agent_run_policy.decode ~method_:"template.register" ~params:legacy);
@@ -362,7 +364,11 @@ let%expect_test
   let raw_spec = Json.field registered "spec" in
   let raw_node =
     List.hd_exn (Json.list (Json.field raw_spec "nodes"))
-    |> fun node -> replace node "reviewer_ids" (`Array [ alias "reviewer" ])
+    |> fun node ->
+    replace
+      node
+      "reviewers"
+      (`Array [ Json.obj [ "kind", Json.string "actor"; "actor_id", alias "reviewer" ] ])
   in
   let registered =
     replace registered "template_id" (alias "asset")
@@ -376,6 +382,7 @@ let%expect_test
   let instance =
     ok
       (Workflow_template.instantiate
+         ~bindings:Workflow_template.Bindings.empty
          t
          ~id:(ok (Workflow_template.Instance_id.of_string "instance"))
          ~parameters:[ "ticket_id", "$asset" ])
@@ -385,7 +392,11 @@ let%expect_test
     List.hd_exn (Json.list (Json.field raw "tickets"))
     |> fun n ->
     replace n "ticket_id" (alias "work")
-    |> fun n -> replace n "reviewer_ids" (`Array [ alias "reviewer" ])
+    |> fun n ->
+    replace
+      n
+      "reviewers"
+      (`Array [ Json.obj [ "kind", Json.string "actor"; "actor_id", alias "reviewer" ] ])
   in
   let raw =
     replace raw "template_id" (alias "asset")

@@ -1951,30 +1951,52 @@ let entries =
             (Fields.both
                (Fields.both
                   (Fields.both
-                     (Fields.required "template_id" reference)
-                     (Fields.required "template_revision" decimal))
-                  (Fields.required "instance_id" reference))
-               (Fields.required
-                  "parameters"
-                  (Api_codec.dictionary
-                     (Api_codec.text ~max_bytes:16_384)
-                     ~max_items:32
-                     ~max_key_bytes:96)))
+                     (Fields.both
+                        (Fields.required "template_id" reference)
+                        (Fields.required "template_revision" decimal))
+                     (Fields.required "instance_id" reference))
+                  (Fields.required
+                     "parameters"
+                     (Api_codec.dictionary
+                        (Api_codec.text ~max_bytes:16_384)
+                        ~max_items:32
+                        ~max_key_bytes:96)))
+               (Fields.both
+                  (Fields.both
+                     (Fields.optional "project_id" reference)
+                     (Fields.optional "milestone_id" reference))
+                  (Fields.optional "parent_ticket_id" reference)))
       ; command =
-          (fun (((template, template_revision), id), parameters) ->
+          (fun ( (((template, template_revision), id), parameters)
+               , ((project, milestone), parent) ) ->
             Template_instantiate
               { template = Id.Resource.t_of_jsonaf (Json.string template)
               ; template_revision
               ; id = Workflow_template.Instance_id.t_of_jsonaf (Json.string id)
               ; parameters
+              ; bindings =
+                  { Workflow_template.Bindings.project =
+                      Option.map project ~f:(fun id ->
+                        Id.Project.t_of_jsonaf (Json.string id))
+                  ; milestone =
+                      Option.map milestone ~f:(fun id ->
+                        Id.Milestone.t_of_jsonaf (Json.string id))
+                  ; parent =
+                      Option.map parent ~f:(fun id ->
+                        Id.Ticket.t_of_jsonaf (Json.string id))
+                  }
               })
       ; project =
           (function
-            | Template_instantiate { template; template_revision; id; parameters } ->
+            | Template_instantiate
+                { template; template_revision; id; parameters; bindings } ->
               Some
-                ( ( (Id.Resource.to_string template, template_revision)
-                  , Workflow_template.Instance_id.to_string id )
-                , parameters )
+                ( ( ( (Id.Resource.to_string template, template_revision)
+                    , Workflow_template.Instance_id.to_string id )
+                  , parameters )
+                , ( ( Option.map bindings.project ~f:Id.Project.to_string
+                    , Option.map bindings.milestone ~f:Id.Milestone.to_string )
+                  , Option.map bindings.parent ~f:Id.Ticket.to_string ) )
             | _ -> None)
       }
   ]

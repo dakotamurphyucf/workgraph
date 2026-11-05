@@ -78,23 +78,25 @@ let parameters =
       "At most 32 named literal substitutions; values never undergo alias interpretation."
 ;;
 
-let node_fields reviewers =
+let node_fields allowed_actor_ids reviewers =
   req "alias" name
   <*> req "title" (nonblank 512)
   <*> req "description" (text 65_536)
   <*> req "depends_on" (list name 31)
   <*> req "parent" (nullable name)
   <*> req "capabilities" (list (nonblank 96) 100)
-  <*> req "reviewer_ids" (list reviewers 100)
+  <*> req "allowed_actor_ids" allowed_actor_ids
+  <*> req "reviewers" reviewers
   <*> req "separate_actor" Api_codec.boolean
 ;;
 
 let node =
   obj
-    (node_fields actor)
+    (node_fields Actor_eligibility.codec Acceptance_policy.reviewer_requirements)
     ~decode:
       (fun
-        ( ( (((((alias, title), description), depends_on), parent), capabilities)
+        ( ( ( (((((alias, title), description), depends_on), parent), capabilities)
+            , allowed_actor_ids )
           , reviewers )
         , separate_actor ) ->
       { Workflow_template.Node.alias
@@ -103,13 +105,15 @@ let node =
       ; depends_on
       ; parent
       ; capabilities
+      ; allowed_actor_ids
       ; reviewers
       ; separate_actor
       })
     ~encode:(fun n ->
-      ( ( ( ( (((n.Workflow_template.Node.alias, n.title), n.description), n.depends_on)
-            , n.parent )
-          , n.capabilities )
+      ( ( ( ( ( (((n.Workflow_template.Node.alias, n.title), n.description), n.depends_on)
+              , n.parent )
+            , n.capabilities )
+          , n.allowed_actor_ids )
         , n.reviewers )
       , n.separate_actor ))
 ;;
@@ -172,7 +176,7 @@ let template =
     ~description:"Exact canonical template asset binding."
 ;;
 
-let planned_fields tickets actors =
+let planned_fields tickets allowed_actor_ids reviewers =
   req "alias" name
   <*> req "ticket_id" tickets
   <*> req "title" (nonblank 512)
@@ -180,17 +184,22 @@ let planned_fields tickets actors =
   <*> req "prerequisite_ticket_ids" (list tickets 31)
   <*> req "parent_ticket_id" (nullable tickets)
   <*> req "capabilities" (list (nonblank 96) 100)
-  <*> req "reviewer_ids" (list actors 100)
+  <*> req "allowed_actor_ids" allowed_actor_ids
+  <*> req "reviewers" reviewers
   <*> req "separate_actor" Api_codec.boolean
 ;;
 
 let planned_ticket =
   obj
-    (planned_fields ticket actor)
+    (planned_fields
+       ticket
+       Actor_eligibility.codec
+       Acceptance_policy.reviewer_requirements)
     ~decode:
       (fun
-        ( ( ( (((((alias, ticket), title), description), dependencies), parent)
-            , capabilities )
+        ( ( ( ( (((((alias, ticket), title), description), dependencies), parent)
+              , capabilities )
+            , allowed_actor_ids )
           , reviewers )
         , separate_actor ) ->
       { Workflow_template.Planned_ticket.alias
@@ -200,41 +209,52 @@ let planned_ticket =
       ; dependencies
       ; parent
       ; capabilities
+      ; allowed_actor_ids
       ; reviewers
       ; separate_actor
       })
     ~encode:(fun n ->
-      ( ( ( ( ( ( ((n.Workflow_template.Planned_ticket.alias, n.ticket), n.title)
-                , n.description )
-              , n.dependencies )
-            , n.parent )
-          , n.capabilities )
+      ( ( ( ( ( ( ( ((n.Workflow_template.Planned_ticket.alias, n.ticket), n.title)
+                  , n.description )
+                , n.dependencies )
+              , n.parent )
+            , n.capabilities )
+          , n.allowed_actor_ids )
         , n.reviewers )
       , n.separate_actor ))
 ;;
 
-let instance_fields instances templates tickets =
+let instance_fields instances templates bindings tickets =
   req "instance_id" instances
   <*> req "template_id" templates
   <*> req "template_revision" positive
   <*> req "parameters" parameters
+  <*> req "bindings" bindings
   <*> req "tickets" (list tickets 31)
 ;;
 
 let instance =
   Api_codec.map
     (obj
-       (instance_fields instance_id resource planned_ticket)
-       ~decode:(fun ((((id, template), template_revision), parameters), tickets) ->
+       (instance_fields
+          instance_id
+          resource
+          Workflow_template.Bindings.codec
+          planned_ticket)
+       ~decode:
+         (fun
+           (((((id, template), template_revision), parameters), bindings), tickets) ->
          { Workflow_template.Instance.id
          ; template
          ; template_revision
          ; parameters
+         ; bindings
          ; tickets
          })
        ~encode:(fun i ->
-         ( ( ((i.Workflow_template.Instance.id, i.template), i.template_revision)
-           , i.parameters )
+         ( ( ( ((i.Workflow_template.Instance.id, i.template), i.template_revision)
+             , i.parameters )
+           , i.bindings )
          , i.tickets )))
     ~decode:(fun i ->
       Json.decode (fun () ->
@@ -262,18 +282,18 @@ let instance =
 
 module Raw = struct
   let raw fields = Api_codec.as_json (Api_codec.object_ fields)
-  let node = raw (node_fields (Api_codec.reference actor))
+  let allowed = Api_codec.nullable (list (Api_codec.reference actor) 100)
+  let reviewers = list Acceptance_policy.Requirement.raw_codec 100
+  let node = raw (node_fields allowed reviewers)
   let spec = raw (spec_fields node)
-
-  let planned =
-    raw (planned_fields (Api_codec.reference ticket) (Api_codec.reference actor))
-  ;;
+  let planned = raw (planned_fields (Api_codec.reference ticket) allowed reviewers)
 
   let instance =
     raw
       (instance_fields
          (Api_codec.reference instance_id)
          (Api_codec.reference resource)
+         Workflow_template.Bindings.raw_codec
          planned)
   ;;
 end

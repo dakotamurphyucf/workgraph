@@ -114,6 +114,7 @@ let get_template t id ~revision =
 ;;
 
 let get_instance t id = Map.find t.instances id
+let instances t = Map.data t.instances
 let budget t id = Map.find t.budgets id
 
 let apply_exn t change =
@@ -161,7 +162,8 @@ let apply_exn t change =
           (Workflow_template.instantiate
              template
              ~id:instance.id
-             ~parameters:instance.parameters)
+             ~parameters:instance.parameters
+             ~bindings:instance.bindings)
       in
       require
         (Workflow_template.Instance.equal expected instance)
@@ -312,15 +314,30 @@ let validate_references t ~resource_version ~run_exists ~attempt_exists ~ticket_
       t.templates
       ~f:
         (List.iter ~f:(fun template ->
-           require
-             (Option.value_map
-                (resource_version
-                   template.Workflow_template.resource
-                   ~revision:template.resource_revision)
-                ~default:false
-                ~f:(String.equal template.digest))
-             Not_found
-             "Template resource digest/version differs"));
+           let actual =
+             checked
+               (resource_version
+                  template.Workflow_template.resource
+                  ~revision:template.resource_revision)
+           in
+           if not (String.equal actual template.digest)
+           then
+             raise
+               (Json.Decode_error
+                  (Problem.create
+                     Conflict
+                     "template resource digest differs from canonical specification"
+                   |> fun problem ->
+                   Problem.with_details
+                     problem
+                     (Field
+                        { path = [ "digest" ]
+                        ; expected = "SHA256 of canonical published specification"
+                        ; suggestion =
+                            Some
+                              "Use template.publish to canonicalize, publish and \
+                               register atomically."
+                        })))));
     Map.iter t.instances ~f:(fun instance ->
       List.iter instance.Workflow_template.Instance.tickets ~f:(fun p ->
         require

@@ -85,7 +85,8 @@ def run(client, *, workspace, root, state_dir):
     for alias, dependencies in [('left', []), ('right', []), ('join', ['left', 'right'])]:
         nodes.append({'alias': alias, 'title': '{{name}} ' + alias, 'description': 'Deterministic worker routine',
                       'depends_on': dependencies, 'parent': None, 'capabilities': [alias],
-                      'reviewer_ids': ['reviewer'] if alias == 'join' else [],
+                      'allowed_actor_ids': None,
+                      'reviewers': [{'kind': 'actor', 'actor_id': 'reviewer'}] if alias == 'join' else [],
                       'separate_actor': alias == 'join'})
     template = {'parameters': ['name'], 'nodes': nodes}
     text = adapter.canonical(template)

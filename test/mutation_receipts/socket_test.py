@@ -171,7 +171,7 @@ class Receipts(unittest.TestCase):
         self.assertEqual(self.read("run.get",target_run_id="run")["data"]["revision"],"5")
 
     def test_template_instantiation_retains_actual_nested_policy_receipts(self):
-        spec={"parameters":[],"nodes":[{"alias":"worker","title":"Work","description":"","depends_on":[],"parent":None,"capabilities":["ocaml"],"reviewer_ids":[],"separate_actor":False}]}
+        spec={"parameters":[],"nodes":[{"alias":"worker","title":"Work","description":"","depends_on":[],"parent":None,"capabilities":["ocaml"],"allowed_actor_ids":None,"reviewers":[],"separate_actor":False}]}
         text=json.dumps(spec,sort_keys=True,separators=(",",":"),ensure_ascii=False)
         self.write("resource.put_text","template-resource",resource_id="template",expected_revision="0",title="Template",text=text)
         self.write("template.register","template-register",template_id="template",template_revision="1",digest=hashlib.sha256(text.encode()).hexdigest(),spec=spec)

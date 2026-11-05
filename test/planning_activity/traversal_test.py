@@ -144,7 +144,7 @@ class TraversalTest(unittest.TestCase):
                     self.assertFalse(data)
                     # One template registration is itself larger than 1 MiB. Spaces
                     # exercise chunks that are nonempty UTF8 but entirely whitespace.
-                    spec = {"parameters": [], "nodes": [{"alias": f"node-{i}", "title": "Node", "description": " " * 65536, "depends_on": [], "parent": None, "capabilities": [], "reviewer_ids": [], "separate_actor": False} for i in range(20)]}
+                    spec = {"parameters": [], "nodes": [{"alias": f"node-{i}", "title": "Node", "description": " " * 65536, "depends_on": [], "parent": None, "capabilities": [], "allowed_actor_ids": None, "reviewers": [], "separate_actor": False} for i in range(20)]}
                     asset = canonical(spec)
                     digest = hashlib.sha256(asset).hexdigest()
                     read("upload.begin", actor_id="owner", upload_id="template", size_bytes=str(len(asset)), digest=digest)

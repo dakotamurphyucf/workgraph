@@ -151,7 +151,7 @@ let active_attempts t ticket =
   |> List.filter ~f:(fun a -> not (Attempt.State.terminal a.Attempt.state))
 ;;
 
-let instantiate_plan t ~template ~template_revision ~id ~parameters =
+let instantiate_plan t ~template ~template_revision ~id ~parameters ~bindings =
   let registered =
     match
       Agent_run_policy.get_template t.policies template ~revision:template_revision
@@ -159,16 +159,18 @@ let instantiate_plan t ~template ~template_revision ~id ~parameters =
     | Some x -> x
     | None -> Json.fail Not_found "template version is not registered"
   in
-  let plan = unwrap_domain (Workflow_template.instantiate registered ~id ~parameters) in
+  let plan =
+    unwrap_domain (Workflow_template.instantiate registered ~id ~parameters ~bindings)
+  in
   let creates =
     List.map plan.tickets ~f:(fun node ->
       Domain_command.Ticket_create
         { id = node.Workflow_template.Planned_ticket.ticket
         ; title = node.title
         ; description = node.description
-        ; project = None
+        ; project = plan.bindings.project
         ; parent = node.parent
-        ; milestone = None
+        ; milestone = plan.bindings.milestone
         })
   in
   let dependencies =
@@ -178,7 +180,9 @@ let instantiate_plan t ~template ~template_revision ~id ~parameters =
   in
   let capabilities =
     List.filter_map plan.tickets ~f:(fun node ->
-      if List.is_empty node.Workflow_template.Planned_ticket.capabilities
+      if
+        List.is_empty node.Workflow_template.Planned_ticket.capabilities
+        && Option.is_none (Actor_eligibility.allowed_actors node.allowed_actor_ids)
       then None
       else
         Some
@@ -188,12 +192,14 @@ let instantiate_plan t ~template ~template_revision ~id ~parameters =
                 ; expected_revision = 0
                 ; required_capabilities = node.capabilities
                 ; pools = []
-                ; allowed_actor_ids = None
+                ; allowed_actor_ids = Some node.allowed_actor_ids
                 })))
   in
   let reviews =
     List.filter_map plan.tickets ~f:(fun node ->
-      if List.is_empty node.Workflow_template.Planned_ticket.reviewers
+      if
+        List.is_empty node.Workflow_template.Planned_ticket.reviewers
+        && not node.separate_actor
       then None
       else
         Some
@@ -202,9 +208,7 @@ let instantiate_plan t ~template ~template_revision ~id ~parameters =
                 { ticket = node.ticket
                 ; expected_revision = 0
                 ; enabled = true
-                ; reviewers =
-                    List.map node.reviewers ~f:(fun actor ->
-                      Evidence.Policy.Requirement.Named_actor actor)
+                ; reviewers = node.reviewers
                 ; separate_actor = node.separate_actor
                 ; validators = []
                 ; weakening_reason = None
@@ -524,10 +528,10 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
              ; "revision", Json.int (ticket.revision + 1)
              ]
          , [] ))
-    | Domain_command.Template_instantiate { template; template_revision; id; parameters }
-      ->
+    | Domain_command.Template_instantiate
+        { template; template_revision; id; parameters; bindings } ->
       let plan, commands =
-        instantiate_plan t ~template ~template_revision ~id ~parameters
+        instantiate_plan t ~template ~template_revision ~id ~parameters ~bindings
       in
       (match Agent_run_policy.get_instance t.policies id with
        | Some existing ->
@@ -599,45 +603,8 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
            Conflict
            "usage reporter attribution differs"
        | Instance_register plan ->
-         List.iter plan.tickets ~f:(fun node ->
-           let actual = find_ticket t node.Workflow_template.Planned_ticket.ticket in
-           require
-             (String.equal actual.title node.title
-              && String.equal actual.description node.description
-              && Option.equal Id.Ticket.equal actual.parent node.parent
-              && List.equal
-                   Id.Ticket.equal
-                   (List.dedup_and_sort actual.prerequisites ~compare:Id.Ticket.compare)
-                   (List.dedup_and_sort node.dependencies ~compare:Id.Ticket.compare))
-             Conflict
-             "instance ticket graph differs from its plan";
-           let policy = Agent_run.get_ticket_policy t.agent_runs node.ticket in
-           require
-             (if List.is_empty node.capabilities
-              then
-                Option.is_none policy
-                || Option.value_map policy ~default:false ~f:(fun p ->
-                  List.is_empty p.Allocation.Ticket_policy.required_capabilities)
-              else
-                Option.value_map policy ~default:false ~f:(fun p ->
-                  List.equal
-                    String.equal
-                    (List.dedup_and_sort
-                       p.Allocation.Ticket_policy.required_capabilities
-                       ~compare:String.compare)
-                    (List.dedup_and_sort node.capabilities ~compare:String.compare)))
-             Conflict
-             "instance capabilities differ from plan";
-           require
-             (List.equal
-                Id.Actor.equal
-                (Evidence.review_recipients
-                   t.evidence
-                   ~ticket_context:(evidence_ticket_context t)
-                   ~ticket:node.ticket)
-                (List.dedup_and_sort node.reviewers ~compare:Id.Actor.compare))
-             Conflict
-             "instance reviewers differ from plan")
+         if Option.is_none (Agent_run_policy.get_instance t.policies plan.id)
+         then validate_initial_instance t plan
        | Template_register _ | Budget_put _ -> ());
       let p = unwrap_domain (Agent_run_policy.prepare t.policies command) in
       let events =
@@ -2437,13 +2404,19 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
           let count =
             match command with
             | Domain_command.Template_instantiate
-                { template; template_revision; id; parameters } ->
+                { template; template_revision; id; parameters; bindings } ->
               if Option.is_some (Agent_run_policy.get_instance state.policies id)
               then 1
               else
                 List.length
                   (snd
-                     (instantiate_plan state ~template ~template_revision ~id ~parameters))
+                     (instantiate_plan
+                        state
+                        ~template
+                        ~template_revision
+                        ~id
+                        ~parameters
+                        ~bindings))
             | Batch _
             | Message_send _
             | Communication _

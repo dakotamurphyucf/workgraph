@@ -67,7 +67,7 @@ class PolicySocketTest(unittest.TestCase):
 
                 spec = {"parameters": ["ticket_id"], "nodes": [{"alias": "node", "title": "Build {{ticket_id}}",
                         "description": "Literal $runner", "depends_on": [], "parent": None,
-                        "capabilities": [], "reviewer_ids": [], "separate_actor": False}]}
+                        "capabilities": [], "allowed_actor_ids": None, "reviewers": [], "separate_actor": False}]}
                 text = canonical(spec)
                 template = {"template_id": "a-plan", "template_revision": "1", "digest": hashlib.sha256(text.encode()).hexdigest(), "spec": spec}
                 limits = {"max_attempts": "4", "max_active_attempts": "1", "reported_token_limit": "5", "reported_elapsed_ms_limit": None}

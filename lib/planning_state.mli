@@ -423,6 +423,12 @@ val to_json : t -> Jsonaf.t
 val blob_digests : t -> string list
 val blob_references : t -> (string * int option) list
 
+(** Verify a newly registered instance against the complete staged graph and local
+    allocation/review policies. Called before registration and for new instances
+    at transaction final validation/replay. Later ordinary ticket edits are allowed.
+    Raises Json.Decode_error on inconsistent placement or gates. *)
+val validate_initial_instance : t -> Workflow_template.Instance.t -> unit
+
 val resource_version
   :  t
   -> Id.Resource.t

@@ -128,10 +128,18 @@ module Requirement = struct
       Role { name; members = canonical members Id.Actor.compare }
   ;;
 
+  let named_fields actor = req "kind" (Api_codec.literal "actor") <*> req "actor_id" actor
+
+  let role_fields actor =
+    req "kind" (Api_codec.literal "role")
+    <*> req "name" (Api_codec.text ~max_bytes:96)
+    <*> req "member_ids" (Api_codec.list actor ~max_items:100)
+  ;;
+
   let codec =
     let named =
       obj
-        (req "kind" (Api_codec.literal "actor") <*> req "actor_id" actor_codec)
+        (named_fields actor_codec)
         ~decode:(fun ((), actor) -> Named_actor actor)
         ~encode:(function
           | Named_actor actor -> (), actor
@@ -139,9 +147,7 @@ module Requirement = struct
     in
     let role =
       obj
-        (req "kind" (Api_codec.literal "role")
-         <*> req "name" (Api_codec.text ~max_bytes:96)
-         <*> req "member_ids" (Api_codec.list actor_codec ~max_items:100))
+        (role_fields actor_codec)
         ~decode:(fun (((), name), members) -> Role { name; members })
         ~encode:(function
           | Role { name; members } -> ((), name), members
@@ -160,6 +166,17 @@ module Requirement = struct
           normalize t))
       ~encode:Fn.id
       ~description:"Named reviewer or nonempty explicit reviewer role."
+  ;;
+
+  let raw_codec =
+    let raw fields = Api_codec.as_json (Api_codec.object_ fields) in
+    Api_codec.tagged
+      ~discriminator:"kind"
+      ~cases:
+        [ "actor", raw (named_fields (Api_codec.reference actor_codec))
+        ; "role", raw (role_fields (Api_codec.reference actor_codec))
+        ]
+      ~select:(fun value -> Json.text (Json.field value "kind"))
   ;;
 
   let jsonaf_of_t = encode codec
@@ -183,6 +200,17 @@ let reviewers_valid reviewers =
        (canonical (List.map reviewers ~f:Requirement.normalize) Requirement.compare)
      = List.length reviewers)
     "duplicate reviewer requirement"
+;;
+
+let reviewer_requirements =
+  Api_codec.map
+    (Api_codec.list Requirement.codec ~max_items:100)
+    ~decode:(fun reviewers ->
+      Json.decode (fun () ->
+        reviewers_valid reviewers;
+        canonical (List.map reviewers ~f:Requirement.normalize) Requirement.compare))
+    ~encode:Fn.id
+    ~description:"Canonical unique named actors and explicit nonempty reviewer roles."
 ;;
 
 module Criterion = struct

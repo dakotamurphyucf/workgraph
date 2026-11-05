@@ -1420,6 +1420,58 @@ let resource_admission_bytes resources =
   Map.fold sizes ~init:0 ~f:(fun ~key:_ ~data:size total -> total + size)
 ;;
 
+let validate_initial_instance t (instance : Workflow_template.Instance.t) =
+  List.iter instance.tickets ~f:(fun node ->
+    let ticket = find_ticket t node.Workflow_template.Planned_ticket.ticket in
+    require
+      (String.equal ticket.title node.title
+       && String.equal ticket.description node.description
+       && Option.equal Id.Project.equal ticket.project instance.bindings.project
+       && Option.equal Id.Milestone.equal ticket.milestone instance.bindings.milestone
+       && Option.equal Id.Ticket.equal ticket.parent node.parent
+       && List.equal
+            Id.Ticket.equal
+            (List.dedup_and_sort ticket.prerequisites ~compare:Id.Ticket.compare)
+            (List.dedup_and_sort node.dependencies ~compare:Id.Ticket.compare))
+      Conflict
+      "instance ticket graph or placement differs from plan";
+    let allocation = Agent_run.get_ticket_policy t.agent_runs node.ticket in
+    let gated =
+      (not (List.is_empty node.capabilities))
+      || Option.is_some (Actor_eligibility.allowed_actors node.allowed_actor_ids)
+    in
+    require
+      (match allocation with
+       | None -> not gated
+       | Some policy ->
+         List.equal
+           String.equal
+           (List.sort policy.required_capabilities ~compare:String.compare)
+           (List.sort node.capabilities ~compare:String.compare)
+         && List.is_empty policy.pools
+         && Actor_eligibility.equal policy.allowed_actor_ids node.allowed_actor_ids)
+      Conflict
+      "instance allocation policy differs from plan";
+    let review =
+      List.find (Evidence.current_policies t.evidence) ~f:(fun policy ->
+        Id.Ticket.equal policy.Evidence.Policy.ticket node.ticket)
+    in
+    let gated = (not (List.is_empty node.reviewers)) || node.separate_actor in
+    require
+      (match review with
+       | None -> not gated
+       | Some policy ->
+         Bool.equal policy.enabled gated
+         && Bool.equal policy.separate_actor node.separate_actor
+         && List.is_empty policy.validators
+         && List.equal
+              Acceptance_policy.Requirement.equal
+              (List.sort policy.reviewers ~compare:Acceptance_policy.Requirement.compare)
+              (List.sort node.reviewers ~compare:Acceptance_policy.Requirement.compare))
+      Conflict
+      "instance local review policy differs from plan")
+;;
+
 let validate ?previous t =
   let capacity limit ~used ~attempted =
     if attempted > Admission.Limit.maximum limit
@@ -1429,6 +1481,10 @@ let validate ?previous t =
            (Admission.refusal limit ~used ~attempted ~kind:Invalid_argument))
   in
   let previous_used f = Option.value_map previous ~default:(f t) ~f in
+  Option.iter previous ~f:(fun previous ->
+    List.iter (Agent_run_policy.instances t.policies) ~f:(fun instance ->
+      if Option.is_none (Agent_run_policy.get_instance previous.policies instance.id)
+      then validate_initial_instance t instance));
   Map.iteri t.hierarchy_policies ~f:(fun ~key ~data:definition ->
     ignore (find_ticket t key : Ticket.t);
     require
@@ -1446,14 +1502,42 @@ let validate ?previous t =
      Agent_run_policy.validate_references
        t.policies
        ~resource_version:(fun id ~revision ->
-         Result.ok
-           (Json.decode (fun () ->
-              let r =
-                match Map.find t.resources id with
-                | Some r -> r
-                | None -> Json.fail Not_found "resource not found"
-              in
-              (Resource.get_version r ~revision:(Some revision)).digest)))
+         Json.decode (fun () ->
+           let fail path expected message =
+             raise
+               (Json.Decode_error
+                  (Problem.create Not_found message
+                   |> fun problem ->
+                   Problem.with_details
+                     problem
+                     (Field
+                        { path = [ path ]
+                        ; expected
+                        ; suggestion =
+                            Some
+                              "Use template.publish to publish the canonical \
+                               specification before registration."
+                        })))
+           in
+           let resource =
+             match Map.find t.resources id with
+             | Some resource -> resource
+             | None ->
+               fail
+                 "template_id"
+                 "published template resource"
+                 "template resource is missing"
+           in
+           match
+             List.find resource.Resource.versions ~f:(fun version ->
+               Int.equal version.Resource.Version.revision revision)
+           with
+           | Some version -> version.digest
+           | None ->
+             fail
+               "template_revision"
+               "retained immutable template content version"
+               "template content version is missing"))
        ~run_exists:(fun id -> Option.is_some (Agent_run.get_run t.agent_runs id))
        ~attempt_exists:(fun id -> Option.is_some (Agent_run.get_attempt t.agent_runs id))
        ~ticket_exists:(Map.mem t.tickets)
