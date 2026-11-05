@@ -111,13 +111,15 @@ class CoordinationSocketTest(unittest.TestCase):
                     recovery = dict(ticket_id="task", expected_revision=ticket["revision"], recovery_id="recover",
                                     old_actor_id="worker", old_run_id="run", token=ticket["claim"]["token"],
                                     expected_lease_revision=ticket["claim"]["lease"]["revision"],
-                                    confirmation="isolated", reason="old sandbox stopped")
+                                    confirmation="isolated", disposition="requeue", reason="old sandbox stopped")
                     recovered = write("ticket.recover", "recover", **recovery)
                     after_recovery = ok("ticket.context", ticket_id="task")["data"]["ticket"]
                     self.assertIsNone(after_recovery["claim"])
-                    self.assertEqual("in_progress", after_recovery["status"])
-                    write("ticket.update", "resume-ready", ticket_id="task",
-                          expected_revision=after_recovery["revision"], status="todo")
+                    self.assertEqual("todo", after_recovery["status"])
+                    self.assertIsNone(after_recovery["status_id"])
+                    self.assertEqual([], ok("reservation.path.get", target=TARGET)["data"]["holders"])
+                    self.assertEqual("cancelled", ok("attempt.get", attempt_id="attempt")["data"]["state"])
+                    self.assertTrue(ok("ticket.readiness", ticket_id="task", target_run_id="run")["data"]["ready"])
                     write("ticket.claim", "replacement", run_id="run", ticket_id="task")
                     before = revision()
                     rejected("ticket.recover", "Conflict", actor_id="worker", mutation_id="stale-recovery", **recovery)
@@ -130,6 +132,7 @@ class CoordinationSocketTest(unittest.TestCase):
                     self.assertEqual(recovered, write("ticket.recover", "recover", **recovery))
                     audit = ok("ticket.recovery.get", recovery_id="recover")
                     self.assertEqual("recover", audit["data"]["request"]["recovery_id"])
+                    self.assertEqual("requeue", audit["data"]["request"]["disposition"])
                     self.assertEqual(revision(), audit["meta"]["workspace_revision"])
                     self.assertEqual("2", ok("ticket.context", ticket_id="task")["data"]["ticket"]["claim"]["token"])
                 finally:

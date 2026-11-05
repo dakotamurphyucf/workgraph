@@ -25,10 +25,22 @@ end
 
 (** Explicit external-process confirmation followed by exact guarded recovery.
     Expiry alone is insufficient. [old_run_id=None] identifies ownership without
-    run attribution; a mismatched replacement owner always rejects. *)
+    run attribution; a mismatched replacement owner always rejects. Required
+    disposition records whether to preserve status or atomically requeue as Todo
+    with no custom status identity. Holds and historical progress/evidence remain;
+    matching active attempts and automatic claim reservations are cleaned up. *)
 module Recovery : sig
   module Recovery_id = Ownership_recovery.Recovery_id
   module Confirmation = Ownership_recovery.Confirmation
+
+  module Disposition : sig
+    type t =
+      | Preserve_status
+      | Requeue
+    [@@deriving equal, sexp]
+
+    val codec : t Api_codec.t
+  end
 
   type t =
     { recovery_id : Recovery_id.t
@@ -39,6 +51,7 @@ module Recovery : sig
     ; token : int
     ; expected_lease_revision : int
     ; confirmation : Confirmation.t
+    ; disposition : Disposition.t
     ; reason : string
     ; evidence : Evidence_event.Pin.t list
     }

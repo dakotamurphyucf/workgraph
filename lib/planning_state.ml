@@ -179,8 +179,15 @@ let ticket_after_recovery_exn (ticket : Ticket.t) ~recovery =
    | Ok () -> ()
    | Error problem -> raise (Json.Decode_error problem));
   if ticket.revision = Int.max_value then Json.fail Conflict "Ticket revision exhausted";
+  let status, status_id =
+    match request.disposition with
+    | Preserve_status -> ticket.status, ticket.status_id
+    | Requeue -> Domain_command.Status.Todo, None
+  in
   { ticket with
     claim = None
+  ; status
+  ; status_id
   ; revision = ticket.revision + 1
   ; updated_at = recovery.timestamp
   }

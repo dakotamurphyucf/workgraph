@@ -573,7 +573,7 @@ let%expect_test "recovery prefix clears ownership before later run and metadata 
     write
       state
       "ticket.recover"
-      {|{"ticket_id":"task","expected_revision":"2","recovery_id":"recovered","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","confirmation":"isolated","reason":"old execution stopped"}|}
+      {|{"ticket_id":"task","expected_revision":"2","recovery_id":"recovered","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","disposition":"preserve_status","confirmation":"isolated","reason":"old execution stopped"}|}
   in
   let after = State.revision state in
   let state =

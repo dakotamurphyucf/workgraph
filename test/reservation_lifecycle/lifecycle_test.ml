@@ -213,14 +213,22 @@ let%expect_test "guarded ticket recovery releases exact borrower and preserves s
   let t =
     step ~run (fixture ()) "ticket.start" {|{"ticket_id":"a","attempt_id":"try"}|}
   in
-  let t = step ~run t "ticket.claim" {|{"ticket_id":"b"}|} in
+  let t = step ~run t "ticket.start" {|{"ticket_id":"b","attempt_id":"sibling"}|} in
   let t =
     step
       t
       "ticket.recover"
-      {|{"recovery_id":"recover","ticket_id":"a","expected_revision":"2","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","confirmation":"isolated","reason":"sandbox quarantined"}|}
+      {|{"recovery_id":"recover","ticket_id":"a","expected_revision":"2","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","disposition":"requeue","confirmation":"isolated","reason":"sandbox quarantined"}|}
   in
   show t;
+  print_s
+    [%sexp
+      ((Option.value_exn
+          (Agent_run.get_attempt
+             (State.agent_runs t)
+             (ok (Attempt.Id.of_string "sibling"))))
+         .state
+       : Attempt.State.t)];
   print_s
     [%sexp
       ((Option.value_exn
@@ -230,6 +238,7 @@ let%expect_test "guarded ticket recovery releases exact borrower and preserves s
   [%expect
     {|
     (1 ((automatic (b))))
+    Running
     Cancelled
     |}]
 ;;
@@ -754,7 +763,7 @@ let%expect_test "every claim exit preserves a reused manual hold" =
       , {|{"ticket_id":"a","expected_revision":"2","claimant_id":null,"reason":"unassign"}|}
       , None )
     ; ( "ticket.recover"
-      , {|{"recovery_id":"manual-recovery","ticket_id":"a","expected_revision":"2","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","confirmation":"isolated","reason":"quarantined"}|}
+      , {|{"recovery_id":"manual-recovery","ticket_id":"a","expected_revision":"2","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","disposition":"preserve_status","confirmation":"isolated","reason":"quarantined"}|}
       , None )
     ]
     ~f:(fun (method_, params, invocation) ->

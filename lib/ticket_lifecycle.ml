@@ -126,6 +126,17 @@ module Recovery = struct
   module Recovery_id = Ownership_recovery.Recovery_id
   module Confirmation = Ownership_recovery.Confirmation
 
+  module Disposition = struct
+    type t =
+      | Preserve_status
+      | Requeue
+    [@@deriving equal, sexp]
+
+    let codec =
+      Api_codec.enum [ "preserve_status", Preserve_status; "requeue", Requeue ] ~equal
+    ;;
+  end
+
   module Wire = struct
     type t =
       { recovery_id : Recovery_id.t
@@ -136,6 +147,7 @@ module Recovery = struct
       ; token : int
       ; expected_lease_revision : int
       ; confirmation : Confirmation.t
+      ; disposition : Disposition.t
       ; reason : string
       ; evidence : Evidence_event.Pin.t list
       }
@@ -170,15 +182,17 @@ module Recovery = struct
             <*> req "token" Coordination_wire.positive
             <*> req "expected_lease_revision" Coordination_wire.positive
             <*> req "confirmation" Confirmation.codec
+            <*> req "disposition" Disposition.codec
             <*> req "reason" (Coordination_wire.nonblank ~max_bytes:4096)
             <*> opt "evidence" Coordination_wire.evidence)
            ~decode:
              (fun
-               ( ( ( ( ( ( (((recovery_id, ticket_id), expected_revision), old_actor_id)
-                         , old_run_id )
-                       , token )
-                     , expected_lease_revision )
-                   , confirmation )
+               ( ( ( ( ( ( ( (((recovery_id, ticket_id), expected_revision), old_actor_id)
+                           , old_run_id )
+                         , token )
+                       , expected_lease_revision )
+                     , confirmation )
+                   , disposition )
                  , reason )
                , evidence ) ->
              { recovery_id
@@ -189,16 +203,18 @@ module Recovery = struct
              ; token
              ; expected_lease_revision
              ; confirmation
+             ; disposition
              ; reason
              ; evidence = Option.value evidence ~default:[]
              })
            ~encode:(fun t ->
-             ( ( ( ( ( ( ( ((t.recovery_id, t.ticket_id), t.expected_revision)
-                         , t.old_actor_id )
-                       , t.old_run_id )
-                     , t.token )
-                   , t.expected_lease_revision )
-                 , t.confirmation )
+             ( ( ( ( ( ( ( ( ((t.recovery_id, t.ticket_id), t.expected_revision)
+                           , t.old_actor_id )
+                         , t.old_run_id )
+                       , t.token )
+                     , t.expected_lease_revision )
+                   , t.confirmation )
+                 , t.disposition )
                , t.reason )
              , Some t.evidence )))
     ;;
@@ -213,6 +229,7 @@ module Recovery = struct
     ; token : int
     ; expected_lease_revision : int
     ; confirmation : Confirmation.t
+    ; disposition : Disposition.t
     ; reason : string
     ; evidence : Evidence_event.Pin.t list
     }
@@ -227,6 +244,7 @@ module Recovery = struct
     ; token = request.token
     ; expected_lease_revision = request.expected_lease_revision
     ; confirmation = request.confirmation
+    ; disposition = request.disposition
     ; reason = request.reason
     ; evidence = request.evidence
     }
@@ -241,6 +259,7 @@ module Recovery = struct
     ; token = t.token
     ; expected_lease_revision = t.expected_lease_revision
     ; confirmation = t.confirmation
+    ; disposition = t.disposition
     ; reason = t.reason
     ; evidence = t.evidence
     }

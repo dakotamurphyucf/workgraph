@@ -132,7 +132,9 @@ end
 
 (** Exact pure recovered control projection, shared by durable replay and captured
     activity reducers. Requires current old-owner/ticket/lease/token guards; clears
-    only the claim and increments revision/time, preserving recorded progress.
+    the claim and increments revision/time. Preserve_status retains status;
+    Requeue atomically sets Todo and clears custom status identity. Both retain
+    holds, recorded progress, evidence and historical attempts.
     Raises Json.Decode_error for invalid guards or exhausted revision. *)
 val ticket_after_recovery_exn : Ticket.t -> recovery:Ticket_recovery.t -> Ticket.t
 

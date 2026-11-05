@@ -178,7 +178,7 @@ let%expect_test "ticket recovery preserves progress and cancels only exact old a
     step ~run (fixture ()) "ticket.start" {|{"ticket_id":"task","attempt_id":"attempt"}|}
   in
   let request =
-    {|{"ticket_id":"task","recovery_id":"ticket-recovery","expected_revision":"2","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","confirmation":"isolated","reason":"sandbox stopped"}|}
+    {|{"ticket_id":"task","recovery_id":"ticket-recovery","expected_revision":"2","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","disposition":"preserve_status","confirmation":"isolated","reason":"sandbox stopped"}|}
   in
   let p = ok (prepare ~actor:operator t "ticket.recover" request) in
   let recovered = State.candidate p in
@@ -327,5 +327,245 @@ let%expect_test "project membership epochs fence A to B to A including moved chi
     {|
     (3 3)
     Invalid_argument
+    |}]
+;;
+
+let object_fields = function
+  | `Object fields -> fields
+  | _ -> assert false
+;;
+
+let recovery_request ?(disposition = "requeue") ?(revision = 2) () =
+  sprintf
+    {|{"ticket_id":"task","recovery_id":"ticket-recovery","expected_revision":"%d","old_actor_id":"worker","old_run_id":"run","token":"1","expected_lease_revision":"1","disposition":"%s","confirmation":"stopped","reason":"runner stopped"}|}
+    revision
+    disposition
+;;
+
+let%expect_test "requeue is atomic while holds and recorded progress remain" =
+  let started =
+    step
+      ~run
+      (fixture ())
+      "ticket.start"
+      {|{"ticket_id":"task","attempt_id":"attempt","initial_note":"checkpoint"}|}
+  in
+  let held =
+    step
+      started
+      "ticket.hold"
+      {|{"ticket_id":"task","expected_revision":"2","reason":"await operator"}|}
+  in
+  let prepared =
+    ok (prepare ~actor:operator held "ticket.recover" (recovery_request ~revision:3 ()))
+  in
+  let recovered = State.candidate prepared in
+  let c = context recovered in
+  let ticket = Json.field c "ticket" in
+  print_s
+    [%sexp
+      (Json.text (Json.field ticket "status") : string)
+    , (Json.field ticket "status_id" : Jsonaf.t)
+    , (Json.field ticket "claim" : Jsonaf.t)
+    , (Json.text (Json.field (Json.field ticket "hold") "reason") : string)
+    , (List.length (Json.list (Json.field (Json.field c "updates") "items")) : int)];
+  let readiness state =
+    ok
+      (State.query
+         state
+         ~method_:"ticket.readiness"
+         ~params:(parse {|{"ticket_id":"task","target_run_id":"run"}|}))
+    |> data
+  in
+  print_s [%sexp (Json.field (readiness recovered) "ready" : Jsonaf.t)];
+  outcome (prepare ~run recovered "ticket.start" {|{"ticket_id":"task"}|});
+  let released =
+    step
+      recovered
+      "ticket.hold"
+      {|{"ticket_id":"task","expected_revision":"4","reason":null}|}
+  in
+  print_s [%sexp (Json.field (readiness released) "ready" : Jsonaf.t)];
+  let replacement = step ~run released "ticket.claim" {|{"ticket_id":"task"}|} in
+  print_s [%sexp (Json.text (Json.field (claim replacement) "token") : string)];
+  print_s
+    [%sexp
+      (String.equal
+         (Json.canonical (State.to_json recovered))
+         (Json.canonical (State.to_json (ok (State.replay held (State.events prepared)))))
+       : bool)];
+  [%expect
+    {|
+    (todo Null Null "await operator" 1)
+    False
+    Blocked
+    True
+    2
+    true
+    |}]
+;;
+
+let%expect_test
+    "recovery requires explicit valid disposition on commands and audit replay"
+  =
+  let t = step ~run (fixture ()) "ticket.claim" {|{"ticket_id":"task"}|} in
+  let request = parse (recovery_request ()) in
+  let remove json field =
+    Json.obj
+      (object_fields json |> List.filter ~f:(fun (key, _) -> not (String.equal key field)))
+  in
+  let without = remove request "disposition" in
+  outcome (Domain_command.decode ~method_:"ticket.recover" ~params:without);
+  outcome (prepare t "ticket.recover" (recovery_request ~disposition:"automatic" ()));
+  let prepared = ok (prepare t "ticket.recover" (recovery_request ())) in
+  let events = State.events prepared in
+  let rec strip_disposition = function
+    | `Object fields ->
+      Json.obj
+        (List.filter_map fields ~f:(fun (key, value) ->
+           if String.equal key "disposition"
+           then None
+           else Some (key, strip_disposition value)))
+    | `Array values -> `Array (List.map values ~f:strip_disposition)
+    | value -> value
+  in
+  let corrupt = strip_disposition events in
+  outcome (State.replay t corrupt);
+  [%expect
+    {|
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test "recovery stale ownership and lease guards publish no cleanup" =
+  let t = step ~run (fixture ()) "ticket.claim" {|{"ticket_id":"task"}|} in
+  let original = Json.canonical (State.to_json t) in
+  let mutate key value =
+    let fields = object_fields (parse (recovery_request ())) in
+    Json.canonical (Json.obj (List.Assoc.add fields key value ~equal:String.equal))
+  in
+  List.iter
+    [ "expected_revision", Json.string "1"
+    ; "old_actor_id", Json.string "operator"
+    ; "old_run_id", `Null
+    ; "token", Json.string "2"
+    ; "expected_lease_revision", Json.string "2"
+    ]
+    ~f:(fun (key, value) -> outcome (prepare t "ticket.recover" (mutate key value)));
+  print_s [%sexp (String.equal original (Json.canonical (State.to_json t)) : bool)];
+  [%expect
+    {|
+    Conflict
+    Stale_claim
+    Stale_claim
+    Stale_claim
+    Conflict
+    true
+    |}]
+;;
+
+let%expect_test "requeue releases pool occupancy but retains manual run reservations" =
+  let t =
+    step
+      (fixture ())
+      "allocation.pool_put"
+      {|{"name":"build","expected_revision":"0","limit":"1"}|}
+  in
+  let t = step t "ticket.create" {|{"ticket_id":"next","title":"Next"}|} in
+  let t =
+    List.fold [ "task"; "next" ] ~init:t ~f:(fun t id ->
+      step
+        t
+        "allocation.ticket_policy_put"
+        (sprintf
+           {|{"ticket_id":"%s","expected_revision":"0","required_capabilities":[],"pools":["build"]}|}
+           id))
+  in
+  let t =
+    step
+      ~run
+      t
+      "reservation.acquire"
+      {|{"target_run_id":"run","requests":[{"reservation_id":"manual","mode":"exclusive"}]}|}
+  in
+  let t = step ~run t "ticket.start" {|{"ticket_id":"task","attempt_id":"attempt"}|} in
+  outcome (prepare ~run t "ticket.claim" {|{"ticket_id":"next"}|});
+  let prepared = ok (prepare ~actor:operator t "ticket.recover" (recovery_request ())) in
+  let recovered = State.candidate prepared in
+  outcome (prepare ~run recovered "ticket.claim" {|{"ticket_id":"next"}|});
+  let reservation =
+    Option.value_exn
+      (Agent_run.get_reservation
+         (State.agent_runs recovered)
+         (ok (Reservation.Name.of_string "manual")))
+  in
+  print_s [%sexp (List.length reservation.holders : int)];
+  print_s
+    [%sexp
+      (String.equal
+         (Json.canonical (State.to_json recovered))
+         (Json.canonical (State.to_json (ok (State.replay t (State.events prepared)))))
+       : bool)];
+  [%expect
+    {|
+    Blocked
+    ok
+    1
+    true
+    |}]
+;;
+
+let%expect_test "recovery disposition projects a replayed custom in_progress status" =
+  let t =
+    step
+      (fixture ())
+      "status.put"
+      {|{"status_id":"working","name":"Working","category":"in_progress","expected_revision":"0"}|}
+  in
+  let t = step ~run t "ticket.claim" {|{"ticket_id":"task"}|} in
+  let updated =
+    ok
+      (prepare
+         t
+         "ticket.hold"
+         {|{"ticket_id":"task","expected_revision":"2","reason":"Checkpoint"}|})
+  in
+  (* Public claiming clears custom status and metadata refuses status changes
+     while claimed. Replay still validates retained snapshots with a consistent
+     custom status and unchanged owner, so exercise that durable projection. *)
+  let rec custom_status = function
+    | `Object fields ->
+      if List.Assoc.mem fields "status_id" ~equal:String.equal
+      then
+        Json.obj
+          (List.Assoc.add fields "status_id" (Json.string "working") ~equal:String.equal)
+      else Json.obj (List.map fields ~f:(fun (key, value) -> key, custom_status value))
+    | `Array values -> `Array (List.map values ~f:custom_status)
+    | value -> value
+  in
+  let custom = ok (State.replay t (custom_status (State.events updated))) in
+  List.iter [ "preserve_status"; "requeue" ] ~f:(fun disposition ->
+    let prepared =
+      ok (prepare custom "ticket.recover" (recovery_request ~revision:3 ~disposition ()))
+    in
+    let recovered = State.candidate prepared in
+    let ticket = Json.field (context recovered) "ticket" in
+    print_s
+      [%sexp
+        (disposition : string)
+      , (Json.text (Json.field ticket "status") : string)
+      , (Json.field ticket "status_id" : Jsonaf.t)
+      , (claim recovered : Jsonaf.t)
+      , (String.equal
+           (Json.canonical (State.to_json recovered))
+           (Json.canonical
+              (State.to_json (ok (State.replay custom (State.events prepared)))))
+         : bool)]);
+  [%expect
+    {|
+    (preserve_status in_progress (String working) Null true)
+    (requeue todo Null Null true)
     |}]
 ;;

@@ -277,11 +277,20 @@ Page immutable named/path recovery audits using coordination captures.
 
 Recover a ticket claim using its exact ticket revision, old actor, old run
 (including explicit null when absent), claim token and lease revision. Supply a
-stable recovery ID, stopped/isolated confirmation, reason and optional evidence.
-The atomic audit transition cancels only matching active attempts, clears the
-claim and preserves status, progress, previous evidence and terminal attempts.
-It terminates no process. Reused recovery IDs conflict; exact saved mutation
-retries return the original receipt. Stale guards never release replacement work.
+stable recovery ID, stopped/isolated confirmation, required `disposition`, reason
+and optional evidence. Use `disposition:"requeue"` to clear the claim and return
+the ticket to `todo` in one transaction, clearing any custom status identity.
+Use `disposition:"preserve_status"` to clear ownership while retaining status.
+An unowned `in_progress` ticket remains excluded from ready work; requeue it
+explicitly when another worker should pick it up.
+
+Both dispositions cancel only matching active attempts, release the exact
+automatic claim borrowers and pool occupancy, and preserve holds, progress,
+previous evidence, terminal attempts, sibling borrowers and manual reservations.
+A retained hold still blocks readiness/start after requeue. The immutable audit
+records the chosen disposition. Recovery terminates no process. Reused recovery
+IDs conflict; exact saved mutation retries return the original receipt. Stale
+guards never release replacement work.
 
 ### `ticket.recovery.get`
 
