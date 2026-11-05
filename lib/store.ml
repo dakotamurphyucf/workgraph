@@ -243,17 +243,22 @@ let with_uploads t f =
     f t.uploads |> Disk.unwrap)
 ;;
 
-let begin_upload t ~id ~actor ~size_bytes ~digest =
+let begin_upload t ~now_unix_ms ~id ~actor ~size_bytes ~digest =
   with_uploads t (fun uploads ->
-    Upload.begin_upload uploads ~id ~actor ~size_bytes ~digest)
+    Upload.begin_upload uploads ~id ~actor ~now_unix_ms ~size_bytes ~digest)
 ;;
 
-let upload_chunk t ~id ~actor ~offset ~bytes =
-  with_uploads t (fun uploads -> Upload.chunk uploads ~id ~actor ~offset ~bytes)
+let upload_chunk t ~now_unix_ms ~id ~actor ~offset ~bytes =
+  with_uploads t (fun uploads ->
+    Upload.chunk uploads ~id ~actor ~now_unix_ms ~offset ~bytes)
 ;;
 
 let upload_status t ~id ~actor =
   with_uploads t (fun uploads -> Upload.status uploads ~id ~actor)
+;;
+
+let list_uploads t ~now_unix_ms =
+  with_uploads t (fun uploads -> Ok (Upload.list uploads ~now_unix_ms))
 ;;
 
 let abort_upload t ~id ~actor =

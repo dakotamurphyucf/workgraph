@@ -50,6 +50,24 @@ module Status : sig
   val of_result : Identity.t -> method_:string -> Jsonaf.t -> t
 end
 
+module List_request : sig
+  type t
+
+  val workspace : t -> Id.Workspace.t
+  val codec : t Api_codec.t
+end
+
+module Listing : sig
+  (** Complete max-eight ID-ordered snapshot. Observed, created and updated clocks
+      use epoch milliseconds; age/idle are observed minus created/updated, clamped
+      at zero on wall-clock regression. Every owner's metadata is visible under
+      cooperative workspace scope; staging bytes retain their actor guard. *)
+  type t
+
+  val codec : t Api_codec.t
+  val of_result : Jsonaf.t -> t
+end
+
 module Aborted : sig
   type t
 
@@ -60,5 +78,6 @@ end
 val begin_method : (Begin_request.t, Status.t) Api_method.t
 val chunk_method : (Chunk_request.t, Status.t) Api_method.t
 val status_method : (Identity.t, Status.t) Api_method.t
+val list_method : (List_request.t, Listing.t) Api_method.t
 val abort_method : (Identity.t, Aborted.t) Api_method.t
 val methods : Api_method.Packed.t list

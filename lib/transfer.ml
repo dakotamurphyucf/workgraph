@@ -68,11 +68,30 @@ module Upload_plan = struct
     ; file : string
     ; digest : string
     ; size_bytes : int
+    ; upload : Id.Upload.t
     }
+
+  let stable_upload ~actor ~mutation ~resource ~digest ~size_bytes =
+    "u_"
+    ^ Json.hash
+        (Json.canonical
+           (Json.obj
+              [ "actor", Id.Actor.jsonaf_of_t actor
+              ; "mutation", Id.Mutation.jsonaf_of_t mutation
+              ; "resource", Id.Resource.jsonaf_of_t resource
+              ; "digest", Json.string digest
+              ; "size", Json.int size_bytes
+              ]))
+    |> Id.Upload.of_string
+    |> Disk.unwrap
+  ;;
+
+  let upload_id t = t.upload
 
   let params t =
     Json.obj
       ([ "transfer_version", Json.int 1
+       ; "upload_id", Id.Upload.jsonaf_of_t t.upload
        ; "workspace_id", Id.Workspace.jsonaf_of_t t.workspace
        ; "actor_id", Id.Actor.jsonaf_of_t t.actor
        ; "mutation_id", Id.Mutation.jsonaf_of_t t.mutation
@@ -100,6 +119,7 @@ module Upload_plan = struct
         params
         ~allowed:
           [ "transfer_version"
+          ; "upload_id"
           ; "workspace_id"
           ; "actor_id"
           ; "run_id"
@@ -158,6 +178,14 @@ module Upload_plan = struct
       in
       if size_bytes > Resource.max_blob_bytes
       then Json.fail Invalid_argument "upload exceeds 64MiB";
+      let upload = stable_upload ~actor ~mutation ~resource ~digest ~size_bytes in
+      (match
+         Json.optional params "transfer_version", Json.optional params "upload_id"
+       with
+       | Some _, Some supplied
+         when Id.Upload.equal upload (Id.Upload.t_of_jsonaf supplied) -> ()
+       | None, None -> ()
+       | _ -> Json.fail Invalid_argument "saved upload_id differs from the plan identity");
       { workspace
       ; actor
       ; run
@@ -171,6 +199,7 @@ module Upload_plan = struct
       ; file
       ; digest
       ; size_bytes
+      ; upload
       })
   ;;
 end
@@ -182,20 +211,7 @@ let upload_publication (plan : Upload_plan.t) ~client ~fs =
       ; "actor_id", Id.Actor.jsonaf_of_t plan.actor
       ]
     in
-    (* Include content identity in the stable upload ID, and therefore the finish
-       request hash. Reusing a mutation with different bytes cannot return success. *)
-    let upload_id =
-      "u_"
-      ^ Json.hash
-          (Json.canonical
-             (Json.obj
-                [ "actor", Id.Actor.jsonaf_of_t plan.actor
-                ; "mutation", Id.Mutation.jsonaf_of_t plan.mutation
-                ; "resource", Id.Resource.jsonaf_of_t plan.resource
-                ; "digest", Json.string plan.digest
-                ; "size", Json.int plan.size_bytes
-                ]))
-    in
+    let upload_id = Id.Upload.to_string (Upload_plan.upload_id plan) in
     let finish =
       identity
       @ Option.to_list
@@ -282,6 +298,17 @@ let upload_publication (plan : Upload_plan.t) ~client ~fs =
     let decoded = Api_response.of_json response |> Disk.unwrap in
     Api_response.require_durable decoded |> Disk.unwrap;
     response)
+;;
+
+let abort_upload (plan : Upload_plan.t) ~client =
+  Disk.protect (fun () ->
+    invoke_result
+      client
+      "upload.abort"
+      [ "workspace_id", Id.Workspace.jsonaf_of_t plan.workspace
+      ; "actor_id", Id.Actor.jsonaf_of_t plan.actor
+      ; "upload_id", Id.Upload.jsonaf_of_t (Upload_plan.upload_id plan)
+      ])
 ;;
 
 module Upload_result = struct

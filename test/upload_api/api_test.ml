@@ -69,6 +69,7 @@ let%expect_test
     upload.chunk Write
     upload.status Write
     upload.abort Write
+    upload.list Write
     |}]
 ;;
 
@@ -258,6 +259,44 @@ let%expect_test "resource pagination and references use actual request and resul
     ok
     Invalid_argument
     Invalid_argument
-    methods=8
+    methods=9
     |}]
+;;
+
+let%expect_test "staging listing validates ownership metadata, ordering and lifecycle" =
+  let row id received size created updated lifecycle =
+    match status id received size with
+    | `Object fields ->
+      Json.obj
+        (fields
+         @ [ "actor_id", Json.string "a"
+           ; "created_unix_ms", Json.int created
+           ; "updated_unix_ms", Json.int updated
+           ; "lifecycle", Json.string lifecycle
+           ])
+    | _ -> assert false
+  in
+  let listing rows = Json.obj [ "items", `Array rows; "observed_unix_ms", Json.int 20 ] in
+  report Upload_api.List_request.codec (json {|{"workspace_id":"w"}|});
+  report Upload_api.List_request.codec (json {|{"workspace_id":"w","actor_id":"a"}|});
+  List.iter
+    [ [ row "a" 0 1 1 2 "receiving"; row "b" 1 1 1 2 "ready" ]
+    ; [ row "a" 0 1 2 1 "receiving" ]
+    ; [ row "a" 0 1 1 2 "installed" ]
+    ; [ row "a" 1 1 1 2 "receiving" ]
+    ; [ row "a" 1 1 1 2 "ready"; row "a" 1 1 1 2 "ready" ]
+    ; [ row "b" 1 1 1 2 "ready"; row "a" 1 1 1 2 "ready" ]
+    ]
+    ~f:(fun rows -> report Upload_api.Listing.codec (listing rows));
+  [%expect
+    {|
+    ok
+    Invalid_argument
+    ok
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+  |}]
 ;;

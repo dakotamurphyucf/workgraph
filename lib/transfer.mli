@@ -10,8 +10,16 @@ module Upload_plan : sig
       Bad source inputs use Invalid_argument; expected local I/O uses Local_io. *)
   val prepare : fs:_ Eio.Path.t -> params:Jsonaf.t -> (t, Problem.t) Result.t
 
+  (** Stable staging identity, frozen and checked against the plan contents. *)
+  val upload_id : t -> Id.Upload.t
+
   val params : t -> Jsonaf.t
 end
+
+(** Abort only the saved plan's actor-owned staging. Guard supplied context scope
+    before calling this function. Never reads source bytes, publishes content or
+    deletes immutable blobs; exact receipt recovery through [upload] remains valid. *)
+val abort_upload : Upload_plan.t -> client:Client.t -> (Jsonaf.t, Problem.t) Result.t
 
 module Upload_result : sig
   type t =

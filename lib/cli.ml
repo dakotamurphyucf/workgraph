@@ -954,7 +954,14 @@ let run ~env arguments =
              Json.fail Invalid_argument "call fields must be supplied in its JSON object";
            request socket method_ { options with fields }
          | _ -> Json.fail Invalid_argument "call requires method and JSON parameters")
-      | "retry" :: rest ->
+      | "retry" :: rest
+      | "resource" :: "upload-abort" :: rest
+      | "resource.upload-abort" :: rest ->
+        let abort_upload =
+          match arguments with
+          | "resource" :: "upload-abort" :: _ | "resource.upload-abort" :: _ -> true
+          | _ -> false
+        in
         let socket, rest =
           match rest with
           | socket :: file :: rest
@@ -996,7 +1003,41 @@ let run ~env arguments =
           |> Protocol.Request.of_json
           |> Disk.unwrap
         in
-        execute socket options request
+        if abort_upload
+        then (
+          if not (String.equal (Protocol.Request.method_ request) "resource.upload")
+          then
+            Json.fail
+              Invalid_argument
+              "upload-abort requires a saved resource.upload plan";
+          let params = Protocol.Request.params request in
+          Option.iter !context ~f:(fun context ->
+            let scope = Cli_context.to_json context in
+            List.iter [ "workspace_id"; "actor_id" ] ~f:(fun field ->
+              match Json.optional scope field with
+              | Some expected
+                when not
+                       (String.equal
+                          (Json.text expected)
+                          (Json.text (Json.field params field))) ->
+                Json.fail Conflict ("saved upload plan differs from context " ^ field)
+              | Some _ | None -> ()));
+          let plan = Transfer.Upload_plan.prepare ~fs ~params |> Disk.unwrap in
+          let client =
+            Client.create
+              ~net:(Eio.Stdenv.net env)
+              ~clock:(Eio.Stdenv.mono_clock env)
+              ~socket
+              ~timeout_seconds:options.timeout_seconds
+            |> Disk.unwrap
+          in
+          let result = Transfer.abort_upload plan ~client |> Disk.unwrap in
+          output
+            (if options.text
+             then render_text result
+             else Json.canonical (Protocol.response_json request (Success result)));
+          0)
+        else execute socket options request
       | "request" :: rest ->
         let explicit_socket =
           Option.value_map (List.hd rest) ~default:false ~f:Filename.is_absolute

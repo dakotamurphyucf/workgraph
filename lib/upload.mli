@@ -12,6 +12,7 @@ val begin_upload
   :  t
   -> id:Id.Upload.t
   -> actor:Id.Actor.t
+  -> now_unix_ms:int64
   -> size_bytes:int
   -> digest:string
   -> (Jsonaf.t, Problem.t) Result.t
@@ -20,11 +21,19 @@ val chunk
   :  t
   -> id:Id.Upload.t
   -> actor:Id.Actor.t
+  -> now_unix_ms:int64
   -> offset:int
   -> bytes:string
   -> (Jsonaf.t, Problem.t) Result.t
 
 val status : t -> id:Id.Upload.t -> actor:Id.Actor.t -> (Jsonaf.t, Problem.t) Result.t
+
+(** Complete ID-ordered ephemeral snapshot, bounded to eight entries. Includes
+    every actor's staging identity, epoch-ms creation/update times, progress and
+    receiving/ready/installed lifecycle. No idle expiry: explicit owner abort or
+    daemon restart removes abandoned staging. Bytes remain actor-private. *)
+val list : t -> now_unix_ms:int64 -> Jsonaf.t
+
 val abort : t -> id:Id.Upload.t -> actor:Id.Actor.t -> (unit, Problem.t) Result.t
 
 (** Verify and sync all bytes, then install in the digest store. Repeatable while

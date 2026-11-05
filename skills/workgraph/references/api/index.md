@@ -273,6 +273,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [upload.abort](upload.abort.md) | advanced | write | Discard private staging and free upload admission. |
 | [upload.begin](upload.begin.md) | advanced | write | Begin or resume actor-owned ephemeral byte staging. |
 | [upload.chunk](upload.chunk.md) | advanced | write | Stage a contiguous opaque byte chunk or exact range retry. |
+| [upload.list](upload.list.md) | advanced | write | Inspect complete live staging owner, progress, lifecycle and epoch-ms age metadata. |
 | [upload.status](upload.status.md) | advanced | write | Read private live staging progress. |
 | [usage.aggregate](usage.aggregate.md) | advanced | read | Aggregate immutable caller-reported usage and named integer samples in one current capture. |
 | [usage.list](usage.list.md) | advanced | read | List usage records matching the explicit filters. |

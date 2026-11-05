@@ -98,6 +98,7 @@ let layout method_ =
     | "upload.chunk"
     | "upload.abort"
     | "upload.status"
+    | "upload.list"
     | "resource.read"
     | "resource.read_chunk"
     | "run.heartbeat"

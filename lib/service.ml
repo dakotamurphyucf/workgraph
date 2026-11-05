@@ -1094,6 +1094,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
             worker (fun () ->
               Store.begin_upload
                 value.store
+                ~now_unix_ms:observed_unix_ms
                 ~id:(Upload_api.Identity.upload identity)
                 ~actor:(Upload_api.Identity.actor identity)
                 ~size_bytes:(Upload_api.Begin_request.size_bytes request)
@@ -1109,6 +1110,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
             worker (fun () ->
               Store.upload_chunk
                 value.store
+                ~now_unix_ms:observed_unix_ms
                 ~id:(Upload_api.Identity.upload identity)
                 ~actor:(Upload_api.Identity.actor identity)
                 ~offset:(Upload_api.Chunk_request.offset request)
@@ -1126,6 +1128,16 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                 ~id:(Upload_api.Identity.upload identity)
                 ~actor:(Upload_api.Identity.actor identity))
             |> Result.map ~f:(Upload_api.Status.of_result identity ~method_))
+          |> Disk.unwrap
+        | "upload.list" ->
+          Api_method.invoke Upload_api.list_method ~params ~f:(fun request ->
+            let value =
+              get_loaded
+                (Id.Workspace.to_string (Upload_api.List_request.workspace request))
+            in
+            worker (fun () ->
+              Store.list_uploads value.store ~now_unix_ms:observed_unix_ms)
+            |> Result.map ~f:Upload_api.Listing.of_result)
           |> Disk.unwrap
         | "upload.abort" ->
           Api_method.invoke Upload_api.abort_method ~params ~f:(fun identity ->
@@ -1526,6 +1538,15 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  (Time_ns.Span.of_sec (Eio.Time.now (Eio.Stdenv.clock env)))
                |> Time_ns.to_string_utc
              in
+             let release_failed_upload result =
+               (match result with
+                | Error problem
+                  when not (Problem.equal_kind problem.Problem.kind Outcome_unknown) ->
+                  Option.iter upload ~f:(fun id ->
+                    worker (fun () -> Store.forget_upload value.store ~id))
+                | Ok _ | Error _ -> ());
+               result
+             in
              let outcome =
                State.prepare_submission
                  value.state
@@ -1535,6 +1556,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  command
                  ~actor
                  ~timestamp
+               |> release_failed_upload
                |> Disk.unwrap
              in
              (match outcome with
@@ -1548,6 +1570,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
               | Prepared prepared ->
                 let response =
                   worker (fun () -> Store.commit value.store ~prepared ~key ~request_hash)
+                  |> release_failed_upload
                   |> Disk.unwrap
                 in
                 loaded

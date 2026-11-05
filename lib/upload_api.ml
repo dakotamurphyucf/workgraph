@@ -154,6 +154,100 @@ module Status = struct
   ;;
 end
 
+module List_request = struct
+  type t = Id.Workspace.t
+
+  let workspace t = t
+
+  let codec =
+    Api_codec.object_
+      (Fields.required "workspace_id" (id Id.Workspace.of_string Id.Workspace.to_string))
+  ;;
+end
+
+module Listing = struct
+  type lifecycle =
+    | Receiving
+    | Ready
+    | Installed
+  [@@deriving equal]
+
+  type row =
+    { status : Status.t
+    ; actor : Id.Actor.t
+    ; created : int64
+    ; updated : int64
+    ; lifecycle : lifecycle
+    }
+
+  type t =
+    { rows : row list
+    ; observed : int64
+    }
+
+  let row_codec =
+    Api_codec.map
+      (Api_codec.merge_objects
+         Status.codec
+         (Api_codec.object_
+            (Fields.required "actor_id" (id Id.Actor.of_string Id.Actor.to_string)
+             ++ Fields.required
+                  "created_unix_ms"
+                  (Api_codec.decimal64 ~max:Int64.max_value)
+             ++ Fields.required
+                  "updated_unix_ms"
+                  (Api_codec.decimal64 ~max:Int64.max_value)
+             ++ Fields.required
+                  "lifecycle"
+                  (Api_codec.enum
+                     [ "receiving", Receiving; "ready", Ready; "installed", Installed ]
+                     ~equal:equal_lifecycle))))
+      ~decode:(fun (status, (((actor, created), updated), lifecycle)) ->
+        if
+          Int64.(updated < created)
+          ||
+          match lifecycle with
+          | Receiving -> Status.received status >= Status.size_bytes status
+          | Ready | Installed -> Status.received status <> Status.size_bytes status
+        then
+          Error
+            (Problem.create Invalid_argument "invalid staging lifecycle or timestamps")
+        else Ok { status; actor; created; updated; lifecycle })
+      ~encode:(fun { status; actor; created; updated; lifecycle } ->
+        status, (((actor, created), updated), lifecycle))
+      ~description:
+        "Cooperative staging metadata; timestamps are epoch milliseconds, never \
+         publication evidence."
+  ;;
+
+  let codec =
+    Api_codec.map
+      (Api_codec.object_
+         (Fields.required "items" (Api_codec.list row_codec ~max_items:8)
+          ++ Fields.required "observed_unix_ms" (Api_codec.decimal64 ~max:Int64.max_value)
+         ))
+      ~decode:(fun (rows, observed) ->
+        if
+          List.is_sorted_strictly rows ~compare:(fun a b ->
+            Id.Upload.compare (Status.upload a.status) (Status.upload b.status))
+        then Ok { rows; observed }
+        else
+          Error
+            (Problem.create
+               Invalid_argument
+               "staging rows must have distinct sorted upload IDs"))
+      ~encode:(fun { rows; observed } -> rows, observed)
+      ~description:
+        "Complete live staging snapshot in upload ID order; at most eight rows."
+  ;;
+
+  let of_result result =
+    match Api_codec.decode codec result with
+    | Ok result -> result
+    | Error problem -> raise (Api_method.Invalid_response ("upload.list", problem))
+  ;;
+end
+
 module Aborted = struct
   type t = Confirmed
 
@@ -201,6 +295,17 @@ let status_method =
     ~response:Status.codec
 ;;
 
+let list_method =
+  Api_method.create
+    ~name:"upload.list"
+    ~summary:
+      "Inspect complete live staging owner, progress, lifecycle and epoch-ms age \
+       metadata."
+    ~mode:Write
+    ~request:List_request.codec
+    ~response:Listing.codec
+;;
+
 let abort_method =
   Api_method.create
     ~name:"upload.abort"
@@ -215,5 +320,6 @@ let methods =
   ; Pack chunk_method
   ; Pack status_method
   ; Pack abort_method
+  ; Pack list_method
   ]
 ;;

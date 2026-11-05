@@ -13,7 +13,12 @@ let canonical_method_name = function
 ;;
 
 let local_methods =
-  [ "resource.upload"; "resource.download"; "evidence.show"; "evidence.clean" ]
+  [ "resource.upload"
+  ; "resource.upload-abort"
+  ; "resource.download"
+  ; "evidence.show"
+  ; "evidence.clean"
+  ]
 ;;
 
 let helper_help = function
@@ -178,6 +183,16 @@ Use help METHOD for actual response fields; no universal id/status is invented.|
        Result paths: .result.data.resource_id; .revision is the entity guard,\n\
        .version.{revision,digest} is the immutable evidence identity.\n\
        This helper is not a daemon method. Read skills/workgraph/references/resources.md."
+  | "resource.upload-abort" ->
+    Some
+      {|resource.upload-abort [local helper]
+Usage: workgraph resource upload-abort [ABS_SOCKET] ABS_SAVED_UPLOAD_PLAN
+  [--timeout SECONDS] [--output json|text]
+Context workspace/actor must match the saved plan when present. The stable
+upload_id is validated before transmission; source bytes are never read.
+Only owner staging is aborted. Published blobs and exact finish receipts remain.
+Recover publication with workgraph retry [ABS_SOCKET] ABS_SAVED_UPLOAD_PLAN.
+No automatic idle expiry; inspect upload.list and explicitly abort abandoned work.|}
   | "resource.download" ->
     Some
       "resource.download [local helper]\n\
@@ -894,7 +909,10 @@ let help ?(detail = Detail.Brief) ?(core = false) ~method_name () =
          ^ "\nUse workgraph help METHOD for exact inputs, examples and result paths."
          ^
          if Option.equal String.equal method_name (Some "resource")
-         then "\nLocal helpers: resource.upload, resource.download (help each helper)."
+         then
+           "\n\
+            Local helpers: resource.upload, resource.upload-abort, resource.download \
+            (help each helper)."
          else if
            Option.equal String.equal method_name (Some "reservation")
            || Option.equal String.equal method_name (Some "reservation.paths")

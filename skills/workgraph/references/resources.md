@@ -81,13 +81,24 @@ normal durable planning mutation with a mutation identity/optional run attributi
 Begin with exact size/digest, send canonical padded Base64 chunks at received, inspect
 status to resume, then finish with resource metadata and its observed expected_revision.
 A contained previously received range with identical bytes is a safe chunk retry; gaps,
-partial overlaps and changed bytes conflict. There is no implicit network retry, upload
-listing or upload.finish daemon method. Empty uploads need no chunks. Finish requires
+partial overlaps and changed bytes conflict. There is no implicit network retry or upload.finish daemon method.
+upload.list gives a complete upload-ID-ordered snapshot of the at most eight live
+entries, including actor_id, received/declared bytes, digest, creation/update epoch
+milliseconds and receiving/ready/installed lifecycle. Its observed_unix_ms permits
+computing age and idle time (clamp clock regression to zero). These are cooperative
+workspace metadata, not an authentication boundary; bytes and mutation operations
+retain their actor guard. No automatic idle expiry is applied: the caller may be
+paused or retrying an uncertain publication. Explicit owner abort or daemon restart
+removes abandoned staging. Empty uploads need no chunks. Finish requires
 all bytes, verifies size/SHA-256, syncs/installs the blob, then commits the resource
 version and durable receipt. It is standalone, outside transaction.apply groups. A
-failed revision guard can leave an installed orphan with no resource publication. While
-staging is live, a deliberate corrected finish can use revised metadata and a fresh
-mutation ID. After publication staging is forgotten, but exact original receipt retry
+failed revision guard can leave an installed orphan with no resource publication.
+Definitive publication preparation/commit failures release installed staging admission;
+re-stage the original bytes to retry the exact saved plan, or deliberately prepare a new
+plan with corrected metadata and a fresh mutation identity. Incomplete staging remains
+resumable. Outcome_unknown, cancellation and unexpected exceptions do not trigger this
+cleanup: retain the original finish identity and inspect/retry its exact receipt.
+After publication staging is forgotten, but exact original receipt retry
 still works. After lost acknowledgement/restart, retry/check the ORIGINAL finish first:
 receipt lookup precedes staging lookup. If no receipt exists, re-stage the original
 bytes (the same raw upload ID can begin again) and send that same finish. Restart
@@ -130,6 +141,7 @@ Read a method schema for exact required fields and result types.
 | [`upload.begin`](api/upload.begin.md) | Begin/resume the same actor/ID/size/digest staging entry. Changed owner/size/digest conflicts; admission exhaustion is Invalid_argument. Empty staging is supported. |
 | [`upload.chunk`](api/upload.chunk.md) | Stage a contiguous nonempty chunk of at most 256KiB, or exactly retry an identical contained range. Missing/restarted upload is Not_found; chunks after install conflict. |
 | [`upload.status`](api/upload.status.md) | Observe received/declared size/digest for the live owner. Missing staging after restart/finish/abort is Not_found; different owner conflicts. |
+| [`upload.list`](api/upload.list.md) | Inspect the complete bounded staging snapshot for all cooperative owners; timestamps expose age and idle time without expiring entries. |
 | [`upload.abort`](api/upload.abort.md) | Discard live staging and free admission. Absent staging abort is safe; another live owner conflicts. Installed blobs/publications remain. |
 | [`resource.finish_upload`](api/resource.finish_upload.md) | Verify/install the actor-owned bytes and durably publish resource metadata/version. Exact retry checks the receipt before live staging, allowing recovery after restart. Incomplete upload conflicts; size/checksum mismatch is Invalid_argument. |
 
@@ -153,12 +165,28 @@ The helper hashes the source and expands a version-1 upload plan. With request
 journaling, it syncs the exact plan before sending. It checks workspace.receipt for the
 finish identity, begins/resumes staging, sends chunks of up to 256KiB and invokes
 resource.finish_upload. The saved plan freezes all metadata/run/mutation IDs, source
-absolute path, size and digest. Its result is the durable finish receipt. Recover with
+absolute path, size, digest and deterministic upload_id. Decoding checks that the saved
+upload_id matches its frozen identity before transmission. Its result is the durable finish receipt. Recover with
 workgraph retry SOCKET SAVED_FILE. Completed retry can succeed after removing the source
 because receipt lookup precedes reading it. Incomplete retry verifies unchanged source
 bytes, resumes received or re-stages after restart. Changed source conflicts. No failed
 network operation retries implicitly. resource.upload is CLI-only: raw daemon calls
 fail. Use the helper's saved plan, rather than constructing an upload-plan schema.
+
+### Abort a saved upload plan
+
+```text
+"$WG" resource upload-abort [ABS_SOCKET] ABS_SAVED_UPLOAD_PLAN
+  [--timeout SECONDS] [--output json|text]
+```
+
+With context defaults, its workspace and actor (when supplied) must match the saved
+plan. Source bytes are never read. The helper validates the frozen upload ID and calls
+owner-scoped upload.abort; it never removes immutable blobs, resource versions or finish
+receipts. Repeating abort is safe. To recover publication instead, use the original
+`workgraph retry [ABS_SOCKET] ABS_SAVED_UPLOAD_PLAN`; it checks the exact finish receipt
+before looking at the source or staging. Aborting while publication is uncertain cannot
+undo a committed version, so retain the saved plan and recover that receipt first.
 
 ## CLI file download
 

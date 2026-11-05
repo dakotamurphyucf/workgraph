@@ -76,6 +76,7 @@ val read_blob_range
     until the durable receipt is returned; [forget_upload] then drops local state. *)
 val begin_upload
   :  t
+  -> now_unix_ms:int64
   -> id:Id.Upload.t
   -> actor:Id.Actor.t
   -> size_bytes:int
@@ -84,6 +85,7 @@ val begin_upload
 
 val upload_chunk
   :  t
+  -> now_unix_ms:int64
   -> id:Id.Upload.t
   -> actor:Id.Actor.t
   -> offset:int
@@ -95,6 +97,9 @@ val upload_status
   -> id:Id.Upload.t
   -> actor:Id.Actor.t
   -> (Jsonaf.t, Problem.t) Result.t
+
+(** Complete bounded ephemeral staging snapshot; metadata is workspace-visible. *)
+val list_uploads : t -> now_unix_ms:int64 -> (Jsonaf.t, Problem.t) Result.t
 
 val abort_upload : t -> id:Id.Upload.t -> actor:Id.Actor.t -> (unit, Problem.t) Result.t
 

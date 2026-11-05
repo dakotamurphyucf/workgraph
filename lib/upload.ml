@@ -7,6 +7,8 @@ module Entry = struct
     ; digest : string
     ; received : int
     ; installed : bool
+    ; created_unix_ms : int64
+    ; updated_unix_ms : int64
     }
 end
 
@@ -42,17 +44,19 @@ let find t id actor =
     entry
 ;;
 
-let response id (entry : Entry.t) =
-  Json.obj
-    [ "upload_id", Id.Upload.jsonaf_of_t id
-    ; "received", Json.int entry.received
-    ; "size_bytes", Json.int entry.size_bytes
-    ; "digest", Json.string entry.digest
-    ]
+let status_fields id (entry : Entry.t) =
+  [ "upload_id", Id.Upload.jsonaf_of_t id
+  ; "received", Json.int entry.received
+  ; "size_bytes", Json.int entry.size_bytes
+  ; "digest", Json.string entry.digest
+  ]
 ;;
 
-let begin_upload t ~id ~actor ~size_bytes ~digest =
+let response id entry = Json.obj (status_fields id entry)
+
+let begin_upload t ~id ~actor ~now_unix_ms ~size_bytes ~digest =
   Disk.protect (fun () ->
+    if Int64.(now_unix_ms < 0L) then Json.fail Invalid_argument "negative upload clock";
     if size_bytes < 0 || size_bytes > Resource.max_blob_bytes
     then Json.fail Invalid_argument "upload size must be 0..64MiB";
     if
@@ -95,14 +99,23 @@ let begin_upload t ~id ~actor ~size_bytes ~digest =
        | `Not_found -> ()
        | _ -> Json.fail Conflict "staged upload exists; abort it or choose a new ID");
       Disk.write_new (path t id) "";
-      let entry = { Entry.actor; size_bytes; digest; received = 0; installed = false } in
+      let entry =
+        { Entry.actor
+        ; size_bytes
+        ; digest
+        ; received = 0
+        ; installed = false
+        ; created_unix_ms = now_unix_ms
+        ; updated_unix_ms = now_unix_ms
+        }
+      in
       t.entries <- Map.set t.entries ~key:id ~data:entry;
       response id entry)
 ;;
 
 let status t ~id ~actor = Disk.protect (fun () -> response id (find t id actor))
 
-let chunk t ~id ~actor ~offset ~bytes =
+let chunk t ~id ~actor ~now_unix_ms ~offset ~bytes =
   Disk.protect (fun () ->
     let entry = find t id actor in
     if entry.installed
@@ -131,7 +144,12 @@ let chunk t ~id ~actor ~offset ~bytes =
           file
           ~file_offset:(Optint.Int63.of_int offset)
           [ Cstruct.of_string bytes ]);
-      let entry = { entry with received = offset + length } in
+      let entry =
+        { entry with
+          received = offset + length
+        ; updated_unix_ms = Int64.max entry.updated_unix_ms now_unix_ms
+        }
+      in
       t.entries <- Map.set t.entries ~key:id ~data:entry;
       response id entry))
 ;;
@@ -180,6 +198,30 @@ let abort t ~id ~actor =
        Platform.sync_directory t.directory
      | _ -> Json.fail Corrupt_store "invalid upload path");
     t.entries <- Map.remove t.entries id)
+;;
+
+let list t ~now_unix_ms =
+  Json.obj
+    [ "observed_unix_ms", Json.int64 now_unix_ms
+    ; ( "items"
+      , `Array
+          (Map.to_alist t.entries
+           |> List.map ~f:(fun (id, (entry : Entry.t)) ->
+             let lifecycle =
+               if entry.installed
+               then "installed"
+               else if Int.equal entry.received entry.size_bytes
+               then "ready"
+               else "receiving"
+             in
+             Json.obj
+               (status_fields id entry
+                @ [ "actor_id", Id.Actor.jsonaf_of_t entry.actor
+                  ; "created_unix_ms", Json.int64 entry.created_unix_ms
+                  ; "updated_unix_ms", Json.int64 entry.updated_unix_ms
+                  ; "lifecycle", Json.string lifecycle
+                  ]))) )
+    ]
 ;;
 
 let forget t ~id = t.entries <- Map.remove t.entries id

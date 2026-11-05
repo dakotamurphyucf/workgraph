@@ -19,7 +19,7 @@ def call(directory, *arguments, expected=0):
 
 
 with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
-    for helper in ["init", "bootstrap", "evidence-run", "evidence-publish", "resource.upload", "resource.download", "retry", "serve", "call"]:
+    for helper in ["init", "bootstrap", "evidence-run", "evidence-publish", "resource.upload", "resource.upload-abort", "resource.download", "retry", "serve", "call"]:
         local_help = call(directory, helper, "--help").stdout
         assert "[local helper]" in local_help
         if helper in ("init", "bootstrap"):
