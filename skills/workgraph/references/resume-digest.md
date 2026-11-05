@@ -220,3 +220,42 @@ CONTEXT=/absolute/private/agent/context.json
 When a digest returns `has_more`, send its cursor with the same scope and omit `after`.
 Keep paging before calling that captured interval complete. When a resume omits changes,
 continue its cursor through `activity.digest` using the same ticket scope.
+
+## Traverse exact audit changes
+
+Use `activity.read` for complete audit content when a valid transaction exceeds
+`activity.since`'s whole-commit response budget. It preserves original commit order,
+zero-based change ordinals, historical attribution and frozen target routing. Use
+`activity.digest` for classified history and `ticket.resume` for focused recovery.
+
+```sh
+"$WG" --context "$CONTEXT" request activity.read \
+  --after 0 --limit 50 --max-bytes 65536
+"$WG" --context "$CONTEXT" request activity.read \
+  --cursor "$CURSOR" --limit 50 --max-bytes 65536
+```
+
+An initial `after` fixes the retained prefix through `data.through`, identified by
+`data.lineage`. Resume with the returned `data.cursor`, omit `after`, and keep the
+optional `target` and `actor_id` selectors unchanged. Later commits stay outside
+that capture. Changed or unavailable retained lineage rejects `Conflict`. A null
+cursor means the capture is exhausted; start a new read with `after=through` to
+observe subsequent commits. Changing the byte budget or limit while continuing is
+allowed. No mutable server cursor or external process is created.
+
+Each item gives `revision`, `change_index`, original `change_count`, `byte_offset`,
+`total_bytes` and SHA256 `digest`. A `kind:"change"` item contains a complete public
+audit record in `value`, with exactly one original change and its source headers.
+When one such record cannot fit, `kind:"chunk"` contains a nonempty UTF8-safe slice
+of that record's canonical JSON text. Offsets and lengths count UTF8 bytes, not
+characters. Append slices in order, starting at byte zero; each following offset
+must equal bytes already collected. Require the final byte length and SHA256 to
+match, then parse the assembled JSON. Whole records use the same canonical bytes
+and digest. Chunks include exact content, including whitespace, rather than clipped
+prose. The next cursor never advances beyond unread change bytes.
+
+`remaining_changes` counts all incomplete or unread changes in the fixed capture,
+including a partially returned change. `limit` counts whole items or chunks,
+1..100. `max_bytes` counts the complete public result envelope, 4096..1048576.
+Budget omissions count changes excluded by byte fitting within the requested item
+limit; ordinary limit paging is represented by the cursor and remaining count.

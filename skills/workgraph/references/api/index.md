@@ -40,6 +40,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [acceptance.policy.get](acceptance.policy.get.md) | advanced | read | Read one acceptance policy record and its current revision. |
 | [acceptance.policy.put](acceptance.policy.put.md) | advanced | mutation | Create or update acceptance policy metadata with revision guards. |
 | [activity.digest](activity.digest.md) | core | read | Deterministic bounded recorded resume or captured digest. |
+| [activity.read](activity.read.md) | advanced | read | Traverse exact captured audit changes with bounded canonical JSON chunks; use activity.digest for semantic history or ticket.resume for focused recovery. |
 | [activity.since](activity.since.md) | advanced | read | Read bounded committed activity after a retained sequence. |
 | [actor.list](actor.list.md) | advanced | read | List actor records matching the explicit filters. |
 | [actor.overview](actor.overview.md) | advanced | read | Read held ownership, requests and explicitly selected unread state in one capture. |

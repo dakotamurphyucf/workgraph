@@ -81,6 +81,7 @@ let layout method_ =
     | "comment.history"
     | "handoff.get"
     | "handoff.history"
+    | "activity.read"
     | "activity.since"
     | "search.query"
     | "resource.list"

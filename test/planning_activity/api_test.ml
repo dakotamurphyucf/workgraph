@@ -237,3 +237,48 @@ let%expect_test "audit summaries preserve positive change counts and distinct ta
     Invalid_argument
     |}]
 ;;
+
+let%expect_test "exact audit traversal validates source identity and byte ranges" =
+  let bytes = Json.canonical fixture in
+  let row =
+    Json.obj
+      [ "kind", Json.string "change"
+      ; "revision", Json.int 3
+      ; "change_index", Json.int 0
+      ; "change_count", Json.int 2
+      ; "byte_offset", Json.int 0
+      ; "total_bytes", Json.int (String.length bytes)
+      ; "digest", Json.string (Json.hash bytes)
+      ; "value", fixture
+      ]
+  in
+  report Activity_read_api.Row.codec row;
+  report Activity_read_api.Row.codec (replace row "change_index" (Json.int 2));
+  report Activity_read_api.Row.codec (replace row "revision" (Json.int 4));
+  report Activity_read_api.Row.codec (replace row "byte_offset" (Json.int 1));
+  report
+    Activity_read_api.Row.codec
+    (replace row "digest" (Json.string (String.make 64 '0')));
+  let chunk =
+    row
+    |> fun value ->
+    replace value "kind" (Json.string "chunk")
+    |> fun value ->
+    replace value "value" (Json.string "é")
+    |> fun value -> replace value "byte_offset" (Json.int (String.length bytes - 1))
+  in
+  report Activity_read_api.Row.codec chunk;
+  report
+    Activity_read_api.Request.codec
+    (Jsonaf.of_string {|{"after":"0","cursor":"opaque"}|});
+  report Activity_read_api.Request.codec (Jsonaf.of_string {|{"max_bytes":"4095"}|});
+  [%expect
+    {| ok
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument
+ Invalid_argument |}]
+;;

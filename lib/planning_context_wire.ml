@@ -1091,10 +1091,25 @@ module Response = struct
       in
       let rec choose = function
         | [] ->
-          Json.fail
-            Invalid_argument
-            "first planning record or essential metadata exceeds max_bytes; increase \
-             max_bytes or narrow the query"
+          (match t with
+           | Activity _ ->
+             raise
+               (Json.Decode_error
+                  (Problem.with_details
+                     (Problem.create
+                        Invalid_argument
+                        "whole audit commit exceeds max_bytes; traverse exact changes \
+                         with activity.read")
+                     (Problem.Details.Field
+                        { path = [ "max_bytes" ]
+                        ; expected = "budget for a whole audit commit"
+                        ; suggestion = Some "activity.read"
+                        })))
+           | _ ->
+             Json.fail
+               Invalid_argument
+               "first planning record or essential metadata exceeds max_bytes; increase \
+                max_bytes or narrow the query")
         | (text_cap, item_cap) :: rest ->
           let result, bytes = attempt text_cap item_cap in
           if bytes <= max_bytes then result else choose rest

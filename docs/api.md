@@ -82,6 +82,8 @@ Stop and restart the daemon with the same registry/socket arguments. The ticket,
 claim, comments, handoff and mutation receipts recover from disk. `ticket.context`
 includes the latest handoff and comments newer than its coverage cursor; the
 full transaction history is available through `activity.since` and exports.
+Use `activity.read` to traverse exact changes and canonical JSON chunks when one
+commit exceeds the response budget; `activity.digest` provides classified history.
 Subsequent updates include edits and tombstones of older comments, not only newly
 created comments. The coverage cursor is conservative for progress and handoff
 updates committed together: that transaction’s updates remain visible.

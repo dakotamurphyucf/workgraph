@@ -13,6 +13,7 @@
   planning_query
   planning_metrics
   planning_resume
+  activity_read
   activity_digest
   resume_record
   resume_task
