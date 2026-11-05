@@ -25,11 +25,12 @@ model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE.t
 The harness owns agents, prompts, model calls, filesystem edits and external side
 effects; Workgraph records and coordinates their work.
 
-**Current release:** [v0.5.2 preview](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.2)
-uses application API **0.5** and stored roots **4**, unchanged from v0.5.0.
-Existing 0.5 workspaces, contexts, saved requests and exports remain usable; no
-reset or migration is needed. Upgrading from 0.4 or earlier still requires fresh
-0.5 data roots. Read the [release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.2.md).
+**Version 0.6.0 preview** uses application API **0.6**, affected stored roots
+**5** and saved upload plan **2**. Use fresh registry/workspace roots, socket,
+contexts and request journals when moving from 0.5 or earlier. Preserve the old
+binary with its old data; exports and saved requests are not a migration path.
+See the [release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.0.md). Qualification records
+bind exact source and package artifacts to their observed platform checks.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
 Install the self-contained [Workgraph skill](SKILL.md), then give
@@ -38,8 +39,8 @@ and links to focused instructions, API schemas and runnable helpers. The bundled
 [orchestrator overview](README.md) retains this complete team
 guide, including worker prompts and independent review workflows.
 See [skill installation](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/agent-skill.md) for copying the full folder into a
-harness. Version 0.5.2 packages include the full skill folder; a separate skill
-archive is also available from the release. [Guide coverage](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md) maps the
+harness. Version 0.6.0 packaging includes the full skill folder; the standalone
+skill archive is described in the release notes. [Guide coverage](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
 
@@ -188,8 +189,9 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following concrete URLs install **v0.5.2 preview**, whose bundled documentation
-applies. For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
+The following commands install **v0.6.0 preview** with its matching bundled docs.
+Check the release qualification evidence for the exact artifacts and platform scope.
+For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
 before replacing its executable or RPM.
 Choose the matching platform and stop if checksum verification fails. Keep WSL
 managed data on Linux `$HOME`, not `/mnt/c`. Review privileged installation commands
@@ -199,10 +201,10 @@ under your own machine policy.
 # AlmaLinux 10 x86_64, including AlmaLinux under WSL
 set -euo pipefail
 sudo dnf install -y jq python3 curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.5.2"
-cd "$HOME/Downloads/workgraph-0.5.2"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.2
-FILE=workgraph-0.5.2-1.el10.x86_64.rpm
+mkdir -p "$HOME/Downloads/workgraph-0.6.0"
+cd "$HOME/Downloads/workgraph-0.6.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.0
+FILE=workgraph-0.6.0-1.el10.x86_64.rpm
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
@@ -217,18 +219,18 @@ shell examples and helper; install it through your usual package manager.
 
 ```bash
 set -euo pipefail
-mkdir -p "$HOME/Downloads/workgraph-0.5.2"
-cd "$HOME/Downloads/workgraph-0.5.2"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.2
-FILE=workgraph-0.5.2-macos-arm64.tar.gz
+mkdir -p "$HOME/Downloads/workgraph-0.6.0"
+cd "$HOME/Downloads/workgraph-0.6.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.0
+FILE=workgraph-0.6.0-macos-arm64.tar.gz
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
 shasum -a 256 --check selected.sha256
-mkdir -p "$HOME/.local/opt/workgraph-0.5.2"
-tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.5.2"
+mkdir -p "$HOME/.local/opt/workgraph-0.6.0"
+tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.6.0"
 # Keep the versioned archive and docs together; select its executable explicitly.
-export PATH="$HOME/.local/opt/workgraph-0.5.2/workgraph-0.5.2-macos-arm64/bin:$PATH"
+export PATH="$HOME/.local/opt/workgraph-0.6.0/workgraph-0.6.0-macos-arm64/bin:$PATH"
 hash -r
 workgraph --version
 ```
@@ -254,8 +256,8 @@ command on PATH or upgrading an RPM. With that executable, finish or retain exac
 uncertain requests, export and verify needed workspaces, stop its launchers and
 shut down gracefully. Preserve complete stopped registry/workspace roots, contexts,
 journals and exports separately. Verification is not a cross-version restore path.
-Use fresh 0.5 roots and a new socket/context/request directory; do not edit format
-markers or copy old managed files into them. See the [step-by-step upgrade](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.2.md#upgrade-from-04-or-an-older-preview).
+Use fresh 0.6 roots and a new socket/context/request directory; do not edit format
+markers or copy old managed files into them. See the [step-by-step upgrade](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
 
 ### Bootstrap a private workspace
 
@@ -268,7 +270,7 @@ it is not a promise to overwrite arbitrary mismatched directories safely.
 umask 077
 WG=workgraph                       # or absolute matching checkout executable
 export WG
-WG_HOME="$HOME/.local/state/workgraph-0.5"
+WG_HOME="$HOME/.local/state/workgraph-0.6"
 mkdir -p "$WG_HOME"
 export WG_CONTEXT="$WG_HOME/agent.json"
 "$WG" init --context "$WG_CONTEXT" --socket "$WG_HOME/daemon.sock" \
@@ -279,7 +281,7 @@ wg() { "$WG" --context "$WG_CONTEXT" "$@"; }
 ```
 
 ```text
-~/.local/state/workgraph-0.5/
+~/.local/state/workgraph-0.6/
 ├── daemon.sock       local connection endpoint
 ├── daemon.log        startup and diagnostics; inspect first on failure
 ├── registry/         daemon's workspace registrations
@@ -315,7 +317,7 @@ Create separate contexts and private journals for the orchestrator, workers and 
 mkdir -p "$WG_HOME/agents"
 for agent in agent-orch worker-1 worker-2 ci; do
   "$WG" init --context "$WG_HOME/agents/$agent.json" --socket "$WG_HOME/daemon.sock" \
-    --workspace-id demo --actor-id "$agent" --root "$WG_HOME/workspace" --name Demo \
+    --workspace-id demo --actor-id "$agent" \
     --request-directory "$WG_HOME/agents/$agent-requests"
 done
 lead() { "$WG" --context "$WG_HOME/agents/agent-orch.json" "$@"; }
@@ -362,6 +364,36 @@ is REQUESTS. Reuse this workspace. Inspect assigned work, ownership and open
 requests; record meaningful progress, decisions, evidence and handoff. Keep actual
 tokens, revision guards and exact retry paths. The harness owns tools and processes.
 ```
+
+## Current coordination checkpoints
+
+The [0.6 contract guide](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/preview-0.6-contracts.md) links the focused rules for
+read-only candidate eligibility, registered/observed participants, bounded activity
+expansion, upload recovery, templates and shared inputs. Configure allocation
+policy before dispatch and check its receipt: its `expected_revision` belongs to
+the policy (`0` before creation), not the ticket. The atomic plan below keeps the
+new ticket and gate together; an apply failure must stop dispatch.
+
+Give synthesis/dispatch work explicitly to the lead and verification work to
+eligible independent reviewers. Before creating a verifier ticket, compare
+related findings at the same location and exclude all relevant authors through a
+positive `allowed_actor_ids` policy. The daemon cannot infer duplicate findings.
+
+Keep small fact summaries below about 3 KiB; the 4096 canonical-byte limit covers the
+whole replacement JSON, including later verdict fields. Put complete reports and
+verification evidence in pinned resources. JSON null is a value, not deletion.
+Keep private per-agent scratch and caches outside the source checkout, for
+example `~/.local/state/workgraph-0.6/scratch/ACTOR/`, separate from managed data.
+Use repository scratch only when that repository explicitly provides and ignores
+it; clean-worktree checks must not delete shared inputs or force repeated downloads.
+Retain shared accepted context as versioned Workgraph resources. A local scratch
+path is not portable evidence by itself.
+
+A harness should inspect provider errors before relaunching, respect reset/retry
+instructions, cap backoff and stop repeated rapid no-progress launches. It owns
+foreground lock waits and process supervision; failed launches are not evidence
+that an old owner stopped. [Team checkpoints](references/team-workflows.md)
+describe these responsibilities.
 
 ## Eight workflows
 
@@ -465,8 +497,8 @@ review where separate finish/fact writes left a completed ticket without its
 verdict for about ten seconds. Record result and completion together when coupled.
 
 ```bash
-lead transaction preflight --actor-id agent-orch --params-file plan.json
-lead transaction apply --params-file plan.json
+lead transaction preflight --actor-id agent-orch --params-file plan.json || exit 1
+lead transaction apply --params-file plan.json || exit 1
 ```
 
 A registered worker uses explicit run-aware acquisition. Switch on the result
@@ -1194,7 +1226,7 @@ rollover, not silent pruning or an automatic migration.
 - [macOS](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/macos-install.md), [AlmaLinux/WSL](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/wsl-quickstart.md), [gated review](references/gated-review-workflow.md)
 - [Coordination runner](scripts/coordination-runner.py), [coordination shell](scripts/coordination-workflow.sh), [notifications](scripts/notification-watcher.py), [history adapter](scripts/history-adapter.py), [Codex hooks](scripts/codex-hooks)
 - [Generated API reference](references/api/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
-- [v0.5.2 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.5.2.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
+- [v0.6.0 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.0.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
 
 ## Complete maintained scripts
 
