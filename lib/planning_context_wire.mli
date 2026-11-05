@@ -191,6 +191,17 @@ module Search : sig
   val codec : t Api_codec.t
 end
 
+(** Ready-work pagination with explicit selector scope and run-dependent unknowns.
+    The page remains flattened as items/offset/remaining/next_offset. *)
+module Ready : sig
+  type t =
+    { tickets : Planning_ticket_wire.Ticket.t Planning_wire.Page.t
+    ; assessment : Readiness_selector.Assessment.t
+    }
+
+  val codec : t Api_codec.t
+end
+
 module Response : sig
   type t =
     | Activity of Planning_activity_wire.Activity.t Planning_wire.Page.t
@@ -199,6 +210,7 @@ module Response : sig
     | Project_brief of Project_brief.t
     | Ticket_context of Ticket_context.t
     | Tickets of Planning_ticket_wire.Ticket.t Planning_wire.Page.t
+    | Ready of Ready.t
     | Readiness of Planning_ticket_wire.Readiness.t
     | Blockers of Planning_ticket_wire.Summary.t Planning_wire.Page.t
     | Resolve of Resolve.t

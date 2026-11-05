@@ -640,11 +640,16 @@ let preconditions name mode request =
       ; "Explicit transaction.apply batches remain durable, including empty allocations."
       ]
     | "ticket.ready" | "ticket.readiness" ->
-      [ "Optional target_run_id selects registered-run eligibility, including actor, \
-         capability, pool, attempt-budget and current coordination gates. Without it \
-         these retain graph-readiness semantics. Reads never claim work."
+      [ "Select target_run_id for a registered run, or candidate:{actor_id,capabilities} \
+         for read-only prospective eligibility without creating a probe run. The \
+         selectors are mutually exclusive and never defaulted from context."
+      ; "Without either selector this is graph readiness. Candidate ready means known \
+         checks passed; assessment.unknown_checks reports run lifecycle/budget and \
+         required path ownership. Actual claim/start rechecks all admission."
+      ; "Retain the same selector and filters on subsequent offset pages, with the \
+         observed workspace_revision supplied as at_revision."
       ; "ticket.ready leaf_only excludes parents with unfinished children. Inspect \
-         ticket.readiness with the same target_run_id for typed exclusion reasons."
+         ticket.readiness with the same selector for typed exclusion reasons."
       ]
     | "ticket.finish" ->
       [ "Supply nonblank completion evidence and satisfy configured current acceptance \
@@ -682,9 +687,15 @@ let result_paths = function
      answer is the exact comment/version reference or null"
   | "ticket.context" ->
     ".result.data.ticket.{ticket_id,description,status,claim}; .result.data.handoff"
-  | "ticket.list" | "ticket.ready" ->
+  | "ticket.list" ->
     ".result.data.items[].ticket_id; .result.data.next_offset; \
      .result.meta.workspace_revision"
+  | "ticket.ready" ->
+    ".result.data.items[].ticket_id; .result.data.next_offset; \
+     .result.data.assessment.{scope,unknown_checks}; .result.meta.workspace_revision"
+  | "ticket.readiness" ->
+    ".result.data.{ready,reasons,assessment}; assessment distinguishes known checks from \
+     candidate run-dependent unknowns"
   | "ticket.claim_next" ->
     ".result.data.kind; when selected: .result.data.claim.{ticket_id,token} and \
      .result.data.attempt; when empty: .result.data.explanation and meta.durable=false"

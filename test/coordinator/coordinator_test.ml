@@ -51,6 +51,7 @@ let ticket ?claim ?(ready = true) ?(deps = []) id title =
               ~ownership_token:None)
        in
        { Planning_ticket_wire.Readiness.ready
+       ; assessment = Readiness_selector.Assessment.graph
        ; reasons = (if ready then [] else [ Status Todo ])
        ; reason_count = (if ready then 0 else 1)
        ; reassessments = []

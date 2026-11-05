@@ -299,8 +299,34 @@ Uses the same feed capture and response as changes.read, with a bounded wait out
 
 ## Admission rules and idle workers
 
-ticket.ready and ticket.readiness accept target_run_id for the same authoritative
-admission assessment used by acquisition. Without it, defaults remain graph readiness.
+`ticket.ready` and `ticket.readiness` accept `target_run_id` to assess the recorded
+run using the same admission rules as acquisition. Alternatively, supply a
+read-only `candidate` object with `actor_id` and `capabilities`, for example:
+
+```json
+{"candidate":{"actor_id":"worker","capabilities":["ocaml"]}}
+```
+
+The selectors are mutually exclusive and are never filled from context defaults.
+A candidate needs no registered actor or probe run. It checks status, holds,
+prerequisites, external conditions, allowed actors, supplied capabilities and
+current shared pool capacity. Candidate capabilities must contain at most 100
+distinct nonblank names, each at most 512 UTF-8 bytes; an empty array is valid.
+
+Both reads include `assessment.scope` (`graph`, `candidate` or `run`) and
+`assessment.unknown_checks`. A candidate always reports `run_lifecycle` and
+`run_budget` as unknown, and reports `required_path_ownership` when applicable.
+Candidate `ready:true` means the checks possible without a run passed. It does
+not establish that a later invocation can acquire those paths or has an available
+attempt budget. Actual claim/start rechecks its actor, run, ownership and budgets
+atomically. These reads create no run, attempt, claim or reservation.
+
+Omitting both selectors preserves graph readiness, which does not check an
+actor's allocation policy. Ready-work pagination retains the selector assessment
+beside the ordinary items/offset/remaining/next_offset fields; unknowns cover all
+matching candidates before pagination. Retain the same `candidate` and filters
+on each subsequent page, passing the first page's `workspace_revision` as
+`at_revision`; a missing or stale capture guard rejects.
 coordinator.overview also applies actor policy and run budgets when selected by run.
 Direct ticket.claim reserves ownership but creates no attempt. Existing
 max_active_attempts bounds nonterminal attempts; same-ticket retained pool occupancy still

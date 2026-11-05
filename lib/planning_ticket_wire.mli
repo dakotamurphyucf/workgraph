@@ -163,12 +163,14 @@ module Readiness : sig
       | Coordination of Agent_run.Start_blocker.t
       | Observation_time_required of Path_scope.t
       | Allocation of Allocation_admission_reason.t
+      | Missing_candidate_capability of string
 
     val codec : t Api_codec.t
   end
 
   type t =
     { ready : bool
+    ; assessment : Readiness_selector.Assessment.t
     ; reasons : Reason.t list
     ; reason_count : int
     ; reassessments : Reassessment.t list

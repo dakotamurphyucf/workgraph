@@ -130,12 +130,12 @@ module Query = struct
     | Ticket_list of Filter.t
     | Ticket_ready of
         { filter : Filter.t
-        ; target_run_id : Id.Run.t option
+        ; selector : Readiness_selector.t
         ; leaf_only : bool
         }
     | Ticket_readiness of
         { ticket_id : Id.Ticket.t
-        ; target_run_id : Id.Run.t option
+        ; selector : Readiness_selector.t
         }
     | Ticket_blockers of Id.Ticket.t
     | Ticket_resolve of string
@@ -245,27 +245,22 @@ module Query = struct
       , make
           ~options:Options.fields
           (Filter.fields
-           ++ Fields.optional "target_run_id" (id Id.Run.of_string Id.Run.to_string)
+           ++ Readiness_selector.fields
            ++ Fields.optional "leaf_only" Api_codec.boolean)
-          (fun ((filter, target_run_id), leaf_only) ->
+          (fun ((filter, selector), leaf_only) ->
              Ticket_ready
-               { filter
-               ; target_run_id
-               ; leaf_only = Option.value leaf_only ~default:false
-               })
+               { filter; selector; leaf_only = Option.value leaf_only ~default:false })
           (function
-            | Ticket_ready { filter; target_run_id; leaf_only } ->
-              (filter, target_run_id), Some leaf_only
+            | Ticket_ready { filter; selector; leaf_only } ->
+              (filter, selector), Some leaf_only
             | _ -> wrong ())
-      , Api_codec.as_json (Planning_wire.Page.codec Planning_ticket_wire.Ticket.codec) )
+      , Api_codec.as_json Planning_context_wire.Ready.codec )
     ; ( "ticket.readiness"
       , make
-          (ticket_field
-           ++ Fields.optional "target_run_id" (id Id.Run.of_string Id.Run.to_string))
-          (fun (ticket_id, target_run_id) ->
-             Ticket_readiness { ticket_id; target_run_id })
+          (ticket_field ++ Readiness_selector.fields)
+          (fun (ticket_id, selector) -> Ticket_readiness { ticket_id; selector })
           (function
-            | Ticket_readiness { ticket_id; target_run_id } -> ticket_id, target_run_id
+            | Ticket_readiness { ticket_id; selector } -> ticket_id, selector
             | _ -> wrong ())
       , Api_codec.as_json Planning_ticket_wire.Readiness.codec )
     ; ( "ticket.blockers"

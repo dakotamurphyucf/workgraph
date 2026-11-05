@@ -281,6 +281,14 @@ module Acquisition : sig
     -> intent:Intent.t
     -> Allocation_admission_reason.t list
 
+  (** Candidate policies/capabilities/pools only; run lifecycle, budget and path
+      ownership are deliberately absent rather than inferred from a fake run. *)
+  val assess_candidate
+    :  t
+    -> ticket:Ticket.t
+    -> candidate:Readiness_selector.Candidate.t
+    -> Planning_ticket_wire.Readiness.Reason.t list
+
   val ensure
     :  t
     -> ticket:Ticket.t
@@ -467,9 +475,27 @@ val handoff_view : Handoff.t -> Planning_ticket_wire.Handoff.t
 val handoff_view_json : Handoff.t -> Jsonaf.t
 val completion_view : t -> Ticket.t -> Planning_ticket_wire.Completion.t
 
+(** Known candidate checks only, without computing unrelated completion policy.
+    Run-dependent checks remain unknown; a positive result grants no ownership. *)
+val candidate_ready
+  :  t
+  -> candidate:Readiness_selector.Candidate.t
+  -> ?now_unix_ms:int64
+  -> Ticket.t
+  -> bool
+
 val readiness_view
   :  ?run:Id.Run.t
+  -> ?candidate:Readiness_selector.Candidate.t
   -> ?now_unix_ms:int64
   -> t
   -> Ticket.t
   -> Planning_ticket_wire.Readiness.t
+
+(** Page-level known-check scope with candidate unknowns aggregated over matching
+    tickets, before pagination. This neither creates runs nor reserves work. *)
+val readiness_assessment
+  :  t
+  -> selector:Readiness_selector.t
+  -> tickets:Ticket.t list
+  -> Readiness_selector.Assessment.t

@@ -862,6 +862,25 @@ module Search = struct
   ;;
 end
 
+module Ready = struct
+  type t =
+    { tickets : Planning_ticket_wire.Ticket.t Planning_wire.Page.t
+    ; assessment : Readiness_selector.Assessment.t
+    }
+
+  let codec =
+    Api_codec.map
+      (Api_codec.merge_objects
+         (Planning_wire.Page.codec Planning_ticket_wire.Ticket.codec)
+         (Api_codec.object_
+            (Fields.required "assessment" Readiness_selector.Assessment.codec)))
+      ~decode:(fun (tickets, assessment) -> Ok { tickets; assessment })
+      ~encode:(fun { tickets; assessment } -> tickets, assessment)
+      ~description:
+        "Ready candidates with explicit graph, run or candidate assessment scope."
+  ;;
+end
+
 module Response = struct
   type t =
     | Activity of Planning_activity_wire.Activity.t Planning_wire.Page.t
@@ -870,6 +889,7 @@ module Response = struct
     | Project_brief of Project_brief.t
     | Ticket_context of Ticket_context.t
     | Tickets of Planning_ticket_wire.Ticket.t Planning_wire.Page.t
+    | Ready of Ready.t
     | Readiness of Planning_ticket_wire.Readiness.t
     | Blockers of Planning_ticket_wire.Summary.t Planning_wire.Page.t
     | Resolve of Resolve.t
@@ -891,6 +911,7 @@ module Response = struct
     | Ticket_context value -> encode Ticket_context.codec value
     | Tickets value ->
       encode (Planning_wire.Page.codec Planning_ticket_wire.Ticket.codec) value
+    | Ready value -> encode Ready.codec value
     | Readiness value -> encode Planning_ticket_wire.Readiness.codec value
     | Blockers value ->
       encode (Planning_wire.Page.codec Planning_ticket_wire.Summary.codec) value
@@ -1059,6 +1080,8 @@ module Response = struct
                     value.activity_since_handoff
               }
           | Tickets value -> Tickets (page ~path:"/data" ticket value)
+          | Ready value ->
+            Ready { value with tickets = page ~path:"/data" ticket value.tickets }
           | Blockers value -> Blockers (page ~path:"/data" (fun _ value -> value) value)
           | Handoffs value -> Handoffs (page ~path:"/data" (fun _ value -> value) value)
           | Readiness _ | Resolve _ | Handoff _ -> t

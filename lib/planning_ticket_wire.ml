@@ -686,6 +686,7 @@ module Readiness = struct
       | Coordination of Agent_run.Start_blocker.t
       | Observation_time_required of Path_scope.t
       | Allocation of Allocation_admission_reason.t
+      | Missing_candidate_capability of string
 
     let wrong () = Json.fail Invalid_argument "wrong readiness reason constructor"
 
@@ -854,6 +855,16 @@ module Readiness = struct
           | _ -> wrong ())
     ;;
 
+    let candidate_capability =
+      branch
+        "missing_candidate_capability"
+        (Fields.required "capability" (Coordination_wire.nonblank ~max_bytes:512))
+        ~decode:(fun value -> Missing_candidate_capability value)
+        ~encode:(function
+          | Missing_candidate_capability value -> value
+          | _ -> wrong ())
+    ;;
+
     let codec =
       Api_codec.tagged
         ~discriminator:"kind"
@@ -871,6 +882,7 @@ module Readiness = struct
           ; "external_condition", external_condition
           ; "observation_time_required", observation
           ; "allocation", allocation
+          ; "missing_candidate_capability", candidate_capability
           ]
         ~select:(function
           | Archived_scope -> "archived_scope"
@@ -881,6 +893,7 @@ module Readiness = struct
           | Prerequisite _ -> "prerequisite"
           | Observation_time_required _ -> "observation_time_required"
           | Allocation _ -> "allocation"
+          | Missing_candidate_capability _ -> "missing_candidate_capability"
           | Coordination (Run_required _) -> "run_required"
           | Coordination (Path_conflict _) -> "path_conflict"
           | Coordination (Expired_required_ownership _) -> "expired_required_ownership"
@@ -891,6 +904,7 @@ module Readiness = struct
 
   type t =
     { ready : bool
+    ; assessment : Readiness_selector.Assessment.t
     ; reasons : Reason.t list
     ; reason_count : int
     ; reassessments : Reassessment.t list
@@ -901,16 +915,48 @@ module Readiness = struct
     Api_codec.object_
       (Fields.map
          (Fields.required "ready" Api_codec.boolean
+          ++ Fields.required "assessment" Readiness_selector.Assessment.codec
           ++ Fields.required "reasons" (Api_codec.list Reason.codec ~max_items:100000)
           ++ Fields.required "reason_count" counter
           ++ Fields.required
                "reassessments"
                (Api_codec.list Reassessment.codec ~max_items:100000)
           ++ Fields.required "completion" Completion.codec)
-         ~decode:(fun ((((ready, reasons), reason_count), reassessments), completion) ->
-           { ready; reasons; reason_count; reassessments; completion })
-         ~encode:(fun { ready; reasons; reason_count; reassessments; completion } ->
-           (((ready, reasons), reason_count), reassessments), completion))
+         ~decode:
+           (fun
+             (((((ready, assessment), reasons), reason_count), reassessments), completion) ->
+           { ready; assessment; reasons; reason_count; reassessments; completion })
+         ~encode:
+           (fun
+             { ready; assessment; reasons; reason_count; reassessments; completion } ->
+           ((((ready, assessment), reasons), reason_count), reassessments), completion))
+  ;;
+
+  let scope_accepts_reason scope = function
+    | Reason.Missing_candidate_capability _ ->
+      Readiness_selector.Assessment.Scope.equal scope Candidate
+    | Allocation
+        ( Run_required
+        | Unregistered_run _
+        | Run_actor_mismatch _
+        | Terminal_run _
+        | Missing_capability _
+        | Budget_exhausted _ )
+    | Coordination
+        ( Run_required _
+        | Path_conflict _
+        | Expired_required_ownership _
+        | Ownership_mode _ )
+    | Observation_time_required _ ->
+      not (Readiness_selector.Assessment.Scope.equal scope Candidate)
+    | Archived_scope
+    | Status _
+    | Hold _
+    | Claimed _
+    | Inherited_prerequisite _
+    | Prerequisite _
+    | Coordination (External_condition _)
+    | Allocation (Actor_not_allowed _ | Pool_full _) -> true
   ;;
 
   let codec =
@@ -919,8 +965,9 @@ module Readiness = struct
       ~decode:(fun t ->
         validate
           (t.reason_count = List.length t.reasons
-           && Bool.equal t.ready (List.is_empty t.reasons))
-          "readiness flag/count differs from retained reasons"
+           && Bool.equal t.ready (List.is_empty t.reasons)
+           && List.for_all t.reasons ~f:(scope_accepts_reason t.assessment.scope))
+          "readiness flag, count or assessment scope differs from retained reasons"
           t)
       ~encode:Fn.id
       ~description:"Complete reasons retain ownership/control fields and exact count."

@@ -700,7 +700,7 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
         in
         let selected_tickets =
           match Q.query request with
-          | Ticket_ready { target_run_id = Some run; leaf_only; _ } ->
+          | Ticket_ready { selector = Run run; leaf_only; _ } ->
             Allocation_capture.create
               t
               ~run
@@ -709,10 +709,15 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
               ~now_unix_ms
             |> unwrap_domain
             |> Allocation_capture.eligible_tickets
-          | Ticket_ready { target_run_id = None; leaf_only; _ } ->
+          | Ticket_ready { selector = Graph; leaf_only; _ } ->
             Map.data t.tickets
             |> List.filter ~f:(fun ticket ->
               ready ?now_unix_ms t ticket
+              && ((not leaf_only) || List.is_empty (unfinished_children t ticket)))
+          | Ticket_ready { selector = Candidate candidate; leaf_only; _ } ->
+            Map.data t.tickets
+            |> List.filter ~f:(fun ticket ->
+              candidate_ready t ~candidate ?now_unix_ms ticket
               && ((not leaf_only) || List.is_empty (unfinished_children t ticket)))
           | Ticket_list _ -> Map.data t.tickets
           | _ -> assert false
@@ -737,10 +742,24 @@ let rich_query ?now_unix_ms t ~resource_texts ~params ~request =
                  ~substring:search)
         in
         let tickets = if only_ready then sort_ready tickets else tickets in
-        Tickets (List.map tickets ~f:ticket_view |> page)
-      | Ticket_readiness { ticket_id; target_run_id } ->
+        let selected = List.map tickets ~f:ticket_view |> page in
+        (match Q.query request with
+         | Ticket_ready { selector; _ } ->
+           Ready
+             { tickets = selected
+             ; assessment = readiness_assessment t ~selector ~tickets
+             }
+         | Ticket_list _ -> Tickets selected
+         | _ -> assert false)
+      | Ticket_readiness { ticket_id; selector } ->
+        let run, candidate =
+          match selector with
+          | Graph -> None, None
+          | Run run -> Some run, None
+          | Candidate candidate -> None, Some candidate
+        in
         Readiness
-          (readiness_view ?run:target_run_id ?now_unix_ms t (find_ticket t ticket_id))
+          (readiness_view ?run ?candidate ?now_unix_ms t (find_ticket t ticket_id))
       | Ticket_blockers id ->
         let ticket = find_ticket t id in
         Blockers

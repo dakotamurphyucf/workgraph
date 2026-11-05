@@ -623,25 +623,68 @@ module Acquisition = struct
 
   let increment count = if count = Int.max_value then count else count + 1
 
+  let pool_reasons ~allocated_tickets ~(ticket : Ticket.t) candidate =
+    if Set.mem allocated_tickets ticket.id
+    then []
+    else
+      List.filter_map candidate.Allocation.Candidate.pools ~f:(fun pool ->
+        if pool.Allocation.Pool.active < pool.limit
+        then None
+        else
+          Some
+            (Allocation_admission_reason.Pool_full
+               { pool = pool.name
+               ; used = pool.active
+               ; limit = pool.limit
+               ; attempted = increment pool.active
+               }))
+  ;;
+
+  let candidate t ~ticket ~allocated_tickets =
+    Agent_run.allocation_candidate
+      t.agent_runs
+      ~allocated_tickets
+      ~ticket:ticket.Ticket.id
+      ~priority:ticket.priority
+      ~creation_sequence:ticket.created_order
+      ~ready:true
+      ~available:true
+  ;;
+
+  let actor_policy t ticket =
+    Option.value_map
+      (Agent_run.get_ticket_policy t.agent_runs ticket.Ticket.id)
+      ~default:Actor_eligibility.unrestricted
+      ~f:(fun policy -> policy.Allocation.Ticket_policy.allowed_actor_ids)
+  ;;
+
+  let assess_candidate t ~ticket ~candidate:actor_candidate =
+    let allocated_tickets = allocated_tickets t in
+    let candidate = candidate t ~ticket ~allocated_tickets in
+    let allocation reason = Planning_ticket_wire.Readiness.Reason.Allocation reason in
+    (Actor_eligibility.assess
+       (actor_policy t ticket)
+       ~actor:(Readiness_selector.Candidate.actor actor_candidate)
+     |> Option.to_list
+     |> List.map ~f:allocation)
+    @ List.filter_map candidate.required_capabilities ~f:(fun capability ->
+      if
+        List.mem
+          (Readiness_selector.Candidate.capabilities actor_candidate)
+          capability
+          ~equal:String.equal
+      then None
+      else
+        Some
+          (Planning_ticket_wire.Readiness.Reason.Missing_candidate_capability capability))
+    @ List.map (pool_reasons ~allocated_tickets ~ticket candidate) ~f:allocation
+  ;;
+
   let assess t ~ticket ~actor ~run ~intent =
     let open Allocation_admission_reason in
     let allocated_tickets = allocated_tickets t in
-    let candidate =
-      Agent_run.allocation_candidate
-        t.agent_runs
-        ~allocated_tickets
-        ~ticket:ticket.Ticket.id
-        ~priority:ticket.priority
-        ~creation_sequence:ticket.created_order
-        ~ready:true
-        ~available:true
-    in
-    let actor_policy =
-      Option.value_map
-        (Agent_run.get_ticket_policy t.agent_runs ticket.id)
-        ~default:Actor_eligibility.unrestricted
-        ~f:(fun policy -> policy.Allocation.Ticket_policy.allowed_actor_ids)
-    in
+    let candidate = candidate t ~ticket ~allocated_tickets in
+    let actor_policy = actor_policy t ticket in
     let constrained =
       Option.is_some (Actor_eligibility.allowed_actors actor_policy)
       || not
@@ -674,22 +717,7 @@ module Acquisition = struct
           then None
           else Some (Missing_capability { run_id; capability }))
     in
-    let pool_reasons =
-      if Set.mem allocated_tickets ticket.id
-      then []
-      else
-        List.filter_map candidate.pools ~f:(fun pool ->
-          if pool.Allocation.Pool.active < pool.limit
-          then None
-          else
-            Some
-              (Pool_full
-                 { pool = pool.name
-                 ; used = pool.active
-                 ; limit = pool.limit
-                 ; attempted = increment pool.active
-                 }))
-    in
+    let pool_reasons = pool_reasons ~allocated_tickets ~ticket candidate in
     let budget_reasons =
       if not (Intent.equal intent Attempt)
       then []
@@ -1083,7 +1111,47 @@ let check_complete t ticket =
     raise (Json.Decode_error p)
 ;;
 
-let readiness_view ?run ?now_unix_ms t (ticket : Ticket.t)
+let candidate_requires_paths t (ticket : Ticket.t) =
+  Option.value_map
+    (Agent_run.get_ticket_paths t.agent_runs ticket.id)
+    ~default:false
+    ~f:(fun policy ->
+      policy.require_reservations && not (List.is_empty policy.declarations))
+;;
+
+let readiness_assessment t ~selector ~tickets =
+  match selector with
+  | Readiness_selector.Graph -> Readiness_selector.Assessment.graph
+  | Run _ -> Readiness_selector.Assessment.run
+  | Candidate _ ->
+    Readiness_selector.Assessment.candidate
+      ~required_paths:(List.exists tickets ~f:(candidate_requires_paths t))
+;;
+
+let candidate_graph_reasons t ?now_unix_ms ticket =
+  eligibility_reasons ?now_unix_ms t ticket
+  |> List.filter ~f:(function
+    | Eligibility_reason.Coordination
+        ( Run_required _
+        | Path_conflict _
+        | Expired_required_ownership _
+        | Ownership_mode _ )
+    | Coordination_clock_required _ -> false
+    | Archived_scope
+    | Status _
+    | Held _
+    | Claimed _
+    | Inherited_prerequisite _
+    | Prerequisite _
+    | Coordination (External_condition _) -> true)
+;;
+
+let candidate_ready t ~candidate ?now_unix_ms ticket =
+  List.is_empty (candidate_graph_reasons t ?now_unix_ms ticket)
+  && List.is_empty (Acquisition.assess_candidate t ~ticket ~candidate)
+;;
+
+let readiness_view ?run ?candidate ?now_unix_ms t (ticket : Ticket.t)
   : Planning_ticket_wire.Readiness.t
   =
   let reason : Eligibility_reason.t -> Planning_ticket_wire.Readiness.Reason.t = function
@@ -1098,7 +1166,19 @@ let readiness_view ?run ?now_unix_ms t (ticket : Ticket.t)
     | Coordination value -> Coordination value
     | Coordination_clock_required value -> Observation_time_required value
   in
-  let reasons = List.map (eligibility_reasons ?run ?now_unix_ms t ticket) ~f:reason in
+  let selector =
+    match run, candidate with
+    | None, None -> Readiness_selector.Graph
+    | Some run, None -> Run run
+    | None, Some candidate -> Candidate candidate
+    | Some _, Some _ -> Json.fail Invalid_argument "conflicting readiness selectors"
+  in
+  let graph_reasons =
+    match candidate with
+    | None -> eligibility_reasons ?run ?now_unix_ms t ticket
+    | Some _ -> candidate_graph_reasons t ?now_unix_ms ticket
+  in
+  let reasons = List.map graph_reasons ~f:reason in
   let allocation_reasons =
     Option.value_map run ~default:[] ~f:(fun run ->
       let entry =
@@ -1109,8 +1189,13 @@ let readiness_view ?run ?now_unix_ms t (ticket : Ticket.t)
       List.map entry.allocation_reasons ~f:(fun reason ->
         Planning_ticket_wire.Readiness.Reason.Allocation reason))
   in
-  let reasons = reasons @ allocation_reasons in
+  let candidate_reasons =
+    Option.value_map candidate ~default:[] ~f:(fun candidate ->
+      Acquisition.assess_candidate t ~ticket ~candidate)
+  in
+  let reasons = reasons @ allocation_reasons @ candidate_reasons in
   { ready = List.is_empty reasons
+  ; assessment = readiness_assessment t ~selector ~tickets:[ ticket ]
   ; reasons
   ; reason_count = List.length reasons
   ; reassessments = List.map ticket.reassessments ~f:reassessment_view

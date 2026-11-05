@@ -29,6 +29,8 @@ module Query : sig
   (** Ready/readiness run selectors are explicit, never context defaults. A
       selected registered run supplies its recorded actor and full claim plus
       new-attempt admission; unknown runs reject and terminal runs have no work.
+      The mutually exclusive candidate selector checks supplied actor/capabilities
+      without registering a run and discloses run-dependent unknown checks.
       Omission preserves the graph view. [leaf_only] excludes parents with
       unfinished children, and never claims or reserves anything. *)
   type t =
@@ -52,12 +54,12 @@ module Query : sig
     | Ticket_list of Filter.t
     | Ticket_ready of
         { filter : Filter.t
-        ; target_run_id : Id.Run.t option
+        ; selector : Readiness_selector.t
         ; leaf_only : bool
         }
     | Ticket_readiness of
         { ticket_id : Id.Ticket.t
-        ; target_run_id : Id.Run.t option
+        ; selector : Readiness_selector.t
         }
     | Ticket_blockers of Id.Ticket.t
     | Ticket_resolve of string

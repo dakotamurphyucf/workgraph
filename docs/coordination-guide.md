@@ -75,6 +75,15 @@ a ticket once when claimed or attempted; existing max_active_attempts bounds att
 Use ticket.ready/readiness with target_run_id or run-selected coordinator.overview
 for current eligibility; an observation is not an ownership grant.
 
+Before launching a run, use `ticket.ready` or `ticket.readiness` with
+`candidate:{"actor_id":"worker","capabilities":["ocaml"]}` to assess the
+prospective actor without creating a probe run. This selector is mutually
+exclusive with `target_run_id`. The response distinguishes graph, candidate and
+run assessments. Candidate checks include allowed actors, capabilities and shared
+pool capacity; run lifecycle/budgets and required path ownership remain explicit
+unknowns. A positive candidate assessment remains advisory: the real claim/start
+must pass all current acquisition checks.
+
 ## Comments, review and evidence
 
 Use `comment.add` for discussion on a ticket (or a typed `target`), and
