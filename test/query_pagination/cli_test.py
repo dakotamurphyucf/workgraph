@@ -309,13 +309,27 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual("evidence", metadata["capture"]["query_scope"])
         self.assertEqual(first["meta"]["query_revision"], metadata["next_request"]["params"]["revision"])
         self.assertEqual(1, len(self.follow(metadata["next_request"])["result"]["data"]["items"]))
-        for i in range(2):
-            self.write("workspace.export", destination=str(self.root / ("export-" + str(i))))
+        jobs = [self.write("workspace.export", destination=str(self.root / ("export-" + str(i))))["data"] for i in range(2)]
+        # Export snapshots hash full job records, including asynchronous status.
+        # Observe terminal jobs before asserting an unchanged listing capture.
+        for job in jobs:
+            self.assertEqual("running", job["status"])
+            deadline = time.monotonic() + 10
+            while True:
+                current = json.loads(self.cli("call", self.socket, "export.get", json.dumps({"job_id": job["job_id"]})).stdout)["result"]["data"]
+                if current["status"] != "running":
+                    self.assertEqual("completed", current["status"], current)
+                    break
+                self.assertLess(time.monotonic(), deadline, current)
+                time.sleep(.01)
         first = self.single("export.list", {"limit": "1"}, workspace=False)
         metadata = first["meta"]["pagination"]
         self.assertEqual("snapshot_guard", metadata["consistency"])
         self.assertEqual(first["meta"]["snapshot"], metadata["next_request"]["params"]["at_snapshot"])
         self.assertEqual(1, len(self.follow(metadata["next_request"])["result"]["data"]["items"]))
+        self.write("workspace.export", destination=str(self.root / "export-later"))
+        stale = self.follow(metadata["next_request"], expected=1)
+        self.assertEqual("Conflict", stale["error"]["data"]["kind"])
 
     def test_page_zero_domain_capture_retries_conflict_after_mutation(self):
         # Evidence fits whole rows and advertises item omissions. A client total
