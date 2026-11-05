@@ -208,7 +208,7 @@ let%expect_test "all advertised methods have executable request and response cod
    | Api_method.Invalid_response (method_, _) -> print_endline method_);
   [%expect
     {|
-  mutation methods: 21; query methods: 18
+  mutation methods: 23; query methods: 18
   run.register
  |}]
 ;;

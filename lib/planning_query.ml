@@ -1006,6 +1006,25 @@ let query ?now_unix_ms t ~method_ ~params =
       if String.equal method_ "attention.read"
       then Attention.read t ~now_unix_ms ~params
       else Actor_overview.read t ~now_unix_ms ~params)
+  else if String.equal method_ "reservation.contention"
+  then
+    Json.decode (fun () ->
+      let params =
+        match params with
+        | `Object fields ->
+          Json.obj
+            (List.filter fields ~f:(fun (key, _) -> not (String.equal key "workspace_id")))
+        | _ -> Json.fail Invalid_argument "query params require object"
+      in
+      let request =
+        Api_codec.decode Reservation_contention_api.Request.codec params |> unwrap_domain
+      in
+      let now_unix_ms =
+        match now_unix_ms with
+        | Some n -> n
+        | None -> Json.fail Invalid_argument "contention query requires clock"
+      in
+      Contention_read.read t request ~now_unix_ms |> unwrap_domain)
   else if String.equal method_ "participant.list"
   then
     Json.decode (fun () ->

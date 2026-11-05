@@ -989,6 +989,7 @@ let rec stage t command ~actor ~run ~timestamp ~now_unix_ms =
                 ~ticket_context:(evidence_ticket_context t)
                 ~attempt:a.id
                 ~ticket:a.ticket))
+       | Contention _
        | Register _
        | Transition _
        | Observe _

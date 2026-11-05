@@ -675,6 +675,7 @@ let read t ~now_unix_ms ~params =
               | Attempt_started { attempt; _ } | Attempt_put attempt ->
                 attempt_relevant attempt
               | Pool_put pool -> pool_relevant pool.name
+              | Contention_changed _ -> false
               | Reservation_put _ -> false
               | Path_reservation_put reservation -> path_relevant reservation.target
               | Claim_paths_reserved { claim; targets; _ }

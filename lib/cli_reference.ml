@@ -759,6 +759,40 @@ let preconditions name mode request =
       [ "The ticket must be ready and claimable; retain the returned token. Supply \
          run_id and attempt_id to start an attempt atomically."
       ]
+    | "reservation.waiter.put" ->
+      [ "Explicit advisory action: begin creates/reopens and resets start; refresh \
+         preserves start and requires an unexpired waiting record; close withdraws it. \
+         Use the independent record.revision as expected_revision."
+      ; "duration_ms is 1..300000; note is at most 1024 UTF8 bytes; close reason is \
+         nonblank up to 512 bytes. Combined waiter/holder-note capacity is 1000 retained \
+         family/target/run keys for the workspace lifetime, including inactive records. \
+         Closing/expiry does not free a key or discard its fence."
+      ; "Announcement is not a queue entry or grant. Acquire/retry through the actual \
+         reservation methods; the existing reservation wait helper never creates these \
+         records automatically."
+      ]
+    | "reservation.holder_note.put" ->
+      [ "Set/clear an advisory note under the exact current stored holder \
+         actor/run/target/token and independent note expected_revision. TTL is \
+         1..300000ms; expected_release_unix_ms is an optional estimate, separate from \
+         the lease deadline."
+      ; "Notes never renew ownership. Cleared/expired/different-fence notes are omitted \
+         from contention reads; their natural keys/revision fences still consume the \
+         1000-key lifetime cap."
+      ]
+    | "reservation.contention" ->
+      [ "Read actual stored holders and explicitly announced waiters for an exact named \
+         target or overlapping lexical path scopes. Rows sort by family/target/run, \
+         never FIFO."
+      ; "Elapsed milliseconds are the captured age since the latest begin, including \
+         inactive records when requested; clock regression returns null age plus \
+         clock_regressed. Closed, expired and explicitly terminal-run waiters are \
+         inactive. TTL/close changes advisory visibility only and never releases or \
+         grants ownership."
+      ; "Keep selectors with cursor paging; changed revision/lineage requires a rescan \
+         and the first clock remains fixed. Fresh reads without a cursor observe current \
+         expiry."
+      ]
     | "coordinator.overview" ->
       [ "Select stale_run and unobserved_run to inspect advisory observation_age_ms, \
          clock_regressed and held_work counts. Age uses captured_now_unix_ms and the \

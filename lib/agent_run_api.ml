@@ -822,6 +822,7 @@ let entries =
 let mutation_methods =
   List.map entries ~f:(fun (Entry entry) -> entry.name)
   @ Agent_coordination_api.mutation_methods
+  @ Reservation_contention_api.mutation_methods
 ;;
 
 let find_mutation method_ =
@@ -831,8 +832,11 @@ let find_mutation method_ =
 let decode_command ~method_ ~params =
   match find_mutation method_ with
   | None ->
-    Result.map (Agent_coordination_api.decode_command ~method_ ~params) ~f:(fun c ->
-      Coordination c)
+    (match Reservation_contention.Command.codec ~method_ with
+     | Some codec -> Result.map (Api_codec.decode codec params) ~f:(fun c -> Contention c)
+     | None ->
+       Result.map (Agent_coordination_api.decode_command ~method_ ~params) ~f:(fun c ->
+         Coordination c))
   | Some (Entry entry) ->
     Result.bind (Api_codec.decode entry.request params) ~f:(fun request ->
       Json.decode (fun () -> entry.command request))
@@ -840,6 +844,17 @@ let decode_command ~method_ ~params =
 
 let encode_command command =
   match command with
+  | Contention c ->
+    let method_ =
+      match c with
+      | Reservation_contention.Command.Waiter _ -> "reservation.waiter.put"
+      | Holder_note _ -> "reservation.holder_note.put"
+    in
+    Result.map
+      (Api_codec.encode
+         (Option.value_exn (Reservation_contention.Command.codec ~method_))
+         c)
+      ~f:(fun params -> method_, params)
   | Coordination c -> Agent_coordination_api.encode_command c
   | _ ->
     (match
@@ -1070,7 +1085,10 @@ let request_codec ~method_ =
   | None ->
     (match List.Assoc.find Query.entries method_ ~equal:String.equal with
      | Some codec -> Some (Api_codec.as_json codec)
-     | None -> Agent_coordination_api.request_codec ~method_)
+     | None ->
+       (match Reservation_contention_api.request_codec ~method_ with
+        | Some c -> Some c
+        | None -> Agent_coordination_api.request_codec ~method_))
 ;;
 
 let coordination_receipt =
@@ -1119,7 +1137,11 @@ let acquisition_holds =
 ;;
 
 let response_codec ~method_ =
-  match Agent_coordination_api.response_codec ~method_ with
+  match
+    match Reservation_contention_api.response_codec ~method_ with
+    | Some c -> Some c
+    | None -> Agent_coordination_api.response_codec ~method_
+  with
   | Some codec -> Some codec
   | None ->
     (match method_ with

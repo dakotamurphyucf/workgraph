@@ -1364,6 +1364,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                   @ Ticket_amendment_api.query_methods
                   @ [ "project.readiness"
                     ; "ticket.hierarchy.get"
+                    ; "reservation.contention"
                     ; "participant.list"
                     ; "activity.read"
                     ]

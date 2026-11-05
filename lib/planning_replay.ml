@@ -209,6 +209,7 @@ let apply_event t = function
          (Option.is_none (find_ticket t policy.ticket).claim)
          Conflict
          "Cannot change allocation policy while ticket has a claim"
+     | Contention_changed _
      | Run_put _
      | Reservation_put _
      | Actions_set _
@@ -677,6 +678,7 @@ let audit_payload previous current payload changes =
           | Claim_paths_reserved { claim; _ } | Claim_paths_released { claim; _ } ->
             [ Entity_ref.Ticket claim.ticket ]
           | Path_reservation_put _ | Ownership_recovered _ -> [ Entity_ref.Workspace ]
+          | Contention_changed _
           | Run_put _
           | Reservation_put _
           | Actions_set _

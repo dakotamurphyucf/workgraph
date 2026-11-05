@@ -379,7 +379,7 @@ let%expect_test "coordinator row decoders cannot label unobserved liveness stale
 ;;
 
 let%expect_test "every coordination mutation schema names its guarded revision family" =
-  let counts = ref (0, 0, 0) in
+  let counts = ref (0, 0, 0, 0) in
   List.iter Agent_run_api.mutation_methods ~f:(fun method_ ->
     let fields =
       Api_codec.field_names (Option.value_exn (Agent_run_api.response_codec ~method_))
@@ -391,7 +391,7 @@ let%expect_test "every coordination mutation schema names its guarded revision f
         (List.sort fields ~compare:String.compare)
         (List.sort expected ~compare:String.compare)
     in
-    let entity, attempt, coordination = !counts in
+    let entity, attempt, coordination, advisory = !counts in
     match method_ with
     | "run.register" | "run.transition" | "run.observe" | "run.link_session" ->
       assert (
@@ -403,10 +403,10 @@ let%expect_test "every coordination mutation schema names its guarded revision f
           ; "last_observed_unix_ms"
           ; "session_ids"
           ]);
-      counts := entity + 1, attempt, coordination
+      counts := entity + 1, attempt, coordination, advisory
     | "allocation.pool_put" ->
       assert (has_fields [ "name"; "revision"; "limit" ]);
-      counts := entity + 1, attempt, coordination
+      counts := entity + 1, attempt, coordination, advisory
     | "allocation.ticket_policy_put" ->
       assert (
         has_fields
@@ -416,13 +416,13 @@ let%expect_test "every coordination mutation schema names its guarded revision f
           ; "pools"
           ; "allowed_actor_ids"
           ]);
-      counts := entity + 1, attempt, coordination
+      counts := entity + 1, attempt, coordination, advisory
     | "ticket.paths.put" ->
       assert (List.equal String.equal fields [ "revision" ]);
-      counts := entity + 1, attempt, coordination
+      counts := entity + 1, attempt, coordination, advisory
     | "attempt.start" | "attempt.checkpoint" | "attempt.finish" ->
       assert (List.equal String.equal fields [ "attempt_id"; "revision"; "state" ]);
-      counts := entity, attempt + 1, coordination
+      counts := entity, attempt + 1, coordination, advisory
     | "reservation.acquire"
     | "reservation.renew"
     | "reservation.release"
@@ -436,10 +436,13 @@ let%expect_test "every coordination mutation schema names its guarded revision f
     | "condition.signal" ->
       assert (List.mem fields "coordination_revision" ~equal:String.equal);
       assert (not (List.mem fields "revision" ~equal:String.equal));
-      counts := entity, attempt, coordination + 1
+      counts := entity, attempt, coordination + 1, advisory
+    | "reservation.waiter.put" | "reservation.holder_note.put" ->
+      assert (has_fields [ "advisory"; "record" ]);
+      counts := entity, attempt, coordination, advisory + 1
     | _ -> failwith ("unclassified mutation receipt: " ^ method_));
-  print_s [%sexp (!counts : int * int * int)];
-  [%expect {| (7 3 11) |}]
+  print_s [%sexp (!counts : int * int * int * int)];
+  [%expect {| (7 3 11 2) |}]
 ;;
 
 let%expect_test

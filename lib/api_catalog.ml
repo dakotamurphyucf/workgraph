@@ -248,6 +248,7 @@ let methods =
      |> List.filter ~f:(fun (Api_method.Packed.Pack method_) ->
        Api_method.Mode.equal (Api_method.mode method_) Read)
      |> List.map ~f:scoped)
+  @ [ scoped Reservation_contention_api.read_descriptor ]
   @ [ scoped Participant_api.descriptor ]
   @ [ scoped Activity_read_api.descriptor ]
   @ List.map Planning_context_api.methods ~f:scoped

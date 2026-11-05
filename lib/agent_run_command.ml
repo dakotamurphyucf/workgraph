@@ -3,6 +3,7 @@ module Status = Agent_run_event.Status
 module Parent_stop_policy = Agent_run_event.Parent_stop_policy
 
 type t =
+  | Contention of Reservation_contention.Command.t
   | Coordination of Agent_coordination_command.t
   | Pool_put of
       { name : string

@@ -519,6 +519,7 @@ let agent_update : Agent_run_event.Update.t Api_codec.t =
   Api_codec.tagged
     ~discriminator:"kind"
     ~select:(function
+      | Agent_run_event.Update.Contention_changed _ -> "contention_changed"
       | Agent_run_event.Update.Pool_put _ -> "pool_put"
       | Agent_run_event.Update.Ticket_policy_put _ -> "ticket_policy_put"
       | Agent_run_event.Update.Run_put _ -> "run_put"
@@ -534,7 +535,17 @@ let agent_update : Agent_run_event.Update.t Api_codec.t =
       | Agent_run_event.Update.Ownership_recovered _ -> "ownership_recovered"
       | Agent_run_event.Update.Actions_set _ -> "actions_set")
     ~cases:
-      [ ( "pool_put"
+      [ ( "contention_changed"
+        , Api_codec.object_
+            (F.map
+               (F.required "kind" (Api_codec.literal "contention_changed")
+                ++ F.required "change" Reservation_contention.Change.codec)
+               ~decode:(fun ((), change) ->
+                 Agent_run_event.Update.Contention_changed change)
+               ~encode:(function
+                 | Agent_run_event.Update.Contention_changed c -> (), c
+                 | _ -> wrong ())) )
+      ; ( "pool_put"
         , Api_codec.object_
             (F.map
                (F.required "kind" (Api_codec.literal "pool_put")

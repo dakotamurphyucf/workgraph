@@ -180,6 +180,7 @@ end
 
 module Update = struct
   type t =
+    | Contention_changed of Reservation_contention.Change.t
     | Pool_put of Allocation.Definition.t
     | Ticket_policy_put of Allocation.Ticket_policy.t
     | Run_put of Record.t
@@ -246,6 +247,8 @@ let validate t =
     if Int64.(now_unix_ms < 0L)
     then Json.fail Invalid_argument "Reservation clock must be nonnegative"
   | Claim_paths_released { claim; targets = paths } -> targets claim paths
+  | Contention_changed c ->
+    ignore (Reservation_contention.Change.jsonaf_of_t c : Jsonaf.t)
   | Pool_put _
   | Ticket_policy_put _
   | Run_put _
@@ -267,6 +270,8 @@ let t_of_jsonaf json =
   let get = Json.field json in
   let update =
     match Json.list (get "update") with
+    | [ `String "Contention_changed"; value ] ->
+      Update.Contention_changed (Reservation_contention.Change.t_of_jsonaf value)
     | [ `String "Pool_put"; value ] ->
       Json.fields value ~allowed:[ "name"; "revision"; "limit" ];
       Update.Pool_put

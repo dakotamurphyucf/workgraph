@@ -34,7 +34,10 @@ val request_codec : method_:string -> Jsonaf.t Api_codec.t option
     [{reservation_id;holder}] rows containing exact granted fencing/lease data.
     Batches commit all grants and the receipt atomically.
 
-    Run mutation responses use [Run_receipt.codec]. Pool and ticket-policy
+    [reservation.waiter.put] and [reservation.holder_note.put] return
+    [{advisory:true;record}] with that independent advisory record's [revision].
+    Their holder tokens are input fences, never new grants; waiter lifecycle cannot
+    change ownership. Run mutation responses use [Run_receipt.codec]. Pool and ticket-policy
     mutation responses reuse their complete validated definition codecs. Entity
     revisions remain distinct from coordination/workspace capture revisions. *)
 val response_codec : method_:string -> Jsonaf.t Api_codec.t option

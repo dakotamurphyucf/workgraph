@@ -64,6 +64,7 @@ end
 
 module Update : sig
   type t =
+    | Contention_changed of Reservation_contention.Change.t
     | Pool_put of Allocation.Definition.t
     | Ticket_policy_put of Allocation.Ticket_policy.t
     | Run_put of Record.t

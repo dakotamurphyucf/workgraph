@@ -61,6 +61,7 @@ let layout method_ =
     | "ticket.resume"
     | "activity.digest"
     | "workspace.overview"
+    | "reservation.contention"
     | "participant.list"
     | "actor.list"
     | "label.list"

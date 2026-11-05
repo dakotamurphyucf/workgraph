@@ -256,3 +256,111 @@ lease expiry and a finished model turn never prove a process stopped or its
 checkout is safe to reuse. Before replacing work, confirm the old execution is
 stopped or isolated, then use exact guarded release/recovery. For ticket recovery,
 choose `disposition:"requeue"` explicitly when the work should return to Todo.
+
+### Make shared database contention visible
+
+Use a **named reservation** such as `test-db` as a cooperative database mutex. Every
+participant uses the same workspace/name and runs database work only after its
+actual exclusive acquisition succeeds. This does not fence a database connection
+that ignores the protocol. A lexical checkout path is a different namespace;
+`reservation.contention` also supports path targets and includes overlapping held
+and waiting scopes.
+
+The three advisory methods are `reservation.waiter.put`,
+`reservation.holder_note.put`, and `reservation.contention`. They use existing
+registered runs and attributed serialized planning transactions. They do not
+register probe runs, implement a scheduler, reserve a queue position or promise
+FIFO. Other callers may acquire immediately after release regardless of announced
+waiters. Notes never acquire, renew, release or steal ownership.
+
+A waiter has one retained natural key per `(target, run)` in the waiter family.
+`action:"begin"` creates/reopens it with `expected_revision:0` for creation, or its
+current revision for reopening, and resets its server-time start. `refresh`
+requires an unexpired Waiting record and preserves start while updating its TTL
+and note. `close` requires a nonblank `reason` and withdraws it. Durations are
+1..300000 milliseconds; notes are at most 1024 UTF8 bytes and close reasons at most
+512. Commands reject clock overflow/regression and stale revisions. Refreshing an
+expired record fails; explicitly begin again with its current revision.
+
+A holder note has its own `(target, run)` key and revision. `action:"set"` takes
+`duration_ms`, `note`, and optional nullable `expected_release_unix_ms`; `clear`
+removes its visible contents. Both require the exact **current stored holder**
+actor/run/target/token. For a covering path hold, use its actual held target, not a
+contained requested file. The release estimate is caller-declared and may be
+missing or overdue. It is neither a lease deadline nor a promise. Expired stored
+ownership can still have a note; writing it does not restore a valid lease.
+Cleared, expired and different-fence notes are omitted from active holder rows.
+
+The workspace has a hard **lifetime cap of 1000 retained keys across both
+families**, including closed, cleared and expired records. The family distinguishes
+a waiter key from a holder-note key with the same target/run. Existing keys retain
+their revision fences and can be reused; new keys at capacity return a distinct
+`Blocked` advisory-capacity error. Closing or expiry does not free capacity. There
+is no silent eviction, fence reset, background cleanup or automatic grant.
+
+`reservation.contention` requires `target`:
+
+```json
+{"kind":"named","reservation_id":"test-db"}
+```
+
+For paths use `{"kind":"path","target":{"worktree_id":"checkout","kind":"subtree","path":"src"}}`.
+The bounded read returns whole `holder` and `waiter` rows with `advisory:true`.
+Holder rows contain actual stored holders and matching notes. Waiter rows show
+attributed actor/run, server start/update/expiry, current run status, phase,
+`elapsed_ms` and `clock_regressed`. Elapsed is the captured **age since the latest
+begin**, including inactive rows when requested; it is not measured process or
+lock-hold duration. A regressed clock returns null elapsed. Closed, expired or
+explicitly terminal-run waiters leave active visibility; `include_inactive:true`
+exposes their labelled retained records. Expiry and terminal run metadata do not
+prove that an external process stopped waiting or released anything.
+
+Rows sort by family/target/run, not arrival time. Paging accepts `cursor`, `limit`
+1..100 (default 50) and `max_bytes` 4096..1048576 (default 65536), retains the first
+clock, and rejects changed planning revision/history lineage/selectors. An
+oversized next row retains its position with `needs_larger_budget` and
+`required_bytes`. Start a fresh read without a cursor to reassess current expiry.
+
+For a database test pass:
+
+1. The holder acquires `test-db` with `reservation.acquire`, saving its exact
+   request and retaining the actual returned holder token. It may then set an
+   expected-release note under that token and the note's current revision.
+2. A waiter explicitly announces its intent, saving this request as usual:
+
+   ```json
+   {"target":{"kind":"named","reservation_id":"test-db"},"target_run_id":"waiter-run","expected_revision":"0","action":"begin","duration_ms":"300000","note":"Needs the test database for the next pass"}
+   ```
+
+3. Run the existing bounded acquisition helper **in the foreground**, for example:
+
+   ```sh
+   workgraph reservation wait "$SOCKET" \
+     --workspace-id demo --actor-id waiter \
+     --json-field target_run_id '"waiter-run"' \
+     --json-field requests '[{"reservation_id":"test-db","mode":"exclusive"}]' \
+     --request-directory /absolute/private/wait-requests \
+     --wait-ms 150000 --max-attempts 100 --wait-slice-ms 25000
+   ```
+
+   Inspect `data.wait.completed` and the actual `data.daemon_response` grant. Only
+   a completed validated acquisition permits database work. The helper preserves
+   exact saved requests on uncertainty; retry those bytes instead of changing
+   identity or refreshing ownership guards. An advisory note is never evidence
+   of acquisition. The helper does not announce, refresh or close waiter records.
+4. After a bounded loop, explicitly refresh before expiry to keep announcing a
+   continued wait, or close with the current record revision when no longer
+   waiting. On uncertainty, retain the original acquisition journal and describe
+   that handoff accurately; do not claim an acquired grant. Harness cleanup should
+   close the note on cancellation. If interrupted, its TTL eventually removes
+   active visibility without changing any reservation.
+5. The holder explicitly releases with the actual fencing token when done. Renew
+   timed leases separately if needed; updating an expected-release note does not
+   renew them. After acquiring, the former waiter closes its advisory record and
+   follows the same holder/release protocol.
+
+Save each mutation before transmission using the normal `request --save-request`
+workflow. Note receipts have `{advisory:true,record}`; `record.revision` guards that
+advisory record, not a grant, run revision or workspace capture. Exact retries
+return their original immutable receipt even after closure, expiry or a later
+holder token. Re-read contention/current ownership to inspect current state.

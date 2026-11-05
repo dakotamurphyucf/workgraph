@@ -13,6 +13,7 @@
   planning_query
   planning_metrics
   planning_resume
+  contention_read
   participants
   activity_read
   activity_digest

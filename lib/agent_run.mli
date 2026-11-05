@@ -10,6 +10,11 @@ type t
 type prepared
 
 val empty : t
+
+(** Immutable advisory inventory, including inactive keys retained for revision
+    fencing; never ownership or fairness state. *)
+val contention : t -> Reservation_contention.t
+
 val revision : t -> int
 
 (** This subsystem enforces run/attempt lifecycle, ownership and capabilities.

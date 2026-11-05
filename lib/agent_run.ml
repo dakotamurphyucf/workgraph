@@ -9,6 +9,7 @@ module Update = Change.Update
 
 type t =
   { revision : int
+  ; contention : Reservation_contention.t
   ; runs : Record.t Id.Run.Map.t
   ; attempts : Attempt.t Attempt.Id.Map.t
   ; attempt_started : int Attempt.Id.Map.t
@@ -30,6 +31,7 @@ type prepared =
 
 let empty =
   { revision = 0
+  ; contention = Reservation_contention.empty
   ; runs = Id.Run.Map.empty
   ; attempts = Attempt.Id.Map.empty
   ; attempt_started = Attempt.Id.Map.empty
@@ -44,6 +46,7 @@ let empty =
   }
 ;;
 
+let contention t = t.contention
 let revision t = t.revision
 let candidate p = p.candidate
 let changes p = p.changes
@@ -456,11 +459,47 @@ let validate_claim_borrowers t ~claim_exists =
        : int Id.Ticket.Map.t))
 ;;
 
+let contention_owner t ~target ~owner_run ~actor ~actor_run ~token =
+  let record = find t.runs owner_run in
+  active record;
+  owner record actor actor_run;
+  Option.iter token ~f:(fun token ->
+    let holders =
+      match target with
+      | Reservation_contention.Target.Named name ->
+        Option.value_map (Map.find t.reservations name) ~default:[] ~f:(fun r ->
+          r.Reservation.holders)
+      | Path path ->
+        Option.value_map (Map.find t.path_reservations path) ~default:[] ~f:(fun r ->
+          r.Path_reservation.holders)
+    in
+    require
+      (List.exists holders ~f:(fun holder ->
+         Id.Run.equal holder.Reservation.Holder.run owner_run
+         && Id.Actor.equal holder.actor actor
+         && Int.equal holder.token token))
+      Stale_claim
+      "holder note requires the exact current stored holder fence")
+;;
+
 let rec apply_exn ?started_at t (change : Change.t) =
   Change.validate change;
   expected change.revision (t.revision + 1);
   let next =
     match change.update with
+    | Update.Contention_changed c ->
+      require
+        (Id.Actor.equal (Reservation_contention.Change.actor c) change.actor)
+        Conflict
+        "contention actor differs from event attribution";
+      contention_owner
+        t
+        ~target:(Reservation_contention.Change.target c)
+        ~owner_run:(Reservation_contention.Change.run c)
+        ~actor:change.actor
+        ~actor_run:change.actor_run
+        ~token:(Reservation_contention.Change.holder_token c);
+      { t with contention = Reservation_contention.apply t.contention c |> Disk.unwrap }
     | Update.Pool_put pool ->
       nonempty pool.name 96;
       require
@@ -1022,6 +1061,25 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
       a
     in
     (match command with
+     | Command.Contention command ->
+       contention_owner
+         !current
+         ~target:(Reservation_contention.Command.target command)
+         ~owner_run:(Reservation_contention.Command.run command)
+         ~actor
+         ~actor_run:run
+         ~token:(Reservation_contention.Command.holder_token command);
+       let now_unix_ms =
+         match now_unix_ms with
+         | Some n -> n
+         | None -> Json.fail Invalid_argument "contention updates require server clock"
+       in
+       let c =
+         Reservation_contention.prepare !current.contention command ~actor ~now_unix_ms
+         |> Disk.unwrap
+       in
+       emit (Contention_changed c);
+       domain_result := [ "contention_result", Reservation_contention_api.result c ]
      | Command.Coordination command ->
        (match Agent_coordination_api.encode_command command with
         | Ok _ -> ()
@@ -1386,6 +1444,8 @@ let prepare t ?now_unix_ms command ~actor ~run ~timestamp ~sequence =
         Json.obj ([ "coordination_revision", Json.int !current.revision ] @ !domain_result)
       in
       match command with
+      | Contention _ ->
+        List.Assoc.find_exn !domain_result "contention_result" ~equal:String.equal
       | Register { id; _ }
       | Transition { id; _ }
       | Observe { id; _ }
@@ -1654,7 +1714,8 @@ let stale r ~now_unix_ms ~after_ms =
 
 let to_json t =
   Json.obj
-    [ "revision", Json.int t.revision
+    [ "contention", Reservation_contention.to_json t.contention
+    ; "revision", Json.int t.revision
     ; "runs", `Array (List.map (Map.data t.runs) ~f:Record.jsonaf_of_t)
     ; "attempts", `Array (List.map (Map.data t.attempts) ~f:Attempt.jsonaf_of_t)
     ; ( "reservations"

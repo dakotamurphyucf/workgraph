@@ -520,6 +520,7 @@ let scan t ~scope ~after ~cursor =
                      (Ownership_recovery.jsonaf_of_t recovery)
                      "Reservation ownership recovered"
                  else skip ()
+               | Contention_changed _
                | Pool_put _
                | Ticket_policy_put _
                | Reservation_put _
