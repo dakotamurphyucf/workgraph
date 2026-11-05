@@ -1643,7 +1643,8 @@ cmd_watch() {
     size=$(printf '%s' "$page" | wc -c); bytes=$((bytes+size)); count=$((count+1))
     if [ "$count" -gt "$MAX_PAGES" ] || [ "$bytes" -gt "$TOTAL_BYTES" ]; then fail "watch drain limit; retained cursor: $cursor"; return 1; fi
     if [ -n "$metadata" ]; then
-      render '.data.items[] | $D + "revision " + .revision + $R + "  \(.actor_id // "?")  \((.targets // [])|map(tgt)|join(", "))  (\(.changes // "?") changes)"' <<<"$page" || return 1
+      # kinds are distinct event tags, not a count of changes in the commit.
+      render '.data.items[] | $D + "revision " + .revision + $R + "  " + (.timestamp|t) + "  " + $B + .actor_id + $R + (if .run_id then " (" + .run_id + ")" else "" end) + "  " + $C + (.targets|map(tgt)|join(", ")) + $R + "  " + $M + (.kinds|join(", ")) + $R' <<<"$page" || return 1
     elif jq -e '.data.items|length>0' <<<"$page" >/dev/null; then
       first=$(jq -er '.data.items[0].revision' <<<"$page") || return 1
       last=$(jq -er '.data.items[-1].revision' <<<"$page") || return 1

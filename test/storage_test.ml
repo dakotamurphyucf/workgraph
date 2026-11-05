@@ -58,7 +58,7 @@ let%expect_test "independent current canonical bytes, digest and receipt" =
 let%expect_test "receipt identity and shape validation is independent of hashes" =
   let json = parse (fixture "transaction.json") in
   let reject key value = outcome (Storage.Transaction.of_json (update json key value)) in
-  reject "version" (Json.int 3);
+  reject "version" (Json.int 4);
   reject "future" `True;
   reject "key" (Json.string "other:create");
   reject "key" (Json.string "agent:../bad");
@@ -115,7 +115,7 @@ let%expect_test
 let%expect_test "descriptor and HEAD accept only supported exact schemas" =
   List.iter
     [ {|{"version":"5","workspace_id":"demo","name":"Demo"}|}
-    ; {|{"version":"5","workspace_id":"demo","name":"Demo"}|}
+    ; {|{"version":"6","workspace_id":"demo","name":"Demo"}|}
     ; {|{"version":"5","workspace_id":"demo","name":"Demo","extra":true}|}
     ]
     ~f:(fun bytes -> outcome (Storage.Descriptor.of_json (parse bytes)));

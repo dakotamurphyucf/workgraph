@@ -223,7 +223,9 @@ let save request ~fs ~random ~destination =
       | Some pair -> pair
       | None -> invalid "journal requires a parent directory"
     in
-    Local_file.require_directory parent ~operation:"save request journal";
+    Local_file.require_directory
+      parent
+      ~operation:(sprintf "save request journal %S (parent directory)" destination);
     let bytes = Protocol.Request.to_json request |> Json.canonical in
     match Eio.Path.kind ~follow:false path with
     | `Regular_file ->

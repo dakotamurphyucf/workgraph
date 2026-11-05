@@ -186,7 +186,7 @@ class Integration(unittest.TestCase):
         before = self.ok("workspace.get", {"workspace_id": "demo"})["meta"]["workspace_revision"]
         identity = {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "unknown-reuse"}
         for method, params in [
-            ("resource.read_text", {}),
+            ("resource.unimplemented", {}),
             ("ticket.unimplemented", identity),
             ("workspace.unimplemented", {"workspace_id": "absent"}),
         ]:
@@ -1142,7 +1142,7 @@ class Integration(unittest.TestCase):
         self.ticket()
         root = self.root / "verified-export"
         manifest = self.export({"workspace_id": "demo", "destination": str(root)})
-        self.assertEqual("4", manifest["version"])
+        self.assertEqual("5", manifest["version"])
         self.assertEqual(json.loads((root / "portable/HEAD.json").read_text())["digest"], manifest["head"])
         verified = self.data("export.verify", {"directory": str(root)})
         self.assertTrue(verified["verified"])
@@ -1180,7 +1180,7 @@ class Integration(unittest.TestCase):
                 changed.pop("options")
                 expected_kind = "Invalid_argument"
             elif change == "unsupported-version":
-                changed["version"] = "5"
+                changed["version"] = "6"
                 expected_kind = "Unsupported_version"
             else:
                 changed.pop("head")
