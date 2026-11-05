@@ -30,7 +30,7 @@ class SkillBundle(unittest.TestCase):
         catalog = json.loads(subprocess.check_output([str(BINARY), 'schema']))
         self.assertEqual(report['methods'], len(catalog['methods']))
         for name in ['history-adapter.py', 'transcript-converter.py', 'evaluation.py',
-                     'notification-watcher.py', 'codex-hooks/workgraph-hook.py']:
+                     'notification-watcher.py', 'codex-hooks/workgraph-hook.py', 'input-cache.py']:
             subprocess.run([sys.executable, str(self.skill / 'scripts' / name), '--help'],
                            cwd=self.temporary.name, check=True, capture_output=True, timeout=15)
 

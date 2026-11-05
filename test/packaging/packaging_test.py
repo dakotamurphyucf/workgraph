@@ -119,7 +119,8 @@ class PackageQualification(unittest.TestCase):
         self.assertEqual(native.files["skills/workgraph/scripts/wgx.sh"], (ROOT / "skills/workgraph/scripts/wgx.sh").read_bytes())
         self.assertEqual(source.modes["skills/workgraph/scripts/wgx.sh"], 0o755)
         self.assertEqual(native.modes["skills/workgraph/scripts/wgx.sh"], 0o755)
-        for name in ["skills/workgraph/scripts/ci-worker.sh", "skills/workgraph/scripts/transcript-converter.py"]:
+        for name in ["skills/workgraph/scripts/ci-worker.sh", "skills/workgraph/scripts/transcript-converter.py",
+                     "skills/workgraph/scripts/input-cache.py"]:
             self.assertEqual(native.files[name], (ROOT / name).read_bytes())
         self.assertEqual(native.modes["skills/workgraph/scripts/ci-worker.sh"], 0o755)
         checked = 0

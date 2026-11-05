@@ -97,6 +97,52 @@ resource.read_text {"workspace_id":"demo","resource_id":"report","version":"1","
 The second request is illustrative: use the actual first response's version and
 next_offset, retaining its digest and verifying each chunk before assembling it.
 
+## Reuse pinned inputs across tickets in one run
+
+Use [input-cache.py](../scripts/input-cache.py) once per shared immutable input, then
+reuse its returned path for later tickets. The standalone Python standard-library helper
+calls the existing verified downloader on a miss. It never claims work or changes daemon
+state. Keep the cache under the run's private state directory outside every checkout;
+`--worktree` explicitly rejects a cache inside that resolved checkout. Create an owned
+0700 directory (or let the helper create one with an existing parent). Cache files,
+pins, downloaded input, context files and request journals must stay out of Git.
+
+Obtain an approved content pin once. Content version is not the resource metadata
+revision. For example, with explicit existing context, source checkout and state paths:
+
+```sh
+SOCKET=$(jq -er '.socket' "$CONTEXT")
+WORKSPACE=$(jq -er '.workspace_id' "$CONTEXT")
+RESOURCE=shared-input
+META=$("$WG" --context "$CONTEXT" resource get --resource-id "$RESOURCE") || exit 1
+VERSION=$(printf '%s' "$META" | jq -er '.result.data.current_version.revision') || exit 1
+DIGEST=$(printf '%s' "$META" | jq -er '.result.data.current_version.digest') || exit 1
+SIZE=$(printf '%s' "$META" | jq -er '.result.data.current_version.size_bytes') || exit 1
+python3 /absolute/skill/scripts/input-cache.py \
+  --workgraph "$WG" --socket "$SOCKET" --workspace-id "$WORKSPACE" \
+  --resource-id "$RESOURCE" --version "$VERSION" --digest "$DIGEST" --size-bytes "$SIZE" \
+  --cache-directory "$RUN_STATE/inputs" --worktree "$SOURCE_CHECKOUT"
+```
+
+Check success before consuming the JSON `{pin,path,status}`. Status is `stored`, `hit`
+or `race_hit`. Pin records source socket, workspace, resource, exact version/digest and
+size. Reuse those same values for another ticket; do not refetch latest metadata on each
+ticket. A changed pin or source selects a new key and fetches anew. Each hit opens an
+owned regular file without following a leaf symlink, then rechecks size and complete
+SHA-256; it makes no network request and can work while the daemon is offline. Keys bind
+the canonical source socket, workspace/resource and immutable byte identity, not title,
+filename, ticket, metadata revision or file modification time.
+
+A miss downloads into a fresh private cache stage, validates the exact downloader receipt
+and independently hashes the file. Publication uses a hard link without replacement;
+concurrent callers verify the winner before reuse. Files are read-only inputs; copy them
+before editing. Corruption, symlinks and nonregular entries reject without overwriting
+or refetching over an existing entry. The harness owns deliberate eviction once consumers
+are done. Failed or cancelled fetches retain their private `.input-*` stage for inspection.
+A directory-sync failure after publication reports `Outcome_unknown` with the installed
+path retained; rerun the exact same pin to reverify it. Do not infer a successful input
+from a failed command. No credentials or context file are copied into the cache.
+
 ## Stage large uploads and recover publication
 
 **Staging** holds temporary actor-owned bytes before publication. A staging reply is not
@@ -166,7 +212,7 @@ Read a method schema for exact required fields and result types.
 | [`resource.get`](api/resource.get.md) | Fetch current summary metadata; direct reads include archived resources. Inspect budget omissions before treating metadata as complete. |
 | [`resource.list`](api/resource.list.md) | Discover summaries ordered by resource ID with target/archive filters. Continue using planning at_revision and next_offset; inspect budget omissions. |
 | [`resource.history`](api/resource.history.md) | Read retained immutable content versions in increasing version order, including archived resources. Use planning capture paging; metadata-only edits add no versions. |
-| [`resource.read`](api/resource.read.md) | Fetch latest or pinned complete UTF-8 content up to 65536 bytes with verified version, SHA-256 and full size. Unknown resource/version returns Not_found; larger/binary content requires read_chunk. |
+| [`resource.read`](api/resource.read.md) | Fetch latest or pinned complete UTF-8 content up to 65536 bytes with verified version, SHA-256 and full size. Unknown resource/version returns Not_found; larger UTF-8 text uses read_text, and binary content uses read_chunk/download. |
 | [`resource.read_text`](api/resource.read_text.md) | Read a bounded plain UTF-8 range, retaining incomplete trailing scalars for exact byte continuation. Pin version/digest; invalid selected UTF-8 rejects. |
 | [`resource.read_chunk`](api/resource.read_chunk.md) | Fetch a verified binary byte range; pin the first selected version and follow next_offset to EOF. Verify identities, every chunk digest and assembled digest. |
 | [`upload.begin`](api/upload.begin.md) | Begin/resume the same actor/ID/size/digest staging entry. Changed owner/size/digest conflicts; admission exhaustion is Invalid_argument. Empty staging is supported. |

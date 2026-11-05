@@ -1,0 +1,8 @@
+(rule
+ (alias runtest)
+ (deps
+  cache_test.py
+  ../daemon_ready.py
+  ../../skills/workgraph/scripts/input-cache.py)
+ (action
+  (run python3 %{dep:cache_test.py} %{exe:../../bin/main.exe})))
