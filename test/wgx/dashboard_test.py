@@ -70,6 +70,42 @@ class Dashboard(unittest.TestCase):
         with self.assertRaises(ValueError):
             client.call('ticket.finish', ticket_id='upstream')
 
+    def test_semantic_categories_task_expansion_reservations_and_observation_warnings(self):
+        self.write('run.register',target_run_id='worker',objective='Use database')
+        self.write('ticket.create',ticket_id='task',title='Focused task',description='Complete core instructions')
+        started=self.write('ticket.start',ticket_id='task')
+        self.write('ticket.release',ticket_id='task',token=started['data']['token'])
+        self.write('project.create',project_id='p',title='Project scope')
+        self.write('request.ask',request_id='project-question',scope={'kind':'project','id':'p'},title='Project scoped question',body='Choose',resolver_id='lead',recipients=[{'kind':'actor','id':'lead'}])
+        self.write('reservation.acquire',target_run_id='worker',requests=[{'reservation_id':'database','mode':'exclusive'}])
+        target={'kind':'named','reservation_id':'database'}
+        self.write('reservation.waiter.put',target=target,target_run_id='worker',expected_revision='0',action='begin',duration_ms='300000',note='Advisory wait')
+        before=self.call('workspace.overview')
+        client=self.client();called=[];original=client.call
+        def tracked(method,**params):
+            called.append((method,params));return original(method,**params)
+        client.call=tracked
+        snapshot=client.snapshot();view=dash.View('w');view.accept(snapshot)
+        scoped=dash.View('w',project='p');scoped.accept(snapshot)
+        self.assertIn('Project scoped question',str(scoped.attention()))
+        self.assertNotIn('thread.list',[method for method,_ in called])
+        self.assertNotIn('activity.since',[method for method,_ in called])
+        ownership=[entry for entry in snapshot.events if entry['category']=='ownership' and entry['item']['kind']=='task']
+        self.assertGreaterEqual(len(ownership),2)
+        view.switch_tab('Agents');self.assertIn('unobserved', '\n'.join(row.text for row in view.rows()))
+        view.switch_tab('Reservations');self.assertIn('database','\n'.join(row.text for row in view.rows()))
+        data,warnings=client.detail(('reservation',dash.compact(target)),snapshot)
+        self.assertEqual([row['kind'] for row in data['items']],['holder','waiter'])
+        self.assertIn('no FIFO','\n'.join(row.text for row in dash.detail_rows(('reservation',dash.compact(target)),data,warnings)))
+        data,warnings=client.detail(('ticket','task'),snapshot)
+        self.assertIn('Complete core instructions','\n'.join(row.text for row in dash.detail_rows(('ticket','task'),data,warnings)))
+        core=next(params for method,params in called if method=='ticket.read')
+        self.assertEqual(core['at_revision'],snapshot.revision)
+        expansion=data['expand_context']
+        self.assertIn(('ticket.context',expansion['params']),called)
+        self.assertIn('semantic_history',data)
+        self.assertEqual(self.call('workspace.overview'),before)
+
     def test_partial_enrichment_pause_highlights_and_nested_back(self):
         for n in range(10):
             self.write('ticket.create',ticket_id=f't{n}',title=f'Task {n}')

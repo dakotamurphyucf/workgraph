@@ -93,28 +93,97 @@ class Helper(unittest.TestCase):
             self.assertNotIn(b'\x1b',self.helper('questions',env=env).stdout)
         self.assertEqual(self.call('workspace.overview'),before)
 
-    def test_readable_watch_expands_exact_consumed_interval(self):
+    def test_semantic_watch_uses_digest_capture_and_changes_only_for_wake(self):
         self.write('ticket.create',ticket_id='watched',title='Visible watch work')
         self.write('comment.add',comment_id='watch-decision',target={'kind':'ticket','id':'watched'},kind='decision',body='Use bounded caching')
         log=self.root/'readable-watch-log';proxy=self.root/'readable-watch-proxy'
         proxy.write_text('#!/usr/bin/env python3\nimport json,os,sys\nfrom pathlib import Path\np=Path('+repr(str(log))+')\nwith p.open("a") as f: f.write(json.dumps(sys.argv[3:])+"\\n")\nif sys.argv[3]=="changes.wait":\n print(json.dumps({"error":{"message":"deliberate stop"}}));sys.exit(1)\nos.execv('+repr(EXE)+',["workgraph"]+sys.argv[1:])\n')
         proxy.chmod(0o755)
         result=self.helper('watch','--all',expected=1,executable=str(proxy))
-        self.assertIn(b'created watched',result.stdout)
-        self.assertIn(b'decision on watched: Use bounded caching',result.stdout)
+        self.assertIn(b'task_changed: Visible watch work',result.stdout)
+        self.assertIn(b'decision',result.stdout)
+        self.assertIn(b'Use bounded caching',result.stdout)
         self.assertNotIn(b'\x1b',result.stdout)
         calls=[json.loads(line) for line in log.read_text().splitlines()]
-        expansion=next(call for call in calls if call[0]=='activity.since')
+        expansion=next(call for call in calls if call[0]=='activity.digest')
         self.assertEqual(expansion[expansion.index('--after')+1],'0')
-        self.assertEqual(expansion[expansion.index('--at-revision')+1],'2')
+        self.assertNotIn('--at-revision', expansion)
+        wake=next(call for call in calls if call[0]=='changes.wait')
+        self.assertEqual(wake[wake.index('--after')+1], '2')
+        self.assertNotIn('activity.since', log.read_text())
         self.assertIn(b'retained cursor:',result.stderr)
         # Failed enrichment must not consume its change cursor or proceed to wait.
-        proxy.write_text(proxy.read_text().replace('=="changes.wait"','=="activity.since"'))
+        proxy.write_text(proxy.read_text().replace('=="changes.wait"','=="activity.digest"'))
         log.unlink()
         failed=self.helper('watch','--all',expected=1,executable=str(proxy))
         self.assertEqual(failed.stdout,b'')
         self.assertIn(b'initial after: 0',failed.stderr)
         self.assertNotIn('changes.wait',log.read_text())
+
+    def test_contention_observation_and_captured_request_summaries_are_read_only(self):
+        for run in ['holder', 'waiter']:
+            self.write('run.register', target_run_id=run, objective='Database integration')
+        target={'kind':'named','reservation_id':'test-db'}
+        self.write('reservation.acquire', target_run_id='holder', requests=[{'reservation_id':'test-db','mode':'exclusive'}])
+        self.write('reservation.holder_note.put', target=target,target_run_id='holder',token='1',expected_revision='0',action='set',duration_ms='300000',note='Finish database checks',expected_release_unix_ms='500')
+        self.write('reservation.waiter.put', target=target,target_run_id='waiter',expected_revision='0',action='begin',duration_ms='300000',note='Needs database')
+        self.write('request.ask',request_id='question',title='Captured summary',body='Choose policy',resolver_id='lead',recipients=[{'kind':'actor','id':'lead'}])
+        before=self.call('workspace.overview')
+        result=self.helper('contention','named','test-db')
+        for text in [b'ADVISORY',b'holder ci/holder',b'waiter ci/waiter',b'phase=waiting',b'elapsed_ms=',b'Needs database',b'Finish database checks',b'500',b'lease=',b'no FIFO']:
+            self.assertIn(text,result.stdout)
+        self.write('reservation.waiter.put',target=target,target_run_id='waiter',expected_revision='1',action='close',reason='Cancelled')
+        before=self.call('workspace.overview')
+        self.assertIn(b'phase=closed',self.helper('contention','named','test-db').stdout)
+        path={'worktree_id':'tree','kind':'subtree','path':'src'}
+        self.write('reservation.paths.acquire',target_run_id='holder',requests=[{'target':path,'mode':'exclusive'}])
+        self.assertIn(b'holder ci/holder',self.helper('contention','path','tree','file','src/a.ml').stdout)
+        before=self.call('workspace.overview')
+        agents=self.helper('agents').stdout
+        self.assertIn(b'unobserved',agents)
+        self.assertIn(b'held_work',agents)
+        proxy=self.root/'summary-proxy'
+        proxy.write_text('#!/usr/bin/env python3\nimport os,sys\nif sys.argv[3] in ("thread.list","activity.since"):\n raise SystemExit(9)\nos.execv('+repr(EXE)+',["workgraph"]+sys.argv[1:])\n')
+        proxy.chmod(0o755)
+        self.assertIn(b'Captured summary',self.helper('questions',executable=str(proxy)).stdout)
+        self.helper('status',executable=str(proxy))
+        self.assertEqual(self.call('workspace.overview'),before)
+
+    def test_large_commit_semantic_excerpts_and_contention_cursor_pages(self):
+        self.write('ticket.create',ticket_id='large',title='Semantic excerpts')
+        operations=[{'method':'comment.add','params':{'comment_id':f'large{n}','target':{'kind':'ticket','id':'large'},'kind':'decision','body':('decision marker '+str(n)+' ')+'x'*60000}} for n in range(20)]
+        params=self.root/'large-commit.json'
+        params.write_text(json.dumps({'operations':operations}))
+        published=subprocess.run([EXE,'--context',str(self.context),'transaction.apply','--params-file',str(params)],capture_output=True)
+        self.assertEqual(published.returncode,0,published.stderr)
+        result=self.helper('feed','30')
+        self.assertIn(b'decision marker 19',result.stdout)
+        self.assertIn(b'[source excerpt]',result.stdout)
+        self.assertIn(b'sources=',result.stdout)
+        self.assertIn(b'Semantic capture:',result.stderr)
+        operations=[]
+        target={'kind':'named','reservation_id':'busy-db'}
+        for n in range(105):
+            operations += [{'method':'run.register','params':{'target_run_id':f'wait{n:03}','objective':'Wait cooperatively'}},
+                           {'method':'reservation.waiter.put','params':{'target':target,'target_run_id':f'wait{n:03}','expected_revision':'0','action':'begin','duration_ms':'300000','note':f'wait marker {n}'}}]
+        self.batch(operations)
+        before=self.call('workspace.overview')
+        result=self.helper('contention','named','busy-db')
+        self.assertIn(b'wait marker 104',result.stdout)
+        failed=self.helper('contention','named','busy-db',expected=1,env={'WGX_MAX_PAGES':'1'})
+        self.assertIn(b'retained cursor:',failed.stderr)
+        self.assertEqual(failed.stdout,b'')
+        self.assertEqual(self.call('workspace.overview'),before)
+
+    def test_semantic_watch_rejects_stalled_digest_without_wait_or_cursor_loss(self):
+        log=self.root/'digest-log';stub=self.root/'digest-stub'
+        packet={'entries':[],'capture':{'through':'999999'},'cursor':'start','has_more':True}
+        stub.write_text('#!/usr/bin/env python3\nfrom pathlib import Path\nimport json,sys\np=Path('+repr(str(log))+');p.write_text(sys.argv[3])\nprint('+repr(json.dumps({'result':{'data':packet,'meta':{}}}))+')\n')
+        stub.chmod(0o755)
+        result=self.helper('watch','--cursor','start',executable=str(stub),expected=1)
+        self.assertEqual(log.read_text(),'activity.digest')
+        self.assertEqual(result.stdout,b'')
+        self.assertIn(b'retained cursor: start',result.stderr)
 
     def test_authoritative_readiness_and_explicit_run_capability_policy(self):
         self.write('project.create',project_id='p',title='Filtered')
@@ -273,7 +342,7 @@ print(json.dumps({'result':{'data':data,'meta':meta}}))
             packet={'items':[],'cursor':'start','through':'999999','needs_larger_budget':budget,'has_more':True}
             stub.write_text('#!/usr/bin/env python3\nfrom pathlib import Path\nimport json\np=Path('+repr(str(log))+');p.write_text(p.read_text()+"x" if p.exists() else "x")\nprint('+repr(json.dumps({'result':{'data':packet,'meta':{}}}))+')\n')
             stub.chmod(0o755)
-            result=self.helper('watch','--cursor','start',expected=1,executable=str(stub))
+            result=self.helper('watch','--metadata','--cursor','start',expected=1,executable=str(stub))
             self.assertEqual(result.stdout,b'')
             self.assertIn(b'retained cursor: start',result.stderr)
             self.assertEqual(log.read_text(),'x')

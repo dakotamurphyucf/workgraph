@@ -39,30 +39,31 @@ and lease expiry does not remove a holder or authorize recovery.
 
 | Command | Semantics |
 | --- | --- |
-| `status [-p PROJECT] [--run RUN]` | Tickets and daemon `ticket.ready` share one planning capture. Without a run, the label is explicitly graph readiness; `--run` selects actual worker eligibility. Colored counts and progress bars summarize the selected tickets. Other todo work shows declared prerequisites and holds; a listed prerequisite is not necessarily unmet. Exact reasons remain available from `ticket.readiness`. Question titles and links share their requests' communication capture. The last six rendered activity lines share the ticket planning capture. Requests/runs/paths/storage are workspace-wide, independently captured panels. Failure stops the view rather than pretending a panel is empty. |
-| `dash [-p PROJECT] [--run RUN]` | Quiet Overview plus Tasks, Questions, Agents and Activity tabs; item-based anchored selection, responsive wrapping, detail/status inspectors, filters, pause and reconnect. Full terminal height and saved screen/modes restore on quit/signals/errors. Non-TTY/dumb terminals receive one plain snapshot. See controls below. |
+| `status [-p PROJECT] [--run RUN]` | Tickets and daemon `ticket.ready` share one planning capture. Without a run, the label is explicitly graph readiness; `--run` selects actual worker eligibility. Colored counts and progress bars summarize the selected tickets. Other todo work shows declared prerequisites and holds; a listed prerequisite is not necessarily unmet. Exact reasons remain available from `ticket.readiness`. Question titles and links share their requests' communication capture. The last six semantic entries carry their own explicit digest capture. Requests/runs/paths/storage are workspace-wide, independently captured panels. Failure stops the view rather than pretending a panel is empty. |
+| `dash [-p PROJECT] [--run RUN]` | Quiet Overview plus Tasks, Questions, Agents, Activity and Reservations tabs; item-based anchored selection, responsive wrapping, detail/status inspectors, filters, pause and reconnect. Full terminal height and saved screen/modes restore on quit/signals/errors. Non-TTY/dumb terminals receive one plain snapshot. See controls below. |
 | `tree TICKET` | Captured workspace-wide declared prerequisite graph; explicit shared/missing nodes and a 250-row limit. Downstream count includes all reachable dependent tickets, including completed ones, and is not an effort estimate or an eligibility prediction. |
-| `watch [--metadata] [--all\|--cursor CURSOR]` | Drains planning read/wait replies and expands their exact revision interval into readable activity: starts, finishes, decisions, questions and other recorded events. Bodies are previews. `--metadata` skips expansion and shows revision, timestamp, actor/run, targets and distinct event kinds. Kinds describe what changed; they are not a count of records. Advances only the consumed opaque cursor after rendering succeeds, never `through`. Errors/budget/no-progress stop nonzero and retain the last consumed cursor (or initial `after` boundary). Interruption never acknowledges delivery. A replay after a partial output can repeat displayed lines. |
-| `feed [N]` | Last N rendered planning events (default 30, 1..1000), from a current guarded capture. At least one line per commit, including a generic expansion pointer for otherwise unrendered event types; the last N commits therefore contain the last N rendered lines. Collection budget exhaustion stops instead of silently returning an older first page. |
-| `ticket TICKET` | Task/acceptance/handoff fields, priority, labels, parent, prerequisites, blockers, ownership and captured paged comments/linked resources. Notes show author, time and color-coded kind. Note bodies are visibly clipped previews with an exact expansion command. The context itself is bounded; omission errors are explicit. |
-| `questions` | Captured request IDs, current thread titles and linked tickets, author/resolver, status, responsibility, priority, age and optional deadline timestamp. Thread labels use the same communication revision as requests; they are not the immutable original question body. Expand question and pinned answer with `request.get --include-messages true`; listing does not imply acceptance or resolution. |
-| `agents` | Captured runs and current claimed tickets, with caller-reported state, capabilities and objective. A run with no displayed claims is not necessarily an idle external process. |
+| `watch [--metadata] [--all\|--cursor CURSOR]` | Semantic activity uses `activity.digest` categories, exact source references and labelled excerpts. Digest cursors drain only their captured lineage; after completion, `changes.wait` is only a wake signal before a fresh digest after the completed digest through bound. `--metadata` separately drains `changes.read/wait` and shows exact kinds/targets/actor/run. Cursor namespaces cannot be interchanged. Output succeeds before advancing; errors, bounds and interruption retain the unconsumed cursor or initial numeric boundary. A replay after partial output can repeat lines. |
+| `feed [N]` | Up to N semantic entries (default30,1..1000) from the recent N planning revisions. Prints the actual independent digest capture on stderr. Bookkeeping may produce fewer entries; this is a bounded recent window, not complete audit history. Complete digest rows retain exact source refs and explicit excerpt labels. |
+| `ticket TICKET` | Complete core instructions from `ticket.read`, then its guarded context expansion for handoffs, amendments, review, linked requests and related sections; captured paged comments/resources plus ticket-scoped semantic history. Context remaining/next offsets and exact expansion commands remain visible. Oversized context fails explicitly; comment/digest prose is a labelled preview. |
+| `questions` | Request IDs, captured `thread_summary` titles/scope/work links, author/resolver/status/responsibility/priority/age/deadline, without a separate thread read. Original title-byte/link totals disclose prefixes. Read pinned answer `.answer.body` and status with `request.get --request-id ID`, or local `request wait`; related message availability is independent of resolution. Listing does not accept or resolve. |
+| `agents` | Captured runs/current claims plus coordinator advisory stale/unobserved observation age, clock regression and whole-run held-work counts. Unknown age stays unknown; claims/reservations/attempts can overlap and are not summed as tasks. No warning or reported running state proves a process is alive or dead. |
 | `inbox ACTOR [CONSUMER]` | All bounded captured deliveries unacknowledged by that exact consumer. Body previews can have explicit omission metadata; reading never acknowledges. |
 | `output RESOURCE [--limit BYTES]` | Verified complete resource download followed by the existing strict public capture decoder/inspector. Default 4096 retained bytes per stream; configurable 1..65536. Safe decoded previews escape controls; invalid UTF8 replacement, retained/observed/truncated/EOF and provenance coverage remain explicit. |
 | `output RESOURCE --raw stdout\|stderr` | Explicit exact **retained** stream bytes on stdout; redirect to a file. Metadata goes to stderr. Raw bytes may control a terminal; the switch is deliberate. Discarded process bytes cannot be reconstructed. |
 | `storage` | Colored gauges with percentages, readable byte units, actual named limits/remaining/severity and cumulative lifetime; no invented average capacity or provider quota enforcement. |
 | `files` | Captured holders, exact tokens/mode and lease deadline, including explicit expiry semantics. |
+| `contention named NAME` / `contention path WORKTREE file\|subtree PATH` | Explicit captured target view of actual overlapping holders and advisory waiters, including closed/expired/terminal-run records. Shows elapsed wait/clock regression, note and reported expected-release timestamp separately from actual ownership lease. No FIFO, queue position or automatic grant. Expiry never removes ownership. Useful for unheld targets not discoverable in reservation lists. |
 | `history TEXT` | Captured paged indexed matches plus indexing/coverage status. A partial-index no-hit is not absence. |
 | `convo SESSION [SEQ] [N]` | Forward window beginning at sequence SEQ (default beginning), up to N=1..100 events. Best-effort UTF8 and exact base64 previews, bounded to 1200 bytes per selected payload/text, with total/next-offset/has-more and captured head. Clipped or binary text is not exact decoded history. Expand bytes with `history.payload` and the same head; use returned next_anchor rather than invented position arithmetic. |
 
-Collections reuse the typed CLI `--paginate` helper, preserving each family's
+Ordinary collections reuse the typed CLI `--paginate` helper, preserving each family's
 capture, selectors and guards. Defaults are 100 pages and 16MiB total response
 bytes. `WGX_MAX_PAGES` accepts 1..1000; `WGX_TOTAL_BYTES` accepts
 4096..67108864. Incomplete traversal returns nonzero with exact stop, capture,
 next/retry request and problem metadata. No guard is silently refreshed. A
 complete collection can still omit body fields: those budget counters are shown
 on stderr and the view does not claim complete bodies. `attention.read` is not
-used as a shortcut for independently paged readiness.
+used as a shortcut for independently paged readiness. Digest and contention use explicit bounded cursor drains with their actual `entries`/`items` fields; no new daemon methods or cache are introduced. Their unchanged selectors and current-capture guard remain exact; changes require an explicit new observation.
 
 Untrusted control characters, including ESC, C0/C1 and directional formatting
 controls, become visible escapes before terminal styling. Evidence output first
@@ -85,7 +86,7 @@ preview is an observation; follow its expansion commands for exact source bytes.
 - Up/down or `j/k` select whole items, skipping their wrapped lines, subtitles,
   headings and spacing. Selection stays anchored to the item across refreshes and
   resizing. Enter opens details; Escape returns through nested views.
-- Tab/Shift-Tab or left/right switch tabs; `1`–`5` select a tab directly. Each tab
+- Tab/Shift-Tab or left/right switch tabs; `1`–`6` select a tab directly. Each tab
   remembers its position. Space/b or Page Down/Up pages; g/G or Home/End jumps.
 - `c` collapses the selected section. `/` searches the current view; `a` filters
   worker/resolver. Empty input clears the filter. `f` opens Tasks and cycles
@@ -98,7 +99,8 @@ preview is an observation; follow its expansion commands for exact source bytes.
   successful read, errors, omission details, workspace-wide reservations and all
   named storage meters. Technical ownership/policy fields remain in inspectors.
   Loading, incomplete-data and disconnection warnings stay visible on the main view.
-- `r` refreshes, `?` explains controls, `q` quits. No action writes or acknowledges.
+- Reservations lists named/path targets. Enter loads advisory contention on the background read worker. Explicit unheld targets use the shell contention command; the tab does not claim to discover every waiter.
+- `r` refreshes, `?` explains controls, `q` quits. No action writes or acknowledges. The Activity search applies to semantic rows; worker attribution cannot be inferred from a digest source, so the worker filter is explicitly inactive there. Reservations filters match retained holders, not undiscovered waiters.
 
 The dashboard uses a Linear-inspired dark palette: charcoal surfaces, off-white
 headings, gray metadata and indigo navigation, questions and change highlights.

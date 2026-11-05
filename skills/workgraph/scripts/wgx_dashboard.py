@@ -29,8 +29,9 @@ import unicodedata
 
 READS = frozenset({
     'workspace.overview', 'workspace.metrics', 'project.list', 'ticket.list', 'ticket.ready',
-    'ticket.readiness', 'ticket.context', 'request.list', 'request.get',
-    'thread.list', 'run.list', 'reservation.path.list', 'activity.since',
+    'ticket.readiness', 'ticket.read', 'ticket.context', 'request.list', 'request.get',
+    'run.list', 'reservation.list', 'reservation.path.list', 'reservation.contention',
+    'coordinator.overview', 'activity.digest',
     'comment.list', 'resource.list',
 })
 # Linear-inspired dark palette: charcoal surfaces, neutral text and indigo accents.
@@ -134,6 +135,18 @@ def omissions(result):
     return warnings
 
 
+def run_warning_text(warning):
+    metadata = warning['metadata']
+    run = warning['source']['run_id']
+    if metadata['clock_regressed']:
+        observation = 'observation clock regressed; age unknown'
+    elif metadata['liveness'] == 'unobserved':
+        observation = 'unobserved; age unknown'
+    else:
+        observation = 'stale observation ' + str(metadata['observation_age_ms']) + 'ms old'
+    return run + ': ' + observation + '; held records ' + compact(metadata['held_work']) + ' (not process liveness)'
+
+
 @dataclass(frozen=True)
 class Snapshot:
     revision: str
@@ -150,6 +163,9 @@ class Snapshot:
     warnings: tuple = ()
     projects: dict = field(default_factory=dict)
     name: str = ''
+    run_warnings: list = field(default_factory=list)
+    reservations: list = field(default_factory=list)
+    activity_capture: dict = field(default_factory=dict)
 
     def fingerprints(self):
         records = {}
@@ -238,6 +254,36 @@ class Client:
         return ([item for page in pages for item in page['data']['items']],
                 pages[0]['meta'], [method + ': ' + warning for page in pages for warning in omissions(page)])
 
+    def cursor_rows(self, method, collection_field, **params):
+        rows, warnings, size = [], [], 0
+        boundary = dict(params)
+        for _ in range(self.max_pages):
+            try:
+                result = self.call(method, limit=100, max_bytes=1048576, **boundary)
+            except ReadError as error:
+                raise ReadError(str(error) + '; retained boundary: ' + compact(boundary)) from None
+            size += len(compact(result).encode())
+            data = result['data']
+            if size > self.total_bytes or data.get('needs_larger_budget'):
+                raise ReadError(method + ' byte limit; retained boundary: ' + compact(boundary))
+            next_cursor = data['cursor']
+            if data['has_more'] and next_cursor == boundary.get('cursor'):
+                raise ReadError(method + ' made no progress; retained boundary: ' + compact(boundary))
+            rows.extend(data[collection_field])
+            warnings.extend(omissions(result))
+            if not data['has_more']:
+                return rows, data, result['meta'], warnings
+            boundary = {key: value for key, value in params.items() if key not in {'after', 'cursor'}}
+            boundary['cursor'] = next_cursor
+        raise ReadError(method + ' page limit; retained boundary: ' + compact(boundary))
+
+    def digest(self, *, after=None, cursor=None, scope=None):
+        boundary = {'after': after} if cursor is None else {'cursor': cursor}
+        entries, data, _, warnings = self.cursor_rows('activity.digest', 'entries', scope=scope, **boundary)
+        if any(entry['item']['clipped_fields'] for entry in entries):
+            warnings.append('Activity contains source excerpts; inspect clipped_fields and exact sources in detail.')
+        return entries, data['capture'], warnings
+
     def snapshot(self):
         overview = self.call('workspace.overview')
         revision = overview['meta']['workspace_revision']
@@ -251,13 +297,20 @@ class Client:
         projects, _ = collection('project.list', at_revision=revision)
         tickets, _ = collection('ticket.list', at_revision=revision)
         ready, _ = collection('ticket.ready', at_revision=revision, target_run_id=self.run)
-        requests, request_meta = collection('request.list')
-        threads, _ = collection('thread.list', revision=request_meta['query_revision'])
+        requests, _ = collection('request.list')
+        threads = {q['thread_id']: q['thread_summary'] for q in requests}
+        for request in requests:
+            summary = request['thread_summary']
+            if len(summary['title'].encode()) < int(summary['title_bytes']) or len(summary['links']) < int(summary['link_count']):
+                warnings.append('request ' + request['request_id'] + ': thread summary is a bounded prefix; expand request.get.')
         runs, _ = collection('run.list')
         paths, _ = collection('reservation.path.list')
+        reservations, _ = collection('reservation.list')
+        run_warnings, _ = collection('coordinator.overview', kinds=['stale_run', 'unobserved_run'])
         metrics = self.call('workspace.metrics')
         warnings.extend(omissions(metrics))
-        events, _ = collection('activity.since', after=str(max(0, int(revision) - 8)), at_revision=revision)
+        events, activity_capture, notes = self.digest(after=str(max(0, int(revision) - 8)))
+        warnings.extend(notes)
         if self.revision != revision:
             self.revision, self.checks = revision, {}
         active = [t for t in tickets if t['status'] not in {'done', 'canceled'}]
@@ -272,24 +325,33 @@ class Client:
         for check in self.checks.values():
             warnings.extend(check['warnings'])
         return Snapshot(revision, time.time(), tickets, {t['ticket_id'] for t in ready}, requests,
-                        {t['thread_id']: t for t in threads}, runs, paths, metrics['data'], events,
+                        threads, runs, paths, metrics['data'], events,
                         dict(self.checks), tuple(warnings), {p['project_id']:p for p in projects},
-                        overview['data'].get('workspace', {}).get('name', ''))
+                        overview['data'].get('workspace', {}).get('name', ''),
+                        run_warnings, reservations, activity_capture)
 
     def detail(self, entity, snapshot):
         kind, identity = entity
         if kind == 'request':
             result = self.call('request.get', request_id=identity, include_messages=True, max_bytes=1048576)
             return result['data'], omissions(result)
+        if kind == 'reservation':
+            target = json.loads(identity)
+            items, data, meta, warnings = self.cursor_rows('reservation.contention', 'items', target=target, include_inactive=True)
+            return {**data, 'items': items, 'capture_meta': meta}, warnings
         if kind != 'ticket':
             raise ValueError('unsupported detail entity')
-        result = self.call('ticket.context', ticket_id=identity, at_revision=snapshot.revision,
-                           limit=100, max_bytes=1048576)
+        core = self.call('ticket.read', ticket_id=identity, at_revision=snapshot.revision, max_bytes=1048576)
+        expansion = core['data']['expand_context']
+        result = self.call(expansion['method'], **expansion['params'])
         target = {'kind': 'ticket', 'id': identity}
-        comments, _, notes = self.pages('comment.list', target=target)
-        resources, _, more = self.pages('resource.list', target=target)
+        comments, comments_meta, notes = self.pages('comment.list', target=target)
+        resources, resources_meta, more = self.pages('resource.list', target=target)
         readiness = self.call('ticket.readiness', ticket_id=identity, at_revision=snapshot.revision, target_run_id=self.run)
-        return {**result['data'], 'start_readiness': readiness['data'], 'all_comments': comments, 'linked_resources': resources}, omissions(result) + omissions(readiness) + notes + more
+        events, capture, history_notes = self.digest(after='0', scope={'kind': 'ticket', 'ticket_id': identity})
+        return {**result['data'], 'ticket': core['data']['ticket'], 'start_readiness': readiness['data'], 'all_comments': comments, 'linked_resources': resources,
+                'semantic_history': events, 'history_capture': capture, 'expand_context': expansion,
+                'collection_captures': {'core': core['meta'], 'context': result['meta'], 'comments': comments_meta, 'resources': resources_meta}}, omissions(result) + omissions(readiness) + notes + more + history_notes
 
 
 @dataclass(frozen=True)
@@ -356,6 +418,20 @@ def structured_rows(value, prefix=''):
 def detail_rows(entity, data, warnings):
     rows = [Row(f'{entity[0].upper()} {entity[1]} — captured detail; Esc returns to the previous position', 'bold')]
     rows.extend(Row('INCOMPLETE: ' + note, 'red') for note in warnings)
+    if entity[0] == 'reservation':
+        rows += [Row('ADVISORY CONTENTION — no FIFO or automatic grant', 'yellow')]
+        now = int(data['observed_unix_ms'])
+        for item in data['items']:
+            if item['kind'] == 'holder':
+                lease = item['holder']['lease']
+                phase = 'clock regressed' if now < int(lease['last_unix_ms']) else 'unbounded' if lease['deadline_unix_ms'] is None else 'expired (still held)' if now >= int(lease['deadline_unix_ms']) else 'active'
+                rows.append(Row('HOLDER · lease ' + phase + ' · reported release note is advisory', 'yellow'))
+            else:
+                rows.append(Row('WAITER · ' + item['phase'] + ' · elapsed ' + str(item['elapsed_ms'] if item['elapsed_ms'] is not None else 'unknown') + 'ms', 'cyan'))
+            rows += list(structured_rows(item))
+        rows += list(structured_rows({key: value for key, value in data.items() if key != 'items'}))
+        rows.append(Row('Reported expected release is a note, not the ownership lease. Expiry does not remove holders.', 'dim'))
+        return rows
     if entity[0] == 'request':
         related = data.get('related') or {}
         question = related.get('source_message') or {}
@@ -366,7 +442,7 @@ def detail_rows(entity, data, warnings):
                  Row('PINNED ANSWER', 'bold'), Row(answer.get('body', '[no answer recorded]')),
                  Row('RECORD DETAILS / RELATED MESSAGES', 'bold')]
         rows += list(structured_rows(data))
-        rows.append(Row('Related messages may be paged; inspect remaining/continuation fields above.', 'yellow'))
+        rows.append(Row('Pinned answer/status is authoritative even when related messages are absent or paged. Use request.get or request wait.', 'yellow'))
         return rows
     ticket = data['ticket']
     rows += [Row(ticket['title'], 'bold'), Row(f"{ticket['status']} · {owner(ticket)}", 'yellow'),
@@ -383,11 +459,26 @@ def detail_rows(entity, data, warnings):
     rows.append(Row('LINKED RESOURCES', 'bold'))
     for resource in data.get('linked_resources', []):
         rows.append(Row(f"{resource['resource_id']} · {resource['metadata']['title']}"))
+    for label, key in [('LINKED REQUESTS / THREADS', 'communication'), ('CONDITIONS', 'external_conditions'),
+                       ('REVIEW / EVIDENCE', 'evidence'), ('ATTEMPTS', 'attempts'), ('RECOVERIES', 'recoveries'),
+                       ('SCOPED SEMANTIC HISTORY', 'semantic_history'), ('HISTORY CAPTURE', 'history_capture'),
+                       ('CONTEXT PAGING / EXPANSION', 'expand_context')]:
+        rows.append(Row(label, 'bold'))
+        rows += list(structured_rows(data.get(key)))
+    rows.append(Row('OTHER RELATED CONTEXT (captured sections)', 'bold'))
+    shown = {'ticket', 'start_readiness', 'completion_readiness', 'handoff', 'amendments', 'pending_amendment_acknowledgements',
+             'communication', 'external_conditions', 'evidence', 'attempts', 'recoveries', 'semantic_history', 'history_capture',
+             'expand_context', 'all_comments', 'linked_resources'}
+    rows += list(structured_rows({key: value for key, value in data.items() if key not in shown}))
+    rows.append(Row('CONTEXT COLLECTION BOUNDARIES', 'bold'))
+    for key, value in data.items():
+        if isinstance(value, dict) and any(k in value for k in ('remaining', 'next_offset')):
+            rows += list(structured_rows({key: {k: v for k, v in value.items() if k != 'items'}}))
     rows.append(Row('Context collections retain their remaining/continuation fields. Resource bodies are not downloaded here.', 'dim'))
     return rows
 
 
-TABS = ('Overview', 'Tasks', 'Questions', 'Agents', 'Activity')
+TABS = ('Overview', 'Tasks', 'Questions', 'Agents', 'Activity', 'Reservations')
 
 
 def item_positions(rows):
@@ -468,12 +559,14 @@ class View:
         for request in requests:
             thread = snapshot.threads.get(request.get('thread_id'), {})
             linked = {link['id'] for link in thread.get('links', []) if link['kind'] == 'ticket'}
-            if request['status']['kind'] != 'open' or (self.project and not (linked & tids)):
+            scope = thread.get('scope', {})
+            in_project = bool(linked & tids) or (scope.get('kind') == 'project' and scope.get('id') == self.project)
+            if request['status']['kind'] != 'open' or (self.project and not in_project):
                 continue
             title = thread.get('title', '[title unavailable]')
             if self.matches(request['request_id'] + ' ' + title, request['resolver_id']):
                 kind = 'Review requested' if request.get('kind') == 'review' else 'Waiting for an answer'
-                items.append((title, f"{request['resolver_id']} · {kind} · {age(request.get('created', {}).get('timestamp'), now)}",
+                items.append((title, f"{request['resolver_id']} · {kind} · {age(request.get('created', {}).get('timestamp'), now)} · scope {compact(scope)}",
                               ('request', request['request_id'])))
         for ticket in self.tickets():
             if not self.matches(ticket['ticket_id'] + ' ' + ticket['title'], owner(ticket)):
@@ -571,32 +664,44 @@ class View:
                 if not self.matches(compact(run), run['actor_id']):
                     continue
                 work = [t['title'] for t in snapshot.tickets if (t.get('claim') or {}).get('run_id') == run['run_id']]
-                items.append((run['actor_id'] + ' · ' + run['run_id'], f"Reported {run['status']} · " + (', '.join(work) if work else 'No recorded task ownership'), ('run',run['run_id'])))
+                warning = next((w for w in snapshot.run_warnings if w['source'].get('run_id') == run['run_id']), None)
+                observation = run_warning_text(warning) if warning else 'No stale/unobserved warning in this capture'
+                items.append((run['actor_id'] + ' · ' + run['run_id'], f"Reported {run['status']} · " + (', '.join(work) if work else 'No recorded task ownership') + ' · ' + observation, ('run',run['run_id'])))
             section('runs', 'AGENTS' + (' · RUNNING REPORTS ONLY' if self.hide_inactive else ''), items)
             rows += [Row('Workspace-wide records. Reported status does not prove process liveness.', 'dim'),
                      Row('Enter for objectives, capabilities and file reservations.', 'dim')]
+        elif self.tab == 'Reservations':
+            items = []
+            for reservation in snapshot.reservations:
+                target = {'kind': 'named', 'reservation_id': reservation['reservation_id']}
+                if not self.matches(compact(reservation), ' '.join(holder['actor_id'] for holder in reservation['holders'])):
+                    continue
+                items.append((reservation['reservation_id'], 'Named · Enter for advisory waiters and holder notes', ('reservation', compact(target))))
+            for path in snapshot.paths:
+                target = {'kind': 'path', 'target': path['target']}
+                if not self.matches(compact(path), ' '.join(holder['actor_id'] for holder in path['holders'])):
+                    continue
+                label = path['target']['worktree_id'] + ':' + path['target']['path']
+                items.append((label, 'Path · Enter for overlapping holders and advisory waiters', ('reservation', compact(target))))
+            section('reservations', 'RESERVATIONS', items)
+            rows.append(Row('Explicit unheld targets: wgx contention named NAME / contention path WORKTREE file|subtree PATH. No FIFO or automatic grant.', 'dim'))
         elif self.tab == 'Activity':
             items = []
             for event in reversed(snapshot.events):
-                if not self.matches(compact(event), event.get('actor_id', '')):
+                if self.query and self.query.casefold() not in compact(event).casefold():
                     continue
-                messages = []
-                for change in event.get('changes', []):
-                    if change['kind'] == 'comment_changed':
-                        comment = change['change']
-                        body = comment.get('version', {}).get('body', '')
-                        messages.append(comment.get('comment_kind', 'note').capitalize() + ': ' + body)
-                    elif change['kind'] == 'ticket_put':
-                        ticket = change['ticket']
-                        messages.append(ticket['title'] + ' — ' + ticket['status'].replace('_',' '))
-                    else:
-                        messages.append(change['kind'].replace('_',' '))
-                summary = '; '.join(messages)
-                if len(summary) > 180:
-                    summary = summary[:177] + '…'
-                items.append((summary, f"{event.get('actor_id','?')} · {age(event.get('timestamp'), self.paused_at if self.paused else time.time())}", ('event',event['revision'])))
-            section('recent', 'RECENT ACTIVITY', items)
-            rows.append(Row('Recent workspace-wide commits. Enter for full records; wgx watch for a live event log.', 'dim'))
+                summary = event['item']['summary']
+                if event['item']['record'].get('body'):
+                    summary += ': ' + event['item']['record']['body']
+                if event['item']['clipped_fields']:
+                    summary += ' [source excerpt]'
+                identity = event['workspace_revision'] + ':' + event['change_index']
+                items.append((event['category'].replace('_', ' ').capitalize() + ' · ' + summary,
+                              'revision ' + identity + ' · Enter for exact source references', ('event', identity)))
+            section('recent', 'SEMANTIC ACTIVITY', items)
+            if self.actor:
+                rows.append(Row('Worker filter does not apply: digest sources do not expose mutation actor attribution.', 'yellow'))
+            rows.append(Row('Independent digest capture: ' + compact(snapshot.activity_capture) + '; unclassified bookkeeping is not semantic activity.', 'dim'))
         return rows
 
     def status_rows(self):
@@ -616,6 +721,8 @@ class View:
             rows += [Row('CONNECTION ERROR', 'red'), Row(self.error), Row('')]
         if snapshot.warnings:
             rows += [Row('INCOMPLETE DATA', 'yellow')] + [Row(w) for w in snapshot.warnings] + [Row('')]
+        rows += [Row('RUN OBSERVATION WARNINGS (advisory)', 'heading-cyan')]
+        rows += [Row(run_warning_text(w), 'yellow') for w in snapshot.run_warnings]
         rows += [Row('FILE RESERVATIONS (workspace-wide)', 'heading-cyan'), Row('')]
         for path in snapshot.paths:
             rows += list(structured_rows(path)) + [Row('')]
@@ -636,10 +743,12 @@ class View:
             run = next(r for r in self.snapshot.runs if r['run_id'] == identity)
             paths = [p for p in self.snapshot.paths if any(h.get('run_id') == identity for h in p.get('holders', []))]
             rows = [Row('AGENT ' + run['actor_id'], 'bold'), Row('')]
-            rows += list(structured_rows(run)) + [Row(''), Row('FILE RESERVATIONS', 'bold')]
+            rows += list(structured_rows(run))
+            rows += [Row(run_warning_text(w), 'yellow') for w in self.snapshot.run_warnings if w['source'].get('run_id') == identity]
+            rows += [Row(''), Row('FILE RESERVATIONS', 'bold')]
             rows += list(structured_rows(paths))
         else:
-            event = next(e for e in self.snapshot.events if e['revision'] == identity)
+            event = next(e for e in self.snapshot.events if e['workspace_revision'] + ':' + e['change_index'] == identity)
             rows = [Row('ACTIVITY · capture ' + self.snapshot.revision, 'bold'), Row('')] + list(structured_rows(event))
         self.open_overlay('detail', rows)
 
@@ -764,7 +873,7 @@ HELP = '''KEYS
 
 ↑ / ↓ or j / k   Select an item (wrapped lines stay together)
 Tab / Shift-Tab   Next / previous view; left / right also switch views
-1–5              Overview / Tasks / Questions / Agents / Activity
+1–6              Overview / Tasks / Questions / Agents / Activity / Reservations
 Enter            Open selected item; Escape returns to the same position
 Space / b        Page down / up; g / G or Home / End go to top / bottom
 /                Search this view; an empty value clears the search
@@ -958,8 +1067,8 @@ def interact(client, view):
             elif key in {'/', 'a'} and not view.overlay:
                 view.prompt = 'Search' if key == '/' else 'Worker/resolver'
                 view.prompt_text = ''
-            elif key in {'\t', 'next-tab', 'prev-tab', '1','2','3','4','5'} and not view.overlay:
-                if key in '12345':
+            elif key in {'\t', 'next-tab', 'prev-tab', '1','2','3','4','5','6'} and not view.overlay:
+                if key in '123456':
                     name = TABS[int(key)-1]
                 else:
                     name = TABS[(TABS.index(view.tab) + (-1 if key == 'prev-tab' else 1)) % len(TABS)]
@@ -987,7 +1096,7 @@ def interact(client, view):
                     view.switch_tab(selected.entity[1])
                 elif selected.entity[0] in {'run', 'event'}:
                     view.inspect_local(selected.entity)
-                elif selected.entity[0] in {'ticket', 'request'}:
+                elif selected.entity[0] in {'ticket', 'request', 'reservation'}:
                     pending_detail = selected.entity
                     view.detail_key = (selected.entity, view.snapshot.revision)
                     view.open_overlay('loading', [Row('Loading captured detail…'), Row('Escape returns without changing any records.')])

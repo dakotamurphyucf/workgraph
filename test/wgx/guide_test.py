@@ -346,6 +346,7 @@ method=args[2] if args[0]=="--context" else args[0]
 data={"items":[]}
 if method=="workspace.overview": data={"workspace":{"name":"Viewport"},"counts":{}}
 if method=="ticket.list": data={"items":[{"ticket_id":"t"+str(n),"title":"long viewport row "+str(n),"status":"in_progress","priority":0,"project_id":"p","prerequisites":[],"label_ids":[],"claim":{"actor_id":"worker","token":"1"}} for n in range(90)]}
+if method=="activity.digest": data={"entries":[],"capture":{"through":"1"},"cursor":"digest","has_more":False}
 if method=="workspace.metrics": data={"planning":{"limits":{},"admission":{}},"history":{"limits":{},"admission":{}}}
 meta={"workspace_revision":"1","query_revision":"1"}
 if "--paginate" in args: data={"pages":[{"data":data,"meta":meta}],"pagination":{"complete":True}}
