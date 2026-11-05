@@ -118,6 +118,29 @@ The daemon has only the canonical ticket.context method; raw socket callers use 
 Brief help shows one level of nested object/array/tagged inputs; --full or schema METHOD
 provides complete contracts.
 
+For machine-readable input discovery, `workgraph fields METHOD` runs offline and
+needs no context or daemon. It returns `fields` ordered by name, each with a
+`requirement` (`required`, `optional`, or `conditional`), a readable `summary`,
+`descriptions`, the complete field `schema`, and the `--json-field` argument form.
+Limits such as UTF-8 bytes and array length come from the executable codecs.
+`validation_schema` preserves the full unfactored request contract, including
+nested alternatives and cross-field descriptions; it is equivalent to the
+reference-expanded `schema METHOD` params. The flat list is a discovery aid,
+not an independent validator. Context defaults can supply some raw-required fields.
+
+```sh
+workgraph fields ticket.start > /absolute/private/ticket-start-fields.json
+jq '.fields[] | {name, requirement, summary}' /absolute/private/ticket-start-fields.json
+workgraph fields resource.put_text | jq '.fields[] | select(.name == "text")'
+```
+
+Structured values use `--json-field FIELD JSON` or a params file. Supply quoted JSON
+for a string, an actual array for an array, and an actual object for an object.
+The full catalog remains available through `workgraph schema`; method modes say
+whether a call is a read, an ephemeral write or a durable mutation. Local helpers
+such as `resource.publish_text` have dedicated `help`, not daemon schemas.
+
+
 --self explicitly supplies a missing actor recipient for inbox.read/wait/ack and
 request.list/acknowledge/accept, or target_run_id for run.get/transition/observe/link_session.
 Explicit recipient/target_run_id wins, even without context. Otherwise supply --context

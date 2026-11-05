@@ -23,6 +23,14 @@ let local_methods =
 ;;
 
 let helper_help = function
+  | "fields" ->
+    Some
+      {|fields [local helper]
+Usage: workgraph fields METHOD
+Offline JSON input descriptors plus the original validation_schema.
+Use .fields for names, requirements, summaries, nested schemas and JSON argument form.
+Full cross-field validation cannot be reconstructed from a flat field list.
+No daemon, socket or context is needed.|}
   | "resource.publish_text" ->
     Some
       {|resource.publish_text [local atomic text helper]
@@ -491,6 +499,72 @@ let rec descriptions_in schema =
   own @ List.concat_map (values schema "allOf") ~f:descriptions_in
 ;;
 
+let field_descriptors ~method_name =
+  let method_name = canonical_method_name method_name in
+  match Api_catalog.find method_name with
+  | None -> Error (unknown_method ~kind:Not_found method_name)
+  | Some (Api_method.Packed.Pack method_) ->
+    let validation_schema = Api_codec.schema (Api_method.request_codec method_) in
+    let grouped =
+      fields validation_schema
+      |> List.map ~f:(fun (name, schema, required, conditional) ->
+        name, (schema, required, conditional))
+      |> String.Map.of_alist_multi
+    in
+    let descriptors =
+      Map.to_alist grouped
+      |> List.map ~f:(fun (name, declarations) ->
+        let schemas =
+          List.map declarations ~f:(fun (schema, _, _) -> schema)
+          |> List.dedup_and_sort ~compare:(fun a b ->
+            String.compare (Json.canonical a) (Json.canonical b))
+        in
+        let field_schema =
+          match schemas with
+          | [ schema ] -> schema
+          | _ -> Json.obj [ "allOf", `Array schemas ]
+        in
+        let required = List.exists declarations ~f:(fun (_, required, _) -> required) in
+        let conditional =
+          (not required)
+          && List.exists declarations ~f:(fun (_, _, conditional) -> conditional)
+        in
+        Json.obj
+          [ "name", Json.string name
+          ; ( "requirement"
+            , Json.string
+                (if required
+                 then "required"
+                 else if conditional
+                 then "conditional"
+                 else "optional") )
+          ; "summary", Json.string (shape field_schema ~depth:1)
+          ; ( "descriptions"
+            , `Array (List.map (descriptions_in field_schema) ~f:Json.string) )
+          ; "schema", field_schema
+          ; ( "json_argument"
+            , `Array [ Json.string "--json-field"; Json.string name; Json.string "JSON" ]
+            )
+          ])
+    in
+    Ok
+      (Json.obj
+         [ "method", Json.string method_name
+         ; "summary", Json.string (Api_method.summary method_)
+         ; "fields", `Array descriptors
+         ; "validation_schema", validation_schema
+         ; "schema_dialect", Json.string "https://json-schema.org/draft/2020-12/schema"
+         ; ( "guidance"
+           , Json.string
+               "Fields describe inputs, not an independent validator. Cross-field \
+                alternatives, references and mapped constraints remain in \
+                validation_schema; the executable validator is authoritative. Required \
+                means raw API input: context defaults may supply some fields. JSON \
+                includes its quotes for strings; arrays/objects use --json-field or \
+                --params-file." )
+         ])
+;;
+
 let rec example ?(field = "") ?(nonempty = false) ?(path_target = false) schema =
   let child field schema = example ~field ~nonempty ~path_target schema in
   match Json.optional schema "const", values schema "enum" with
@@ -844,6 +918,11 @@ let brief method_ =
       let sample =
         if String.equal name "ticket.claim_next"
         then set sample "run_id" (Json.string "worker-run")
+        else sample
+      in
+      let sample =
+        if String.equal name "request.ask"
+        then set sample "title" (Json.string "Question")
         else sample
       in
       let sample =

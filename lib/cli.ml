@@ -6,6 +6,7 @@ let usage =
   workgraph methods [--core] [--output json|text]
   workgraph help METHOD [--brief|--full] [--output json|text]
   workgraph schema [METHOD]
+  workgraph fields METHOD
   workgraph serve ABS_REGISTRY ABS_SOCKET
   workgraph call ABS_SOCKET METHOD PARAMS_JSON
   workgraph request [ABS_SOCKET] METHOD [OPTIONS] [--FIELD VALUE ...]
@@ -263,7 +264,8 @@ let normalize_help arguments =
     | _ :: rest -> reference_options rest
   in
   match arguments with
-  | "help" :: rest | "schema" :: rest ->
+  | [ "fields"; "--help" ] -> [ "help"; "fields" ]
+  | "help" :: rest | "schema" :: rest | "fields" :: rest ->
     let names, options = words [] rest in
     let prefix = List.hd_exn arguments in
     if List.is_empty names then arguments else prefix :: name names :: options
@@ -646,6 +648,7 @@ let run ~env arguments =
         | "help" :: _
         | "methods" :: _
         | "schema" :: _
+        | "fields" :: _
         | [ ("init" | "bootstrap"); "--help" ]
         | ("evidence-show" | "evidence.show" | "evidence-clean" | "evidence.clean") :: _
         | "evidence" :: ("show" | "clean") :: _ -> true
@@ -911,6 +914,16 @@ let run ~env arguments =
         0
       | [ "version" ] | [ "--version" ] ->
         output Version.value;
+        0
+      | "fields" :: rest ->
+        let method_name =
+          match rest with
+          | [ name ] -> name
+          | _ ->
+            Json.fail Invalid_argument "fields requires exactly one daemon method name"
+        in
+        output
+          (Cli_reference.field_descriptors ~method_name |> Disk.unwrap |> Json.canonical);
         0
       | "schema" :: rest ->
         let method_name =

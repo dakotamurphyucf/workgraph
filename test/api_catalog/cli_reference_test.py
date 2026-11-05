@@ -62,6 +62,24 @@ with tempfile.TemporaryDirectory(prefix="workgraph-reference-") as directory:
     assert names == sorted(set(names))
     assert {"initialize", "ticket.start", "fact.keys", "resource.read", "run.get"} <= set(names)
 
+    fields = json.loads(call(directory, "fields", "ticket.start").stdout)
+    assert fields == json.loads(call(directory, "fields", "ticket", "start").stdout)
+    assert fields == json.loads(call(directory, "--context", str(Path(directory) / "missing-context"), "fields", "ticket.start").stdout)
+    assert fields["method"] == "ticket.start"
+    rows = {field["name"]: field for field in fields["fields"]}
+    assert rows["ticket_id"]["requirement"] == "required"
+    assert rows["attempt_id"]["requirement"] == "optional"
+    assert rows["ticket_id"]["json_argument"] == ["--json-field", "ticket_id", "JSON"]
+    assert json.loads(call(directory, "fields", "ticket.get").stdout)["method"] == "ticket.context"
+    resource_fields = json.loads(call(directory, "fields", "resource.put_text").stdout)
+    text_field = next(field for field in resource_fields["fields"] if field["name"] == "text")
+    assert "65536" in text_field["summary"]
+    assert "validator" in resource_fields["guidance"]
+    assert "fields [local helper]" in call(directory, "fields", "--help").stdout
+    call(directory, "fields", expected=1)
+    call(directory, "fields", "unknown.method", expected=1)
+    call(directory, "fields", "resource.publish_text", expected=1)
+
     single = json.loads(call(directory, "schema", "ticket.start").stdout)
     assert len(single["methods"]) == 1
     method = single["methods"][0]

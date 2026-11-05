@@ -304,3 +304,65 @@ let%expect_test "resume query bounds describe entries and bytes rather than reco
     false
     |}]
 ;;
+
+let%expect_test "field descriptors preserve codec names and full validation structure" =
+  List.iter Api_catalog.methods ~f:(fun (Api_method.Packed.Pack method_) ->
+    let codec = Api_method.request_codec method_ in
+    let descriptor =
+      Cli_reference.field_descriptors ~method_name:(Api_method.name method_) |> unwrap
+    in
+    let names =
+      Json.field descriptor "fields"
+      |> Json.list
+      |> List.map ~f:(fun field -> Json.field field "name" |> Json.text)
+    in
+    let expected =
+      Option.value (Api_codec.field_names codec) ~default:[]
+      |> List.dedup_and_sort ~compare:String.compare
+    in
+    if not (List.equal String.equal names expected)
+    then failwith (Api_method.name method_ ^ ": field coverage differs");
+    let schema = Json.field descriptor "validation_schema" in
+    let compact =
+      Api_method.describe method_ |> fun description -> Json.field description "params"
+    in
+    if not (String.equal (Json.canonical schema) (Json.canonical (expand compact)))
+    then failwith (Api_method.name method_ ^ ": cross-field validation lost"));
+  let descriptor =
+    Cli_reference.field_descriptors ~method_name:"reservation.paths.acquire" |> unwrap
+  in
+  let requests =
+    Json.field descriptor "fields"
+    |> Json.list
+    |> List.find_exn ~f:(fun field ->
+      String.equal (Json.text (Json.field field "name")) "requests")
+  in
+  let (Api_method.Packed.Pack method_) =
+    Api_catalog.find "reservation.paths.acquire" |> Option.value_exn
+  in
+  let schema = Api_codec.schema (Api_method.request_codec method_) in
+  let property schema =
+    match Json.optional schema "properties" with
+    | Some properties when Option.is_some (Json.optional properties "requests") ->
+      Json.field properties "requests"
+    | _ ->
+      Json.field schema "allOf"
+      |> Json.list
+      |> List.find_map ~f:(fun child ->
+        match Json.optional child "properties" with
+        | Some props -> Json.optional props "requests"
+        | None -> None)
+      |> Option.value_exn
+  in
+  printf
+    "nested request schema exact=%b\n"
+    (String.equal
+       (Json.canonical (Json.field requests "schema"))
+       (Json.canonical (property schema)));
+  print_endline "all method fields and reference-expanded validation preserved";
+  [%expect
+    {|
+    nested request schema exact=true
+    all method fields and reference-expanded validation preserved
+    |}]
+;;

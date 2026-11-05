@@ -20,6 +20,13 @@ val schema
   -> unit
   -> (Jsonaf.t, Problem.t) Result.t
 
+(** Offline machine-readable inputs for exactly one daemon method. Each field
+    includes its required/optional/conditional indication, readable shape and
+    complete field schema. The original self-contained [validation_schema] is
+    retained: cross-field and mapped constraints cannot be inferred from the
+    field list alone. This is discovery, not a replacement validator. *)
+val field_descriptors : method_name:string -> (Jsonaf.t, Problem.t) Result.t
+
 module Detail : sig
   type t =
     | Brief
