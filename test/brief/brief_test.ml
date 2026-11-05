@@ -83,6 +83,31 @@ let%expect_test "brief selectors and revision guards are exact" =
   in
   print_s
     [%sexp (Result.is_error (Api_codec.decode Brief_view.ticket_codec mismatched) : bool)];
+  let focused =
+    State.query state ~method_:"ticket.read" ~params:(json {|{"ticket_id":"task"}|})
+    |> ok
+    |> fun value -> Json.field value "data"
+  in
+  let codec = Api_method.response_codec Ticket_read_api.method_ in
+  print_s [%sexp (Result.is_ok (Api_codec.decode codec focused) : bool)];
+  let expansion = Json.field focused "expand_context" in
+  let wrong_id =
+    set
+      focused
+      "expand_context"
+      (set
+         expansion
+         "params"
+         (set (Json.field expansion "params") "ticket_id" (Json.string "other")))
+  in
+  print_s [%sexp (Result.is_error (Api_codec.decode codec wrong_id) : bool)];
+  print_s
+    [%sexp
+      (Result.is_error
+         (Api_codec.decode
+            Ticket_read_api.Request.codec
+            (json {|{"ticket_id":"task","max_bytes":"4095"}|}))
+       : bool)];
   let full =
     State.query state ~method_:"ticket.context" ~params:(json {|{"ticket_id":"task"}|})
     |> ok
@@ -99,6 +124,9 @@ let%expect_test "brief selectors and revision guards are exact" =
        : bool)];
   [%expect
     {|
+   true
+   true
+   true
    true
    true
    true

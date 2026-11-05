@@ -3,7 +3,7 @@ open Core
 let layout method_ =
   if
     List.mem
-      ([ "ticket.hierarchy.get" ]
+      ([ "ticket.hierarchy.get"; "ticket.read" ]
        @ Ticket_amendment_api.query_methods
        @ Brief_api.query_methods
        @ Facts.query_methods

@@ -99,7 +99,17 @@ ticket. They do not affect readiness.
 | [ticket.blockers](api/ticket.blockers.md) | List unfinished nonwaived prerequisites. This is narrower than readiness: inspect readiness for holds, status and ownership too. |
 | [ticket.resolve](api/ticket.resolve.md) | Convert a display key such as `WG-1` into the ticket ID used by other methods. |
 | [ticket.brief](api/ticket.brief.md) | Read compact recorded fields, exact counts and source pointers. Use context/resume and explicit pages for deeper inspection. |
+| [ticket.read](api/ticket.read.md) | Read complete ticket description, acceptance criteria, ownership and metadata without related histories. A small budget fails explicitly; prose is never silently clipped. |
 | [ticket.context](api/ticket.context.md) | Expand ticket, related work, resources, communication, attempts, evidence, parent/children, readiness, handoff and changes. Updates/activity follow `handoff.covers_through`, or revision zero if none exists. |
+
+`ticket.brief` is a preview, including at most 512 bytes of each prose field.
+Its `expand_ticket` request retrieves the full ticket through `ticket.read`;
+`expand` retrieves coordination context. Both preserve the observed workspace
+revision, so a concurrent change causes a conflict rather than mixing snapshots.
+`ticket.read` returns the entity under `data.ticket` and an `expand_context`
+request. It excludes handoffs, instruction amendments and review records; inspect
+those through context before acting on assigned work. Increase `max_bytes` up to
+1048576 if a complete ticket does not fit the default 65536-byte response budget.
 
 The nested evidence section in ticket context has its own `{data,meta}` wrapper,
 `query_scope:"evidence"`, query revision and byte budget. Do not substitute the

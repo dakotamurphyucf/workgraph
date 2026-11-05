@@ -267,6 +267,7 @@ let ticket_codec =
           (collection Ticket_amendment.Reference.codec ~max_items:8)
      ++ req "resources" (collection resource_ref ~max_items:8)
      ++ req "expand" (ticket_expand "ticket.context")
+     ++ req "expand_ticket" (ticket_expand "ticket.read")
      ++ req "readiness_expand" (ticket_expand "ticket.readiness"))
   |> fun codec ->
   W.checked codec (fun json ->
@@ -280,7 +281,7 @@ let ticket_codec =
            (count = 0))
     then Json.fail Invalid_argument "brief readiness count mismatch";
     let id = Json.field (Json.field json "ticket") "ticket_id" |> Json.text in
-    List.iter [ "expand"; "readiness_expand" ] ~f:(fun field ->
+    List.iter [ "expand"; "expand_ticket"; "readiness_expand" ] ~f:(fun field ->
       let selected =
         Json.field (Json.field (Json.field json field) "params") "ticket_id" |> Json.text
       in
@@ -529,6 +530,8 @@ let ticket input ~workspace ~workspace_revision ~max_bytes =
                 t.ticket_id
                 ~workspace
                 ~workspace_revision )
+          ; ( "expand_ticket"
+            , ticket_expansion "ticket.read" t.ticket_id ~workspace ~workspace_revision )
           ]
       in
       ignore (Api_codec.decode ticket_codec data |> unwrap : Jsonaf.t);

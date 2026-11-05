@@ -874,6 +874,19 @@ let query ?now_unix_ms t ~method_ ~params =
       in
       Project_completion_api.query (project_completion t project) ~params:unscoped
       |> unwrap_domain)
+  else if String.equal method_ "ticket.read"
+  then
+    Json.decode (fun () ->
+      let request =
+        Api_codec.decode Ticket_read_api.Request.codec params |> unwrap_domain
+      in
+      Option.iter (Ticket_read_api.Request.at_revision request) ~f:(expected t.revision);
+      Ticket_read_api.response
+        (find_ticket t (Ticket_read_api.Request.ticket request) |> ticket_view)
+        ~workspace:t.workspace
+        ~workspace_revision:t.revision
+        ~max_bytes:(Ticket_read_api.Request.max_bytes request)
+      |> unwrap_domain)
   else if List.mem Brief_api.query_methods method_ ~equal:String.equal
   then
     Json.decode (fun () ->

@@ -612,6 +612,16 @@ let preconditions name mode request =
       [ "The ticket must be ready and claimable; retain the returned token. Supply \
          run_id and attempt_id to start an attempt atomically."
       ]
+    | "ticket.read" ->
+      [ "Returns the complete ticket in data.ticket, including description and \
+         acceptance_criteria. It never silently clips prose: increase max_bytes if \
+         necessary. expand_context reads handoffs, amendments and review evidence under \
+         the same current-revision guard."
+      ]
+    | "ticket.brief" ->
+      [ "This is a preview, with omitted byte/item counts. Use expand_ticket for \
+         complete ticket instructions or expand for coordination context before acting."
+      ]
     | "ticket.claim" ->
       [ "Claims ownership only; no attempt is started. Use ticket.start with attempt_id \
          or ticket.claim_next to start an attempt atomically."

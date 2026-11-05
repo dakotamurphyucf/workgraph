@@ -241,6 +241,7 @@ let methods =
     ; scoped Usage_rollup_api.method_
     ]
   @ List.map Brief_api.methods ~f:scoped
+  @ [ scoped (Api_method.Packed.Pack Ticket_read_api.method_) ]
   @ [ scoped (Api_method.Packed.Pack Hierarchy_api.get) ]
   @ List.map Planning_read_api.methods ~f:scoped
   @ (Project_completion_api.methods

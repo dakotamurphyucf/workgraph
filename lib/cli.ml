@@ -204,7 +204,21 @@ let render_text value =
     | `String value -> [ indent ^ value ]
     | (`Null | `True | `False | `Number _) as value -> [ indent ^ Json.canonical value ]
   in
-  String.concat ~sep:"\n" (render "" value)
+  let notice =
+    match value with
+    | `Object fields ->
+      (match List.Assoc.find fields "data" ~equal:String.equal with
+       | Some (`Object data) ->
+         (match List.Assoc.find data "representation" ~equal:String.equal with
+          | Some (`String "brief") ->
+            [ "PREVIEW: prose and collections may be omitted. Use the listed expansion \
+               requests for complete data before acting."
+            ]
+          | Some _ | None -> [])
+       | Some _ | None -> [])
+    | _ -> []
+  in
+  String.concat ~sep:"\n" (notice @ render "" value)
 ;;
 
 let needs_mutation_id = Cli_mutation_identity.required
