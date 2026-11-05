@@ -311,7 +311,7 @@ The selectors are mutually exclusive and are never filled from context defaults.
 A candidate needs no registered actor or probe run. It checks status, holds,
 prerequisites, external conditions, allowed actors, supplied capabilities and
 current shared pool capacity. Candidate capabilities must contain at most 100
-distinct nonblank names, each at most 512 UTF-8 bytes; an empty array is valid.
+distinct nonblank names, each at most 96 UTF-8 bytes; an empty array is valid.
 
 Both reads include `assessment.scope` (`graph`, `candidate` or `run`) and
 `assessment.unknown_checks`. A candidate always reports `run_lifecycle` and

@@ -368,3 +368,53 @@ let%expect_test "candidate paging preserves selector and planning capture guards
     Conflict
   |}]
 ;;
+
+let%expect_test "candidate capability byte bound matches actual invocation and policy" =
+  List.iter [ 96; 97 ] ~f:(fun bytes ->
+    let capability = String.make bytes 'x' in
+    let capabilities = `Array [ Json.string capability ] in
+    let candidate =
+      Json.obj [ "actor_id", Id.Actor.jsonaf_of_t actor; "capabilities", capabilities ]
+    in
+    let run_params =
+      Json.obj
+        [ "target_run_id", Json.string "new-run"
+        ; "objective", Json.string "Work"
+        ; "capabilities", capabilities
+        ]
+    in
+    let policy =
+      Json.obj
+        [ "ticket_id", Json.string "a"
+        ; "expected_revision", Json.int 0
+        ; "required_capabilities", capabilities
+        ; "pools", `Array []
+        ]
+    in
+    let reason =
+      Json.obj
+        [ "kind", Json.string "missing_candidate_capability"
+        ; "capability", Json.string capability
+        ]
+    in
+    printf
+      "%d constructor=%b candidate_wire=%b run=%b policy=%b reason_decode=%b \
+       reason_encode=%b\n"
+      bytes
+      (Result.is_ok
+         (Readiness_selector.Candidate.create ~actor ~capabilities:[ capability ]))
+      (Result.is_ok (Api_codec.decode Readiness_selector.Candidate.codec candidate))
+      (Result.is_ok (Domain_command.decode ~method_:"run.register" ~params:run_params))
+      (Result.is_ok
+         (Domain_command.decode ~method_:"allocation.ticket_policy_put" ~params:policy))
+      (Result.is_ok (Api_codec.decode Planning_ticket_wire.Readiness.Reason.codec reason))
+      (Result.is_ok
+         (Api_codec.encode
+            Planning_ticket_wire.Readiness.Reason.codec
+            (Missing_candidate_capability capability))));
+  [%expect
+    {|
+    96 constructor=true candidate_wire=true run=true policy=true reason_decode=true reason_encode=true
+    97 constructor=false candidate_wire=false run=false policy=false reason_decode=false reason_encode=false
+    |}]
+;;

@@ -13,7 +13,7 @@ module Candidate = struct
       then Json.fail Invalid_argument "candidate supports at most 100 capabilities";
       List.iter capabilities ~f:(fun name ->
         ignore
-          (Coordination_wire.encode_exn (Coordination_wire.nonblank ~max_bytes:512) name
+          (Coordination_wire.encode_exn (Coordination_wire.nonblank ~max_bytes:96) name
            : Jsonaf.t));
       if List.contains_dup capabilities ~compare:String.compare
       then Json.fail Invalid_argument "candidate capabilities contain duplicates";
@@ -30,7 +30,7 @@ module Candidate = struct
             (Fields.required "actor_id" Coordination_wire.actor)
             (Fields.required
                "capabilities"
-               (Api_codec.list (Coordination_wire.nonblank ~max_bytes:512) ~max_items:100))))
+               (Api_codec.list (Coordination_wire.nonblank ~max_bytes:96) ~max_items:100))))
       ~decode:(fun (actor, capabilities) -> create ~actor ~capabilities)
       ~encode:(fun t -> t.actor, t.capabilities)
       ~description:

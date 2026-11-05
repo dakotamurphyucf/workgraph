@@ -858,7 +858,7 @@ module Readiness = struct
     let candidate_capability =
       branch
         "missing_candidate_capability"
-        (Fields.required "capability" (Coordination_wire.nonblank ~max_bytes:512))
+        (Fields.required "capability" (Coordination_wire.nonblank ~max_bytes:96))
         ~decode:(fun value -> Missing_candidate_capability value)
         ~encode:(function
           | Missing_candidate_capability value -> value

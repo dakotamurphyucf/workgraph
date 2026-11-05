@@ -5,8 +5,9 @@ open Core
 module Candidate : sig
   type t
 
-  (** At most 100 distinct nonblank capability names, each at most 512 UTF-8
-      bytes. Ordering is canonicalized; duplicates reject. *)
+  (** At most 100 distinct nonblank capability names, each at most 96 UTF-8
+      bytes, matching run registration and allocation policy names. Ordering is
+      canonicalized; duplicates reject. *)
   val create : actor:Id.Actor.t -> capabilities:string list -> (t, Problem.t) Result.t
 
   val actor : t -> Id.Actor.t
