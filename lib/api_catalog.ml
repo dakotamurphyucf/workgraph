@@ -130,6 +130,9 @@ let purpose name mode original =
     ; ( "ticket.readiness"
       , "Explain graph readiness and optional target_run_id allocation admission." )
     ; "ticket.blockers", "Read the captured reasons blocking a ticket."
+    ; "ticket.hold", "Set a ticket hold reason; JSON null lifts the hold."
+    ; ( "ticket.update"
+      , "Update title, description or status; use ticket.metadata for priority." )
     ; ( "ticket.resume"
       , "Recover bounded recorded task context with exact historical sources." )
     ; ( "run.register"

@@ -3,7 +3,7 @@ open Core
 (** Server profile: string IDs of 1..256 bytes, finite numeric ID lexemes of at
     most 256 bytes, or null;
     method of 1..128 bytes; optional object params. Notifications are discarded
-    before dispatch. Requires workgraph_api="0.5" before method decoding.
+    before dispatch. Requires workgraph_api="0.6" before method decoding.
     Invalid envelopes receive -32600, preserving a valid parsed ID when possible. *)
 val validate_server_request : Jsonaf.t -> (unit, Problem.t) Result.t
 

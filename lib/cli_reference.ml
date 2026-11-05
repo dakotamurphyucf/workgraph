@@ -866,9 +866,41 @@ let preconditions name mode request =
       [ "Claims ownership only; no attempt is started. Use ticket.start with attempt_id \
          or ticket.claim_next to start an attempt atomically."
       ]
+    | "ticket.update" ->
+      [ "Changes title, description or status. Set priority, labels and acceptance \
+         criteria with ticket.metadata; move project/milestone with ticket.move."
+      ]
+    | "ticket.metadata" ->
+      [ "Priority 0 means unspecified and sorts last; 1 is the highest named priority. \
+         expected_revision guards the ticket, not a separate metadata record."
+      ]
+    | "ticket.hold" ->
+      [ "Set reason to a string to hold the ticket, or JSON null to lift its hold: \
+         --json-field reason null. ticket.release releases ownership; it does not lift a \
+         hold."
+      ]
+    | "allocation.ticket_policy_put" ->
+      [ "expected_revision guards the allocation policy, independently of the ticket: 0 \
+         creates the first policy. Read allocation.ticket_policies for its current \
+         revision. Check the write succeeded before assigning gated work."
+      ; "Create a ticket and its allocation policy in one transaction.apply to avoid \
+         publishing an ungated ticket. template.instantiate also installs declared gates \
+         atomically."
+      ]
+    | "request.resolve" | "request.reassign" ->
+      [ "Only the designated resolver_id actor may perform this transition. Other \
+         participants can contribute with thread.reply; only the resolver closes the \
+         request."
+      ; "request.reassign changes accepted responsibility among existing delivery \
+         recipients (or clears it); it does not change resolver_id or grant resolution \
+         authority."
+      ]
     | "fact.put" ->
       [ "expected_revision 0 creates a new key; otherwise use the observed fact \
          revision. Values are at most 4096 canonical JSON bytes. Scope is explicit."
+      ; "Leave room for later edits: move longer notes (around 3KB and up) to a resource \
+         and keep its ID in the fact. JSON null is a valid stored value; validate \
+         constructed shell input before sending. fact.delete removes the key."
       ]
     | "ticket.claim_next" ->
       [ "Only a registered live run owned by actor_id can receive work; run_id \

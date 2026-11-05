@@ -90,7 +90,7 @@ module Upload_plan = struct
 
   let params t =
     Json.obj
-      ([ "transfer_version", Json.int 1
+      ([ "transfer_version", Current_format.value Upload_plan
        ; "upload_id", Id.Upload.jsonaf_of_t t.upload
        ; "workspace_id", Id.Workspace.jsonaf_of_t t.workspace
        ; "actor_id", Id.Actor.jsonaf_of_t t.actor

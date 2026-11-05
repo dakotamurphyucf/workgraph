@@ -44,7 +44,7 @@ class Journals(unittest.TestCase):
         return json.loads(self.cli('journal', 'inspect', path, *args).stdout)
 
     def request(self, method='ticket.create', *, id='cli', **params):
-        return dict(jsonrpc='2.0', workgraph_api='0.5', id=id, method=method,
+        return dict(jsonrpc='2.0', workgraph_api='0.6', id=id, method=method,
                     params=dict(workspace_id='demo', actor_id='worker', mutation_id='identity', **params))
 
     def store(self, name, request):
@@ -216,13 +216,14 @@ class Journals(unittest.TestCase):
         self.assertEqual(entry['mutation']['method'], 'resource.finish_upload')
         self.assertEqual(entry['ticket_link'], 'task')
         params = json.loads(before)['params']
+        self.assertEqual(params['transfer_version'], '2')
         body = {k: params[k] for k in ['upload_id', 'resource_id', 'expected_revision', 'title', 'filename', 'mime_type']}
         self.assertEqual(entry['mutation']['request_hash'], digest(dict(method='resource.finish_upload', params=body)))
         self.assertNotEqual(entry['mutation']['request_hash'], entry['envelope_hash'])
         self.assertEqual(saved.read_bytes(), before)
         self.assertFalse(source.exists())
         del params['digest']
-        incomplete = self.store('incomplete', dict(jsonrpc='2.0', workgraph_api='0.5', id='cli', method='resource.upload', params=params))
+        incomplete = self.store('incomplete', dict(jsonrpc='2.0', workgraph_api='0.6', id='cli', method='resource.upload', params=params))
         self.cli('journal.inspect', incomplete, expected=1)
 
     def test_input_budget_and_alias_scope_do_not_hide_incomplete_scans(self):

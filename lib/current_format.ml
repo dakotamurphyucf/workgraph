@@ -16,14 +16,15 @@ type t =
 [@@deriving sexp, equal]
 
 let identifier = function
-  | Application_api -> "0.5"
-  | Planning_head | History_head | History_batch | Upload_plan | Heartbeat_cache -> "1"
+  | Application_api -> "0.6"
+  | Planning_head | History_head | History_batch | Heartbeat_cache -> "1"
+  | Upload_plan -> "2"
   | Registry
   | Workspace
   | Planning_transaction
   | Planning_events
   | Workspace_export
-  | Registry_export -> "4"
+  | Registry_export -> "5"
 ;;
 
 let field = function

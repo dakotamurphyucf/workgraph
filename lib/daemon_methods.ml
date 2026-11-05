@@ -12,6 +12,8 @@ module Initialization = struct
     ; background_exports : bool
     }
 
+  let registry_format = Int.of_string (Current_format.identifier Registry)
+
   let current () =
     { workgraph_api = Current_format.identifier Application_api
     ; max_frame_bytes = Framing.max_bytes
@@ -19,7 +21,7 @@ module Initialization = struct
     ; version = Version.value
     ; administrative_receipts = true
     ; workspace_receipts = true
-    ; registry_format_version = 4
+    ; registry_format_version = registry_format
     ; background_exports = true
     }
   ;;
@@ -54,9 +56,9 @@ module Initialization = struct
                "registry_format_version"
                (Api_codec.map
                   (literal (Current_format.identifier Registry))
-                  ~decode:(fun () -> Ok 4)
+                  ~decode:(fun () -> Ok registry_format)
                   ~encode:(fun version ->
-                    if version <> 4
+                    if version <> registry_format
                     then Json.fail Invalid_argument "unsupported current registry format")
                   ~description:"Current registry format identity."))
             (required "background_exports" boolean)))

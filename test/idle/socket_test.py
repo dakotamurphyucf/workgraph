@@ -54,7 +54,7 @@ class Idle(unittest.TestCase):
     def rpc(self, method, drop_response=False, **params):
         if method not in ("daemon.shutdown", "export.get", "workspace.restore"):
             params = {"workspace_id": "idle", **params}
-        request = {"workgraph_api": "0.5", "jsonrpc": "2.0", "id": "test", "method": method, "params": params}
+        request = {"workgraph_api": "0.6", "jsonrpc": "2.0", "id": "test", "method": method, "params": params}
         payload = json.dumps(request).encode()
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
             connection.settimeout(10)

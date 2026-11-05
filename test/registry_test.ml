@@ -10,7 +10,7 @@ let outcome result =
 let%expect_test "current registry roundtrip and strict invariants" =
   let decoded =
     Registry.decode
-      {|{"version":"4","workspaces":{"demo":{"root":"/tmp/demo","known_name":"Demo","open":false,"known_head":null,"known_history_head":null}},"receipts":{},"creates":{},"exports":{},"restores":{}}|}
+      {|{"version":"5","workspaces":{"demo":{"root":"/tmp/demo","known_name":"Demo","open":false,"known_head":null,"known_history_head":null}},"receipts":{},"creates":{},"exports":{},"restores":{}}|}
     |> Disk.unwrap
   in
   let encoded = Registry.encode decoded |> Disk.unwrap in
@@ -52,7 +52,7 @@ let%expect_test "current registry roundtrip and strict invariants" =
     };
   [%expect
     {|
-    {"creates":{},"exports":{},"receipts":{},"restores":{},"version":"4","workspaces":{"demo":{"known_head":null,"known_history_head":null,"known_name":"Demo","open":false,"root":"/tmp/demo"}}}
+    {"creates":{},"exports":{},"receipts":{},"restores":{},"version":"5","workspaces":{"demo":{"known_head":null,"known_history_head":null,"known_name":"Demo","open":false,"root":"/tmp/demo"}}}
     Unsupported_version
     Corrupt_store
     Corrupt_store
