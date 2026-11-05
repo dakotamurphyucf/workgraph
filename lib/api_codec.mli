@@ -30,6 +30,9 @@ val field_names : 'a t -> string list option
 (** Interpret a named CLI scalar from declared top-level field types. Only an
     unambiguous Boolean field converts [true]/[false]; text/decimal values remain
     strings. Mixed Boolean alternatives reject with instructions for explicit JSON.
+    Array/object fields without a text or unconstrained alternative reject with a
+    field-specific [--json-field]/[--params-file] suggestion; they are never parsed
+    heuristically from a scalar. Nullable text still preserves literal strings.
     This function is never used for raw JSON or parameter-file input. *)
 val cli_value : 'a t -> field:string -> string -> (Jsonaf.t, Problem.t) Result.t
 

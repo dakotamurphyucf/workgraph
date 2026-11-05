@@ -195,6 +195,35 @@ let%expect_test
     |}]
 ;;
 
+let%expect_test "CLI structured fields explain explicit JSON without guessing text" =
+  let open Api_codec in
+  let structured =
+    object_ (Fields.required "items" (nullable (list (text ~max_bytes:10) ~max_items:4)))
+  in
+  print_problem (cli_value structured ~field:"items" "[]");
+  let nested =
+    object_
+      (Fields.required "scope" (object_ (Fields.required "id" (text ~max_bytes:10))))
+  in
+  print_problem (cli_value nested ~field:"scope" "{}");
+  let text_field = object_ (Fields.required "value" (nullable (text ~max_bytes:10))) in
+  let arbitrary = object_ (Fields.required "value" (json ~max_bytes:100 ~max_depth:4)) in
+  List.iter [ "null"; "[]" ] ~f:(fun value ->
+    cli_value text_field ~field:"value" value
+    |> Disk.unwrap
+    |> Json.canonical
+    |> print_endline);
+  print_problem (decode arbitrary (`Object [ "value", `Null ]));
+  [%expect
+    {|
+    {"details":{"expected":"structured field requires explicit JSON; use --json-field items JSON (or --params-file ABS_FILE)","path":["items"],"suggestion":"--json-field items JSON (or --params-file ABS_FILE)","type":"field"},"kind":"Invalid_argument","message":"/items: structured field requires explicit JSON; use --json-field items JSON (or --params-file ABS_FILE)"}
+    {"details":{"expected":"structured field requires explicit JSON; use --json-field scope JSON (or --params-file ABS_FILE)","path":["scope"],"suggestion":"--json-field scope JSON (or --params-file ABS_FILE)","type":"field"},"kind":"Invalid_argument","message":"/scope: structured field requires explicit JSON; use --json-field scope JSON (or --params-file ABS_FILE)"}
+    "null"
+    "[]"
+    ok
+    |}]
+;;
+
 let%expect_test "diagnostic context keeps field paths, bounds and unexpected exceptions" =
   let bounded =
     Api_codec.decimal ~max:25000

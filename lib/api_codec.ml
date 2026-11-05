@@ -174,6 +174,21 @@ let cli_value t ~field value =
         Json.fail
           Invalid_argument
           "ambiguous field type; use --json-field with explicit JSON"
+      else if
+        List.exists types ~f:(fun type_ ->
+          String.equal type_ "array" || String.equal type_ "object")
+        && List.for_all types ~f:(fun type_ ->
+          List.mem [ "array"; "object"; "null" ] type_ ~equal:String.equal)
+      then (
+        let suggestion =
+          sprintf "--json-field %s JSON (or --params-file ABS_FILE)" field
+        in
+        let expected = "structured field requires explicit JSON; use " ^ suggestion in
+        raise
+          (Json.Decode_error
+             (Problem.with_details
+                (Problem.create Invalid_argument expected)
+                (Field { path = []; expected; suggestion = Some suggestion }))))
       else Json.string value))
 ;;
 

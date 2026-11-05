@@ -164,6 +164,33 @@ class DiagnosticsTest(unittest.TestCase):
                     self.assertEqual(path, ['operations','0','params','expected_revision'])
                     _, created = invoke(['request',address,'ticket.create','--workspace-id','w','--actor-id','owner','--mutation-id','text','--ticket-id','literal','--title','true'])
                     self.assertEqual(created['result']['data']['title'],'true')
+                    # Structured named flags explain the remedy before journaling or connecting.
+                    rejected, local = invoke(['request', '/absent-workgraph-socket', 'transaction.preflight',
+                                              '--workspace-id', 'w', '--actor-id', 'owner', '--operations', '[]'])
+                    self.assertEqual(1, rejected.returncode)
+                    self.assertEqual('', rejected.stdout)
+                    self.assertEqual(['operations'], local['details']['path'])
+                    self.assertIn('--json-field operations JSON', local['details']['suggestion'])
+                    # W35: direct raw and parsed CLI errors are structured, never a bare null.
+                    oversized = [{'method': 'fact.put', 'params': {'scope': {'kind': 'workspace'},
+                                  'key': 'oversize', 'expected_revision': '0', 'value': 'x' * 5000}}]
+                    for method in ['transaction.preflight', 'transaction.apply']:
+                        fields = dict(workspace_id='w', actor_id='owner', operations=oversized)
+                        if method == 'transaction.apply':
+                            fields['mutation_id'] = 'oversize-apply'
+                        raw, envelope = invoke(['call', address, method, json.dumps(fields)])
+                        self.assertEqual(1, raw.returncode)
+                        self.assertIn('error', envelope)
+                        self.assertEqual('Invalid_argument', envelope['error']['data']['kind'])
+                        self.assertIn('4096', envelope['error']['message'])
+                        params.write_text(json.dumps(fields))
+                        parsed, problem = invoke(['request', address, method, '--params-file', str(params)])
+                        self.assertEqual(1, parsed.returncode)
+                        self.assertEqual('', parsed.stdout)
+                        self.assertEqual('Invalid_argument', problem['kind'])
+                        self.assertIn('4096', problem['message'])
+                    self.assertIn('result', write('fact.put', scope={'kind': 'workspace'}, key='nullable',
+                                                 expected_revision='0', value=None))
                 finally:
                     if daemon.poll() is None:
                         daemon.terminate()

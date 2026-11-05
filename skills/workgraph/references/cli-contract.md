@@ -145,6 +145,9 @@ Field names are literal: --actor sets actor, --actor-id sets actor_id, and --tex
 sets text. Output formatting uses --output text. Parameter-file keys are normalized
 from hyphens to underscores, with no workspace/actor aliases. Nested keys are untouched.
 For mixed/nullable Boolean alternatives use --json-field with explicit JSON.
+Array/object parameters need `--json-field FIELD JSON` or `--params-file FILE`;
+`--recipients '[...]'` is a string, while `--json-field recipients '[...]'` is an
+array. The CLI reports this distinction before sending a malformed request.
 Raw JSON, --json-field, --field-file and --params-file values are never coerced.
 For example --include-markdown true is Boolean, while --title true is the text "true".
 Configured request directories must already exist for ordinary calls; init creates
@@ -193,6 +196,28 @@ write; inspect/retry its saved identity. Malformed, mismatched or unreadable res
 after a write could have executed remain uncertain; an unreadable error is no proof of
 nonexecution. Never replace the mutation ID after uncertainty. A connection failure
 before any send reports failure before execution. The CLI never automatically retries.
+
+Check the exit status before extracting a response. Piping a failed command into
+`jq '.result.data'` can print `null` and hide the original failure. For example:
+
+```sh
+if ! wg ticket context --ticket-id "$TICKET" \
+    > "$AGENT_DIR/response.json" 2> "$AGENT_DIR/diagnostic.txt"; then
+  cat "$AGENT_DIR/diagnostic.txt" >&2
+  cat "$AGENT_DIR/response.json" >&2
+  exit 1
+fi
+jq -e '.result.data.ticket' "$AGENT_DIR/response.json" || exit 1
+```
+
+A fact's value may legitimately be JSON `null`; it is not deletion or proof that a
+shell pipeline failed. If your task requires an object with particular fields,
+validate that requirement before constructing the request. For example,
+`jq -e 'type == "object" and (.summary | type == "string")' "$FACT_FILE"`
+checks for an object with a string summary. Build the parameter object from that
+file with `jq --slurpfile`, or supply it through `--params-file`, and check both
+commands' exit statuses. Facts have a 4 KiB canonical JSON limit; put longer notes
+in a resource and keep a short summary or reference in the fact.
 
 ## Common contract
 
