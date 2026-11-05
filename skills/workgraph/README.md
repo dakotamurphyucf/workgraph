@@ -1579,19 +1579,19 @@ render() { local filter=$1; shift; jq -r "${COLORS[@]}" "$@" "$JQLIB clean | $fi
 # Semantic entries have their own cursor lineage and collection field.
 # Keep the unconsumed boundary on failure; excerpts stay explicit in each row.
 digest() {
-  local page next value count=0 bytes=0 size cursor='' boundary="${1:-0}" scope="${2:-}" entries='[]' capture='{}'
+  local page next count=0 bytes=0 size cursor='' boundary="${1:-0}" scope="${2:-}" entries='[]' capture='{}'
   [ -n "$scope" ] || scope='{"kind":"workspace"}'
-  page=$(wg activity.digest --after "$boundary" --json-field scope "$scope" --limit 100 --max-bytes 1048576) || return 1
+  page=$(wg activity.digest --after "$boundary" --json-field scope "$scope" --limit 100 --max-bytes 1048576) || { fail "restart digest after: $boundary scope: $scope"; return 1; }
   while :; do
-    next=$(jq -er '.data.cursor' <<<"$page") || { fail "invalid digest; retained cursor: $cursor (initial after: $boundary)"; return 1; }
+    next=$(jq -er '.data.cursor' <<<"$page") || { fail "invalid digest; restart digest after: $boundary scope: $scope; failed-page cursor (diagnostic only): $cursor"; return 1; }
     size=$(printf '%s' "$page" | wc -c); bytes=$((bytes+size)); count=$((count+1))
-    if [ "$count" -gt "$MAX_PAGES" ] || [ "$bytes" -gt "$TOTAL_BYTES" ]; then fail "digest drain limit; retained cursor: $cursor (initial after: $boundary)"; return 1; fi
-    if jq -e '.data.has_more == true' <<<"$page" >/dev/null && [ "$next" = "$cursor" ]; then fail "digest made no progress; retained cursor: $cursor"; return 1; fi
+    if [ "$count" -gt "$MAX_PAGES" ] || [ "$bytes" -gt "$TOTAL_BYTES" ]; then fail "digest drain limit; restart digest after: $boundary scope: $scope; failed-page cursor (diagnostic only): $cursor"; return 1; fi
+    if jq -e '.data.has_more == true' <<<"$page" >/dev/null && [ "$next" = "$cursor" ]; then fail "digest made no progress; restart digest after: $boundary scope: $scope; failed-page cursor (diagnostic only): $cursor"; return 1; fi
     entries=$(printf '%s\n' "$entries" "$page" | jq -sc '.[0] + .[1].data.entries') || return 1
     capture=$(jq -c '.data.capture' <<<"$page") || return 1
     cursor=$next
     if ! jq -e '.data.has_more == true' <<<"$page" >/dev/null; then break; fi
-    page=$(wg activity.digest --cursor "$cursor" --json-field scope "$scope" --limit 100 --max-bytes 1048576) || { fail "retained digest cursor: $cursor"; return 1; }
+    page=$(wg activity.digest --cursor "$cursor" --json-field scope "$scope" --limit 100 --max-bytes 1048576) || { fail "restart digest after: $boundary scope: $scope; failed-page cursor (diagnostic only): $cursor"; return 1; }
   done
   printf '%s\n' "$entries" "$capture" | jq -sc '{data:{entries:.[0],capture:.[1]}}'
 }
@@ -1636,7 +1636,7 @@ cmd_watch() {
   done
 }
 cmd_metadata_watch() {
-  local cursor='' after page next count=0 bytes=0 size metadata='' activity first last
+  local cursor='' after page next count=0 bytes=0 size metadata=''
   if [ "${1:-}" = --metadata ]; then metadata=1; shift; fi
   case "$#:${1:-}" in
     0:) page=$(wg workspace.overview) || return 1; after=$(jq -er '.meta.workspace_revision' <<<"$page") || return 1 ;;
@@ -1754,7 +1754,7 @@ cmd_ticket() {
   target=$(jq -nc --arg id "$id" '{kind:"ticket",id:$id}')
   local core history
   core=$(wg ticket.read --ticket-id "$id" --max-bytes 1048576) || return 1
-  context=$(wg ticket.context --ticket-id "$id" --at-revision "$(jq -er '.data.expand_context.params.at_revision' <<<"$core")" --max-bytes 1048576) || return 1
+  context=$(jq -c '.data.expand_context.params' <<<"$core" | wg "$(jq -er '.data.expand_context.method' <<<"$core")" --params-file -) || return 1
   history=$(digest 0 "$(jq -nc --arg id "$id" '{kind:"ticket",ticket_id:$id}')") || return 1
   comments=$(pages comment.list --json-field target "$target") || return 1
   resources=$(pages resource.list --json-field target "$target") || return 1
@@ -1852,16 +1852,16 @@ cmd_contention() {
       target=$(jq -nc --arg tree "$2" --arg kind "$3" --arg path "$4" '{kind:"path",target:{worktree_id:$tree,kind:$kind,path:$path}}') ;;
     *) fail 'contention named NAME | contention path WORKTREE file|subtree PATH'; return 2 ;;
   esac
-  page=$(wg reservation.contention --json-field target "$target" --include-inactive true --limit 100 --max-bytes 1048576) || return 1
+  page=$(wg reservation.contention --json-field target "$target" --include-inactive true --limit 100 --max-bytes 1048576) || { fail "restart contention target: $target include_inactive=true"; return 1; }
   while :; do
     size=$(printf '%s' "$page" | wc -c); bytes=$((bytes+size)); count=$((count+1))
-    next=$(jq -r '.data.cursor // ""' <<<"$page") || { fail "invalid contention; retained cursor: $cursor"; return 1; }
-    if [ "$count" -gt "$MAX_PAGES" ] || [ "$bytes" -gt "$TOTAL_BYTES" ] || jq -e '.data.needs_larger_budget == true' <<<"$page" >/dev/null; then fail "contention drain limit; retained cursor: $cursor"; return 1; fi
-    if jq -e '.data.has_more == true' <<<"$page" >/dev/null && [ "$next" = "$cursor" ]; then fail "contention made no progress; retained cursor: $cursor"; return 1; fi
+    next=$(jq -r '.data.cursor // ""' <<<"$page") || { fail "invalid contention; restart contention target: $target include_inactive=true; failed-page cursor (diagnostic only): $cursor"; return 1; }
+    if [ "$count" -gt "$MAX_PAGES" ] || [ "$bytes" -gt "$TOTAL_BYTES" ] || jq -e '.data.needs_larger_budget == true' <<<"$page" >/dev/null; then fail "contention drain limit; restart contention target: $target include_inactive=true; failed-page cursor (diagnostic only): $cursor"; return 1; fi
+    if jq -e '.data.has_more == true' <<<"$page" >/dev/null && [ "$next" = "$cursor" ]; then fail "contention made no progress; restart contention target: $target include_inactive=true; failed-page cursor (diagnostic only): $cursor"; return 1; fi
     items=$(printf '%s\n' "$items" "$page" | jq -sc '.[0]+.[1].data.items') || return 1
     cursor=$next
     if ! jq -e '.data.has_more == true' <<<"$page" >/dev/null; then break; fi
-    page=$(wg reservation.contention --json-field target "$target" --include-inactive true --cursor "$cursor" --limit 100 --max-bytes 1048576) || { fail "retained contention cursor: $cursor"; return 1; }
+    page=$(wg reservation.contention --json-field target "$target" --include-inactive true --cursor "$cursor" --limit 100 --max-bytes 1048576) || { fail "restart contention target: $target include_inactive=true; failed-page cursor (diagnostic only): $cursor"; return 1; }
   done
   value=$(printf '%s\n' "$items" "$page" | jq -sc '.[0] as $items | .[1] | .data.items=$items') || return 1
   render '$B + "ADVISORY CONTENTION (no FIFO or automatic grant)" + $R,

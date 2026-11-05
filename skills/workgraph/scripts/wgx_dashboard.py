@@ -261,21 +261,21 @@ class Client:
             try:
                 result = self.call(method, limit=100, max_bytes=1048576, **boundary)
             except ReadError as error:
-                raise ReadError(str(error) + '; retained boundary: ' + compact(boundary)) from None
+                raise ReadError(str(error) + '; restart original selectors: ' + compact(params) + '; failed-page selectors (diagnostic only): ' + compact(boundary)) from None
             size += len(compact(result).encode())
             data = result['data']
             if size > self.total_bytes or data.get('needs_larger_budget'):
-                raise ReadError(method + ' byte limit; retained boundary: ' + compact(boundary))
+                raise ReadError(method + ' byte limit; restart original selectors: ' + compact(params) + '; failed-page selectors (diagnostic only): ' + compact(boundary))
             next_cursor = data['cursor']
             if data['has_more'] and next_cursor == boundary.get('cursor'):
-                raise ReadError(method + ' made no progress; retained boundary: ' + compact(boundary))
+                raise ReadError(method + ' made no progress; restart original selectors: ' + compact(params) + '; failed-page selectors (diagnostic only): ' + compact(boundary))
             rows.extend(data[collection_field])
             warnings.extend(omissions(result))
             if not data['has_more']:
                 return rows, data, result['meta'], warnings
             boundary = {key: value for key, value in params.items() if key not in {'after', 'cursor'}}
             boundary['cursor'] = next_cursor
-        raise ReadError(method + ' page limit; retained boundary: ' + compact(boundary))
+        raise ReadError(method + ' page limit; restart original selectors: ' + compact(params) + '; failed-page selectors (diagnostic only): ' + compact(boundary))
 
     def digest(self, *, after=None, cursor=None, scope=None):
         boundary = {'after': after} if cursor is None else {'cursor': cursor}
@@ -749,7 +749,7 @@ class View:
             rows += list(structured_rows(paths))
         else:
             event = next(e for e in self.snapshot.events if e['workspace_revision'] + ':' + e['change_index'] == identity)
-            rows = [Row('ACTIVITY · capture ' + self.snapshot.revision, 'bold'), Row('')] + list(structured_rows(event))
+            rows = [Row('ACTIVITY · digest capture ' + compact(self.snapshot.activity_capture), 'bold'), Row('')] + list(structured_rows(event))
         self.open_overlay('detail', rows)
 
     def switch_tab(self, name):

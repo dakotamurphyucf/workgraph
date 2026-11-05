@@ -76,7 +76,8 @@ class Dashboard(unittest.TestCase):
         started=self.write('ticket.start',ticket_id='task')
         self.write('ticket.release',ticket_id='task',token=started['data']['token'])
         self.write('project.create',project_id='p',title='Project scope')
-        self.write('request.ask',request_id='project-question',scope={'kind':'project','id':'p'},title='Project scoped question',body='Choose',resolver_id='lead',recipients=[{'kind':'actor','id':'lead'}])
+        self.write('board.put',board_id='project-board',expected_revision='0',scope={'kind':'project','id':'p'},title='Project board')
+        self.write('request.ask',request_id='project-question',board_id='project-board',title='Project scoped question',body='Choose',resolver_id='lead',recipients=[{'kind':'actor','id':'lead'}])
         self.write('reservation.acquire',target_run_id='worker',requests=[{'reservation_id':'database','mode':'exclusive'}])
         target={'kind':'named','reservation_id':'database'}
         self.write('reservation.waiter.put',target=target,target_run_id='worker',expected_revision='0',action='begin',duration_ms='300000',note='Advisory wait')
@@ -104,7 +105,33 @@ class Dashboard(unittest.TestCase):
         expansion=data['expand_context']
         self.assertIn(('ticket.context',expansion['params']),called)
         self.assertIn('semantic_history',data)
+        view.snapshot=dataclasses.replace(snapshot,revision='999999',activity_capture={'through':'7','marker':'actual-digest'})
+        event=snapshot.events[0]
+        view.inspect_local(('event',event['workspace_revision']+':'+event['change_index']))
+        self.assertIn('actual-digest',view.overlay_rows[0].text)
+        self.assertNotIn('999999',view.overlay_rows[0].text)
         self.assertEqual(self.call('workspace.overview'),before)
+
+    def test_buffered_cursor_failure_and_limit_preserve_original_restart_selectors(self):
+        for method,field,selectors in [
+            ('activity.digest','entries',{'after':'0','scope':{'kind':'ticket','ticket_id':'task'}}),
+            ('activity.digest','entries',{'cursor':'original','scope':{'kind':'workspace'}}),
+            ('reservation.contention','items',{'target':{'kind':'named','reservation_id':'database'},'include_inactive':True})]:
+            for failure in [True,False]:
+                client=self.client();calls=[]
+                client.max_pages=2 if failure else 1
+                def fake(method,**params):
+                    calls.append(params)
+                    if len(calls)>1:
+                        raise dash.ReadError('independent second-page failure')
+                    return {'data':{field:[{'sentinel':'unseen row'}],'cursor':'internal-page-two','has_more':True},'meta':{}}
+                client.call=fake
+                with self.assertRaises(dash.ReadError) as raised:
+                    client.cursor_rows(method,field,**selectors)
+                message=str(raised.exception)
+                self.assertIn('restart original selectors: '+dash.compact(selectors),message)
+                self.assertIn('diagnostic only',message)
+                self.assertNotIn('retained boundary',message)
 
     def test_partial_enrichment_pause_highlights_and_nested_back(self):
         for n in range(10):

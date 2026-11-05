@@ -63,7 +63,7 @@ bytes. `WGX_MAX_PAGES` accepts 1..1000; `WGX_TOTAL_BYTES` accepts
 next/retry request and problem metadata. No guard is silently refreshed. A
 complete collection can still omit body fields: those budget counters are shown
 on stderr and the view does not claim complete bodies. `attention.read` is not
-used as a shortcut for independently paged readiness. Digest and contention use explicit bounded cursor drains with their actual `entries`/`items` fields; no new daemon methods or cache are introduced. Their unchanged selectors and current-capture guard remain exact; changes require an explicit new observation.
+used as a shortcut for independently paged readiness. Digest and contention use explicit bounded cursor drains with their actual `entries`/`items` fields; no new daemon methods or cache are introduced. Their unchanged selectors and capture remain exact. Digest cursors retain their captured lineage; contention cursors guard the current revision. Changes require an explicit new observation for contention. Buffered helpers print nothing until the full bounded drain succeeds: on failure, restart the original invocation (original after/scope or cursor/selectors). An internal failed-page cursor is diagnostic only, because previous buffered rows were never displayed. Streaming watch instead retains its last successfully emitted cursor.
 
 Untrusted control characters, including ESC, C0/C1 and directional formatting
 controls, become visible escapes before terminal styling. Evidence output first

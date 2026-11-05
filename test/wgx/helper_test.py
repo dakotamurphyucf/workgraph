@@ -171,9 +171,32 @@ class Helper(unittest.TestCase):
         result=self.helper('contention','named','busy-db')
         self.assertIn(b'wait marker 104',result.stdout)
         failed=self.helper('contention','named','busy-db',expected=1,env={'WGX_MAX_PAGES':'1'})
-        self.assertIn(b'retained cursor:',failed.stderr)
+        self.assertIn(b'restart contention target:',failed.stderr)
+        self.assertIn(b'busy-db',failed.stderr)
+        self.assertIn(b'diagnostic only',failed.stderr)
         self.assertEqual(failed.stdout,b'')
         self.assertEqual(self.call('workspace.overview'),before)
+
+    def test_buffered_second_page_errors_restart_original_target_or_digest_boundary(self):
+        proxy=self.root/'buffered-proxy'
+        entry={'workspace_revision':'1','change_index':'0','category':'decision',
+               'item':{'summary':'unseen buffered row','clipped_fields':[],'sources':[],'record':{}}}
+        packets={'activity.digest':{'entries':[entry],'capture':{'through':'2'},'cursor':'internal-page-two','has_more':True},
+                 'reservation.contention':{'items':[{'sentinel':'unseen buffered row'}],'cursor':'internal-page-two','has_more':True,'needs_larger_budget':False}}
+        proxy.write_text('#!/usr/bin/env python3\nimport json,sys\nmethod=sys.argv[3]\nif method=="workspace.overview": print(json.dumps({"result":{"data":{},"meta":{"workspace_revision":"2"}}}));raise SystemExit(0)\nif "--cursor" in sys.argv: print(json.dumps({"error":{"message":"independent second page failure"}}));raise SystemExit(1)\npackets='+repr(packets)+'\nprint(json.dumps({"result":{"data":packets[method],"meta":{}}}))\n')
+        proxy.chmod(0o755)
+        feed=self.helper('feed','100',executable=str(proxy),expected=1)
+        self.assertEqual(feed.stdout,b'')
+        self.assertIn(b'restart digest after: 0 scope:',feed.stderr)
+        self.assertIn(b'failed-page cursor (diagnostic only): internal-page-two',feed.stderr)
+        self.assertNotIn(b'retained cursor:',feed.stderr)
+        contention=self.helper('contention','named','database',executable=str(proxy),expected=1)
+        self.assertEqual(contention.stdout,b'')
+        self.assertIn(b'restart contention target:',contention.stderr)
+        self.assertIn(b'database',contention.stderr)
+        self.assertIn(b'include_inactive=true',contention.stderr)
+        self.assertIn(b'diagnostic only',contention.stderr)
+        self.assertNotIn(b'retained cursor:',contention.stderr)
 
     def test_semantic_watch_rejects_stalled_digest_without_wait_or_cursor_loss(self):
         log=self.root/'digest-log';stub=self.root/'digest-stub'
