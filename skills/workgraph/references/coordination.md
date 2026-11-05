@@ -32,7 +32,9 @@ used to list runs; its version counter can differ from an individual run's revis
    capabilities and optional parent/process/worktree references.
 2. Configure any pool, ticket policy and run budget before claiming work. To see
    eligibility for this worker, use `ticket.ready` or `ticket.readiness` with its
-   `target_run_id`; a read without that selector reports graph readiness only.
+   `target_run_id`. For a prospective invocation use the read-only `candidate`
+   actor/capabilities selector and inspect its unknown run-dependent checks; a read
+   without either selector reports graph readiness only.
 3. Select work with [ticket.claim_next](api/ticket.claim_next.md). Supply a fresh
    `attempt_id`, the registered `target_run_id` and the same envelope `run_id`.
    Inspect `kind` before extracting any claim or attempt. Alternatively, claim an
@@ -52,6 +54,23 @@ A known `kind:"empty"` standalone selection is nondurable and creates no attempt
 receipt. Its unchanged request identity may be reevaluated when work changes. A
 committed selection has an immutable receipt: retry the saved request to recover
 it. An uncertain reply is never evidence that selection was empty.
+
+## Install gates before dispatch
+
+An allocation policy has its own revision: use `expected_revision:"0"` only when
+that ticket has no policy yet, otherwise read the policy's current revision.
+The ticket's revision does not guard the policy. A failed gate write leaves the
+old policy in force, possibly with no restriction; stop before dispatching work.
+When creating a gated ticket, put ticket creation and allocation policy in one
+supported transaction, as in the README atomic plan, and check the apply receipt.
+Expanded template/policy operations count toward the 32-operation transaction cap.
+Preflight previews admission without reserving it; it is not a grant.
+
+State participant roles explicitly: lead-only synthesis and dispatch are not
+verifier work. For independent review of related or duplicate findings, compare
+locations/authors before creating the reviewer policy. `allowed_actor_ids` is a
+positive nonempty list, not a negative exclusion list; choose only actors independent
+of every relevant finding. The service cannot infer duplicate-finding authorship.
 
 ## Attribution, counters and capture
 

@@ -1,6 +1,6 @@
 # API and runtime reference
 
-This guide describes the 0.5.0 preview release (API 0.5, affected stored roots 4).
+This guide describes the 0.6.0 preview contracts (API 0.6, affected stored roots 5).
 Use matching packaged docs and fresh registry/workspace roots, socket, contexts and
 request journals when upgrading from older previews. Older exports are not a
 migration path; preserve the matching old binary and data. See [compatibility](../skills/workgraph/references/compatibility.md) for independent format identifiers.
@@ -15,6 +15,11 @@ migration path; preserve the matching old binary and data. See [compatibility](.
 | Immutable caller-reported measures and captured rollups | [Metrics](../skills/workgraph/references/metrics.md) |
 | Byte inputs, bounded paging, exact retries and safe startup | [CLI](../skills/workgraph/references/cli-contract.md) |
 | Captured execution, decoded inspection and exact-byte provenance | [Execution](../skills/workgraph/references/execution.md) |
+
+The [0.6 operating-contract map](preview-0.6-contracts.md) connects new candidate
+eligibility, participant discovery, task/activity reads, question composition,
+upload recovery and advisory contention to their focused guides. Exact method
+shapes and continuation guards come from the generated current executable catalog.
 
 This reference documents the current CLI, planning API, client, resource transfers,
 exports and storage contracts. Start with the [README](../README.md) for installation

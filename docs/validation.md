@@ -1,11 +1,13 @@
 # Validation and limits
 
-The integrated macOS ARM64 run on 2026-10-09 passed formatting, build, test and
-installation-target checks. It includes OCaml expect and randomized domain/replay
-tests, the main 68-case Python process/socket suite, focused feature suites and
-generated-reference checks for all 238 public methods. See the
-[integration evidence](acceptance/integrated-validation.md) for scope and review
-findings. Earlier 2026-10-07 counts describe an older source state.
+Version 0.6.0 requires a new final integrated source and installed-package
+qualification. The 2026-10-09 macOS ARM64 run documented in
+[integration evidence](acceptance/integrated-validation.md) is historical: its
+68-case process/socket suite and 238-method generated-reference count do not
+qualify the current source or packages. Read the exact matching release record
+for observed checks, commit/source identity, artifact hashes and platform limits.
+Focused implementation proofs are necessary evidence, not a substitute for final
+full-suite, installed-platform and publication gates.
 
 Run the standard checks from the repository root with a matching toolchain:
 
@@ -19,7 +21,7 @@ history retrieval, export/restore and selected storage-failure boundaries. Fixtu
 and examples are included in the source repository; tests need Python's standard
 library and no model credentials or hosted service.
 
-This evidence covers the tested macOS environment. Historical Linux/aarch64
+That historical evidence covers only its tested macOS environment. Historical Linux/aarch64
 container checks used earlier builds and do not qualify the current source or
 an AlmaLinux/WSL package. Actual WSL execution and hardware power-loss behavior
 are not established by this evidence. Process termination, injected errors and

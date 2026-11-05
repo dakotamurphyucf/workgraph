@@ -29,9 +29,9 @@ setup and `"$WG" help ticket.start` for offline method help.
 
 ## Set up a fresh local example
 
-Skip this section when you already have a working context. Use a matching 0.5
+Skip this section when you already have a working context. Use a matching 0.6
 executable. Older preview data, request journals and exports cannot be opened or
-restored into 0.5. Preserve them with their matching executable; see
+restored into 0.6. Preserve them with their matching executable; see
 [compatibility](compatibility.md).
 
 On macOS or Linux, choose a new private absolute directory. The following creates

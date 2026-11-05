@@ -1,25 +1,26 @@
 # AlmaLinux 10 on x86_64, including WSL
 
-Version 0.5.2 includes the complete portable agent skill. See
-[skill installation](agent-skill.md). Upgrading from 0.5.0 or 0.5.1 keeps the same API and
-storage formats: retain your workspace, registry, contexts and saved requests.
-Shut down the old daemon gracefully and restart with the new executable and the
-same connection values. No data reset or migration is required.
+Version 0.6.0 targets application API 0.6 and affected stored roots 5. Use the
+matching complete [agent skill](agent-skill.md). This is a breaking preview:
+0.5 and earlier data, contexts and saved requests need separate preservation;
+create fresh registry/workspace roots, socket, contexts and request journals.
+Read the [preservation-first upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
+before replacing an executable. Publication and platform qualification are recorded
+separately in the release evidence; these instructions do not establish either.
 
-Use the [release notes](releases/v0.5.2.md) for features, breaking changes, upgrade
-steps and qualification limits. Use a matching 0.5.2 executable and guide.
+Use the [release notes](releases/v0.6.0.md) for features, breaking changes, upgrade
+steps and qualification limits. Use a matching 0.6.0 executable and guide.
 
-## Install v0.5.2 preview
+## Install v0.6.0 preview
 
-This installation walkthrough targets **v0.5.2 preview**, application API **0.5**
-and affected stored roots **4**, with its matching bundled guide/API.
-Download its packages and qualification evidence from the
-[v0.5.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.2).
+This installation walkthrough targets **v0.6.0 preview**, application API **0.6**
+and affected stored roots **5**, with its matching bundled guide/API.
+Once published, download its packages and qualification evidence from the
+[v0.6.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
-or the local packaging procedure below. Existing 0.5.0/0.5.1 data is supported without
-a reset. Only upgrades from 0.4 or earlier require fresh registry/workspace
-folders, socket, contexts and request journals. Preserve older binaries and
-archives before upgrading; follow the [release upgrade steps](releases/v0.5.2.md#upgrade-from-050-or-051).
+or the local packaging procedure below. All 0.5 and earlier installations require
+fresh data and journals; follow the [upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
+Use the download commands only once matching release assets are published.
 
 For copy-and-paste installation, preservation of an older setup, and a first
 ticket workflow, use the [WSL install and quick-start guide](wsl-quickstart.md).
@@ -46,20 +47,20 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.5.2-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.6.0-1.el10.x86_64.rpm
 workgraph --version
 ```
 
 For the tarball:
 
 ```sh
-tar -xzf workgraph-0.5.2-almalinux-10-x86_64.tar.gz
-export PATH="$PWD/workgraph-0.5.2-almalinux-10-x86_64/bin:$PATH"
+tar -xzf workgraph-0.6.0-almalinux-10-x86_64.tar.gz
+export PATH="$PWD/workgraph-0.6.0-almalinux-10-x86_64/bin:$PATH"
 workgraph --version
 ```
 
 Keep the extracted archive directory together so the agent guide and its references
-remain available. The version must print `0.5.2`. The executable links to the
+remain available. The version must print `0.6.0`. The executable links to the
 AlmaLinux system libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
 Python 3.10+ is needed for the WGX dashboard/dependency tree and supplied Python
@@ -71,7 +72,7 @@ Third-party license texts and an exact dependency inventory are retained under
 
 After installation, `workgraph init --help` and `workgraph help request.ask`
 work offline. The bundled [agent CLI contract](../skills/workgraph/references/cli-contract.md) covers
-context setup, saved exact retries and the API 0.5 contract. Its
+context setup, saved exact retries and the API 0.6 contract. Its
 [communication reference](../skills/workgraph/references/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 
@@ -84,7 +85,7 @@ when ownership is uncertain. See [administration](../skills/workgraph/references
 ## Run inside AlmaLinux WSL
 
 Keep the registry, managed workspaces and socket on the distribution's Linux
-filesystem, such as `$HOME/.local/state/workgraph-0.5`. Avoid `/mnt/c` for managed
+filesystem, such as `$HOME/.local/state/workgraph-0.6`. Avoid `/mnt/c` for managed
 stores: Workgraph relies on Linux locking, Unix sockets, atomic rename and
 directory synchronization. Microsoft also recommends using the Linux filesystem
 when working with Linux tools. See [Microsoft's WSL filesystem guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
@@ -92,20 +93,20 @@ when working with Linux tools. See [Microsoft's WSL filesystem guidance](https:/
 In an AlmaLinux WSL shell:
 
 ```sh
-mkdir -p "$HOME/.local/state/workgraph-0.5"
-chmod 700 "$HOME/.local/state/workgraph-0.5"
-workgraph serve "$HOME/.local/state/workgraph-0.5/registry" \
-  "$HOME/.local/state/workgraph-0.5/daemon.sock"
+mkdir -p "$HOME/.local/state/workgraph-0.6"
+chmod 700 "$HOME/.local/state/workgraph-0.6"
+workgraph serve "$HOME/.local/state/workgraph-0.6/registry" \
+  "$HOME/.local/state/workgraph-0.6/daemon.sock"
 ```
 
 Leave that foreground process running. In a second AlmaLinux WSL shell:
 
 ```sh
-workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" initialize '{}'
-workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" workspace.create \
-  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph-0.5/demo","actor_id":"operator","mutation_id":"create-demo"}'
-workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" workspace.list '{}'
-workgraph call "$HOME/.local/state/workgraph-0.5/daemon.sock" daemon.shutdown '{}'
+workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" initialize '{}'
+workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" workspace.create \
+  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph-0.6/demo","actor_id":"operator","mutation_id":"create-demo"}'
+workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" workspace.list '{}'
+workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" daemon.shutdown '{}'
 ```
 
 For an end-to-end check on the actual WSL installation, install Git and Python 3,
@@ -114,11 +115,11 @@ under the Linux home filesystem:
 
 ```sh
 sudo dnf install git python3
-tar -xzf workgraph-0.5.2-source.tar.gz
-python3 workgraph-0.5.2/tools/installed_smoke.py "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph-0.5/wsl-qualification"
-python3 workgraph-0.5.2/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
-  --directory "$HOME/.local/state/workgraph-0.5/wsl-history-qualification"
+tar -xzf workgraph-0.6.0-source.tar.gz
+python3 workgraph-0.6.0/tools/installed_smoke.py "$(command -v workgraph)" \
+  "$HOME/.local/state/workgraph-0.6/wsl-qualification"
+python3 workgraph-0.6.0/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
+  --directory "$HOME/.local/state/workgraph-0.6/wsl-history-qualification"
 ```
 
 Both destination directories must be unused. The first walkthrough checks the

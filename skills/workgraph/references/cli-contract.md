@@ -8,10 +8,9 @@ messages used by direct clients; ordinary CLI users can skip the transport secti
 Return to [the capability guide](../SKILL.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for v0.5.2 preview/API 0.5. Existing 0.5.0/0.5.1 workspaces, contexts,
-saved requests and exports remain supported without a reset. For 0.4 or earlier,
-keep the matching old build and data; use fresh registry/workspace folders, socket,
-contexts and request journals for 0.5. Older exports cannot be restored into 0.5.
+contracts for v0.6.0 preview/API 0.6. Preserve 0.5 and earlier data with its
+matching executable; use fresh registry/workspace folders, socket, contexts and
+request journals for 0.6. Old exports cannot be restored into this current format.
 See [compatibility and fresh-data setup](compatibility.md).
 
 ## Connection and CLI
@@ -258,7 +257,7 @@ request id of at most 256 UTF-8 bytes; notifications without an id are not suppo
 Example request:
 
 ```json
-{"jsonrpc":"2.0","workgraph_api":"0.5","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
+{"jsonrpc":"2.0","workgraph_api":"0.6","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
 ```
 
 The application marker is required on every request, including initialize and saved exact

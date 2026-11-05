@@ -346,12 +346,17 @@ A matching delivery recipient takes an Open, Unaccepted request. Acknowledgement
 [Request and result contract](api/request.reassign.md).
 
 The designated resolver changes responsibility on an Open request to a frozen delivery recipient; omitted/null recipient clears it. Existing acknowledgements remain.
+This changes responsibility only: `resolver_id` stays unchanged and the new
+responsible recipient cannot resolve merely because of reassignment.
 
 ### `request.resolve`
 
 [Request and result contract](api/request.resolve.md).
 
-The designated resolver terminally resolves an Open request at expected_revision. Optional body is nonblank UTF-8, at most 65536 bytes; it authors and attaches the answer in the same commit. Failure publishes neither part, exact retry duplicates neither. Omit body for plain resolution. Further transitions conflict; linked thread/ticket state is separate.
+Only the designated resolver terminally resolves an Open request at expected_revision.
+Another participant can contribute an answer with thread.reply; that does not
+close the request or replace its pinned answer. The designated resolver can then
+resolve with body to author the exact durable answer. Optional body is nonblank UTF-8, at most 65536 bytes; it authors and attaches the answer in the same commit. Failure publishes neither part, exact retry duplicates neither. Omit body for plain resolution. Further transitions conflict; linked thread/ticket state is separate.
 
 ### `request.cancel`
 

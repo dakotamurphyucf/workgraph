@@ -1,7 +1,9 @@
 # Use Workgraph as durable task context
 
 Before selection, inspect current hierarchy/amendments and run-aware readiness
-(target_run_id on ticket.ready/readiness). Parent links organize by default; explicit
+(target_run_id on ticket.ready/readiness). For a prospective actor, use the
+read-only candidate actor/capabilities selector and inspect unknown run-dependent
+checks; register runs only for real invocations. Parent links organize by default; explicit
 hierarchy policy can inherit ancestor prerequisite conditions with source-owned
 waivers. A canceled child is permitted only by local child-completion policy.
 After a known empty acquisition, preserve its nondurable distinction and use

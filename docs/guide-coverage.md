@@ -5,8 +5,8 @@ Authority: `workgraph-team-guide.html` supplied by the user, 1990 source lines, 
 
 The README contains complete corrected script sources; focused tests keep those
 bytes equal to maintained files. This audit maps the supplied material to its
-current documentation. The [review and qualification record](acceptance/v0.5-feedback.md)
-tracks implementation checks, package verification and platform limits separately.
+current documentation. The [feedback coverage and release gates](acceptance/v0.6-feedback.md)
+track implementation checks, package verification and platform limits separately.
 The helper uses bounded typed pagination, daemon-derived graph/run eligibility and
 explicit retention/provenance limits; incomplete traversal remains a nonzero result.
 
@@ -139,3 +139,19 @@ explicit retention/provenance limits; incomplete traversal remains a nonzero res
 - Original measured results remain explicitly historical. The topology/timeline does not invent Codex measurements; the CI restart bar is distinguished from the 45ms test execution.
 - Socket recovery never relies on `pgrep || rm`; export polling is bounded and handles terminal failure/cancellation/interruption; restored roots and independent writers cannot merge.
 - Full matching source code remains inline for CI, converter and wgx. Helper tests cover large pages, readiness and binary rendering; package and platform results are recorded separately from this content audit.
+
+## Current 0.6 contract coverage
+
+The [current contract map](preview-0.6-contracts.md) and
+[feedback coverage](acceptance/v0.6-feedback.md) add the policy revision, role and
+duplicate-author gates, priority/unhold, resolver/responsibility distinction,
+whole-value fact cap, 32-operation expansion limit and harness backoff guidance.
+The generated API reference and bundled README are regenerated from the final
+integrated executable/source; historical line numbers above remain provenance,
+not current source positions or final release qualification.
+
+Source packaging explicitly includes docs/ and skills/ descendants; native bundles
+retain those same bytes plus required core files/tools under packaging/verify.py.
+New standalone documentation belongs in those included trees. New root-level
+entrypoints or helpers outside them require an explicit source/native allowlist
+review. scratch/, dist/, credentials and request journals are never release source.

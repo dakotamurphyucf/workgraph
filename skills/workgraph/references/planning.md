@@ -28,7 +28,7 @@ checks. Ready tickets sort by priority (unspecified last), creation order
 | Change a milestone date | [milestone.schedule](api/milestone.schedule.md) accepts a real `YYYY-MM-DD` date or `null` to clear it. Use this method rather than `milestone.update` for dates. |
 | Create a ticket | [ticket.create](api/ticket.create.md). Parent/project/milestone references must agree. Omit absent references; do not send `null` for these creation fields. Capture the returned generated ID when you omit `ticket_id`. |
 | Edit ticket title, description or status | [ticket.update](api/ticket.update.md) requires the observed ticket revision and no current claim, including for text-only edits. A direct transition to `done` still checks completion requirements. Use `ticket.finish` or `ticket.complete` for claimed work. |
-| Set ticket metadata | [ticket.metadata](api/ticket.metadata.md). `null` clears assignee/custom status; `[]` clears labels. Assignment does not claim work. Setting a custom status requires no claim; a `done` category checks completion. |
+| Set ticket metadata | [ticket.metadata](api/ticket.metadata.md). Priority is set here, not ticket.update: `"0"` is unspecified and sorts last; `"1"` precedes `"2"`. `null` clears assignee/custom status; `[]` clears labels. Assignment does not claim work. Setting a custom status requires no claim; a `done` category checks completion. |
 | Move a ticket subtree | [ticket.move](api/ticket.move.md) requires all three destination fields: `project_id`, `milestone_id`, `parent_ticket_id`, each nullable. Descendants retain parent links and clear milestone assignments when their project changes. Cycles and inconsistent scopes reject. |
 | Archive or pause work | [ticket.archive](api/ticket.archive.md) preserves history and excludes archived work from new allocation. [ticket.hold](api/ticket.hold.md) uses a nonempty reason to pause readiness and completion without changing status; `null` clears the hold. |
 
@@ -88,6 +88,22 @@ This creates a policy, not a dependency or claim.
 symmetric informational links, with both endpoint revisions checked and updated
 together. They allow cycles, reject self-links, and allow at most 100 links per
 ticket. They do not affect readiness.
+
+### Change priority or lift a hold
+
+Read the current ticket revision first. These are separate guarded writes; use
+the revision returned after each change, not a copied example counter:
+
+```sh
+wg ticket metadata --ticket-id "$TICKET" --expected-revision "$REVISION" --priority 1 || exit 1
+# Re-read or retain the returned ticket revision before the next mutation.
+wg ticket hold --ticket-id "$TICKET" --expected-revision "$NEW_REVISION" \
+  --json-field reason null || exit 1
+```
+
+`reason:null` lifts the hold. `ticket.release` instead releases a claim with its
+actual owner/run/token; it does not unhold work. Clearing a hold does not clear
+other readiness or completion gates.
 
 ## Find and understand a ticket
 
@@ -199,6 +215,22 @@ returns `Not_found` if none exists. [handoff.history](api/handoff.history.md) re
 complete oldest-first versions; historical prose and source information remain
 exact, so an oversized first record requires a larger byte budget.
 
+### Read a prospective actor's eligibility
+
+```json
+{"method":"ticket.ready","params":{"workspace_id":"demo","candidate":{"actor_id":"reviewer","capabilities":["review"]},"limit":"50"}}
+```
+
+`candidate` and `target_run_id` are mutually exclusive. A candidate is an explicit
+read-only description of an invocation that could be registered: up to 100 distinct
+nonblank capabilities of at most 96 UTF-8 bytes each. It creates no actor, run,
+claim, attempt or reservation. Read assessment scope and unknown checks: graph
+readiness covers planning conditions; candidate checks add actor/capability policy
+and current shared pool availability, while run lifecycle/budget and required-path
+ownership can remain unknown. An actual run selector adds its own admission checks.
+No read reserves work or guarantees later acquisition. Do not create probe runs to
+make a picker look like real activity.
+
 ## Small shared facts
 
 Facts store JSON under an exact key in one explicit scope:
@@ -206,7 +238,12 @@ Facts store JSON under an exact key in one explicit scope:
 The same key in different scopes is independent; nothing is inherited. Use
 resources for longer notes or logs. Keys are case-sensitive, nonblank UTF-8, 1–128
 bytes with no controls. Values allow any valid JSON, at most 4096 canonical bytes
-and 16 container levels. JSON `null` is a value, never deletion.
+and 16 container levels. The cap counts the entire replacement value, not just
+changed fields. Keep summaries below about 3 KiB to leave headroom and publish
+long findings/verdicts in versioned resources; a verifier need not append a report
+to an almost-full finding fact. JSON `null` is a value, never deletion. Construct
+it deliberately with typed JSON, inspect the preview, and use fact.delete when
+deletion is intended.
 
 | Method | Behavior |
 | --- | --- |

@@ -59,7 +59,7 @@ managed tree. A closed workspace remains closed across daemon restart until expl
 
 [Request and result contract](api/initialize.md).
 
-The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.5". This application profile differs from the package version and independently versioned persisted roots; see [format compatibility](compatibility.md).
+The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.6". This application profile differs from the package version and independently versioned persisted roots; see [format compatibility](compatibility.md).
 
 ### `daemon.health`
 

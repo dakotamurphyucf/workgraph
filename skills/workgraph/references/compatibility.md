@@ -1,12 +1,10 @@
 # Match binaries, APIs and stored formats
 
-Workgraph is an early preview with one current schema per representation. The
-0.5 line deliberately breaks the 0.4 application API and affected stored roots.
-Package 0.5.2 keeps the same API and stored formats as 0.5.0; updating within
-that line needs no reset or migration.
-It has no legacy readers, automatic migrations, or backward compatibility promises.
-A package version, application API identifier and stored-format identifier serve
-different purposes; they need not have the same value.
+Workgraph supports one current schema per representation. Package 0.6.0 uses
+application API 0.6, affected stored roots 5 and saved upload plan 2. This breaks
+0.5 and earlier requests and data; there are no legacy readers, automatic
+migrations or backward compatibility promises. Package, API and independent
+stored-format identifiers serve different purposes and need not match.
 
 ## Identify the representation before reading it
 
@@ -36,16 +34,16 @@ head.
 
 | Representation | Current identifier | Required contents |
 | --- | --- | --- |
-| Application request and saved retry envelope | `workgraph_api:"0.5"` | JSON-RPC 2.0 envelope and current method parameters |
-| `initialize` result | `workgraph_api:"0.5"` | Current capabilities; `registry_format_version:"4"` |
-| Workspace descriptor | `version:"4"` | Workspace identity and complete current fields |
-| Planning transaction and planning event envelope | `version:"4"` | Complete current transaction/events and durable receipt |
-| Local registry | `version:"4"` | Workspaces, receipts, creates, exports, and restores maps |
-| Workspace export manifest | `version:"4"` | Full state, head, history head, options, and files |
-| Workspace-set export manifest | `version:"4"` | Exact workspace vector, omissions, and member manifest hashes |
+| Application request and saved retry envelope | `workgraph_api:"0.6"` | JSON-RPC 2.0 envelope and current method parameters |
+| `initialize` result | `workgraph_api:"0.6"` | Current capabilities; `registry_format_version:"5"` |
+| Workspace descriptor | `version:"5"` | Workspace identity and complete current fields |
+| Planning transaction and planning event envelope | `version:"5"` | Complete current transaction/events and durable receipt |
+| Local registry | `version:"5"` | Workspaces, receipts, creates, exports, and restores maps |
+| Workspace export manifest | `version:"5"` | Full state, head, history head, options, and files |
+| Workspace-set export manifest | `version:"5"` | Exact workspace vector, omissions, and member manifest hashes |
 | Planning HEAD, history HEAD and history batch | `version:"1"` | Their unchanged independent representations |
 | Advisory heartbeat cache | `version:"1"` | Its unchanged independent representation |
-| Saved CLI upload parameters | `transfer_version:"1"` | Content size/hash and durable request identity, inside a current API envelope |
+| Saved CLI upload parameters | `transfer_version:"2"` | Explicit upload identity, content size/hash and durable request identity, inside a current API envelope |
 
 Unchanged nested event representations retain their own identifiers. Changing the
 outer planning envelope does not renumber every nested format.
@@ -53,11 +51,11 @@ outer planning envelope does not renumber every nested format.
 ## Start this preview without rewriting older data
 
 Use the matching released binary and its bundled guide to inspect older data.
-For this preview, create a fresh registry and fresh workspace roots for 0.5, with
+For this preview, create a fresh registry and fresh workspace roots for 0.6, with
 a fresh socket, contexts and request journals. Preserve older data for use
 with its matching binary. Do not change a marker by hand or point the new daemon
 at old roots expecting a migration. Old saved requests and old exports are not a
-supported route into 0.5. Preserve the matching older binary and archives before
+supported route into 0.6. Preserve the matching older binary and archives before
 replacing an installation. Keep old and new data roots separate;
 carry selected context forward through explicit new current-format records only.
 
@@ -105,7 +103,7 @@ request IDs remain JSON numbers, rather than decimal-string domain counters.
 ## Wire profile and retries
 
 Each Unix-socket connection carries one request and response: four-byte big-endian
-length, then 1..4194304 bytes of JSON. The request envelope has `workgraph_api:"0.5"`, `jsonrpc:"2.0"`, an ID,
+length, then 1..4194304 bytes of JSON. The request envelope has `workgraph_api:"0.6"`, `jsonrpc:"2.0"`, an ID,
 method, and optional object params. The CLI supplies the application marker, including
 in saved requests. Raw clients must supply it even for `initialize`. Responses retain
 the ordinary JSON-RPC envelope; the initialize result reports the application marker. The OCaml client uses nonempty string IDs of at

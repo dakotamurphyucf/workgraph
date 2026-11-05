@@ -56,3 +56,33 @@ important decisions to immutable sources. Private model reasoning is never input
 to a transcript converter. Use one writer at a time: independent histories do not
 merge. Follow [administration and transfer](administration.md) for exact lifecycle
 steps, and [history](history.md) for indexed coverage and payload recovery.
+
+## Shared input, scratch and independent review
+
+Publish common review inputs once as resource versions and record exact version/
+digest pins. Use the bundled input-cache helper with those explicit inputs and
+inspect its coverage; a local cache path alone is not portable provenance. Keep
+short recovery pointers and logs under your own `scratch/agents/SESSION/`; keep
+accepted shared context and completion evidence as durable resources. Do not store
+scratch or source checkouts inside the managed workspace root.
+
+Participant prompts should name lead-only synthesis/dispatch work and the allowed
+verifier roles. Before a finding gets a verifier ticket, compare related findings
+at the same location and identify all involved authors. Configure a positive
+nonempty allowed-actor list of independent reviewers; allocation cannot infer that
+two tickets describe the same author's finding. Install and check the policy before
+dispatch, preferably in the same atomic transaction as creation.
+
+## Harness launch and wait responsibility
+
+Inspect provider API errors before launching a replacement invocation. Respect a
+reported reset or retry time, cap exponential backoff, and brake repeated rapid
+no-progress failures. Keep the harness responsive to stop/control while waiting;
+do not create hundreds of fake runs or dispatch facts for refused launches.
+Record a run for an actual invocation. Workgraph observations and held-work counts
+help inspection but cannot prove external process termination.
+
+Wait for shared locks in bounded foreground intervals that fit the runner's tool
+limits. Keep exact request journals through uncertainty. Advisory waiter expiry
+only hides a note; it never releases a ticket or reservation. Verify actual grant
+receipts and close advisory notes explicitly after acquisition/cancellation.

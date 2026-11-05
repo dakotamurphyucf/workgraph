@@ -5,7 +5,7 @@ description: Use Workgraph to plan local work, coordinate ticket ownership, reta
 
 # Workgraph
 
-Requires a matching Workgraph 0.5 executable and local Unix socket service on
+Requires a matching Workgraph 0.6 executable and local Unix socket service on
 macOS or Linux. Shell examples use POSIX shell and `jq` where shown. Earlier
 preview data and request journals are unsupported.
 
@@ -19,9 +19,9 @@ those actions or stop processes.
 
 Start with [getting started](references/getting-started.md) for connection setup
 and a complete first ticket. Read [concepts](references/concepts.md) when an
-unfamiliar term appears. Use an executable matching this skill's 0.5 API contracts.
+unfamiliar term appears. Use an executable matching this skill's 0.6 API contracts.
 [Compatibility](references/compatibility.md) explains the separate API and storage
-versions and why 0.5 needs fresh data instead of an older preview's files.
+versions and why 0.6 needs fresh data instead of an older preview's files.
 
 ## Orchestrators and subagents
 
@@ -70,6 +70,21 @@ text with actual findings. Completion can reject if dependencies, ownership,
 instruction acknowledgements, or configured review requirements are unsatisfied.
 For a registered agent invocation and recorded execution attempt, read
 [coordination](references/coordination.md) before starting.
+
+## Before coordinating a team
+
+Use [read-only candidate eligibility](references/planning.md) to inspect a
+prospective actor and its capabilities; register a run only for a real invocation.
+Use [participant discovery](references/coordination.md#discover-participants) for
+registered and observed writers. Neither observation age nor an expired lease
+proves a process stopped. The harness owns launch backoff and source isolation.
+
+Keep fact summaries below about 3 KiB: the 4096 canonical-byte cap covers the whole
+replacement value, including later verdict fields. Put full findings, shared input
+and verification evidence in pinned [resources](references/resources.md). JSON null
+is an intentional value, not deletion. Keep local scratch notes separate from
+portable resource evidence. A transaction has at most 32 expanded operations;
+preview a coupled ticket/policy/template plan and check its write before dispatch.
 
 ## Rules that prevent lost or duplicated work
 

@@ -1,54 +1,56 @@
 # macOS ARM64 native installation
 
-Version 0.5.2 includes the complete portable agent skill. See
-[skill installation](agent-skill.md). Upgrading from 0.5.0 or 0.5.1 keeps the same API and
-storage formats: retain your workspace, registry, contexts and saved requests.
-Shut down the old daemon gracefully and restart with the new executable and the
-same connection values. No data reset or migration is required.
+Version 0.6.0 targets application API 0.6 and affected stored roots 5. Use the
+matching complete [agent skill](agent-skill.md). This is a breaking preview:
+0.5 and earlier data, contexts and saved requests need separate preservation;
+create fresh registry/workspace roots, socket, contexts and request journals.
+Read the [preservation-first upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
+before replacing an executable. Publication and platform qualification are recorded
+separately in the release evidence; these instructions do not establish either.
 
-Use the [release notes](releases/v0.5.2.md) for features, breaking changes, upgrade
-steps and qualification limits. Use a matching 0.5.2 executable and guide.
+Use the [release notes](releases/v0.6.0.md) for features, breaking changes, upgrade
+steps and qualification limits. Use a matching 0.6.0 executable and guide.
 
-The inspected ARM64 executable has a macOS 14.0 minimum deployment target;
-installed checks ran on macOS 14.5. This does not establish execution on every
-macOS version. Developer ID signing, notarization and downloaded Gatekeeper
-launch remain untested.
+The macOS deployment target and tested OS must come from the final matching
+qualification JSON. Prior-release checks do not qualify the 0.6.0 executable.
+Developer ID signing, notarization and downloaded Gatekeeper launch require
+separate evidence; no such qualification is claimed here.
 
-## Install v0.5.2 preview
+## Install v0.6.0 preview
 
-This installation walkthrough targets **v0.5.2 preview**, application API **0.5**
-and affected stored roots **4**, with its matching bundled guide/API.
-Download its archive and qualification evidence from the
-[v0.5.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.5.2).
+This installation walkthrough targets **v0.6.0 preview**, application API **0.6**
+and affected stored roots **5**, with its matching bundled guide/API.
+Once published, download its archive and qualification evidence from the
+[v0.6.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
-or the local archive procedure below. Existing 0.5.0/0.5.1 data, exports and saved
-requests remain supported. Upgrades from 0.4 or earlier require fresh data roots;
-follow the [release upgrade steps](releases/v0.5.2.md#upgrade-from-050-or-051).
+or the local archive procedure below. All 0.5 and earlier installations require
+fresh data and journals; follow the [upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
+Use the download commands only once matching release assets are published.
 
 The native archive is intended for Apple Silicon Macs. It contains the executable,
 complete offline guide and references, examples, dependency license texts and a
 file-hash manifest. Running the executable does not require opam or OCaml.
 Packaging does not publish release assets.
 
-Download the v0.5.2 preview archive and its checksums from the release, then
+Download the v0.6.0 preview archive and its checksums from the release, then
 verify the selected archive before extracting it. The release's `SHA256SUMS`
 also lists other assets, so select exactly this archive's entry:
 
 ```sh
 set -eu
-mkdir -p "$HOME/Downloads/workgraph-0.5.2"
-cd "$HOME/Downloads/workgraph-0.5.2" || exit
-WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.5.2"
-curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.5.2-macos-arm64.tar.gz"
+mkdir -p "$HOME/Downloads/workgraph-0.6.0"
+cd "$HOME/Downloads/workgraph-0.6.0" || exit
+WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.0"
+curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.6.0-macos-arm64.tar.gz"
 curl -fLO "$WORKGRAPH_RELEASE/SHA256SUMS"
-awk '$2 == "workgraph-0.5.2-macos-arm64.tar.gz" { print; count++ }
+awk '$2 == "workgraph-0.6.0-macos-arm64.tar.gz" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > macos.SHA256SUMS &&
   shasum -a 256 -c macos.SHA256SUMS &&
-  tar -xzf workgraph-0.5.2-macos-arm64.tar.gz &&
-  ./workgraph-0.5.2-macos-arm64/bin/workgraph --version
+  tar -xzf workgraph-0.6.0-macos-arm64.tar.gz &&
+  ./workgraph-0.6.0-macos-arm64/bin/workgraph --version
 ```
 
-The version must print `0.5.2`. Check the release's macOS qualification JSON
+The version must print `0.6.0`. Check the release's macOS qualification JSON
 and evidence archive for the source identity and actual macOS version tested.
 
 Keep the extracted directory together so relative guide links remain usable. Add
@@ -62,7 +64,7 @@ and qualification drivers, not by the executable itself.
 
 After installation, `workgraph init --help` and `workgraph help request.ask`
 work offline. The bundled [agent CLI contract](../skills/workgraph/references/cli-contract.md) covers
-context setup, saved exact retries and the API 0.5 contract. Its
+context setup, saved exact retries and the API 0.6 contract. Its
 [communication reference](../skills/workgraph/references/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 

@@ -144,3 +144,13 @@ control of truncation, context assembly and any further model calls.
 The adapter stores Workgraph state through the ordinary current API. It cannot
 guarantee that a particular harness invokes the expected events; verify the hook
 binding in that harness before depending on it for recovery.
+
+## Provider and crash-loop backoff
+
+These adapters are notification/context examples, not an agent scheduler. A harness
+that launches agents should classify provider rate-limit and usage-limit errors,
+respect explicit retry/reset times, bound exponential backoff and stop rapid
+repeated no-progress restarts. Remain responsive to stop/control during a hold.
+The particular delay values depend on provider and runner contracts; Workgraph
+provides no automatic relaunch or default backoff schedule. Missing observations,
+failed launches and cancelled run records do not authorize releasing old ownership.
