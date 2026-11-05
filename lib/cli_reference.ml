@@ -777,10 +777,29 @@ let preconditions name mode request =
       [ "Supply nonblank completion evidence and satisfy configured current acceptance \
          gates."
       ]
-    | "inbox.wait" ->
-      [ "timeout_ms is capped at 25000; repeat bounded waits and retain the returned \
-         cursor."
+    | "attention.read" | "attention.wait" ->
+      [ "Communication requires filter.recipient and filter.consumer_id together. Select \
+         filter.kinds:[\"communication\"] for a communication-only watcher; omitting \
+         kinds also selects fact, ticket and readiness activity."
+      ; "Keep the exact filter and returned cursor. Drain has_more before waiting; \
+         needs_larger_budget means retry that cursor with a larger max_bytes. Reading or \
+         waiting never acknowledges delivery. timeout_ms for wait is 1..25000."
       ]
+    | "inbox.read" | "inbox.wait" ->
+      [ "Unread delivery is scoped to the exact recipient kind/id and consumer_id. Actor \
+         and run recipients are separate; acknowledgements for one consumer do not \
+         consume another consumer's inbox."
+      ; "Empty items may reflect acknowledgements, after/through, kinds, ticket_id or \
+         exclude_self. Check echoed recipient/consumer/capture and retain the exact \
+         filters across pages; reads never acknowledge."
+      ]
+      @
+      if String.equal name "inbox.wait"
+      then
+        [ "timeout_ms is capped at 25000; repeat bounded waits and retain the returned \
+           next_after."
+        ]
+      else []
     | _ -> []
   in
   common @ guarded @ specific @ descriptions_in request

@@ -205,6 +205,69 @@ class InboxConvenienceTests(unittest.TestCase):
                                 through=budget["through"], limit="100", max_bytes="4096")
         self.assertEqual(actual, expected)
 
+    def test_empty_inbox_diagnostics_and_communication_observation(self):
+        actor = {"kind": "actor", "id": "alice"}
+        run = {"kind": "run", "id": "run"}
+        self.message("actor-only", recipients=[actor])
+        self.message("run-only", recipients=[run])
+        self.message("self", actor="alice", recipients=[actor])
+        captured = self.inbox()
+        ids = [row["notification_id"] for row in captured["items"]]
+        self.assertEqual(captured["recipient"], actor)
+        self.assertEqual(captured["consumer_id"], "consumer")
+        self.assertEqual(captured["after"], "0")
+        self.assertEqual([row["source"]["id"] for row in captured["items"]], ["actor-only", "self"])
+        self.assertEqual([row["source"]["id"] for row in self.inbox(recipient=run)["items"]], ["run-only"])
+        self.assertEqual(self.inbox(kinds=["request_created"])["items"], [])
+        self.assertEqual(self.inbox(after=captured["through"])["items"], [])
+        self.assertEqual([row["source"]["id"] for row in self.inbox(exclude_self=True)["items"]], ["actor-only"])
+        self.message("later", recipients=[actor])
+        self.assertEqual(self.inbox(through=captured["through"])["items"], captured["items"])
+
+        # Communication-only observation drains an immutable capture without ack.
+        selected = {"recipient": actor, "consumer_id": "consumer", "kinds": ["communication"]}
+        first = self.rpc("attention.read", filter=selected, limit="1")["data"]
+        page = first
+        observed = []
+        while True:
+            self.assertEqual(page["through"], first["through"])
+            self.assertFalse(page["needs_larger_budget"])
+            self.assertTrue(all(row["kind"] == "communication_group" for row in page["items"]))
+            observed.extend(identifier for row in page["items"] for identifier in row["notification_ids"])
+            if not page["has_more"]:
+                break
+            page = self.rpc("attention.read", filter=selected, cursor=page["cursor"], limit="1")["data"]
+        all_ids = [row["notification_id"] for row in self.inbox()["items"]]
+        self.assertEqual(observed, all_ids)
+        self.assertEqual(ids, all_ids[:2])
+        self.assertEqual(self.rpc("attention.wait", filter=selected, cursor=page["cursor"],
+                                  timeout_ms="1")["data"]["items"], [])
+        self.assertEqual([row["notification_id"] for row in self.inbox()["items"]], all_ids)
+        self.write("inbox.ack", actor="alice", consumer_id="consumer", recipient=actor,
+                   notification_ids=all_ids)
+        self.assertEqual(self.inbox()["items"], [])
+        self.assertEqual(self.rpc("attention.read", filter=selected)["data"]["items"], [])
+        fresh = self.rpc("inbox.read", consumer_id="diagnostic", recipient=actor)["data"]
+        self.assertEqual([row["notification_id"] for row in fresh["items"]], all_ids)
+        self.assertEqual([row["source"]["id"] for row in self.inbox(recipient=run)["items"]], ["run-only"])
+
+        # A request's status does not clear unread delivery, and ticket filters
+        # select the actual linked ticket rather than the recipient's current work.
+        for ticket in ("selected", "other"):
+            self.write("ticket.create", ticket_id=ticket, title=ticket)
+        asked = self.write("request.ask", request_id="question", ticket_id="selected",
+                           title="Question", body="Confirm", resolver_id="operator",
+                           recipients=[actor])["data"]
+        only_question = self.inbox(ticket_id="selected", kinds=["request_created"])
+        self.assertEqual(len(only_question["items"]), 1)
+        self.assertEqual(self.inbox(ticket_id="other")["items"], [])
+        self.write("request.resolve", request_id="question", expected_revision=asked["request_revision"],
+                   body="Confirmed")
+        still_unread = self.inbox(ticket_id="selected", kinds=["request_created"])
+        self.assertEqual([row["notification_id"] for row in still_unread["items"]],
+                         [row["notification_id"] for row in only_question["items"]])
+        self.assertEqual(self.rpc("request.get", request_id="question")["data"]["status"]["kind"], "resolved")
+
     def test_wait_diagnostics_filters_and_shutdown_cancellation(self):
         bad = self.cli("--context", self.context, "request", "inbox.wait", "--self",
                        "--consumer-id", "consumer", "--timeout-ms", "25001", expected=1)

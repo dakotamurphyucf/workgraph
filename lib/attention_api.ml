@@ -137,6 +137,11 @@ module Filter = struct
         (Option.is_some t.fact_scope || Option.is_some t.fact_prefix)
         && not (List.mem t.kinds Fact ~equal:Kind.equal)
       then Json.fail Invalid_argument "fact selectors require fact kind")
+    |> Api_codec.with_error_context
+         ~context:
+           "For communication, select filter.recipient and filter.consumer_id together; \
+            use kinds:[\"communication\"] to exclude fact, ticket and readiness \
+            activity."
   ;;
 end
 
