@@ -1,5 +1,17 @@
 (** Run the daemon. One main-domain dispatcher owns state; a bounded worker
-    domain owns filesystem operations. Admission canonicalizes workspace/restore
+    domain owns serialized persistence operations. Two read-worker domains serve
+    history: current/cached reads and search/cold ancestor reconstruction have
+    independent bounded admission (16 outstanding reads per lane). All searches
+    share a worker-owned index; each worker retains indices for at most eight
+    recently used roots, replacing entries on root-generation changes.
+    Historical reconstruction never accesses the mutable journal owner; immutable
+    captures pin the root until completion, including expected-error results.
+    Dispatcher and each read worker retain at most eight cached captures with a
+    16MiB metadata accounting budget each (48MiB aggregate accounting, not a heap
+    bound; queued captures/current state are additional). Root generations prevent
+    reuse across reopen/restore. Payload reads still verify the requested complete
+    blob, so byte-range size alone does not bound their latency.
+    Admission canonicalizes workspace/restore
     roots and export destinations and rejects overlap with registered/reserved
     storage or the registry. This is trusted-local ownership, not protection
     against concurrent external filesystem replacement. Validates the native socket

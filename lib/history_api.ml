@@ -17,6 +17,7 @@ let id of_string to_string =
 ;;
 
 let session_id = id Session_id.of_string Session_id.to_string
+let run_id = id Id.Run.of_string Id.Run.to_string
 let decimal = Api_codec.decimal ~max:Int.max_value
 
 let bounded ~min ~max description =
@@ -194,6 +195,8 @@ module Query = struct
         { offset : int
         ; limit : int
         ; include_archived : bool
+        ; order : Session.Order.t
+        ; run : Id.Run.t option
         }
     | Get of Session.Event_ref.t
     | Read of
@@ -208,6 +211,10 @@ module Query = struct
         ; kinds : string list option
         ; after : Session.Event_ref.t option
         ; limit : int
+        }
+    | Payloads of
+        { events : Session.Event_ref.t list
+        ; length : int
         }
     | Payload of
         { event : Session.Event_ref.t
@@ -281,19 +288,32 @@ module Query = struct
             (Api_codec.object_
                (Fields.optional "offset" decimal
                 ++ Fields.optional "limit" limit
-                ++ Fields.optional "include_archived" Api_codec.boolean))
-            ~decode:(fun ((offset, limit), include_archived) ->
+                ++ Fields.optional "include_archived" Api_codec.boolean
+                ++ Fields.optional
+                     "order"
+                     (Api_codec.enum
+                        [ "session_id", Session.Order.Session_id
+                        ; "created_at", Created_at
+                        ; "last_event_at", Last_event_at
+                        ]
+                        ~equal:Session.Order.equal)
+                ++ Fields.optional "run_id" run_id))
+            ~decode:(fun ((((offset, limit), include_archived), order), run) ->
               Ok
                 (Session_list
                    { offset = Option.value offset ~default:0
                    ; limit = Option.value limit ~default:50
                    ; include_archived = Option.value include_archived ~default:false
+                   ; order = Option.value order ~default:Session.Order.Session_id
+                   ; run
                    }))
             ~encode:(function
-              | Session_list { offset; limit; include_archived } ->
-                (Some offset, Some limit), Some include_archived
+              | Session_list { offset; limit; include_archived; order; run } ->
+                (((Some offset, Some limit), Some include_archived), Some order), run
               | _ -> Json.fail Invalid_argument "wrong history query")
-            ~description:"Page complete captured session records." )
+            ~description:
+              "Page captured session records by ID or descending server \
+               creation/last-event time, optionally filtered by exact run ID." )
       ; ( "history.get"
         , Api_codec.map
             (Api_codec.object_ (Fields.required "event_ref" History_wire.event_ref))
@@ -344,6 +364,34 @@ module Query = struct
                 (((text, session), kinds), after), Some limit
               | _ -> Json.fail Invalid_argument "wrong history query")
             ~description:"Search complete indexed adapter text at an immutable capture." )
+      ; ( "history.payloads"
+        , Api_codec.map
+            (Api_codec.object_
+               (Fields.required
+                  "event_refs"
+                  (Api_codec.map
+                     (Api_codec.list History_wire.event_ref ~max_items:100)
+                     ~decode:(fun events ->
+                       if List.is_empty events
+                       then
+                         Error
+                           (Problem.create
+                              Invalid_argument
+                              "payloads requires 1..100 event references")
+                       else Ok events)
+                     ~encode:Fn.id
+                     ~description:
+                       "1..100 exact event references in requested order; duplicates are \
+                        preserved.")
+                ++ Fields.optional "length" (Api_codec.decimal ~max:262_144)))
+            ~decode:(fun (events, length) ->
+              Ok (Payloads { events; length = Option.value length ~default:32768 }))
+            ~encode:(function
+              | Payloads { events; length } -> events, Some length
+              | _ -> Json.fail Invalid_argument "wrong history query")
+            ~description:
+              "Expand ordered primary payload prefixes at one capture; every item \
+               includes an explicit byte continuation." )
       ; ( "history.payload"
         , Api_codec.map
             (Api_codec.object_
@@ -482,6 +530,48 @@ let payload_result =
        blob."
 ;;
 
+let search_result =
+  Api_codec.map
+    (record
+       [ field "items" (Api_codec.list hit ~max_items:100)
+       ; field "next" (Api_codec.nullable History_wire.event_ref)
+       ; field "restart_after_indexing" bool
+       ; field "has_more" bool
+       ; field "coverage" (Api_codec.list coverage ~max_items:1_000_000)
+       ; field "index_complete" bool
+       ; field "unindexed_events" decimal
+       ; field "unsearchable_events" decimal
+       ; field "omitted_for_budget" decimal
+       ])
+    ~decode:(fun result ->
+      let flag name =
+        match Json.field result name with
+        | `True -> true
+        | _ -> false
+      in
+      let complete = flag "index_complete" in
+      let has_next =
+        match Json.field result "next" with
+        | `Null -> false
+        | _ -> true
+      in
+      if
+        (not
+           (Bool.equal complete (Json.integer (Json.field result "unindexed_events") = 0)))
+        || Bool.equal complete (flag "restart_after_indexing")
+        || not (Bool.equal has_next (complete && flag "has_more"))
+      then
+        Error
+          (Problem.create
+             Invalid_argument
+             "inconsistent history search coverage or continuation")
+      else Ok result)
+    ~encode:Fn.id
+    ~description:
+      "Index coverage and page exhaustion are independent; only complete-index \
+       nonterminal pages have a continuation."
+;;
+
 let responses =
   [ ( "session.create"
     , record [ field "session" History_wire.session; field "through" decimal ] )
@@ -510,17 +600,17 @@ let responses =
         ; field "next_anchor" decimal
         ; field "omitted_for_budget" decimal
         ] )
-  ; ( "history.search"
+  ; "history.search", search_result
+  ; ( "history.payloads"
     , record
-        [ field "items" (Api_codec.list hit ~max_items:100)
-        ; field "next" (Api_codec.nullable History_wire.event_ref)
-        ; field "restart_after_indexing" bool
-        ; field "has_more" bool
-        ; field "coverage" (Api_codec.list coverage ~max_items:1_000_000)
-        ; field "complete" bool
-        ; field "unindexed_events" decimal
-        ; field "unsearchable_events" decimal
-        ; field "omitted_for_budget" decimal
+        [ field
+            "items"
+            (Api_codec.list
+               (record
+                  [ field "event_ref" History_wire.event_ref
+                  ; field "payload" payload_result
+                  ])
+               ~max_items:100)
         ] )
   ; "history.payload", payload_result
   ]

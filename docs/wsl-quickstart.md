@@ -1,75 +1,65 @@
 # Workgraph on AlmaLinux 10 in WSL: install and quick start
 
-Version 0.6.2 uses application API 0.6 and affected stored roots 5, unchanged
-from 0.6.0 and 0.6.1. An upgrade from either retains existing roots, contexts
-and journals;
-stop the daemon gracefully, install the matching client/daemon, replace the complete
-[agent skill](agent-skill.md), and restart. No data reset is required. Read the
-[0.6.2 upgrade notes](releases/v0.6.2.md#upgrade-from-060-or-061) before replacing an executable.
-For 0.5 or earlier, follow the separate
-[preservation-first fresh-root procedure](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
-Release qualification records identify exact source, artifacts and observed platform
-checks; installation instructions do not substitute for that evidence.
+Version 0.7.0 uses application API 0.7, workspace/export format 6 and history
+batch format 2. Upgrade by [migrating a supported 0.6.2-format workspace](migration.md)
+into a new root; this release does not rewrite an older installation in place.
+Resolve uncertain writes with the old executable first, preserve its stopped roots
+and exact journals, then use a fresh registry, socket, contexts and request directory.
+Install the matching client/daemon and replace the complete [agent skill](agent-skill.md).
+Earlier preview formats are not supported by the converter. See the
+[release notes](releases/v0.7.0.md) for changes and qualification limits.
+Release records identify exact source, artifacts and observed platform checks;
+installation instructions do not substitute for that evidence.
 
-This walkthrough installs **Workgraph v0.6.2 preview** on **x86_64/AMD64 AlmaLinux
-10** userspace inside WSL. It uses API **0.6** and affected stored roots **5**.
+This walkthrough installs **Workgraph v0.7.0 preview** on **x86_64/AMD64 AlmaLinux
+10** userspace inside WSL. It uses API **0.7**, workspace/export format **6** and
+history batch format **2**.
 Run commands in your AlmaLinux terminal as your normal user; use `sudo` only where
 shown. No OCaml, opam or systemd setup is required for the RPM.
 
 Native AlmaLinux tar/RPM qualification does not qualify an actual WSL kernel,
 Windows or SELinux policy. The standard AlmaLinux 10 AMD64 image requires an
 x86-64-v3-capable CPU. Keep registry/workspace data and the socket under your
-Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.6.2.md#qualification-and-limits).
+Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.7.0.md#qualification-and-limits).
 
 ## Preserve an older setup before upgrading
 
-For a first installation, continue with [Install v0.6.2](#install-v062).
-For an existing 0.6.0 or 0.6.1 setup, follow the [patch upgrade](releases/v0.6.2.md#upgrade-from-060-or-061)
-and keep its existing state paths; the fresh bootstrap below is for new installations.
-For any 0.5 or earlier setup, complete the preservation steps below and the
-[release upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-**before** upgrading the RPM, which replaces `/usr/bin/workgraph`:
+For a first installation, continue with [Install v0.7.0](#install-v070).
+Before replacing an existing RPM, preserve its matching executable and archives.
+Use that old binary to resolve uncertain writes from the original request files,
+stop its launchers and shut down gracefully. Preserve the complete stopped roots,
+contexts, journals and exports.
 
-1. Identify the actual older binary (`type -a workgraph`), daemon socket,
-   registered roots and custom launchers. Keep its matching executable and
-   downloaded native/source/RPM archives so you can still read older data.
-2. With that older executable and context, resolve or retain exact uncertain
-   request journals, export and verify needed data, then stop custom launchers
-   and shut down the old daemon gracefully. Preserve complete stopped registry
-   and workspace roots, contexts, journals, logs and exports separately.
-3. Install 0.6.2 and use the fresh version-specific paths below. Do not reuse an
-   old socket, context, request directory or managed root. Older exports cannot
-   be restored by 0.6. Do not change format markers or copy old managed files.
+For the supported 0.6.2 workspace representation, follow [offline migration](migration.md)
+into a new root, then use the fresh registry/socket/context/request paths below.
+Ordinary startup and restore do not convert old roots or exports. Earlier preview
+representations are unsupported by the converter and need their matching binary.
+Do not edit format markers or copy the old registry into the new installation.
+Migration preserves its source; no deletion or reset is required. Never remove a
+socket or lock to force a new setup.
 
-No deletion is required to upgrade. Uninstalling an RPM does not remove workspace
-data. A reset is an optional, separate destructive choice: only after stopping
-all owners and verifying retained backups, explicitly select the exact old roots
-and contexts you intend to discard. Deleting only a registry leaves custom
-workspace roots elsewhere; never broadly delete paths named `workgraph`, socket
-guards or locks to force a new setup.
-
-## Install v0.6.2
+## Install v0.7.0
 
 Download the RPM and checksums from the
-[v0.6.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.2):
+[v0.7.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.7.0):
 
 ```bash
 set -euo pipefail
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
 sudo dnf install -y jq python3
 
-mkdir -p "$HOME/Downloads/workgraph-0.6.2"
-cd "$HOME/Downloads/workgraph-0.6.2" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.7.0"
+cd "$HOME/Downloads/workgraph-0.7.0" || exit
 
-RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.2"
+RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.7.0"
 
-curl -fLO "$RELEASE/workgraph-0.6.2-1.el10.x86_64.rpm"
+curl -fLO "$RELEASE/workgraph-0.7.0-1.el10.x86_64.rpm"
 curl -fLO "$RELEASE/SHA256SUMS"
 
-awk '$2 == "workgraph-0.6.2-1.el10.x86_64.rpm" { print; count++ }
+awk '$2 == "workgraph-0.7.0-1.el10.x86_64.rpm" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > rpm.SHA256SUMS &&
   sha256sum --check rpm.SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.6.2-1.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.7.0-1.el10.x86_64.rpm
 
 hash -r
 command -v workgraph
@@ -81,7 +71,7 @@ version:
 
 ```text
 /usr/bin/workgraph
-0.6.2
+0.7.0
 ```
 
 The executable uses standard AlmaLinux system libraries. `jq` supports the shell examples and optional WGX viewer. WGX
@@ -92,7 +82,7 @@ to install the two viewer files together.
 ## Start the daemon and create a workspace
 
 Keep managed data and the socket on the Linux filesystem under `$HOME`, rather
-than `/mnt/c`. This fresh example uses a private directory for the 0.6 release line.
+than `/mnt/c`. This fresh example uses a private directory for the 0.7 release line.
 If upgrading from 0.5 or earlier, preserve old paths separately and use fresh ones.
 
 ```bash
@@ -100,7 +90,7 @@ workgraph init --help
 workgraph help request.ask
 
 umask 077
-WG_HOME="$HOME/.local/state/workgraph-0.6"
+WG_HOME="$HOME/.local/state/workgraph-0.7"
 mkdir -p "$WG_HOME"
 
 export WG_CONTEXT="$WG_HOME/agent.json"
@@ -123,7 +113,7 @@ and writes connection defaults to `agent.json`. Repeating the same setup reuses
 the matching workspace and context. The first run requires a fresh workspace
 root; do not precreate `$WG_HOME/workspace`.
 
-| Location under `~/.local/state/workgraph-0.6/` | Purpose |
+| Location under `~/.local/state/workgraph-0.7/` | Purpose |
 | --- | --- |
 | `registry/` | Local workspace registrations and administrative state |
 | `workspace/` | This workspace's durable tickets, resources, and history |
@@ -207,7 +197,7 @@ Omit `--output text` to receive JSON. In a new terminal, restore the context
 variable before running commands:
 
 ```bash
-export WG_CONTEXT="$HOME/.local/state/workgraph-0.6/agent.json"
+export WG_CONTEXT="$HOME/.local/state/workgraph-0.7/agent.json"
 ```
 
 ## Give an agent access
@@ -217,7 +207,7 @@ For example, after copying it to your harness's configured skills directory, its
 entry point might be `$HOME/.agents/skills/workgraph/SKILL.md`. The folder includes
 its own references, API schemas and scripts.
 
-The v0.6.2 RPM installs the full folder at
+The v0.7.0 RPM installs the full folder at
 `/usr/share/doc/workgraph/skills/workgraph/`. Copy that folder into your harness
 using the skill installation instructions above. Keep old skill copies separately;
 do not merge them into the current folder.
@@ -230,7 +220,7 @@ and permission to use your Workgraph socket.
 > break work into tickets, record progress and decisions, and recover context
 > between sessions. Read `/home/<your-linux-user>/.agents/skills/workgraph/SKILL.md` and follow its
 > references when needed. Use `/usr/bin/workgraph` with
-> `--context /home/<your-linux-user>/.local/state/workgraph-0.6/agent.json`.
+> `--context /home/<your-linux-user>/.local/state/workgraph-0.7/agent.json`.
 > The workspace is `demo`; the project is `demo-project`.
 
 To print the actual connection values for this setup:
@@ -238,7 +228,7 @@ To print the actual connection values for this setup:
 ```bash
 printf 'Executable: %s\nContext: %s\nGuide: %s\n' \
   "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph-0.6/agent.json" \
+  "$HOME/.local/state/workgraph-0.7/agent.json" \
   "$HOME/.agents/skills/workgraph/SKILL.md"
 ```
 

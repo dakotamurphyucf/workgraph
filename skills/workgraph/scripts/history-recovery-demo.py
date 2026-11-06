@@ -89,7 +89,7 @@ def run(executable, directory, *, client=None):
         def read(method, **params):
             return client.call(method, {"workspace_id": bootstrap["workspace_id"], **params})
         first_hits = read("history.search", session_id=bootstrap["session_id"], text="planted_requirement", limit="10", max_bytes="65536")
-        assert first_hits["data"]["complete"] and len(first_hits["data"]["items"]) == 1, first_hits
+        assert first_hits["data"]["index_complete"] and len(first_hits["data"]["items"]) == 1, first_hits
         first_payload = read("history.payload", event_ref=first_hits["data"]["items"][0]["event_ref"], head=first_hits["meta"]["history_capture"]["head"], length="4096")
         active_context = {"requirement": base64.b64decode(first_payload["data"]["bytes_base64"]).decode()}
         assert "planted_requirement: BLUE" in active_context["requirement"], active_context
@@ -109,7 +109,7 @@ def run(executable, directory, *, client=None):
         baseline = {"calls": client.calls, "bytes": client.response_bytes, "current_requirement_recovered": "AMBER" in note_text}
         client.calls = client.response_bytes = 0
         hits = read("history.search", session_id=bootstrap["session_id"], text="planted_requirement", limit="10", max_bytes="65536")
-        if not hits["data"]["complete"]:
+        if not hits["data"]["index_complete"]:
             raise RuntimeError("index coverage is incomplete; wait/rebuild before absence claims")
         assert len(hits["data"]["items"]) == 2, hits
         head = hits["meta"]["history_capture"]["head"]

@@ -110,3 +110,42 @@ claim-next observations add no planning commit; explicit durable no-op batches s
 
 Captured bounded usage totals and typed custom measure rollups with explicit
 overflow/unassigned accounting. Keep the returned continuation and capture guards.
+
+
+Choose `metrics_layout` for the detail you need:
+
+| Layout | Items and limit unit | Custom measure detail |
+| --- | --- | --- |
+| `rows` (default) | One usage or metric row; `limit` counts rows | Separate `kind:"metric"` rows may continue onto another page. |
+| `nested` | One `kind:"usage"` item per group; `limit` counts groups | Each item contains its complete `metrics` array, ordered by name then unit. |
+| `totals_only` | One `kind:"usage"` item per group; `limit` counts groups | No metric rows or arrays; `metric_series` and `metric_overflow` remain in each summary. |
+
+For example, capture project groups with their complete measure series:
+
+```sh
+"$WG" --context "$CONTEXT" request usage.aggregate --group-by project \
+  --metrics-layout nested --limit 20 --max-bytes 65536
+```
+
+All layouts retain the same top-level totals, membership basis and unassigned run
+accounting. Filters are ANDed; group attribution uses captured current ticket
+membership. Metrics preserve their name and unit, with separate sums for distinct
+units and explicit saturation. Tokens and elapsed milliseconds retain their existing
+units. `totals_only` still computes truthful metric counts and overflow; it omits
+individual metric values rather than estimating or converting them.
+
+Nested groups are indivisible. A page contains only whole groups, even when a group's
+metric array exceeds `max_bytes`. If the next group cannot fit, the response has empty
+`items`, `has_more:true`, `needs_larger_budget:true`, and `required_bytes` describing the
+next complete item and response metadata. The cursor stays at that group. Retry it
+with a larger budget; neither arrays nor metric identifiers are shortened. The maximum
+budget is 1048576 bytes. For a group exceeding that ceiling, begin a new `rows` query to
+page through individual series, or use `totals_only` to omit that detail.
+
+A continuation binds workspace, planning revision, planning lineage, effective literal
+filters, group and metric layout. Its offset counts rows or groups according to layout.
+You may change `limit` and `max_bytes` during continuation. Omitted default layout/group
+and explicit `rows`/`workspace` have the same effective identity. Changing selectors,
+layout, membership, or the planning capture requires a new query. `at_revision` guards
+the current capture; it does not retrieve a historical one. A zero-observation result
+has no group items. These reads do not create usage records or planning commits.

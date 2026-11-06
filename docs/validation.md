@@ -1,6 +1,6 @@
 # Validation and limits
 
-Version 0.6.2 requires a new final integrated source and installed-package
+Version 0.7.0 requires a new final integrated source and installed-package
 qualification. The 2026-10-09 macOS ARM64 run documented in
 [integration evidence](acceptance/integrated-validation.md) is historical: its
 68-case process/socket suite and 238-method generated-reference count do not
@@ -17,7 +17,11 @@ Run the standard checks from the repository root with a matching toolchain:
 
 The tests exercise decoded data and deterministic replay, exact retries after
 restart, claims and attempts, resource transfers, review/reconciliation rules,
-history retrieval, export/restore and selected storage-failure boundaries. Fixtures
+history retrieval, export/restore and selected storage-failure boundaries. The 0.7
+checks also cover independent concurrent parsers, immutable capture reuse, bounded
+worker admission, ordered payload batches, search coverage versus continuation,
+session timestamps/order, derived run links, compact usage and explicit offline
+migration with source preservation. Fixtures
 and examples are included in the source repository; tests need Python's standard
 library and no model credentials or hosted service.
 
@@ -43,6 +47,8 @@ a separate check on the intended Windows host.
 Test counts are not performance or capacity guarantees. Current bounds are
 documented in the [API reference](api.md#storage-and-ownership) and
 [format contract](../skills/workgraph/references/compatibility.md). There is no history pruning, blob garbage
-collection, distributed writer reconciliation or prototype-schema migration.
+collection or distributed writer reconciliation. The explicit [offline migration](migration.md)
+supports only the released 0.6.2 workspace representation; arbitrary prototype formats
+and in-place conversion are unsupported.
 Actor/run names provide local attribution, not authentication. The harness must
 honor ownership before external writes and enforce provider token/time spending.

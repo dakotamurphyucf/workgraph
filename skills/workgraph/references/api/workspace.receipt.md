@@ -171,7 +171,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
       ],
       "description": "Path is a JSON pointer into the public result; omitted is positive."
     },
-    "history_capture_07c6ef57721cee66f4834eb1da4211b84a9994c19274cb507555bca54a798130": {
+    "history_capture_c755d1142bca958e9d73c7ba7baf72c87860c96ec4800e8593b983373fde8db9": {
       "additionalProperties": false,
       "properties": {
         "head": {
@@ -216,20 +216,27 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
       "required": [
         "workspace_id",
         "head",
-        "sequence",
-        "sessions"
+        "sequence"
       ],
       "type": "object"
     },
-    "history_capture_ad81f0012b3192d288d35f8fd15b3f3f15ae4f23d6203ab499851dbdc4ab1abc": {
+    "history_capture_e1679c7e275d9335f255c9a76c9b72a067036bd2cef4e6c4ad939493562c9d07": {
       "allOf": [
         {
-          "$ref": "#/$defs/history_capture_07c6ef57721cee66f4834eb1da4211b84a9994c19274cb507555bca54a798130"
+          "$ref": "#/$defs/history_capture_c755d1142bca958e9d73c7ba7baf72c87860c96ec4800e8593b983373fde8db9"
         }
       ],
-      "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+      "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Omitted sessions means watermarks are not included, not that the workspace has no sessions. Session IDs are unique; through counts session events, not journal commits."
     },
-    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
+    "metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -239,7 +246,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
           "type": "boolean"
         },
         "history_capture": {
-          "$ref": "#/$defs/history_capture_ad81f0012b3192d288d35f8fd15b3f3f15ae4f23d6203ab499851dbdc4ab1abc"
+          "$ref": "#/$defs/history_capture_e1679c7e275d9335f255c9a76c9b72a067036bd2cef4e6c4ad939493562c9d07"
         },
         "history_sequence": {
           "allOf": [
@@ -252,7 +259,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
           "description": "History journal commit sequence, independent of planning."
         },
         "pagination": {
-          "$ref": "#/$defs/pagination_5304aa8e449260de2209d0891e9a905366d6eb7cf48a067ad4bc6cd333071b98"
+          "$ref": "#/$defs/pagination_adf0e7d7aec40d24b15ed8ba5295334af487725d9d4a3e747cb36feb7508c3bb"
         },
         "query_revision": {
           "allOf": [
@@ -296,15 +303,17 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
       "required": [],
       "type": "object"
     },
-    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
-      "allOf": [
+    "next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178": {
+      "anyOf": [
         {
-          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
+          "$ref": "#/$defs/next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5"
+        },
+        {
+          "type": "null"
         }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      ]
     },
-    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+    "next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5": {
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -339,7 +348,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
         },
         "workgraph_api": {
-          "const": "0.6",
+          "const": "0.7",
           "type": "string"
         }
       },
@@ -352,17 +361,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
       ],
       "type": "object"
     },
-    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "pagination_189f2185e0a8e06d54b060838b6a61187e090b1fdfbfa642cf8d2a03c8b92ab5": {
+    "pagination_1760caf61fdf398a36e955c057a740f7e7c43b0e4b6999288f3c904815ccf254": {
       "properties": {
         "capture": {
           "x-maxCanonicalBytes": 4096,
@@ -378,7 +377,8 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
             "opaque_captured_cursor",
             "current_revision_cursor",
             "notification_through",
-            "immutable_history_head"
+            "immutable_history_head",
+            "run_revision_and_history_head"
           ],
           "type": "string"
         },
@@ -392,7 +392,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
           "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
         },
         "next_request": {
-          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
         },
         "required_bytes": {
           "anyOf": [
@@ -407,7 +407,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
           ]
         },
         "retry_request": {
-          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
         },
         "returned_bytes": {
           "allOf": [
@@ -448,58 +448,57 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
       ],
       "type": "object"
     },
-    "pagination_5304aa8e449260de2209d0891e9a905366d6eb7cf48a067ad4bc6cd333071b98": {
+    "pagination_46e049f1ec825d8b750cb498b120ebdffd26121498265a6c4106f908d69ad1cc": {
       "allOf": [
         {
-          "$ref": "#/$defs/pagination_cf0b7bb1dd97e58dab0937f9d4958cd825a84f449f2b9e1aa7dfa96729db5138"
+          "$ref": "#/$defs/pagination_1760caf61fdf398a36e955c057a740f7e7c43b0e4b6999288f3c904815ccf254"
+        },
+        {
+          "$ref": "#/$defs/pagination_87d6e1634773dbe43a469171b26603ac0829ae36059fbdb057828776e2e22bb6"
         }
       ],
-      "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+      "unevaluatedProperties": false
     },
-    "pagination_b885c669bb155987a322cc44073be05b4161647604b25574a074c7a1944243d5": {
+    "pagination_87d6e1634773dbe43a469171b26603ac0829ae36059fbdb057828776e2e22bb6": {
       "properties": {
         "sections": {
-          "$ref": "#/$defs/sections_fcb6fc8fced415d7f373a90131df8464e7743523cb8bf14863d137c372bae41b"
+          "$ref": "#/$defs/sections_7344c790a766e3751e37d0dbb1ba288b9c14f315ce8f8ca34ec485ec3d976f60"
         }
       },
       "required": [],
       "type": "object"
     },
-    "pagination_bd61ea61bc83611f2efe535617c256f28b5e1c0634424f6bf1dd1f43ef6763d4": {
+    "pagination_adf0e7d7aec40d24b15ed8ba5295334af487725d9d4a3e747cb36feb7508c3bb": {
       "allOf": [
         {
-          "$ref": "#/$defs/pagination_189f2185e0a8e06d54b060838b6a61187e090b1fdfbfa642cf8d2a03c8b92ab5"
-        },
-        {
-          "$ref": "#/$defs/pagination_b885c669bb155987a322cc44073be05b4161647604b25574a074c7a1944243d5"
-        }
-      ],
-      "unevaluatedProperties": false
-    },
-    "pagination_cf0b7bb1dd97e58dab0937f9d4958cd825a84f449f2b9e1aa7dfa96729db5138": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/pagination_bd61ea61bc83611f2efe535617c256f28b5e1c0634424f6bf1dd1f43ef6763d4"
-        }
-      ],
-      "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
-    },
-    "sections_475a11c49fc47ef24e817ecfdd19db3407418335ae8353a8921728080b6a9a66": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/sections_4da75c9ec39c672814e9fc3bf0259f2f43dbda8d5d3ef4f931ca94a47e43c0c5"
+          "$ref": "#/$defs/pagination_fc1d0a95d3f40761023be45b691a49553ae4bfbbf64eae85f0e3661f23014366"
         }
       ],
       "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
     },
-    "sections_4da75c9ec39c672814e9fc3bf0259f2f43dbda8d5d3ef4f931ca94a47e43c0c5": {
+    "pagination_fc1d0a95d3f40761023be45b691a49553ae4bfbbf64eae85f0e3661f23014366": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/pagination_46e049f1ec825d8b750cb498b120ebdffd26121498265a6c4106f908d69ad1cc"
+        }
+      ],
+      "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
+    },
+    "sections_7344c790a766e3751e37d0dbb1ba288b9c14f315ce8f8ca34ec485ec3d976f60": {
+      "items": {
+        "$ref": "#/$defs/sections_f6b03ab1059d1dbdae97a493be23b95dcb74a4958ccca0d3f2d4392743fac5e0"
+      },
+      "maxItems": 32,
+      "type": "array"
+    },
+    "sections_b4ac04be9bc57a68e7a2b6ca1b620d5bda74134a671971accbdb6c6811b24b1f": {
       "additionalProperties": false,
       "properties": {
         "complete": {
           "type": "boolean"
         },
         "next_request": {
-          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
         },
         "path": {
           "type": "string",
@@ -510,7 +509,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
           "x-maxUtf8Bytes": 256
         },
         "retry_request": {
-          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
         },
         "stop": {
           "enum": [
@@ -537,12 +536,13 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
       ],
       "type": "object"
     },
-    "sections_fcb6fc8fced415d7f373a90131df8464e7743523cb8bf14863d137c372bae41b": {
-      "items": {
-        "$ref": "#/$defs/sections_475a11c49fc47ef24e817ecfdd19db3407418335ae8353a8921728080b6a9a66"
-      },
-      "maxItems": 32,
-      "type": "array"
+    "sections_f6b03ab1059d1dbdae97a493be23b95dcb74a4958ccca0d3f2d4392743fac5e0": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/sections_b4ac04be9bc57a68e7a2b6ca1b620d5bda74134a671971accbdb6c6811b24b1f"
+        }
+      ],
+      "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
     },
     "sessions_8b4cb95d903fadbd84b98887273e1df06000c9b52e235f82d315493b413a36f7": {
       "items": {
@@ -617,7 +617,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
                       "x-maxDepth": 64
                     },
                     "meta": {
-                      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+                      "$ref": "#/$defs/metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e"
                     }
                   },
                   "required": [
@@ -644,7 +644,7 @@ For preconditions and a small example, run `workgraph help workspace.receipt`. U
       ]
     },
     "meta": {
-      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+      "$ref": "#/$defs/metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e"
     }
   },
   "required": [

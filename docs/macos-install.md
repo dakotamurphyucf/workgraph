@@ -1,58 +1,61 @@
 # macOS ARM64 native installation
 
-Version 0.6.2 uses application API 0.6 and affected stored roots 5, unchanged
-from 0.6.0 and 0.6.1. An upgrade from either retains existing roots, contexts
-and journals;
-stop the daemon gracefully, install the matching client/daemon, replace the complete
-[agent skill](agent-skill.md), and restart. No data reset is required. Read the
-[0.6.2 upgrade notes](releases/v0.6.2.md#upgrade-from-060-or-061) before replacing an executable.
-For 0.5 or earlier, follow the separate
-[preservation-first fresh-root procedure](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
-Release qualification records identify exact source, artifacts and observed platform
-checks; installation instructions do not substitute for that evidence.
+Version 0.7.0 uses application API 0.7, workspace/export format 6 and history
+batch format 2. Upgrade by [migrating a supported 0.6.2-format workspace](migration.md)
+into a new root; this release does not rewrite an older installation in place.
+Resolve uncertain writes with the old executable first, preserve its stopped roots
+and exact journals, then use a fresh registry, socket, contexts and request directory.
+Install the matching client/daemon and replace the complete [agent skill](agent-skill.md).
+Earlier preview formats are not supported by the converter. See the
+[release notes](releases/v0.7.0.md) for changes and qualification limits.
+Release records identify exact source, artifacts and observed platform checks;
+installation instructions do not substitute for that evidence.
 
-Use the [release notes](releases/v0.6.2.md) for features, breaking changes, upgrade
-steps and qualification limits. Use a matching 0.6.2 executable and guide.
+Use the [release notes](releases/v0.7.0.md) for features, breaking changes, upgrade
+steps and qualification limits. Use a matching 0.7.0 executable and guide.
 
 The macOS deployment target and tested OS must come from the final matching
-qualification JSON. Prior-release checks do not qualify the 0.6.2 executable.
+qualification JSON. Prior-release checks do not qualify the 0.7.0 executable.
 Developer ID signing, notarization and downloaded Gatekeeper launch require
 separate evidence; no such qualification is claimed here.
 
-## Install v0.6.2 preview
+## Install v0.7.0 preview
 
-This installation walkthrough targets **v0.6.2 preview**, application API **0.6**
-and affected stored roots **5**, with its matching bundled guide/API.
+This installation walkthrough targets **v0.7.0 preview**, application API **0.7**
+with workspace/export format **6**, history batch format **2** and matching bundled
+guide/API.
 Download its archive and qualification evidence from the
-[v0.6.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.2).
+[v0.7.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.7.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
-or the local archive procedure below. All 0.5 and earlier installations require
-fresh data and journals; follow the [upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
+or the local archive procedure below. For existing data, follow the
+[migration procedure](migration.md) before switching
+to the new executable. Only the supported 0.6.2 workspace representation converts;
+older formats require their matching binary.
 
 The native archive is intended for Apple Silicon Macs. It contains the executable,
 complete offline guide and references, examples, dependency license texts and a
 file-hash manifest. Running the executable does not require opam or OCaml.
 Packaging does not publish release assets.
 
-Download the v0.6.2 preview archive and its checksums from the release, then
+Download the v0.7.0 preview archive and its checksums from the release, then
 verify the selected archive before extracting it. The release's `SHA256SUMS`
 also lists other assets, so select exactly this archive's entry:
 
 ```sh
 set -eu
-mkdir -p "$HOME/Downloads/workgraph-0.6.2"
-cd "$HOME/Downloads/workgraph-0.6.2" || exit
-WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.2"
-curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.6.2-macos-arm64.tar.gz"
+mkdir -p "$HOME/Downloads/workgraph-0.7.0"
+cd "$HOME/Downloads/workgraph-0.7.0" || exit
+WORKGRAPH_RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.7.0"
+curl -fLO "$WORKGRAPH_RELEASE/workgraph-0.7.0-macos-arm64.tar.gz"
 curl -fLO "$WORKGRAPH_RELEASE/SHA256SUMS"
-awk '$2 == "workgraph-0.6.2-macos-arm64.tar.gz" { print; count++ }
+awk '$2 == "workgraph-0.7.0-macos-arm64.tar.gz" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > macos.SHA256SUMS &&
   shasum -a 256 -c macos.SHA256SUMS &&
-  tar -xzf workgraph-0.6.2-macos-arm64.tar.gz &&
-  ./workgraph-0.6.2-macos-arm64/bin/workgraph --version
+  tar -xzf workgraph-0.7.0-macos-arm64.tar.gz &&
+  ./workgraph-0.7.0-macos-arm64/bin/workgraph --version
 ```
 
-The version must print `0.6.2`. Check the release's macOS qualification JSON
+The version must print `0.7.0`. Check the release's macOS qualification JSON
 and evidence archive for the source identity and actual macOS version tested.
 
 Keep the extracted directory together so relative guide links remain usable. Add
@@ -66,7 +69,7 @@ and qualification drivers, not by the executable itself.
 
 After installation, `workgraph init --help` and `workgraph help request.ask`
 work offline. The bundled [agent CLI contract](../skills/workgraph/references/cli-contract.md) covers
-context setup, saved exact retries and the API 0.6 contract. Its
+context setup, saved exact retries and the API 0.7 contract. Its
 [communication reference](../skills/workgraph/references/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 

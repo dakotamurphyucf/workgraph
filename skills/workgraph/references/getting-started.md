@@ -29,10 +29,12 @@ setup and `"$WG" help ticket.start` for offline method help.
 
 ## Set up a fresh local example
 
-Skip this section when you already have a working context. Use a matching 0.6
-executable. Older preview data, request journals and exports cannot be opened or
-restored into 0.6. Preserve them with their matching executable; see
-[compatibility](compatibility.md).
+Skip this section when you already have a working context. Use a matching 0.7
+executable. Normal startup/restore accept current formats. Existing supported
+0.6.2-format workspaces need [offline migration](migration.md) into a new root,
+with a fresh registry, context and request directory afterward. Preserve old saved
+requests and resolve uncertain writes with their old matching executable first;
+see [compatibility](compatibility.md).
 
 On macOS or Linux, choose a new private absolute directory. The following creates
 an isolated example under a fresh temporary directory; it does not use the current

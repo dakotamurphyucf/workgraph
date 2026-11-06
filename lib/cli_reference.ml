@@ -17,6 +17,7 @@ let local_methods =
   ; "request.wait"
   ; "journal.inspect"
   ; "journal.list"
+  ; "migrate"
   ; "resource.publish_text"
   ; "template.publish"
   ; "resource.upload-abort"
@@ -27,6 +28,27 @@ let local_methods =
 ;;
 
 let existing_helper_help = function
+  | "migrate" ->
+    Some
+      {|migrate --from 0.6.2 --source ABS_OLD_ROOT --destination ABS_NEW_ROOT [offline helper]
+Convert only the released 0.6.2 workspace representations into a fresh root.
+Stop the old daemon and resolve uncertain writes with the old executable first.
+Source canonical data stays unchanged. Register the verified new root separately
+in a fresh registry. Old registries, export jobs, uploads, caches and saved API
+envelopes are not converted. Regenerate exports from the new root.
+Unknown session creation/last-event timestamps become null; no clock is invented.
+Planning journal bytes and mutation identities are preserved. History hashes
+change; JSON output maps every old history head to its new digest. Reacquire read
+captures/cursors. Old 0.6 request envelopes are not accepted by the 0.7 API.
+The source format tuple is checked; files do not identify their writer's patch
+version. Earlier formats, corruption, held locks, overlapping paths and existing
+destinations reject. Publication uses a no-replacement rename after full replay.
+Failures identify an owned stage and token. Explicitly remove only that stage:
+  migrate cleanup --stage ABS_STAGE --owner-token TOKEN
+Cleanup refuses unexpected files or active stages and never removes a published
+destination or the source. Then rerun conversion from the unchanged source.
+If publication succeeded but parent sync failed, inspect the reported destination;
+do not delete or overwrite it to resolve Outcome_unknown.|}
   | "request.wait" ->
     Some
       {|request wait [local read helper]

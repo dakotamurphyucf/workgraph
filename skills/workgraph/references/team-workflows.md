@@ -63,7 +63,7 @@ Publish common review inputs once as resource versions and record exact version/
 digest pins. Use the bundled input-cache helper with those explicit inputs and
 inspect its coverage; a local cache path alone is not portable provenance. Keep
 private per-agent scratch and caches outside the source checkout, for example
-`~/.local/state/workgraph-0.6/scratch/ACTOR/`, so clean-worktree checks do not remove
+`~/.local/state/workgraph-0.7/scratch/ACTOR/`, so clean-worktree checks do not remove
 inputs or force repeated downloads. Use repository scratch only if its policy
 explicitly provides and ignores it. Keep accepted shared context and completion
 evidence as durable resources. Never put scratch, caches or source checkouts inside

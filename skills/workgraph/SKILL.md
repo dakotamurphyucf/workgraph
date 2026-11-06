@@ -5,10 +5,12 @@ description: Use Workgraph through its CLI to discover features, plan local work
 
 # Workgraph
 
-Requires a matching Workgraph 0.6 executable on macOS or Linux. State operations
+Requires a matching Workgraph 0.7 executable on macOS or Linux. State operations
 also need a local Unix socket service; discovery and help work offline. Shell
-examples use POSIX shell and `jq` where shown. Earlier preview data and request
-journals are unsupported.
+examples use POSIX shell and `jq` where shown. Runtime reads accept current formats;
+use [offline migration](references/migration.md) for supported 0.6.2-format workspace
+copies. Resolve uncertain old requests with their old binary before conversion;
+new registries, contexts and request journals remain separate.
 
 Workgraph keeps a durable local record of work: what needs doing, who owns it,
 what was decided, and what evidence supports completion. A **ticket** is one unit
@@ -20,9 +22,9 @@ those actions or stop processes.
 
 When connection setup is needed, use [getting started](references/getting-started.md)
 for setup and a complete first ticket. With a supplied context, start with discovery below. Read [concepts](references/concepts.md) when an
-unfamiliar term appears. Use an executable matching this skill's 0.6 API contracts.
+unfamiliar term appears. Use an executable matching this skill's 0.7 API contracts.
 [Compatibility](references/compatibility.md) explains the separate API and storage
-versions and why 0.6 needs fresh data instead of an older preview's files.
+versions and the explicit supported migration into a new root.
 
 ## Find the next operation
 
@@ -46,6 +48,15 @@ These feature categories are separate from a run's declared eligibility capabili
 | `verification` | Exact pins, captured execution, contracts, reviews and acceptance | [Evidence](references/communication-evidence.md), [execution](references/execution.md) |
 | `observation` | Attention, change feeds, summaries, usage and capacity | [Attention](references/attention.md), [metrics](references/metrics.md) |
 | `administration` | Setup, daemon lifecycle, workspace export and restore | [Getting started](references/getting-started.md), [administration](references/administration.md) |
+
+For captured transcript content, use `history.payloads` for up to 100 exact event
+references and continue partial bodies through `history.payload` at the same head.
+Search `index_complete` describes coverage; `has_more` describes traversal. Keep
+both distinctions when interpreting empty or partial pages. Run read views include
+automatically attributed sessions; follow `run.sessions` continuations when their
+preview omits links. Usage `metrics_layout` selects existing rows, whole nested
+groups or totals-only summaries. The focused history/coordination/metrics guides
+explain exact capture and byte-budget rules.
 
 Use concise discovery and method help first. Open only the relevant reference
 section when the operation needs more explanation; avoid loading multiple long

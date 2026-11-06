@@ -1,0 +1,380 @@
+[
+  {
+    "method": "project.create",
+    "params": {
+      "actor_id": "agent",
+      "mutation_id": "project",
+      "project_id": "project",
+      "title": "Preserved project",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "acceptance_criteria": "",
+        "archived": false,
+        "description": "",
+        "handoff": null,
+        "priority": "0",
+        "project_id": "project",
+        "revision": "1",
+        "status": "todo",
+        "summary": "",
+        "title": "Preserved project"
+      },
+      "meta": {
+        "durable": true,
+        "workspace_revision": "1"
+      }
+    }
+  },
+  {
+    "method": "ticket.create",
+    "params": {
+      "actor_id": "agent",
+      "mutation_id": "ticket",
+      "project_id": "project",
+      "ticket_id": "ticket",
+      "title": "Preserved ticket",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "acceptance_criteria": "",
+        "archived": false,
+        "assignee_id": null,
+        "claim": null,
+        "created_at": "2026-11-05 23:49:55.394362880Z",
+        "created_order": "1",
+        "created_sequence": "2",
+        "description": "",
+        "display_key": "WG-1",
+        "hold": null,
+        "label_ids": [],
+        "membership_revision": "1",
+        "milestone_id": null,
+        "next_token": "1",
+        "parent_ticket_id": null,
+        "prerequisite_ticket_ids": [],
+        "priority": "0",
+        "project_id": "project",
+        "reassessments": [],
+        "related_ticket_ids": [],
+        "reopened_token": null,
+        "revision": "1",
+        "status": "todo",
+        "status_id": null,
+        "ticket_id": "ticket",
+        "title": "Preserved ticket",
+        "updated_at": "2026-11-05 23:49:55.394362880Z",
+        "waivers": []
+      },
+      "meta": {
+        "durable": true,
+        "workspace_revision": "2"
+      }
+    }
+  },
+  {
+    "method": "comment.add",
+    "params": {
+      "actor_id": "agent",
+      "body": "Original planning comment with opaque history digest text",
+      "mutation_id": "comment",
+      "target": {
+        "id": "ticket",
+        "kind": "ticket"
+      },
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "comment_id": "comment_623916aac15e37397b43e49b9e96a577283c037ed14b686fe11ae7526815a432",
+        "revision": "1",
+        "sequence": "3"
+      },
+      "meta": {
+        "durable": true,
+        "workspace_revision": "3"
+      }
+    }
+  },
+  {
+    "method": "resource.put_text",
+    "params": {
+      "actor_id": "agent",
+      "expected_revision": "0",
+      "mutation_id": "resource1",
+      "resource_id": "resource",
+      "text": "first resource version",
+      "title": "Resource",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "resource_id": "resource",
+        "revision": "1",
+        "version": {
+          "actor_id": "agent",
+          "digest": "3301645fae3ca75ef59b198488ff60f89379005bd2bbc3aa9147ec839be104f9",
+          "filename": "resource.txt",
+          "mime_type": "text/plain",
+          "revision": "1",
+          "size_bytes": "22",
+          "timestamp": "2026-11-05 23:49:55.440108032Z"
+        }
+      },
+      "meta": {
+        "durable": true,
+        "workspace_revision": "4"
+      }
+    }
+  },
+  {
+    "method": "resource.put_text",
+    "params": {
+      "actor_id": "agent",
+      "expected_revision": "1",
+      "mutation_id": "resource2",
+      "resource_id": "resource",
+      "text": "second resource version",
+      "title": "Resource",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "resource_id": "resource",
+        "revision": "2",
+        "version": {
+          "actor_id": "agent",
+          "digest": "1e138a2819086f704e61e504ef2c63c58b946fffb9835ee8b01e2e2588b975ea",
+          "filename": "resource.txt",
+          "mime_type": "text/plain",
+          "revision": "2",
+          "size_bytes": "23",
+          "timestamp": "2026-11-05 23:49:55.463522816Z"
+        }
+      },
+      "meta": {
+        "durable": true,
+        "workspace_revision": "5"
+      }
+    }
+  },
+  {
+    "method": "session.create",
+    "params": {
+      "actor_id": "agent",
+      "mutation_id": "create",
+      "scopes": [
+        {
+          "id": "project",
+          "kind": "project"
+        }
+      ],
+      "session_id": "conversation",
+      "title": "Imported conversation",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "session": {
+          "actor_id": "agent",
+          "archived": false,
+          "parent_event": null,
+          "run_id": null,
+          "scopes": [
+            {
+              "id": "project",
+              "kind": "project"
+            }
+          ],
+          "session_id": "conversation",
+          "title": "Imported conversation",
+          "workspace_id": "migration"
+        },
+        "through": "0"
+      },
+      "meta": {
+        "durable": true
+      }
+    }
+  },
+  {
+    "method": "session.append",
+    "params": {
+      "actor_id": "agent",
+      "events": [
+        {
+          "attachments": [
+            {
+              "digest": "3301645fae3ca75ef59b198488ff60f89379005bd2bbc3aa9147ec839be104f9",
+              "size_bytes": "22"
+            }
+          ],
+          "client_id": "message1",
+          "kind": "message",
+          "payload": {
+            "bytes_base64": "/wBtaWdyYXRpb24gcGF5bG9hZA==",
+            "kind": "inline"
+          },
+          "phase": "completed",
+          "provenance": {
+            "literal": "$unresolved",
+            "timestamp": "original source clock"
+          },
+          "resource_versions": [
+            {
+              "resource_id": "resource",
+              "revision": "1"
+            }
+          ],
+          "role": "user",
+          "searchable_text": {
+            "bytes_base64": "bmVlZGxlIM67IGluIG9yaWdpbmFsIHNlYXJjaGFibGUgdGV4dA==",
+            "kind": "inline"
+          }
+        }
+      ],
+      "mutation_id": "append",
+      "session_id": "conversation",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "events": [
+          {
+            "sequence": "1",
+            "session_id": "conversation"
+          }
+        ],
+        "session_id": "conversation",
+        "through": "1"
+      },
+      "meta": {
+        "durable": true
+      }
+    }
+  },
+  {
+    "method": "session.append",
+    "params": {
+      "actor_id": "agent",
+      "events": [
+        {
+          "attachments": [
+            {
+              "digest": "3301645fae3ca75ef59b198488ff60f89379005bd2bbc3aa9147ec839be104f9",
+              "size_bytes": "22"
+            }
+          ],
+          "client_id": "message1",
+          "kind": "message",
+          "payload": {
+            "bytes_base64": "/wBtaWdyYXRpb24gcGF5bG9hZA==",
+            "kind": "inline"
+          },
+          "phase": "completed",
+          "provenance": {
+            "literal": "$unresolved",
+            "timestamp": "original source clock"
+          },
+          "resource_versions": [
+            {
+              "resource_id": "resource",
+              "revision": "1"
+            }
+          ],
+          "role": "user",
+          "searchable_text": {
+            "bytes_base64": "bmVlZGxlIM67IGluIG9yaWdpbmFsIHNlYXJjaGFibGUgdGV4dA==",
+            "kind": "inline"
+          }
+        }
+      ],
+      "mutation_id": "deduplicate",
+      "session_id": "conversation",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "events": [
+          {
+            "sequence": "1",
+            "session_id": "conversation"
+          }
+        ],
+        "session_id": "conversation",
+        "through": "1"
+      },
+      "meta": {
+        "durable": true
+      }
+    }
+  },
+  {
+    "method": "session.create",
+    "params": {
+      "actor_id": "agent",
+      "mutation_id": "child",
+      "parent_event": {
+        "sequence": "1",
+        "session_id": "conversation"
+      },
+      "session_id": "child",
+      "title": "Child session",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "session": {
+          "actor_id": "agent",
+          "archived": false,
+          "parent_event": {
+            "sequence": "1",
+            "session_id": "conversation"
+          },
+          "run_id": null,
+          "scopes": [],
+          "session_id": "child",
+          "title": "Child session",
+          "workspace_id": "migration"
+        },
+        "through": "0"
+      },
+      "meta": {
+        "durable": true
+      }
+    }
+  },
+  {
+    "method": "session.archive",
+    "params": {
+      "actor_id": "agent",
+      "mutation_id": "archive",
+      "session_id": "conversation",
+      "workspace_id": "migration"
+    },
+    "result": {
+      "data": {
+        "session": {
+          "actor_id": "agent",
+          "archived": true,
+          "parent_event": null,
+          "run_id": null,
+          "scopes": [
+            {
+              "id": "project",
+              "kind": "project"
+            }
+          ],
+          "session_id": "conversation",
+          "title": "Imported conversation",
+          "workspace_id": "migration"
+        }
+      },
+      "meta": {
+        "durable": true
+      }
+    }
+  }
+]

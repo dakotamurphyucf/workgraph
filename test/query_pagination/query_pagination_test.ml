@@ -23,7 +23,15 @@ let page ~next =
           ; "next_offset", Option.value_map next ~default:`Null ~f:Json.int
           ; "omitted", Json.int (if Option.is_some next then 1 else 0)
           ] )
-    ; "meta", Json.obj [ "query_scope", Json.string "runs"; "query_revision", Json.int 7 ]
+    ; ( "meta"
+      , Json.obj
+          [ "query_scope", Json.string "runs"
+          ; "query_revision", Json.int 7
+          ; ( "history_capture"
+            , Json.obj
+                [ "workspace_id", Json.string "w"; "head", `Null; "sequence", Json.int 0 ]
+            )
+          ] )
     ]
 ;;
 
@@ -77,7 +85,7 @@ let%expect_test "exact guard/filter continuation and domain error preserved" =
   summary (Ok result);
   [%expect
     {|
-    {"expected_revision":"7","offset":"1","workspace_id":"w"}
+    {"expected_revision":"7","head":null,"offset":"1","workspace_id":"w"}
     {"details":{"actual":"7","expected":"6","type":"revision"},"kind":"Conflict","message":"unchanged domain problem"}
     {"complete":false,"pages":"1","stop":"error"}
   |}]
@@ -352,8 +360,8 @@ let%expect_test "single returned page exposes exact capture and next request" =
   in
   print_s [%sexp (Query_pagination.Continuation.complete complete : bool)];
   [%expect
-    {| {"query_revision":"7","query_scope":"runs"}
- {"expected_revision":"7","offset":"1","workspace_id":"w"}
+    {| {"head":null,"query_revision":"7","query_scope":"runs"}
+ {"expected_revision":"7","head":null,"offset":"1","workspace_id":"w"}
  false
  Conflict
  true |}]

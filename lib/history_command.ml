@@ -11,13 +11,31 @@ type t =
 let mutation_methods = History_api.mutation_methods
 let query_methods = History_api.query_methods
 
-let decode ~workspace ~actor ?run ~method_ ~params () =
+let decode ~workspace ~actor ?run ?now_unix_ms ~method_ ~params () =
   let open Result.Let_syntax in
+  let%bind () =
+    if Option.exists now_unix_ms ~f:(fun value -> Int64.(value < 0L))
+    then
+      Error
+        (Problem.create
+           Invalid_argument
+           "server observation must be nonnegative Unix milliseconds")
+    else Ok ()
+  in
   let%bind command = History_api.Command.decode ~method_ ~params in
   match command with
   | History_api.Command.Create { id; title; parent; scopes } ->
     Result.map
-      (Session.create ~workspace ~id ~title ~actor ?run ?parent ~scopes ())
+      (Session.create
+         ~workspace
+         ~id
+         ~title
+         ~actor
+         ?run
+         ?parent
+         ?created_at_unix_ms:now_unix_ms
+         ~scopes
+         ())
       ~f:(fun session -> Create session)
   | Archive id -> Ok (Archive id)
   | Append { session; inputs } -> Ok (Append { session; inputs })
@@ -34,7 +52,7 @@ let resource_versions = function
     List.concat_map inputs ~f:Session_event.Input.resource_versions
 ;;
 
-let execute store command ~actor ?run ~key ~request_hash () =
+let execute store command ~actor ?run ?now_unix_ms ~key ~request_hash () =
   let method_, result =
     match command with
     | Create metadata ->
@@ -43,9 +61,80 @@ let execute store command ~actor ?run ~key ~request_hash () =
       "session.archive", Session_store.archive store ~session ~key ~request_hash
     | Append { session; inputs } ->
       ( "session.append"
-      , Session_store.append store ~session ~actor ?run ~inputs ~key ~request_hash () )
+      , Session_store.append
+          store
+          ~session
+          ~actor
+          ?run
+          ?now_unix_ms
+          ~inputs
+          ~key
+          ~request_hash
+          () )
   in
   Result.map result ~f:(History_api.mutation_result ~method_)
+;;
+
+(* Keep selection and byte/cursor rendering identical for single and batch reads.
+   Fit against the complete response before reading, retaining at most its byte budget. *)
+let payload_blob capture event_ref part =
+  let event = Session_store.Capture.event capture event_ref |> Disk.unwrap in
+  match part with
+  | History_api.Query.Part.Payload -> Session_event.payload event
+  | Searchable_text ->
+    (match Session_event.searchable_text event with
+     | None -> Json.fail Not_found "event has no searchable text"
+     | Some ref_ -> ref_)
+  | Attachment attachment ->
+    (match List.nth (Session_event.attachments event) attachment with
+     | None -> Json.fail Not_found "attachment not found"
+     | Some ref_ -> ref_)
+;;
+
+let payload_data (blob : Session_event.Blob_ref.t) ~offset ~length ~bytes_base64 =
+  Json.obj
+    [ "blob", Api_codec.encode History_wire.blob_ref blob |> Disk.unwrap
+    ; "offset", Json.int offset
+    ; "bytes_base64", Json.string bytes_base64
+    ; "next_offset", Json.int (offset + length)
+    ; "total_bytes", Json.int blob.size_bytes
+    ; ("has_more", if offset + length < blob.size_bytes then `True else `False)
+    ]
+;;
+
+let fit_payload blob ~offset ~requested ~max_bytes ~render =
+  if offset < 0 || offset > blob.Session_event.Blob_ref.size_bytes
+  then Json.fail Invalid_argument "history payload offset outside blob";
+  let trial length =
+    payload_data
+      blob
+      ~offset
+      ~length
+      ~bytes_base64:(String.make ((length + 2) / 3 * 4) 'A')
+    |> render
+    |> Api_response.encoded_size History
+  in
+  if trial 0 > max_bytes
+  then Json.fail Blocked "history payload metadata exceeds byte budget";
+  let rec fit low high =
+    if low >= high
+    then low
+    else (
+      let middle = low + ((high - low + 1) / 2) in
+      if trial middle <= max_bytes then fit middle high else fit low (middle - 1))
+  in
+  fit 0 (Int.min requested (blob.size_bytes - offset))
+;;
+
+let read_payload capture ~fs ~root blob ~offset ~length =
+  let bytes, _ =
+    Session_store.read_capture_blob capture ~fs ~root blob ~offset ~length |> Disk.unwrap
+  in
+  payload_data
+    blob
+    ~offset
+    ~length:(String.length bytes)
+    ~bytes_base64:(Base64.encode_string bytes)
 ;;
 
 let query capture ~fs ~root ~index ~method_ ~params =
@@ -68,11 +157,14 @@ let query capture ~fs ~root ~index ~method_ ~params =
              ; "through", Json.int (Session_store.Capture.upper_bound capture ~session:id)
              ; "capture", Session_store.Capture.to_json capture
              ])
-      | Session_list { offset; limit; include_archived } ->
+      | Session_list { offset; limit; include_archived; order; run } ->
         let candidates =
           Session_store.Capture.sessions capture
           |> List.filter ~f:(fun metadata ->
-            include_archived || not (Session.archived metadata))
+            (include_archived || not (Session.archived metadata))
+            && Option.value_map run ~default:true ~f:(fun expected ->
+              Option.equal Id.Run.equal (Session.run metadata) (Some expected)))
+          |> List.sort ~compare:(Session.compare_for_order ~order)
         in
         let selected =
           List.drop candidates offset |> fun candidates -> List.take candidates limit
@@ -122,51 +214,52 @@ let query capture ~fs ~root ~index ~method_ ~params =
           ~max_bytes
           ()
         |> Disk.unwrap
-      | Payload { event = event_ref; part; offset; length = requested } ->
-        let event = Session_store.Capture.event capture event_ref |> Disk.unwrap in
-        let ref_ =
-          match part with
-          | History_api.Query.Part.Payload -> Session_event.payload event
-          | Searchable_text ->
-            (match Session_event.searchable_text event with
-             | None -> Json.fail Not_found "event has no searchable text"
-             | Some ref_ -> ref_)
-          | Attachment attachment ->
-            (match List.nth (Session_event.attachments event) attachment with
-             | None -> Json.fail Not_found "attachment not found"
-             | Some ref_ -> ref_)
+      | Payloads { events; length = requested } ->
+        let blobs =
+          List.map events ~f:(fun event_ref ->
+            event_ref, payload_blob capture event_ref History_api.Query.Part.Payload)
+          |> Array.of_list
         in
-        let bytes, total =
-          Session_store.read_capture_blob capture ~fs ~root ref_ ~offset ~length:requested
-          |> Disk.unwrap
-        in
-        let render length =
+        let item event_ref payload =
           Json.obj
-            [ "capture", Session_store.Capture.to_json capture
-            ; "blob", Api_codec.encode History_wire.blob_ref ref_ |> Disk.unwrap
-            ; "offset", Json.int offset
-            ; ( "bytes_base64"
-              , Json.string (Base64.encode_string (String.prefix bytes length)) )
-            ; "next_offset", Json.int (offset + length)
-            ; "total_bytes", Json.int total
-            ; ("has_more", if offset + length < total then `True else `False)
+            [ ( "event_ref"
+              , Api_codec.encode History_wire.event_ref event_ref |> Disk.unwrap )
+            ; "payload", payload
             ]
         in
-        if Api_response.encoded_size History (render 0) > max_bytes
-        then Json.fail Blocked "history payload metadata exceeds byte budget";
-        let rec fit low high =
-          if low >= high
-          then low
-          else (
-            let middle = low + ((high - low + 1) / 2) in
-            if Api_response.encoded_size History (render middle) <= max_bytes
-            then fit middle high
-            else fit low (middle - 1))
+        let items =
+          Array.map blobs ~f:(fun (event_ref, blob) ->
+            item event_ref (payload_data blob ~offset:0 ~length:0 ~bytes_base64:""))
         in
-        let length = fit 0 (String.length bytes) in
-        if length = 0 && requested > 0 && offset < total
+        let render () =
+          Json.obj
+            [ "capture", Session_store.Capture.to_json capture
+            ; "items", `Array (Array.to_list items)
+            ]
+        in
+        if Api_response.encoded_size History (render ()) > max_bytes
+        then Json.fail Blocked "history payload batch metadata exceeds byte budget";
+        Array.iteri blobs ~f:(fun index (event_ref, blob) ->
+          let length =
+            fit_payload blob ~offset:0 ~requested ~max_bytes ~render:(fun payload ->
+              items.(index) <- item event_ref payload;
+              render ())
+          in
+          items.(index)
+          <- item event_ref (read_payload capture ~fs ~root blob ~offset:0 ~length));
+        render ()
+      | Payload { event = event_ref; part; offset; length = requested } ->
+        let blob = payload_blob capture event_ref part in
+        let render payload =
+          match payload with
+          | `Object fields ->
+            Json.obj (("capture", Session_store.Capture.to_json capture) :: fields)
+          | _ -> failwith "payload result must be an object"
+        in
+        let length = fit_payload blob ~offset ~requested ~max_bytes ~render in
+        if length = 0 && requested > 0 && offset < blob.size_bytes
         then Json.fail Blocked "history payload budget cannot fit one byte";
-        render length
+        read_payload capture ~fs ~root blob ~offset ~length |> render
     in
     if Api_response.encoded_size History result > max_bytes
     then Json.fail Blocked "history response exceeds byte budget";

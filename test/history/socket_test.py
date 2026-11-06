@@ -70,6 +70,10 @@ class HistorySocketTest(unittest.TestCase):
                     planning_before = call("changes.read", workspace_id="history")
                     create_params = dict(session_id="conversation", title="Conversation")
                     created = mutate("session.create", "create", **create_params)
+                    created_at = created["data"]["session"]["created_at_unix_ms"]
+                    self.assertIsNotNone(created_at)
+                    self.assertGreaterEqual(int(created_at), 0)
+                    self.assertIsNone(created["data"]["session"]["last_event_at_unix_ms"])
                     payload = b"\xff\x00" * 4500 + b"tail"
                     text = b"needle in the retained text"
                     event = dict(client_id="source", role="user", kind="message", phase="completed",
@@ -78,10 +82,16 @@ class HistorySocketTest(unittest.TestCase):
                                  searchable_text={"kind": "inline", "bytes_base64": base64.b64encode(text).decode()})
                     append_params = dict(session_id="conversation", events=[event])
                     appended = mutate("session.append", "append", **append_params)
+                    first_session = read("session.get", session_id="conversation")["data"]["session"]
+                    self.assertEqual(first_session["created_at_unix_ms"], created_at)
+                    self.assertIsNotNone(first_session["last_event_at_unix_ms"])
+                    self.assertGreaterEqual(int(first_session["last_event_at_unix_ms"]), 0)
                     self.assertEqual(appended, mutate("session.append", "append", **append_params))
                     self.assertEqual(appended["data"], mutate("session.append", "deduplicate", **append_params)["data"])
                     rejected("session.append", "Idempotency_conflict", actor_id="agent", mutation_id="append",
                              **append_params, run_id="different")
+                    self.assertEqual(read("session.get", session_id="conversation")["data"]["session"],
+                                     first_session)
                     event_ref = appended["data"]["events"][0]
                     metadata = read("history.get", event_ref=event_ref)
                     capture = metadata["meta"]["history_capture"]
@@ -100,10 +110,28 @@ class HistorySocketTest(unittest.TestCase):
                     self.assertEqual(page["data"]["through"], "1")
                     self.assertEqual(len(page["data"]["items"]), 1)
                     hits = read("history.search", text="needle", head=head)
-                    self.assertIs(hits["data"]["complete"], True)
+                    self.assertIs(hits["data"]["index_complete"], True)
                     self.assertEqual([hit["event_ref"] for hit in hits["data"]["items"]], [event_ref])
+                    self.assertIsNone(hits["data"]["next"])
                     after = read("history.search", text="needle", head=head, after_event=event_ref)
                     self.assertEqual(after["data"]["items"], [])
+                    self.assertIsNone(after["data"]["next"])
+                    batch = read("history.payloads", event_refs=[event_ref, event_ref],
+                                 head=head, length="262144", max_bytes="4096")
+                    self.assertLessEqual(len(adapter.canonical(batch).encode()), 4096)
+                    self.assertEqual(batch["meta"]["history_capture"], capture)
+                    self.assertEqual([item["event_ref"] for item in batch["data"]["items"]],
+                                     [event_ref, event_ref])
+                    for item in batch["data"]["items"]:
+                        first = item["payload"]
+                        prefix = base64.b64decode(first["bytes_base64"], validate=True)
+                        self.assertEqual(prefix, payload[:len(prefix)])
+                        self.assertEqual(int(first["next_offset"]), len(prefix))
+                        self.assertIs(first["has_more"], True)
+                        rest = read("history.payload", event_ref=item["event_ref"],
+                                    head=head, offset=first["next_offset"], length="262144")
+                        self.assertEqual(prefix + base64.b64decode(rest["data"]["bytes_base64"]), payload)
+                    rejected("history.payloads", "Invalid_argument", event_refs=[])
                     rejected("history.get", "Invalid_argument", ref=event_ref)
                     rejected("history.payload", "Invalid_argument", event_ref=event_ref, part="payload")
                     rejected("history.search", "Invalid_argument", text="needle", after=event_ref)

@@ -35,6 +35,8 @@ module Query : sig
         { offset : int
         ; limit : int
         ; include_archived : bool
+        ; order : Session.Order.t
+        ; run : Id.Run.t option
         }
     | Get of Session.Event_ref.t
     | Read of
@@ -49,6 +51,13 @@ module Query : sig
         ; kinds : string list option
         ; after : Session.Event_ref.t option
         ; limit : int
+        }
+    (** Ordered expansion of 1..100 exact event references at one capture. Each
+        primary payload is included, possibly as a bounded prefix. Resume each
+        incomplete item through [Payload] using its [next_offset] and the same head. *)
+    | Payloads of
+        { events : Session.Event_ref.t list
+        ; length : int
         }
     | Payload of
         { event : Session.Event_ref.t

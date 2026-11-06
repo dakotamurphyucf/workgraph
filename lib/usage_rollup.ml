@@ -91,6 +91,7 @@ let read ~workspace ~revision ~activity ~reports ~runs ~tickets ~params =
       && Option.is_none (R.attempt request)
     in
     let group = R.group request in
+    let layout = R.metrics_layout request in
     let group_key report =
       let run, attempt, ticket = binding report in
       let key kind field value = Json.obj [ "kind", Json.string kind; field, value ] in
@@ -135,28 +136,39 @@ let read ~workspace ~revision ~activity ~reports ~runs ~tickets ~params =
       Map.to_alist groups
       |> List.concat_map ~f:(fun (key, reports) ->
         let key = Json.parse key |> unwrap in
-        Json.obj [ "kind", Json.string "usage"; "group", key; "totals", summary reports ]
-        :: List.map
-             (Usage_record.metric_totals reports |> unwrap)
-             ~f:(fun metric ->
-               Json.obj
-                 [ "kind", Json.string "metric"
-                 ; "group", key
-                 ; ( "metric"
-                   , Api_codec.encode Usage_record.Metric_total.codec metric |> unwrap )
-                 ]))
+        let usage fields =
+          Json.obj
+            ([ "kind", Json.string "usage"; "group", key; "totals", summary reports ]
+             @ fields)
+        in
+        let metrics () =
+          Usage_record.metric_totals reports
+          |> unwrap
+          |> List.map ~f:(fun metric ->
+            Api_codec.encode Usage_record.Metric_total.codec metric |> unwrap)
+        in
+        match layout with
+        | Rows ->
+          usage []
+          :: List.map (metrics ()) ~f:(fun metric ->
+            Json.obj [ "kind", Json.string "metric"; "group", key; "metric", metric ])
+        | Nested -> [ usage [ "metrics", `Array (metrics ()) ] ]
+        | Totals_only -> [ usage [] ])
     in
     let filter =
-      match params with
-      | `Object fields ->
-        Json.obj
-          (List.filter fields ~f:(fun (k, _) ->
-             not
-               (List.mem
-                  [ "cursor"; "at_revision"; "limit"; "max_bytes" ]
-                  k
-                  ~equal:String.equal)))
-      | _ -> assert false
+      let id value encode = Option.value_map value ~default:`Null ~f:encode in
+      Json.obj
+        [ "method", Json.string "usage.aggregate"
+        ; "group_by", Api_codec.encode Usage_rollup_api.Group.codec group |> unwrap
+        ; ( "metrics_layout"
+          , Api_codec.encode Usage_rollup_api.Metrics_layout.codec layout |> unwrap )
+        ; "project_id", id (R.project request) Id.Project.jsonaf_of_t
+        ; "milestone_id", id (R.milestone request) Id.Milestone.jsonaf_of_t
+        ; "ticket_id", id (R.ticket request) Id.Ticket.jsonaf_of_t
+        ; "run_id", id (R.run request) Id.Run.jsonaf_of_t
+        ; "attempt_id", id (R.attempt request) Attempt.Id.jsonaf_of_t
+        ; "actor_id", id (R.actor request) Id.Actor.jsonaf_of_t
+        ]
     in
     let filter_hash = Json.hash (Json.canonical filter) in
     let anchor =
@@ -218,7 +230,7 @@ let read ~workspace ~revision ~activity ~reports ~runs ~tickets ~params =
     and limit = R.limit request in
     let totals = summary selected_reports
     and unassigned_totals = summary unassigned in
-    let envelope selected ~required_bytes =
+    let envelope ?(budget = max_bytes) selected ~required_bytes =
       let count = List.length selected in
       let has_more = count < List.length remaining in
       let data =
@@ -226,6 +238,8 @@ let read ~workspace ~revision ~activity ~reports ~runs ~tickets ~params =
           [ "basis", Json.string "externally_reported"
           ; "membership_basis", Json.string "current_capture"
           ; "group_by", Api_codec.encode Usage_rollup_api.Group.codec group |> unwrap
+          ; ( "metrics_layout"
+            , Api_codec.encode Usage_rollup_api.Metrics_layout.codec layout |> unwrap )
           ; "totals", totals
           ; "unassigned_run_usage", unassigned_totals
           ; "unassigned_in_totals", boolean unassigned_in_totals
@@ -241,12 +255,22 @@ let read ~workspace ~revision ~activity ~reports ~runs ~tickets ~params =
       Json.obj [ "workspace_revision", Json.int revision; "data", data ]
       |> Query_budget.annotate_whole_items_exn
            ~measure:(Api_response.encoded_size Planning_read)
-           ~max_bytes
+           ~max_bytes:budget
            ~omitted_items:(Int.min limit (List.length remaining) - count)
     in
     let required =
       Option.map (List.hd remaining) ~f:(fun row ->
-        envelope [ row ] ~required_bytes:None |> Api_response.encoded_size Planning_read)
+        (* Include the digit width of the retry's own byte budget. A required
+           budget that crosses 9999 must still fit when used verbatim. *)
+        let rec size budget =
+          let bytes =
+            envelope ~budget [ row ] ~required_bytes:None
+            |> Api_response.encoded_size Planning_read
+          in
+          let next_budget = Int.clamp_exn bytes ~min:4096 ~max:1048576 in
+          if next_budget = budget then bytes else size next_budget
+        in
+        size max_bytes)
     in
     let rec fit n =
       let result =

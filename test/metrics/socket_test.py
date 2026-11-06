@@ -107,6 +107,31 @@ class MetricsTest(unittest.TestCase):
                             if cursor is None:
                                 break
                         self.assertEqual(rows, whole['items'])
+                    for layout in ['nested', 'totals_only']:
+                        whole = call('usage.aggregate', group_by='project', metrics_layout=layout)['data']
+                        self.assertEqual(whole['metrics_layout'], layout)
+                        self.assertEqual(len(whole['items']), 2)
+                        self.assertTrue(all(row['kind'] == 'usage' for row in whole['items']))
+                        if layout == 'nested':
+                            series = [metric for row in whole['items'] for metric in row['metrics']]
+                            self.assertEqual({(metric['name'], metric['unit']) for metric in series},
+                                             {('calls', 'count'), ('spend', 'microUSD'), ('spend', 'centEUR')})
+                            for row in whole['items']:
+                                self.assertEqual(len(row['metrics']), int(row['totals']['metric_series']))
+                        else:
+                            self.assertTrue(all('metrics' not in row for row in whole['items']))
+                        rows, cursor = [], None
+                        while True:
+                            page = call('usage.aggregate', group_by='project', metrics_layout=layout,
+                                        limit='1', max_bytes='4096', **({'cursor': cursor} if cursor else {}))
+                            self.assertLessEqual(len(adapter.canonical(page).encode()), 4096)
+                            rows.extend(page['data']['items'])
+                            cursor = page['data']['cursor']
+                            if cursor is None:
+                                break
+                            with self.assertRaises(RuntimeError):
+                                call('usage.aggregate', group_by='project', metrics_layout='rows', cursor=cursor)
+                        self.assertEqual(rows, whole['items'])
                     stale = call('usage.aggregate', group_by='ticket', limit='1')['data']['cursor']
                     with self.assertRaises(RuntimeError):
                         call('usage.aggregate', group_by='run', cursor=stale)
@@ -146,6 +171,29 @@ class MetricsTest(unittest.TestCase):
                     self.assertEqual(call('usage.report', mutation_id='report', **usage), reported)
                     self.assertTrue(call('usage.report', mutation_id='retry-after-restart', **usage)['data']['duplicate'])
                     self.assertEqual(call('usage.aggregate')['data']['totals']['observations'], '4')
+                    for batch in range(4):
+                        call('usage.report', mutation_id='large-'+str(batch),
+                             **{**usage, 'usage_id': 'large-'+str(batch), 'tokens': '0',
+                                'metrics': [{'name': ('large%03d' % (batch*16+i)).ljust(64, '_'),
+                                             'unit': 'count', 'value': '1'} for i in range(16)]})
+                    selectors = dict(group_by='run', metrics_layout='nested', limit='1')
+                    small = call('usage.aggregate', **selectors, max_bytes='4096')
+                    self.assertLessEqual(len(adapter.canonical(small).encode()), 4096)
+                    self.assertEqual(small['data']['items'], [])
+                    self.assertTrue(small['data']['has_more'])
+                    self.assertTrue(small['data']['needs_larger_budget'])
+                    self.assertGreater(int(small['data']['required_bytes']), 4096)
+                    repeated = call('usage.aggregate', **selectors, max_bytes='4096', cursor=small['data']['cursor'])
+                    self.assertEqual(repeated['data']['cursor'], small['data']['cursor'])
+                    retried = call('usage.aggregate', **selectors, max_bytes='65536', cursor=small['data']['cursor'],
+                                   at_revision=small['meta']['workspace_revision'])['data']
+                    self.assertFalse(retried['needs_larger_budget'])
+                    self.assertFalse(retried['has_more'])
+                    self.assertEqual(len(retried['items']), 1)
+                    self.assertEqual(len(retried['items'][0]['metrics']), 87)
+                    compact = call('usage.aggregate', group_by='run', metrics_layout='totals_only', max_bytes='4096')['data']
+                    self.assertEqual(compact['items'][0]['totals']['metric_series'], '87')
+                    self.assertNotIn('metrics', compact['items'][0])
                     client.call('daemon.shutdown', {})
                     self.assertEqual(daemon.wait(timeout=10), 0)
                 finally:

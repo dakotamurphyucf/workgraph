@@ -978,10 +978,11 @@ module Query = struct
     [ ( "run.get"
       , Api_codec.object_
           (Fields.map
-             (Get.fields "target_run_id" run_id)
-             ~decode:(fun id -> Run_get id)
+             (Get.fields "target_run_id" run_id
+              ++ Fields.optional "head" (Api_codec.nullable Run_sessions_api.head_codec))
+             ~decode:(fun (id, _) -> Run_get id)
              ~encode:(function
-               | Run_get id -> id
+               | Run_get id -> id, None
                | _ -> Json.fail Invalid_argument "wrong query kind")) )
     ; ( "attempt.get"
       , Api_codec.object_
@@ -1011,12 +1012,25 @@ module Query = struct
         (function
           | Ticket_policies page -> page
           | _ -> Json.fail Invalid_argument "wrong query kind")
-    ; page
-        "run.list"
-        (fun page -> Runs page)
-        (function
-          | Runs page -> page
-          | _ -> Json.fail Invalid_argument "wrong query kind")
+    ; ( "run.list"
+      , Api_codec.object_
+          (Fields.map
+             (Page.fields
+              ++ Fields.optional "head" (Api_codec.nullable Run_sessions_api.head_codec))
+             ~decode:(fun (page, _) -> Runs page)
+             ~encode:(function
+               | Runs page -> page, None
+               | _ -> Json.fail Invalid_argument "wrong query kind"))
+        |> fun codec ->
+        Api_codec.map
+          codec
+          ~decode:(function
+            | Runs page -> Result.map (Page.validate page) ~f:(fun page -> Runs page)
+            | _ -> Json.fail Invalid_argument "wrong query kind")
+          ~encode:Fn.id
+          ~description:
+            "Run collection page guarded by coordination revision; the service binds \
+             derived associations to the supplied immutable history head." )
     ; ( "reservation.list"
       , Api_codec.map
           (Api_codec.object_
@@ -1084,7 +1098,29 @@ let request_codec ~method_ =
   | Some (Entry entry) -> Some (Api_codec.as_json entry.request)
   | None ->
     (match List.Assoc.find Query.entries method_ ~equal:String.equal with
-     | Some codec -> Some (Api_codec.as_json codec)
+     | Some codec ->
+       let codec = Api_codec.as_json codec in
+       Some
+         (if String.equal method_ "run.list"
+          then
+            Api_codec.map
+              codec
+              ~decode:(fun params ->
+                Json.decode (fun () ->
+                  let offset =
+                    Option.value_map
+                      (Json.optional params "offset")
+                      ~default:0
+                      ~f:Json.integer
+                  in
+                  if offset > 0 && Option.is_none (Json.optional params "head")
+                  then Json.fail Invalid_argument "run list continuation requires head";
+                  params))
+              ~encode:Fn.id
+              ~description:
+                "Run list continuation requires its captured history head and \
+                 coordination revision."
+          else codec)
      | None ->
        (match Reservation_contention_api.request_codec ~method_ with
         | Some c -> Some c
@@ -1179,12 +1215,12 @@ let response_codec ~method_ =
        Some coordination_receipt
      | _ ->
        (match method_ with
-        | "run.get" -> Some (json_codec Agent_run_wire.run)
+        | "run.get" -> Some Run_sessions_api.run_view_codec
         | "attempt.get" -> Some (json_codec Agent_run_wire.attempt)
         | "reservation.get" -> Some (json_codec Agent_run_wire.reservation)
         | "allocation.pools" -> Some (page_data Agent_run_wire.pool)
         | "allocation.ticket_policies" -> Some (page_data Agent_run_wire.ticket_policy)
-        | "run.list" -> Some (page_data Agent_run_wire.run)
+        | "run.list" -> Some (page_data Run_sessions_api.run_view_codec)
         | "attempt.list" -> Some (page_data Agent_run_wire.attempt)
         | "reservation.list" -> Some (page_data Agent_run_wire.reservation)
         | "run.actions" -> Some (page_data Agent_run_wire.action)

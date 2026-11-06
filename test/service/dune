@@ -8,7 +8,7 @@
 
 (library
  (name workgraph_service_tests)
- (modules service_test)
+ (modules service_test scheduler_fs scheduling_test)
  (libraries
   workgraph
   workgraph_test_transport

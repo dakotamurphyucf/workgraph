@@ -1,8 +1,8 @@
 {
   "capability_count": 8,
-  "catalog_sha256": "938802483e48d95c335c810f00dfd9575bf7b40ca5c790c608cade9827331eae",
+  "catalog_sha256": "0a177e38f0ae33deb776f79af99e6a1c51385bb1d30d1899cd20872f242f013b",
   "files": {
-    "capability.administration.md": "4bef890b7bb9417d183aa73977e80590b2bd247db0cf7d36d67c924a70a3ee28",
+    "capability.administration.md": "7322be38b1f22bb2265450059aa7c32f85f27c6beff9ea16b946711946e335a4",
     "capability.communication.md": "7bee34b62420bc5925e59b563e6fb252971a39aee7b0af3053cc25bd98d660c3",
     "capability.context.md": "305767aeeffb3a32120326b25acb228c75ab3eebf4479c8f7c02c9ca3a15ab01",
     "capability.coordination.md": "12b86596b7143137b64079f778fc3297a793ed71653bf4b9b8183bbdbd36a4d0",
@@ -29,7 +29,7 @@
     "group.export.md": "fa25a3a30fd6eb29d896c03abe463ac0b7f5b3869104374cdb635664809b623b",
     "group.fact.md": "46a4728970011dc5543952c593c3c2d7fc333971bae2cea3d79190ab8e4f2630",
     "group.handoff.md": "0d44f4e30b5643d1a784d364f2cf34d41f73f820f7a73e5e3db7fdf9e1c26726",
-    "group.history.md": "33a707ca856fd2c9255b0f9f617802645794dbdbf417b7781b9cd307a47b2da6",
+    "group.history.md": "b8f620eadd5d97ad09d322f00fbb792c96f9677f814e573dceb4ae6203bcc8b1",
     "group.inbox.md": "60c1b68cf376bdd5a50d2b2e5601cb17966dbf2780dd055ef8ac8df04c720163",
     "group.initialize.md": "49fbf5e02aeaea0733f23c67b7b5487a292a7dfc6ba0fe5854334d3075a89257",
     "group.input.md": "f911312d6739c65dc5268ad6bf88aa6062acfd4854fd2034ceff4306a3f1a76d",
@@ -48,7 +48,7 @@
     "group.resource.md": "76ccbc50efddffe55f7647d9cb3517a288986ed2483c1c00bc17864f05a97791",
     "group.restore.md": "2d087600c78051563c9e45ffddbdd3996281c8a6210e1cfdf16666037b5cf906",
     "group.review.md": "796c90e7883875f603336373d4b27154065caeb37b38f6e6edaa016436b323c3",
-    "group.run.md": "25ccd0c4aa1acb8a8ca7bace4d7776da5b5560ced03decf0df6f79e06eef89e8",
+    "group.run.md": "9eeb30279f796f01eb770f898ce790dbb8cf636f59292c5a7d806dc42a0aa191",
     "group.search.md": "c8ff811bfaeab1d6cfad7e13d48148e16977d351a42ad33d1cc5c69594169f0d",
     "group.session.md": "793690d544835673e11834381551f2bf6fe9a4bf27bd7e0ee3822a3a00beab07",
     "group.status.md": "6fe1cab93c09e0bb5f3569e7e48bab89f64df6ef865fe6dd28d16902934d438e",

@@ -393,7 +393,7 @@ let groups : Group.t list =
     ; distinction =
         "History is separate from planning activity; Workgraph does not capture model \
          conversations automatically."
-    ; start_with = [ "history.read"; "history.get"; "history.payload" ]
+    ; start_with = [ "history.read"; "history.payloads"; "history.payload" ]
     ; reference = "references/history.md"
     }
   ; { id = "inbox"
@@ -1338,6 +1338,16 @@ let methods : Method.t list =
     ; search_terms = [ "save handoff"; "next steps" ]
     ; related = [ "handoff.get"; "handoff.history" ]
     }
+  ; { name = "run.sessions"
+    ; summary =
+        "List a run's explicit and automatically attributed conversation sessions."
+    ; use_when =
+        "You know the run and need every associated session without scanning all \
+         sessions. Follow the pinned history head and run revision for subsequent pages."
+    ; search_terms =
+        [ "run conversation"; "sessions for worker"; "reverse session lookup" ]
+    ; related = [ "run.get"; "run.list"; "session.list"; "history.read" ]
+    }
   ; { name = "history.get"
     ; summary = "Read one retained conversation event and its exact source metadata."
     ; use_when =
@@ -1351,7 +1361,15 @@ let methods : Method.t list =
         "An event refers to a larger retained message or tool payload that must be \
          expanded."
     ; search_terms = [ "tool payload"; "transcript bytes" ]
-    ; related = [ "history.read"; "history.get" ]
+    ; related = [ "history.payloads"; "history.read"; "history.get" ]
+    }
+  ; { name = "history.payloads"
+    ; summary = "Read bounded payload prefixes for many exact events in one capture."
+    ; use_when =
+        "You have a page of event references and need their content without one call per \
+         event. Follow each partial payload with history.payload at the same head."
+    ; search_terms = [ "batch transcript"; "many messages"; "inline content" ]
+    ; related = [ "history.read"; "history.payload" ]
     }
   ; { name = "history.read"
     ; summary =
@@ -3177,6 +3195,18 @@ let helpers : Helper.t list =
         "Local replay workflow; saved bytes and original guards remain exact, and \
          evidence commands never rerun."
     ; reference = "references/cli-contract.md"
+    }
+  ; { name = "migrate"
+    ; summary = "Convert a stopped supported older workspace into a verified new root."
+    ; use_when =
+        "You are upgrading from the supported 0.6.2-era format and need to retain \
+         planning, resources and history. Read migration instructions before acting."
+    ; search_terms = [ "upgrade workspace"; "convert storage"; "preserve old data" ]
+    ; capability = "administration"
+    ; effect_summary =
+        "Offline local filesystem write; preserves the source and publishes a new \
+         destination. Old registry jobs and saved API envelopes are not migrated."
+    ; reference = "references/compatibility.md"
     }
   ; { name = "serve"
     ; summary =

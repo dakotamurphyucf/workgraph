@@ -18,10 +18,13 @@ val prefix : string -> max_bytes:int -> string
     fitting (not ordinary limit pagination). [returned_bytes] uses [measure]
     across the complete annotated result. Oversized intermediate candidates are
     returned for the caller to compare; only a fitting candidate may be exposed.
-    Raises [Json.Decode_error] for invalid bounds/counts, a non-object value or
-    an existing budget field. *)
+    [items_path] is a nonempty UTF-8 JSON pointer relative to the method data,
+    defaulting to [/items]. It names the collection omitted by whole-item fitting.
+    Raises [Json.Decode_error] for invalid bounds/counts/pointer, a non-object
+    value or an existing budget field. *)
 val annotate_whole_items_exn
-  :  ?measure:(Jsonaf.t -> int)
+  :  ?items_path:string
+  -> ?measure:(Jsonaf.t -> int)
   -> max_bytes:int
   -> omitted_items:int
   -> Jsonaf.t

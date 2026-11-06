@@ -112,6 +112,7 @@ let consistency =
        ; "current_revision_cursor"
        ; "notification_through"
        ; "immutable_history_head"
+       ; "run_revision_and_history_head"
        ]
        ~f:(fun value -> value, value))
     ~equal:String.equal
@@ -140,8 +141,11 @@ let validate_capture kind capture =
     else (
       Json.fields
         capture
-        ~allowed:[ "query_revision"; "query_scope"; "discussion_serial" ];
+        ~allowed:[ "query_revision"; "query_scope"; "discussion_serial"; "head" ];
       counter "query_revision";
+      Option.iter (Json.optional capture "head") ~f:(function
+        | `Null -> ()
+        | head -> digest head);
       let scope = Json.text (Json.field capture "query_scope") in
       if
         not
@@ -174,6 +178,12 @@ let validate_capture kind capture =
   | "notification_through" ->
     Json.fields capture ~allowed:[ "through" ];
     counter "through"
+  | "run_revision_and_history_head" ->
+    Json.fields capture ~allowed:[ "head"; "run_revision" ];
+    counter "run_revision";
+    (match Json.field capture "head" with
+     | `Null -> ()
+     | head -> digest head)
   | "immutable_history_head" ->
     Json.fields capture ~allowed:[ "head" ];
     (match Json.field capture "head" with

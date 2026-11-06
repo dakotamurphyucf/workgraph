@@ -295,7 +295,9 @@ let records =
   ; "handoff", Api_codec.as_json Planning_ticket_wire.Handoff.codec
   ; "comment", Discussion_wire.comment
   ; "request", Api_codec.as_json Communication_wire.request
-  ; "run", required (Agent_run_api.response_codec ~method_:"run.get")
+    (* Resume records capture planning state. History associations are a separate
+     captured read through run.get/run.sessions, not stored run revisions. *)
+  ; "run", Api_codec.as_json Agent_run_wire.run
   ; "attempt", required (Agent_run_api.response_codec ~method_:"attempt.get")
   ; ( "fact"
     , match Facts.response_codec "fact.get" with

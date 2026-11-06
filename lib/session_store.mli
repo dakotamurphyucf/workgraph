@@ -12,6 +12,14 @@ module Capture : sig
   val head : t -> string option
   val head_bytes : t -> string
   val sequence : t -> int
+
+  (** Membership in the verified ancestor chain; no filesystem access. *)
+  val contains_head : t -> string option -> bool
+
+  (** Retained canonical batch bytes, used as a cache admission weight; this is
+      not an estimate of OCaml heap size. *)
+  val metadata_bytes : t -> int
+
   val sessions : t -> Session.t list
   val upper_bound : t -> session:Session_id.t -> int
   val events : t -> session:Session_id.t -> Session_event.t list
@@ -56,6 +64,18 @@ val cached_admission : t -> (Admission.t list, Problem.t) Result.t
 
 val capture : t -> (Capture.t, Problem.t) Result.t
 val capture_at : t -> head:string option -> (Capture.t, Problem.t) Result.t
+
+(** Resolve an ancestor of an immutable capture without accessing the mutable
+    journal owner. The caller must pin the root against close/restore throughout
+    this operation. Current/empty captures require no replay; older heads verify
+    their complete durable chain and blobs on the calling read worker. *)
+val resolve_capture
+  :  Capture.t
+  -> fs:Eio.Fs.dir_ty Eio.Path.t
+  -> root:string
+  -> head:string option
+  -> (Capture.t, Problem.t) Result.t
+
 val get : t -> session:Session_id.t -> (Session.t, Problem.t) Result.t
 
 val create
@@ -75,12 +95,17 @@ val archive
 (** 1..128 events, <=16MiB inline bytes; entire batch committed atomically.
     Same client ID/content is deduplicated across batches; changed content fails.
     Actor-scoped key and request_hash provide exact lost-acknowledgement retries.
-    Success includes durable:true and the session sequence watermark. *)
+    [now_unix_ms] is a nonnegative server observation in epoch milliseconds,
+    persisted with this batch. New events update session last-event time; a
+    dedup-only batch or exact retry preserves it. Omission records unknown time
+    for migrated/library inputs. Success includes durable:true and the session
+    sequence watermark. *)
 val append
   :  t
   -> session:Session_id.t
   -> actor:Id.Actor.t
   -> ?run:Id.Run.t
+  -> ?now_unix_ms:int64
   -> inputs:Session_event.Input.t list
   -> key:string
   -> request_hash:string

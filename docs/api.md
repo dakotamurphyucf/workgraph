@@ -1,9 +1,13 @@
 # API and runtime reference
 
-This guide describes the 0.6.2 preview contracts (API 0.6, affected stored roots 5).
-Use matching packaged docs and fresh registry/workspace roots, socket, contexts and
-request journals when upgrading from older previews. Older exports are not a
-migration path; preserve the matching old binary and data. See [compatibility](../skills/workgraph/references/compatibility.md) for independent format identifiers.
+This guide describes the 0.7.0 preview contracts: API 0.7, workspace/export format 6
+and history batch format 2. Registry and planning transaction/event formats remain 5.
+Use matching executable, skill and guides. The offline [migration helper](migration.md)
+converts the supported 0.6.2 workspace representation into a fresh root; normal
+startup/restore do not convert old data. Resolve old uncertain writes with the old
+binary before migration, then use fresh registry, context and request journals.
+See [compatibility](../skills/workgraph/references/compatibility.md) for independent
+format identifiers.
 
 | Capability | Focused operating contract |
 | --- | --- |
@@ -16,7 +20,7 @@ migration path; preserve the matching old binary and data. See [compatibility](.
 | Byte inputs, bounded paging, exact retries and safe startup | [CLI](../skills/workgraph/references/cli-contract.md) |
 | Captured execution, decoded inspection and exact-byte provenance | [Execution](../skills/workgraph/references/execution.md) |
 
-The [0.6 operating-contract map](preview-0.6-contracts.md) connects new candidate
+The [planning operating-contract map](preview-0.6-contracts.md) connects new candidate
 eligibility, participant discovery, task/activity reads, question composition,
 upload recovery and advisory contention to their focused guides. Exact method
 shapes and continuation guards come from the generated current executable catalog.
@@ -40,6 +44,21 @@ copy of those schemas.
 Commands in the fresh-workspace example use known initial revisions and tokens.
 For existing work, read the current values and use the returned claim token.
 Run all examples from the repository root after building or installing Workgraph.
+
+## History reliability in 0.7
+
+[History retrieval](../skills/workgraph/references/history.md) now includes bounded
+`history.payloads`, explicit search index coverage, captured session ordering and
+run filters. [Run reads](../skills/workgraph/references/coordination.md#runget)
+combine explicit links and captured session attribution without changing durable
+run revisions. `run.sessions` pages the complete union. [Usage rollups](../skills/workgraph/references/metrics.md)
+select rows, complete nested metric groups or totals-only summaries.
+
+Current/cached history reads and search/cold historical reads use separate bounded
+worker lanes. A full lane returns a retryable conflict; cap concurrent readers and
+back off. Captures remain immutable, and payload ranges still verify their full
+source blob. [The design reference](history-reliability.md) explains parser isolation,
+cache ownership and these limits.
 
 ## Run a workspace
 

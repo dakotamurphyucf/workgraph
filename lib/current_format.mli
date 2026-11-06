@@ -2,7 +2,7 @@ open Core
 
 (** Current application and affected durable-root identities. Only these current
     representations are supported; this is not a migration or compatibility layer.
-    Unchanged independent formats (for example history batches) keep their own IDs. *)
+    Independent formats (for example planning HEAD files) keep their own IDs. *)
 type t =
   | Application_api
   | Registry

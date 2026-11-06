@@ -144,7 +144,7 @@ class PaginationTests(unittest.TestCase):
         for method, revision in [("recovery.list", "query_revision"),
                                  ("ticket.recovery.list", "workspace_revision")]:
             with self.subTest(method=method):
-                request = {"jsonrpc": "2.0", "workgraph_api": "0.6", "id": "recovery",
+                request = {"jsonrpc": "2.0", "workgraph_api": "0.7", "id": "recovery",
                            "method": method, "params": {"workspace_id": "w"}}
                 body = json.dumps(request).encode()
                 with socket.socket(socket.AF_UNIX) as flow:
@@ -440,12 +440,36 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual("Conflict", failed["error"]["data"]["kind"])
         self.assertNotIn("pagination", self.single("workspace.get")["meta"])
 
+    def test_run_session_byte_fitting_preserves_exact_cli_continuation(self):
+        self.write("run.register", target_run_id="links", objective="Paged links")
+        names = ["s%03d_%s" % (i, "x" * 90) for i in range(50)]
+        for name in names:
+            self.write("session.create", session_id=name, title="Session", run_id="links")
+        params = {"target_run_id": "links", "limit": "100", "max_bytes": "4096"}
+        first = self.single("run.sessions", params)
+        self.assertGreater(int(first["meta"]["budget"]["omitted_items"]), 0)
+        self.assertEqual(["/data/session_ids"],
+                         [detail["path"] for detail in first["meta"]["budget"]["details"]])
+        continuation = first["meta"]["pagination"]["next_request"]
+        self.assertIsNotNone(continuation)
+        self.assertEqual(first["meta"]["history_capture"]["head"], continuation["params"]["head"])
+        self.assertEqual(first["data"]["run_revision"], continuation["params"]["expected_run_revision"])
+        second = self.follow(continuation)["result"]
+        self.assertGreater(second["data"]["session_ids"][0], first["data"]["session_ids"][-1])
+        collected = self.collect("run.sessions", params)
+        self.assertTrue(collected["data"]["pagination"]["complete"])
+        pages = collected["data"]["pages"]
+        self.assertGreater(len(pages), 1)
+        self.assertEqual(names, [name for page in pages for name in page["data"]["session_ids"]])
+        self.assertTrue(all(len(json.dumps(page, sort_keys=True, separators=(",", ":")).encode()) <= 4096
+                            for page in pages))
+
     def test_single_page_domain_guards_and_export_snapshot(self):
         for name in ["run-one", "run-two"]:
             self.write("run.register", target_run_id=name, objective="Recorded")
         first = self.single("run.list", {"limit": "1"})
         metadata = first["meta"]["pagination"]
-        self.assertEqual({"query_revision": first["meta"]["query_revision"], "query_scope": "runs"}, metadata["capture"])
+        self.assertEqual({"query_revision": first["meta"]["query_revision"], "query_scope": "runs", "head": first["meta"]["history_capture"]["head"]}, metadata["capture"])
         self.assertEqual(first["meta"]["query_revision"], metadata["next_request"]["params"]["expected_revision"])
         self.assertEqual(1, len(self.follow(metadata["next_request"])["result"]["data"]["items"]))
         asset = self.write("resource.put_text", resource_id="schema", expected_revision="0", title="Schema", text='{"type":"object"}')

@@ -79,6 +79,16 @@ let utf8 text =
   then fail Invalid_argument "JSON requires valid UTF-8"
 ;;
 
+(* Jsonaf 0.17's default parser retains a mutable string buffer. Construct an
+   independent parser for every call, including number validation, so storage
+   workers and socket readers never share that buffer. *)
+let parse_independent raw =
+  Angstrom.parse_string
+    ~consume:All
+    (Jsonaf_kernel.Expert.Parser.create (fun number -> Ok number))
+    raw
+;;
+
 let rec normalize = function
   | `Object fields ->
     List.iter fields ~f:(fun (key, _) -> utf8 key);
@@ -96,7 +106,7 @@ let rec normalize = function
     utf8 text;
     value
   | `Number number as value ->
-    (match Jsonaf.parse number with
+    (match parse_independent number with
      | Ok (`Number parsed) when String.equal parsed number -> ()
      | Ok _ | Error _ -> fail Invalid_argument "invalid JSON number");
     (match Float.of_string_opt number with
@@ -135,9 +145,9 @@ let parse_with_limit ~max_bytes raw =
         if !depth > 64 then fail Invalid_argument "JSON nesting exceeds 64")
       else if Char.equal c '}' || Char.equal c ']'
       then decr depth);
-    match Jsonaf.parse raw with
+    match parse_independent raw with
     | Ok value -> normalize value
-    | Error error -> fail Invalid_argument (Error.to_string_hum error))
+    | Error error -> fail Invalid_argument error)
 ;;
 
 let parse raw = parse_with_limit ~max_bytes:(4 * 1024 * 1024) raw

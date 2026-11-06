@@ -14,13 +14,22 @@ let loaded_capture ~store ~state =
   { store; state; planning_admission = State.admission state }
 ;;
 
+type history_lane =
+  | Fast
+  | Slow
+
 type message =
   | Request of Jsonaf.t * (Jsonaf.t, Problem.t) Result.t Eio.Promise.u
   | Export_finished of string * (unit, Problem.t) Result.t
   | History_finished of
-      string
-      * (Jsonaf.t, Problem.t) Result.t
-      * (Jsonaf.t, Problem.t) Result.t Eio.Promise.u
+      { workspace : string
+      ; root : string
+      ; generation : int
+      ; lane : history_lane
+      ; capture : (Session_store.Capture.t * int) option
+      ; result : (Jsonaf.t, Problem.t) Result.t
+      ; resolver : (Jsonaf.t, Problem.t) Result.t Eio.Promise.u
+      }
 
 type history_work =
   | History_query of
@@ -28,6 +37,7 @@ type history_work =
       ; root : string
       ; generation : int
       ; capture : Session_store.Capture.t
+      ; planning_capture : (Agent_run.t * int) option
       ; method_ : string
       ; params : Jsonaf.t
       ; resolver : (Jsonaf.t, Problem.t) Result.t Eio.Promise.u
@@ -168,36 +178,120 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
     let requests = Eio.Stream.create 128 in
     let changes_changed = Eio.Condition.create () in
     let history_feed_changed = Eio.Condition.create () in
-    let history_jobs = Eio.Stream.create 8 in
+    let history_lane_limit = 16 in
+    let history_fast_jobs = Eio.Stream.create history_lane_limit in
+    let history_slow_jobs = Eio.Stream.create history_lane_limit in
+    let history_fast_count = ref 0 in
+    let history_slow_count = ref 0 in
     let history_pins = ref String.Map.empty in
     let history_changed = Eio.Condition.create () in
-    Eio.Fiber.fork ~sw (fun () ->
-      Eio.Domain_manager.run (Eio.Stdenv.domain_mgr env) (fun () ->
-        let indexes = ref String.Map.empty in
-        let rec loop () =
-          match Eio.Stream.take history_jobs with
-          | Stop_history -> ()
-          | History_query
-              { workspace; root; generation; capture; method_; params; resolver } ->
-            let result =
-              Disk.protect (fun () ->
-                let index =
-                  match Map.find !indexes root with
-                  | Some (previous, index) when previous = generation -> index
-                  | Some _ | None ->
-                    let index = History_index.create ~fs ~root in
-                    indexes := Map.set !indexes ~key:root ~data:(generation, index);
-                    index
-                in
-                if String.equal method_ "history.search"
-                then History_index.rebuild index capture |> Disk.unwrap;
-                History_command.query capture ~fs ~root ~index ~method_ ~params
-                |> Disk.unwrap)
-            in
-            Eio.Stream.add requests (History_finished (workspace, result, resolver));
-            loop ()
-        in
-        loop ()));
+    let history_cache = History_capture_cache.create () in
+    let requested_head capture params =
+      match Json.optional params "head" with
+      | None -> Session_store.Capture.head capture
+      | Some `Null -> None
+      | Some value -> Some (Json.text value)
+    in
+    let start_history_worker lane queue =
+      Eio.Fiber.fork ~sw (fun () ->
+        Eio.Domain_manager.run (Eio.Stdenv.domain_mgr env) (fun () ->
+          let indexes = ref [] in
+          let captures = History_capture_cache.create () in
+          let rec loop () =
+            match Eio.Stream.take queue with
+            | Stop_history -> ()
+            | History_query
+                { workspace
+                ; root
+                ; generation
+                ; capture
+                ; planning_capture
+                ; method_
+                ; params
+                ; resolver
+                } ->
+              let resolved = ref None in
+              let result =
+                Disk.protect (fun () ->
+                  let head = requested_head capture params in
+                  if not (Session_store.Capture.contains_head capture head)
+                  then Json.fail Conflict "history capture head is not an ancestor";
+                  let capture =
+                    if Option.equal String.equal (Session_store.Capture.head capture) head
+                    then capture
+                    else (
+                      match
+                        History_capture_cache.find
+                          captures
+                          ~root
+                          ~generation
+                          ~workspace:(Session_store.Capture.workspace capture)
+                          ~head
+                      with
+                      | Some cached -> cached
+                      | None ->
+                        Session_store.resolve_capture capture ~fs ~root ~head
+                        |> Disk.unwrap)
+                  in
+                  let weight = History_capture_cache.weight capture in
+                  History_capture_cache.add captures ~root ~generation ~capture ~weight;
+                  resolved := Some (capture, weight);
+                  let index =
+                    match
+                      List.find !indexes ~f:(fun (cached_root, cached_generation, _) ->
+                        String.equal root cached_root && generation = cached_generation)
+                    with
+                    | Some (_, _, index) -> index
+                    | None -> History_index.create ~fs ~root
+                  in
+                  indexes
+                  := (root, generation, index)
+                     :: List.take
+                          (List.filter !indexes ~f:(fun (cached_root, _, _) ->
+                             not (String.equal root cached_root)))
+                          7;
+                  if String.equal method_ "history.search"
+                  then History_index.rebuild index capture |> Disk.unwrap;
+                  match planning_capture with
+                  | None ->
+                    History_command.query capture ~fs ~root ~index ~method_ ~params
+                    |> Disk.unwrap
+                  | Some (runs, workspace_revision) ->
+                    let view = Run_sessions.create capture in
+                    if String.equal method_ "run.sessions"
+                    then (
+                      let selected =
+                        Api_codec.decode Run_sessions_api.Request.codec params
+                        |> Disk.unwrap
+                      in
+                      let run =
+                        match
+                          Agent_run.get_run runs (Run_sessions_api.Request.run selected)
+                        with
+                        | Some run -> run
+                        | None -> Json.fail Not_found "run not found"
+                      in
+                      Run_sessions.read view ~run ~workspace_revision ~params
+                      |> Disk.unwrap)
+                    else Run_sessions.query view ~runs ~method_ ~params |> Disk.unwrap)
+              in
+              Eio.Stream.add
+                requests
+                (History_finished
+                   { workspace
+                   ; root
+                   ; generation
+                   ; lane
+                   ; capture = !resolved
+                   ; result
+                   ; resolver
+                   });
+              loop ()
+          in
+          loop ()))
+    in
+    start_history_worker Fast history_fast_jobs;
+    start_history_worker Slow history_slow_jobs;
     let exports = Eio.Stream.create 8 in
     let active_exports = ref String.Map.empty in
     let exports_changed = Eio.Condition.create () in
@@ -1313,6 +1407,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
           in
           let command =
             History_command.decode
+              ~now_unix_ms:observed_unix_ms
               ~workspace:(State.workspace value.state)
               ~actor
               ?run
@@ -1339,6 +1434,7 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                   (History_command.execute
                      journal
                      command
+                     ~now_unix_ms:observed_unix_ms
                      ~actor
                      ?run
                      ~key
@@ -1628,20 +1724,14 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
         (match Eio.Stream.take requests with
          | Request (request, resolver)
            when List.mem
-                  History_command.query_methods
+                  (History_command.query_methods
+                   @ [ "run.get"; "run.list"; "run.sessions" ])
                   (Json.text (Json.field request "method"))
                   ~equal:String.equal ->
            let queued =
              Json.decode (fun () ->
                if !registry_failed
                then Json.fail Outcome_unknown "registry requires daemon restart";
-               if
-                 Map.fold !history_pins ~init:0 ~f:(fun ~key:_ ~data:n sum -> sum + n)
-                 >= 8
-               then
-                 Json.fail
-                   Conflict
-                   "history worker queue is full; retry after a query completes";
                let params = Json.field request "params" in
                let method_ = Json.text (Json.field request "method") in
                Option.iter
@@ -1649,16 +1739,45 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                  ~f:(fun result -> ignore (Disk.unwrap result : unit));
                let workspace = Json.text (Json.field params "workspace_id") in
                let value = get_loaded workspace in
-               let capture =
-                 worker (fun () ->
-                   Store.with_history value.store ~f:(fun journal ->
-                     match Json.optional params "head" with
-                     | None -> Session_store.capture journal
-                     | Some `Null -> Session_store.capture_at journal ~head:None
-                     | Some head ->
-                       Session_store.capture_at journal ~head:(Some (Json.text head))))
-                 |> Disk.unwrap
+               let current =
+                 worker (fun () -> Store.history_capture value.store) |> Disk.unwrap
                in
+               let root = Store.root value.store in
+               let generation = Store.cache_generation value.store in
+               let head = requested_head current params in
+               if not (Session_store.Capture.contains_head current head)
+               then Json.fail Conflict "history capture head is not an ancestor";
+               let capture =
+                 if Option.equal String.equal (Session_store.Capture.head current) head
+                 then current
+                 else
+                   Option.value
+                     (History_capture_cache.find
+                        history_cache
+                        ~root
+                        ~generation
+                        ~workspace:(Session_store.Capture.workspace current)
+                        ~head)
+                     ~default:current
+               in
+               let queue, count =
+                 if
+                   String.equal method_ "history.search"
+                   || (Option.is_some head
+                       && not
+                            (Option.equal
+                               String.equal
+                               (Session_store.Capture.head capture)
+                               head))
+                 then history_slow_jobs, history_slow_count
+                 else history_fast_jobs, history_fast_count
+               in
+               if !count >= history_lane_limit
+               then
+                 Json.fail
+                   Conflict
+                   "history read lane is full; retry with bounded backoff; writes use \
+                    separate admission";
                let params =
                  match params with
                  | `Object fields ->
@@ -1671,13 +1790,23 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
                := Map.update !history_pins workspace ~f:(function
                     | None -> 1
                     | Some n -> n + 1);
+               incr count;
                Eio.Stream.add
-                 history_jobs
+                 queue
                  (History_query
                     { workspace
                     ; root = Store.root value.store
                     ; generation = Store.cache_generation value.store
                     ; capture
+                    ; planning_capture =
+                        (if
+                           List.mem
+                             [ "run.get"; "run.list"; "run.sessions" ]
+                             method_
+                             ~equal:String.equal
+                         then
+                           Some (State.agent_runs value.state, State.revision value.state)
+                         else None)
                     ; method_ = Json.text (Json.field request "method")
                     ; params
                     ; resolver
@@ -1686,7 +1815,13 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
            (match queued with
             | Ok () -> ()
             | Error e -> Eio.Promise.resolve resolver (Error e))
-         | History_finished (workspace, result, resolver) ->
+         | History_finished
+             { workspace; root; generation; lane; capture; result; resolver } ->
+           (match lane with
+            | Fast -> decr history_fast_count
+            | Slow -> decr history_slow_count);
+           Option.iter capture ~f:(fun (capture, weight) ->
+             History_capture_cache.add history_cache ~root ~generation ~capture ~weight);
            (match Map.find !history_pins workspace with
             | Some n when n > 1 ->
               history_pins := Map.set !history_pins ~key:workspace ~data:(n - 1)
@@ -2058,7 +2193,8 @@ let serve_with ~env ~registry ~listen ~handle_signals ~on_ready =
     while not (Map.is_empty !history_pins) do
       Eio.Condition.await_no_mutex history_changed
     done;
-    Eio.Stream.add history_jobs Stop_history;
+    Eio.Stream.add history_fast_jobs Stop_history;
+    Eio.Stream.add history_slow_jobs Stop_history;
     let stores = List.map (Map.data !loaded) ~f:(fun value -> value.store) in
     worker (fun () ->
       List.iter stores ~f:(fun store ->

@@ -19,3 +19,12 @@
   ../../skills/workgraph/scripts/history-adapter.py)
  (action
   (run python3 %{dep:socket_test.py} %{exe:../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps
+  concurrency_test.py
+  ../daemon_ready.py
+  ../../skills/workgraph/scripts/history-adapter.py)
+ (action
+  (run python3 %{dep:concurrency_test.py} %{exe:../../bin/main.exe})))

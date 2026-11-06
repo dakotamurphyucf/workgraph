@@ -10,6 +10,8 @@ let usage =
   workgraph schema [METHOD]
   workgraph fields METHOD
   workgraph serve ABS_REGISTRY ABS_SOCKET
+  workgraph migrate --from 0.6.2 --source ABS_OLD_ROOT --destination ABS_NEW_ROOT
+  workgraph migrate cleanup --stage ABS_STAGE --owner-token TOKEN
   workgraph call ABS_SOCKET METHOD PARAMS_JSON
   workgraph request [ABS_SOCKET] METHOD [OPTIONS] [--FIELD VALUE ...]
   workgraph METHOD [ABS_SOCKET] [OPTIONS] [--FIELD VALUE ...]
@@ -842,6 +844,7 @@ let run ~env arguments =
         | "schema" :: _
         | "fields" :: _
         | "journal" :: _
+        | "migrate" :: _
         | ("journal.inspect" | "journal.list") :: _
         | [ ("init" | "bootstrap"); "--help" ]
         | ("evidence-show" | "evidence.show" | "evidence-clean" | "evidence.clean") :: _
@@ -984,6 +987,62 @@ let run ~env arguments =
           socket
           (if paths then "reservation.paths.acquire" else "reservation.acquire")
           (parse_options ~fs ~stdin:(Eio.Stdenv.stdin env) rest)
+      | "migrate" :: rest ->
+        let cleanup, rest =
+          match rest with
+          | "cleanup" :: rest -> true, rest
+          | rest -> false, rest
+        in
+        let rec fields acc = function
+          | [] -> acc
+          | key :: value :: rest
+            when List.mem
+                   (if cleanup
+                    then [ "--stage"; "--owner-token" ]
+                    else [ "--from"; "--source"; "--destination" ])
+                   key
+                   ~equal:String.equal ->
+            if Map.mem acc key
+            then Json.fail Invalid_argument ("duplicate migration option: " ^ key);
+            fields (Map.set acc ~key ~data:value) rest
+          | _ ->
+            Json.fail
+              Invalid_argument
+              "see workgraph help migrate for offline migration options"
+        in
+        let fields = fields String.Map.empty rest in
+        let required key =
+          match Map.find fields key with
+          | Some value -> value
+          | None -> Json.fail Invalid_argument ("migration requires " ^ key)
+        in
+        let value =
+          if cleanup
+          then (
+            Migration.cleanup
+              ~fs
+              ~stage:(required "--stage")
+              ~owner_token:(required "--owner-token")
+            |> Disk.unwrap;
+            Json.obj [ "cleaned", `True ])
+          else (
+            if not (String.equal (required "--from") "0.6.2")
+            then
+              Json.fail
+                Unsupported_version
+                "migration supports only the released 0.6.2 source formats";
+            Eio.Switch.run (fun sw ->
+              Migration.run
+                ~sw
+                ~fs
+                ~random:(Eio.Stdenv.secure_random env)
+                ~source:(required "--source")
+                ~destination:(required "--destination")
+              |> Disk.unwrap
+              |> Migration.to_json))
+        in
+        output (Json.canonical value);
+        0
       | ("evidence-show" | "evidence.show") :: rest | "evidence" :: "show" :: rest ->
         let rec parse fields = function
           | [] -> fields

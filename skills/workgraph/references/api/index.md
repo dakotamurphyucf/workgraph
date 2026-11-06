@@ -109,6 +109,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [handoff.set](handoff.set.md) | core | mutation | Publish a structured ownership-guarded handoff with explicit coverage. |
 | [history.get](history.get.md) | advanced | read | Read one retained conversation event and its exact source metadata. |
 | [history.payload](history.payload.md) | advanced | read | Read a bounded exact payload range from retained conversation history. |
+| [history.payloads](history.payloads.md) | advanced | read | Read bounded payload prefixes for many exact events in one capture. |
 | [history.read](history.read.md) | advanced | read | Traverse explicitly imported session events under a fixed history capture. |
 | [history.search](history.search.md) | advanced | read | Search retained imported conversation events with bounded results and source coverage. |
 | [inbox.ack](inbox.ack.md) | core | mutation | Acknowledge only selected delivered inbox entries for an explicit consumer. |
@@ -206,6 +207,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [run.list](run.list.md) | advanced | read | List registered invocations under explicit actor and lifecycle filters. |
 | [run.observe](run.observe.md) | core | mutation | Durably record a guarded run observation and caller-reported progress metadata. |
 | [run.register](run.register.md) | core | mutation | Register an attributed invocation with objective, capabilities and an independent run revision. |
+| [run.sessions](run.sessions.md) | advanced | read | List a run&#x27;s explicit and automatically attributed conversation sessions. |
 | [run.transition](run.transition.md) | advanced | mutation | Record a guarded run lifecycle transition without controlling its external process. |
 | [search.query](search.query.md) | core | read | Search captured planning entities and content with bounded results and coverage metadata. |
 | [session.append](session.append.md) | advanced | mutation | Append a validated batch of explicit conversation or tool events to a session. |

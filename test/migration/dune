@@ -1,0 +1,8 @@
+(rule
+ (alias runtest)
+ (deps
+  migration_test.py
+  (source_tree fixtures)
+  ../daemon_ready.py)
+ (action
+  (run python3 %{dep:migration_test.py} %{exe:../../bin/main.exe})))

@@ -198,6 +198,7 @@ let fit ?(measure = fun json -> String.length (Json.canonical json)) ~max_bytes 
 ;;
 
 let annotate_whole_items_exn
+      ?(items_path = "/items")
       ?(measure = fun json -> String.length (Json.canonical json))
       ~max_bytes
       ~omitted_items
@@ -205,6 +206,15 @@ let annotate_whole_items_exn
   =
   if max_bytes < 4096 || max_bytes > 1048576 || omitted_items < 0
   then Json.fail Invalid_argument "invalid whole-item query budget";
+  ignore (Json.canonical (Json.string items_path) : string);
+  if
+    (not (String.is_prefix items_path ~prefix:"/"))
+    || String.existsi items_path ~f:(fun i c ->
+      Char.equal c '~'
+      && (i + 1 >= String.length items_path
+          || not (Char.equal items_path.[i + 1] '0' || Char.equal items_path.[i + 1] '1')
+         ))
+  then Json.fail Invalid_argument "whole-item budget path must be a valid JSON pointer";
   let fields =
     match value with
     | `Object fields ->
@@ -218,7 +228,7 @@ let annotate_whole_items_exn
     then []
     else
       [ Json.obj
-          [ "path", Json.string "/items"
+          [ "path", Json.string items_path
           ; "kind", Json.string "items"
           ; "omitted", Json.int omitted_items
           ]

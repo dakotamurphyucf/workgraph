@@ -42,11 +42,32 @@ let blob json =
   then Json.fail Corrupt_store "invalid frozen blob size"
 ;;
 
+let timestamp value =
+  ignore
+    (nullable value (fun json ->
+       let value = Json.integer64 json in
+       if Int64.(value < 0L) then Json.fail Corrupt_store "negative history timestamp";
+       value)
+     : int64 option)
+;;
+
 let session json =
   Json.fields
     json
     ~allowed:
-      [ "workspace_id"; "id"; "title"; "actor"; "run"; "parent"; "scopes"; "archived" ];
+      [ "workspace_id"
+      ; "id"
+      ; "title"
+      ; "actor"
+      ; "run"
+      ; "parent"
+      ; "scopes"
+      ; "archived"
+      ; "created_at_unix_ms"
+      ; "last_event_at_unix_ms"
+      ];
+  timestamp (Json.field json "created_at_unix_ms");
+  timestamp (Json.field json "last_event_at_unix_ms");
   List.iter [ "workspace_id"; "id"; "actor" ] ~f:(fun key ->
     ignore (id (Json.field json key) : string));
   ignore (nullable (Json.field json "run") id : string option);
@@ -128,7 +149,10 @@ let change json =
     Json.fields json ~allowed:[ "kind"; "session_id" ];
     ignore (id (Json.field json "session_id") : string)
   | "append" ->
-    Json.fields json ~allowed:[ "kind"; "session_id"; "actor"; "run"; "events" ];
+    Json.fields
+      json
+      ~allowed:[ "kind"; "session_id"; "actor"; "run"; "events"; "committed_at_unix_ms" ];
+    timestamp (Json.field json "committed_at_unix_ms");
     ignore (id (Json.field json "session_id") : string);
     ignore (id (Json.field json "actor") : string);
     ignore (nullable (Json.field json "run") id : string option);
@@ -296,7 +320,7 @@ module Batch = struct
   let create ~workspace ~sequence ~previous ~key ~request_hash ~change ~response =
     of_json
       (Json.obj
-         [ "version", Json.int 1
+         [ "version", Current_format.value History_batch
          ; "workspace_id", Id.Workspace.jsonaf_of_t workspace
          ; "sequence", Json.int sequence
          ; "previous", Option.value_map previous ~default:`Null ~f:Json.string

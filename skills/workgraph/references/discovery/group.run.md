@@ -26,6 +26,7 @@ Runs record attributed agent invocations, reported lifecycle, budgets and observ
 | [run.list](../api/run.list.md) | method | You need to find runs before inspecting their work or reported state. |
 | [run.observe](../api/run.observe.md) | method | The harness needs a replayable observation rather than only advisory heartbeat state. |
 | [run.register](../api/run.register.md) | method | The harness has an actual invocation to record before allocating its work. |
+| [run.sessions](../api/run.sessions.md) | method | You know the run and need every associated session without scanning all sessions. Follow the pinned history head and run revision for subsequent pages. |
 | [run.transition](../api/run.transition.md) | method | The harness has changed an invocation&#x27;s reported state and must persist it. |
 
 [Discovery index](index.md)

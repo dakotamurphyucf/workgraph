@@ -24,9 +24,30 @@ val create
   -> actor:Id.Actor.t
   -> ?run:Id.Run.t
   -> ?parent:Event_ref.t
+  -> ?created_at_unix_ms:int64
   -> scopes:Entity_ref.t list
   -> unit
   -> (t, Problem.t) Result.t
+
+(** Server observation times are nonnegative Unix epoch milliseconds. [None]
+    records an unknown migrated/library timestamp, never an inferred source time.
+    Wall clock regression is preserved; these values do not establish causality. *)
+val created_at_unix_ms : t -> int64 option
+
+val last_event_at_unix_ms : t -> int64 option
+val with_last_event_at_unix_ms : t -> int64 option -> (t, Problem.t) Result.t
+
+module Order : sig
+  type t =
+    | Session_id
+    | Created_at
+    | Last_event_at
+  [@@deriving equal]
+end
+
+(** Timestamp orders descend, place unknown times last, and break ties by
+    ascending session ID. [Session_id] orders only by ascending ID. *)
+val compare_for_order : t -> t -> order:Order.t -> int
 
 val id : t -> Session_id.t
 val workspace : t -> Id.Workspace.t

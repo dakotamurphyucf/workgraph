@@ -137,6 +137,7 @@ let methods =
   @ [ scoped (Api_method.Packed.Pack Preflight_api.method_) ]
   @ [ scoped (Api_method.Packed.Pack Workspace_metrics.method_)
     ; scoped Usage_rollup_api.method_
+    ; scoped Run_sessions_api.method_
     ]
   @ List.map Brief_api.methods ~f:scoped
   @ [ scoped (Api_method.Packed.Pack Ticket_read_api.method_) ]

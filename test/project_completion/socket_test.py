@@ -96,7 +96,7 @@ class ProjectCompletionTest(unittest.TestCase):
         params = self.finishing(objective='Deliver', completed='All work',
                                 decisions='Keep design', blockers='',
                                 resource_ids=['proof'], covers_through=observed)
-        envelope = {'jsonrpc': '2.0', 'workgraph_api': '0.6', 'id': 'lost',
+        envelope = {'jsonrpc': '2.0', 'workgraph_api': '0.7', 'id': 'lost',
                     'method': 'project.finish',
                     'params': {'workspace_id': 'completion', 'actor_id': 'lead',
                                'run_id': 'run', 'mutation_id': 'lost-finish', **params}}

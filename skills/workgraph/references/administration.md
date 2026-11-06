@@ -38,7 +38,10 @@ uncertain storage outcome until recovery can establish the durable state.
   state alone cannot establish that request's outcome.
 
 Read [format compatibility](compatibility.md) before moving data between binaries.
-Only the current preview's complete formats are supported.
+Normal startup and restore accept only current formats. To convert the supported
+0.6.2 workspace representation, stop the old owner and use [offline migration](migration.md)
+into a fresh root, then register it in a fresh registry. Old request files must be
+resolved with their old binary before conversion.
 
 ## Registry-scoped writes and private roots
 
@@ -59,7 +62,7 @@ managed tree. A closed workspace remains closed across daemon restart until expl
 
 [Request and result contract](api/initialize.md).
 
-The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.6". This application profile differs from the package version and independently versioned persisted roots; see [format compatibility](compatibility.md).
+The CLI constructs the required top-level application API marker; raw socket requests must supply workgraph_api:"0.7". This application profile differs from the package version and independently versioned persisted roots; see [format compatibility](compatibility.md).
 
 ### `daemon.health`
 

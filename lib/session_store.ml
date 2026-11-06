@@ -23,6 +23,23 @@ module Capture = struct
   let head t = t.head
   let sequence t = t.sequence
 
+  let contains_head t head =
+    match head with
+    | None -> true
+    | Some digest ->
+      Option.equal String.equal t.head head
+      || List.exists t.files ~f:(fun (name, _, _) ->
+        String.equal name ("history/batches/" ^ digest ^ ".json"))
+  ;;
+
+  let metadata_bytes t =
+    List.sum
+      (module Int)
+      t.files
+      ~f:(fun (name, _, size) ->
+        if String.is_prefix name ~prefix:"history/batches/" then size else 0)
+  ;;
+
   let head_bytes t =
     History_storage.Head.create ~workspace:t.workspace ~sequence:t.sequence ~digest:t.head
     |> Disk.unwrap
@@ -163,13 +180,16 @@ let lookup_receipt t ~key ~request_hash =
       Some response)
 ;;
 
-let verify_blob t ref_ =
+let verify_blob_at ~fs ~root ref_ =
   let digest, size =
-    Blob.inspect (path t ("blobs/" ^ ref_.Session_event.Blob_ref.digest)) |> Disk.unwrap
+    Blob.inspect Eio.Path.(fs / root / "blobs" / ref_.Session_event.Blob_ref.digest)
+    |> Disk.unwrap
   in
   if (not (String.equal digest ref_.digest)) || size <> ref_.size_bytes
   then Json.fail Corrupt_store "history blob identity differs from metadata"
 ;;
+
+let verify_blob t ref_ = verify_blob_at ~fs:t.fs ~root:t.root ref_
 
 let blob_inventory event =
   List.map (Session_event.blob_references event) ~f:(fun ref_ ->
@@ -193,7 +213,10 @@ let apply capture change =
     let metadata = Session.of_json (Json.field change "session") |> Disk.unwrap in
     if not (Id.Workspace.equal capture.Capture.workspace (Session.workspace metadata))
     then Json.fail Corrupt_store "session belongs to another workspace";
-    if Session.archived metadata || Map.mem capture.sessions (Session.id metadata)
+    if
+      Session.archived metadata
+      || Option.is_some (Session.last_event_at_unix_ms metadata)
+      || Map.mem capture.sessions (Session.id metadata)
     then Json.fail Corrupt_store "duplicate or archived session create";
     Option.iter (Session.parent metadata) ~f:(fun ref_ ->
       ignore (Disk.unwrap (Capture.event capture ref_) : Session_event.t));
@@ -220,7 +243,9 @@ let apply capture change =
           ~data:{ state with metadata = Session.archive state.metadata }
     }
   | "append" ->
-    Json.fields change ~allowed:[ "kind"; "session_id"; "actor"; "run"; "events" ];
+    Json.fields
+      change
+      ~allowed:[ "kind"; "session_id"; "actor"; "run"; "events"; "committed_at_unix_ms" ];
     ignore (Id.Actor.t_of_jsonaf (Json.field change "actor") : Id.Actor.t);
     (match Json.field change "run" with
      | `Null -> ()
@@ -237,6 +262,15 @@ let apply capture change =
       Json.list (Json.field change "events")
       |> List.map ~f:(fun json -> Session_event.of_json json |> Disk.unwrap)
     in
+    let timestamp =
+      match Json.field change "committed_at_unix_ms" with
+      | `Null -> None
+      | value -> Some (Json.integer64 value)
+    in
+    let metadata =
+      Session.with_last_event_at_unix_ms state.metadata timestamp |> Disk.unwrap
+    in
+    let state = if List.is_empty events then state else { state with metadata } in
     let state =
       List.fold events ~init:state ~f:(fun state event ->
         let ref_ = Session_event.ref_ event in
@@ -368,7 +402,8 @@ let parse_head workspace bytes =
 
 let batch_name digest = "history/batches/" ^ digest ^ ".json"
 
-let recover t ~sequence ~head =
+let recover ~fs ~root ~workspace ~sequence ~head =
+  let path relative = Eio.Path.(fs / root / relative) in
   let rec collect sequence head batches bytes_seen =
     if sequence = 0
     then (
@@ -381,7 +416,7 @@ let recover t ~sequence ~head =
       | Some digest ->
         check_digest digest;
         let name = batch_name digest in
-        let bytes = Disk.read_with_limit (path t name) ~max_bytes:(4 * 1024 * 1024) in
+        let bytes = Disk.read_with_limit (path name) ~max_bytes:(4 * 1024 * 1024) in
         if not (String.equal digest (Json.hash bytes))
         then Json.fail Corrupt_store "history batch hash mismatch";
         let json =
@@ -403,13 +438,12 @@ let recover t ~sequence ~head =
             ; "change"
             ; "response"
             ];
-        if Json.integer (Json.field json "version") <> 1
-        then Json.fail Unsupported_version "unsupported history batch version";
+        Current_format.validate History_batch json |> Disk.unwrap;
         if
           Json.integer (Json.field json "sequence") <> sequence
           || not
                (Id.Workspace.equal
-                  t.workspace
+                  workspace
                   (Id.Workspace.t_of_jsonaf (Json.field json "workspace_id")))
         then Json.fail Corrupt_store "history chain identity mismatch";
         let previous =
@@ -426,7 +460,7 @@ let recover t ~sequence ~head =
   let capture, receipts =
     List.fold
       batches
-      ~init:(empty t.workspace, String.Map.empty)
+      ~init:(empty workspace, String.Map.empty)
       ~f:(fun (capture, receipts) (digest, bytes, json) ->
         let key = Json.text (Json.field json "key") in
         let request_hash = Json.text (Json.field json "request_hash") in
@@ -458,9 +492,9 @@ let recover t ~sequence ~head =
   in
   List.iter (Map.data capture.sessions) ~f:(fun state ->
     List.iter state.events ~f:(fun event ->
-      List.iter (Session_event.blob_references event) ~f:(verify_blob t);
+      List.iter (Session_event.blob_references event) ~f:(verify_blob_at ~fs ~root);
       Option.iter (Session_event.searchable_text event) ~f:(fun ref_ ->
-        History_text.validate (path t ("blobs/" ^ ref_.digest)) |> Disk.unwrap)));
+        History_text.validate (path ("blobs/" ^ ref_.digest)) |> Disk.unwrap)));
   capture, receipts, bytes_seen
 ;;
 
@@ -489,7 +523,9 @@ let open_existing ~fs ~root ~workspace =
           let head_bytes = Disk.read (path t "history/HEAD.json") in
           let sequence, head = parse_head workspace head_bytes in
           t.head_bytes <- Some head_bytes;
-          let capture, receipts, retained_bytes = recover t ~sequence ~head in
+          let capture, receipts, retained_bytes =
+            recover ~fs:t.fs ~root:t.root ~workspace:t.workspace ~sequence ~head
+          in
           t.current <- capture;
           t.receipts <- receipts;
           t.retained_bytes <- retained_bytes
@@ -506,21 +542,30 @@ let capture t =
     t.current)
 ;;
 
-let capture_at t ~head =
+let resolve_capture current ~fs ~root ~head =
   Disk.protect (fun () ->
-    require_open t;
-    match head with
-    | None -> empty t.workspace
-    | Some digest ->
-      if
-        not
-          (List.exists t.current.files ~f:(fun (name, _, _) ->
-             String.equal name (batch_name digest)))
-      then Json.fail Conflict "history capture head is not an ancestor";
-      let json = Json.parse (Disk.read (path t (batch_name digest))) |> Disk.unwrap in
-      let sequence = Json.integer (Json.field json "sequence") in
-      let capture, _, _ = recover t ~sequence ~head in
-      capture)
+    if Option.equal String.equal (Capture.head current) head
+    then current
+    else (
+      match head with
+      | None -> empty (Capture.workspace current)
+      | Some digest ->
+        if not (Capture.contains_head current head)
+        then Json.fail Conflict "history capture head is not an ancestor";
+        let json =
+          Json.parse (Disk.read Eio.Path.(fs / root / batch_name digest)) |> Disk.unwrap
+        in
+        let sequence = Json.integer (Json.field json "sequence") in
+        let capture, _, _ =
+          recover ~fs ~root ~workspace:(Capture.workspace current) ~sequence ~head
+        in
+        capture))
+;;
+
+let capture_at t ~head =
+  let open Result.Let_syntax in
+  let%bind current = capture t in
+  resolve_capture current ~fs:t.fs ~root:t.root ~head
 ;;
 
 let get t ~session =
@@ -622,6 +667,13 @@ let create t metadata ~key ~request_hash =
     | None ->
       if not (Id.Workspace.equal t.workspace (Session.workspace metadata))
       then Json.fail Invalid_argument "session workspace mismatch";
+      if
+        Session.archived metadata
+        || Option.is_some (Session.last_event_at_unix_ms metadata)
+      then
+        Json.fail
+          Invalid_argument
+          "new session must be unarchived without a last-event timestamp";
       if Map.mem t.current.sessions (Session.id metadata)
       then Json.fail Conflict "session ID already exists";
       Option.iter (Session.parent metadata) ~f:(fun ref_ ->
@@ -654,7 +706,7 @@ let archive t ~session ~key ~request_hash =
         ~response:(response [ "session", Session.to_json metadata ]))
 ;;
 
-let append t ~session ~actor ?run ~inputs ~key ~request_hash () =
+let append t ~session ~actor ?run ?now_unix_ms ~inputs ~key ~request_hash () =
   Disk.protect (fun () ->
     match Disk.unwrap (lookup_receipt t ~key ~request_hash) with
     | Some response -> response
@@ -662,6 +714,9 @@ let append t ~session ~actor ?run ~inputs ~key ~request_hash () =
       if not (String.is_prefix key ~prefix:(Id.Actor.to_string actor ^ ":"))
       then Json.fail Invalid_argument "history key must be actor scoped";
       let state = get_exn t session in
+      ignore
+        (Session.with_last_event_at_unix_ms state.metadata now_unix_ms |> Disk.unwrap
+         : Session.t);
       if Session.archived state.metadata then Json.fail Conflict "session archived";
       if List.is_empty inputs || List.length inputs > 128
       then Json.fail Invalid_argument "append requires 1..128 events";
@@ -738,6 +793,8 @@ let append t ~session ~actor ?run ~inputs ~key ~request_hash () =
              ; "session_id", Session_id.jsonaf_of_t session
              ; "actor", Id.Actor.jsonaf_of_t actor
              ; "run", Option.value_map run ~default:`Null ~f:Id.Run.jsonaf_of_t
+             ; ( "committed_at_unix_ms"
+               , Option.value_map now_unix_ms ~default:`Null ~f:Json.int64 )
              ; "events", `Array (List.map events ~f:Session_event.to_json)
              ])
         ~response:

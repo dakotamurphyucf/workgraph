@@ -164,13 +164,13 @@ let search t capture ~text ?session ?kinds ?after ~limit ~max_bytes () =
         [ "capture", Session_store.Capture.to_json capture
         ; "items", `Array items
         ; ( "next"
-          , if missing > 0
+          , if missing > 0 || not has_more
             then `Null
             else Option.value_map next ~default:`Null ~f:Session.Event_ref.to_json )
         ; ("restart_after_indexing", if missing > 0 then `True else `False)
         ; ("has_more", if has_more then `True else `False)
         ; "coverage", `Array coverage
-        ; ("complete", if missing = 0 then `True else `False)
+        ; ("index_complete", if missing = 0 then `True else `False)
         ; "unindexed_events", Json.int missing
         ; "unsearchable_events", Json.int unsearchable
         ; "omitted_for_budget", Json.int omitted

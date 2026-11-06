@@ -6,6 +6,8 @@ exception Decode_error of Problem.t
 
 val fail : Problem.kind -> string -> 'a
 val decode : (unit -> 'a) -> ('a, Problem.t) Result.t
+
+(** Each invocation owns its parser state; safe for concurrent domains. *)
 val parse : string -> (Jsonaf.t, Problem.t) Result.t
 
 (** Storage-only bound override (at most 64MiB); wire parsing keeps 4MiB. Both

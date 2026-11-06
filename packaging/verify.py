@@ -20,6 +20,7 @@ NATIVE_SOURCE_FILES = frozenset({
     "skills/workgraph/scripts/wgx_dashboard.py",
     "skills/workgraph/scripts/input-cache.py",
     "tools/installed_smoke.py", "packaging/macos/inspect.py", "packaging/verify.py",
+    "docs/migration.md", "docs/history-reliability.md",
 })
 
 

@@ -2667,6 +2667,14 @@ For preconditions and a small example, run `workgraph help attention.read`. Use 
       ],
       "type": "object"
     },
+    "metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
     "metadata_3f30a1b7db4d89877a12fab7d942fa373a6e9e8303b45517f19330c14de3b89f": {
       "allOf": [
         {
@@ -2994,392 +3002,6 @@ For preconditions and a small example, run `workgraph help attention.read`. Use 
         "lease_status",
         "liveness_is_advisory"
       ],
-      "type": "object"
-    },
-    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
-      "additionalProperties": false,
-      "properties": {
-        "budget": {
-          "allOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "details": {
-                  "items": {
-                    "allOf": [
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "kind": {
-                            "enum": [
-                              "text_bytes",
-                              "items"
-                            ],
-                            "type": "string"
-                          },
-                          "omitted": {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          },
-                          "path": {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 4194304
-                          }
-                        },
-                        "required": [
-                          "path",
-                          "kind",
-                          "omitted"
-                        ],
-                        "type": "object"
-                      }
-                    ],
-                    "description": "Path is a JSON pointer into the public result; omitted is positive."
-                  },
-                  "maxItems": 4,
-                  "type": "array"
-                },
-                "details_complete": {
-                  "type": "boolean"
-                },
-                "max_bytes": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "omitted_fields": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "omitted_items": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "returned_bytes": {
-                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                  "type": "string",
-                  "x-maximumDecimal": "4611686018427387903"
-                },
-                "truncated": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "max_bytes",
-                "returned_bytes",
-                "truncated",
-                "omitted_fields",
-                "omitted_items",
-                "details",
-                "details_complete"
-              ],
-              "type": "object"
-            }
-          ],
-          "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
-        },
-        "durable": {
-          "type": "boolean"
-        },
-        "history_capture": {
-          "allOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "head": {
-                  "anyOf": [
-                    {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 64
-                        }
-                      ],
-                      "description": "64 lowercase hexadecimal SHA-256 characters."
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "sequence": {
-                  "allOf": [
-                    {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "1000000"
-                    }
-                  ],
-                  "description": "History journal commit sequence, independent of planning."
-                },
-                "sessions": {
-                  "items": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "session_id": {
-                        "allOf": [
-                          {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 96
-                          }
-                        ],
-                        "description": "Session identifier."
-                      },
-                      "through": {
-                        "allOf": [
-                          {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "1000000"
-                          }
-                        ],
-                        "description": "Event sequence within one history session."
-                      }
-                    },
-                    "required": [
-                      "session_id",
-                      "through"
-                    ],
-                    "type": "object"
-                  },
-                  "maxItems": 1000000,
-                  "type": "array"
-                },
-                "workspace_id": {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Workspace identifier."
-                }
-              },
-              "required": [
-                "workspace_id",
-                "head",
-                "sequence",
-                "sessions"
-              ],
-              "type": "object"
-            }
-          ],
-          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
-        },
-        "history_sequence": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "1000000"
-            }
-          ],
-          "description": "History journal commit sequence, independent of planning."
-        },
-        "pagination": {
-          "allOf": [
-            {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "properties": {
-                        "capture": {
-                          "x-maxCanonicalBytes": 4096,
-                          "x-maxDepth": 4
-                        },
-                        "complete": {
-                          "type": "boolean"
-                        },
-                        "consistency": {
-                          "enum": [
-                            "snapshot_guard",
-                            "current_revision_guard",
-                            "opaque_captured_cursor",
-                            "current_revision_cursor",
-                            "notification_through",
-                            "immutable_history_head"
-                          ],
-                          "type": "string"
-                        },
-                        "max_bytes": {
-                          "allOf": [
-                            {
-                              "const": "65536",
-                              "type": "string"
-                            }
-                          ],
-                          "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
-                        },
-                        "next_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                        },
-                        "required_bytes": {
-                          "anyOf": [
-                            {
-                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                              "type": "string",
-                              "x-maximumDecimal": "4611686018427387903"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "retry_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                        },
-                        "returned_bytes": {
-                          "allOf": [
-                            {
-                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                              "type": "string",
-                              "x-maximumDecimal": "4611686018427387903"
-                            }
-                          ],
-                          "description": "Canonical UTF-8 bytes of this continuation metadata object only; not the returned page. Page bytes are reported in meta.budget.returned_bytes when available."
-                        },
-                        "stop": {
-                          "enum": [
-                            "complete",
-                            "page_limit",
-                            "byte_limit",
-                            "no_progress",
-                            "needs_larger_budget",
-                            "indexing_incomplete",
-                            "server_field_omissions",
-                            "server_item_omissions",
-                            "error",
-                            "metadata_limit"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "complete",
-                        "stop",
-                        "consistency",
-                        "capture",
-                        "next_request",
-                        "retry_request",
-                        "required_bytes",
-                        "returned_bytes",
-                        "max_bytes"
-                      ],
-                      "type": "object"
-                    },
-                    {
-                      "properties": {
-                        "sections": {
-                          "items": {
-                            "allOf": [
-                              {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "complete": {
-                                    "type": "boolean"
-                                  },
-                                  "next_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                                  },
-                                  "path": {
-                                    "type": "string",
-                                    "x-maxUtf8Bytes": 256
-                                  },
-                                  "response_path": {
-                                    "type": "string",
-                                    "x-maxUtf8Bytes": 256
-                                  },
-                                  "retry_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
-                                  },
-                                  "stop": {
-                                    "enum": [
-                                      "complete",
-                                      "page_limit",
-                                      "byte_limit",
-                                      "no_progress",
-                                      "needs_larger_budget",
-                                      "indexing_incomplete",
-                                      "server_field_omissions",
-                                      "server_item_omissions",
-                                      "error",
-                                      "metadata_limit"
-                                    ],
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "path",
-                                  "complete",
-                                  "stop",
-                                  "next_request",
-                                  "retry_request"
-                                ],
-                                "type": "object"
-                              }
-                            ],
-                            "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
-                          },
-                          "maxItems": 32,
-                          "type": "array"
-                        }
-                      },
-                      "required": [],
-                      "type": "object"
-                    }
-                  ],
-                  "unevaluatedProperties": false
-                }
-              ],
-              "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
-            }
-          ],
-          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
-        },
-        "query_revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Pagination capture revision within the accompanying query_scope."
-        },
-        "query_scope": {
-          "enum": [
-            "communication",
-            "runs",
-            "evidence",
-            "policy"
-          ],
-          "type": "string"
-        },
-        "snapshot": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 64
-            }
-          ],
-          "description": "64 lowercase hexadecimal SHA-256 characters."
-        },
-        "workspace_revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Workspace planning transaction revision."
-        }
-      },
-      "required": [],
       "type": "object"
     },
     "metadata_8a7d77f8caa7da7eea85da22c7b6ac86d33331fa8461656236297351ac07b1ae": {
@@ -3838,13 +3460,391 @@ For preconditions and a small example, run `workgraph help attention.read`. Use 
       ],
       "description": "Validated cooperative coordination record."
     },
-    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
+    "metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017": {
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "details": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "text_bytes",
+                              "items"
+                            ],
+                            "type": "string"
+                          },
+                          "omitted": {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "4611686018427387903"
+                          },
+                          "path": {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 4194304
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "kind",
+                          "omitted"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "description": "Path is a JSON pointer into the public result; omitted is positive."
+                  },
+                  "maxItems": 4,
+                  "type": "array"
+                },
+                "details_complete": {
+                  "type": "boolean"
+                },
+                "max_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_fields": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "omitted_items": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "returned_bytes": {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "max_bytes",
+                "returned_bytes",
+                "truncated",
+                "omitted_fields",
+                "omitted_items",
+                "details",
+                "details_complete"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "4096 <= returned-byte budget <= 1048576; returned_bytes <= max_bytes. Truncated iff fields or items were omitted. Detail paths are unique; item counts and text-field counts cannot exceed totals, and equal them when details_complete is true."
+        },
+        "durable": {
+          "type": "boolean"
+        },
+        "history_capture": {
+          "allOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "head": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 64
+                        }
+                      ],
+                      "description": "64 lowercase hexadecimal SHA-256 characters."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sequence": {
+                  "allOf": [
+                    {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "1000000"
+                    }
+                  ],
+                  "description": "History journal commit sequence, independent of planning."
+                },
+                "sessions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "session_id": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Session identifier."
+                      },
+                      "through": {
+                        "allOf": [
+                          {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "1000000"
+                          }
+                        ],
+                        "description": "Event sequence within one history session."
+                      }
+                    },
+                    "required": [
+                      "session_id",
+                      "through"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 1000000,
+                  "type": "array"
+                },
+                "workspace_id": {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Workspace identifier."
+                }
+              },
+              "required": [
+                "workspace_id",
+                "head",
+                "sequence"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Omitted sessions means watermarks are not included, not that the workspace has no sessions. Session IDs are unique; through counts session events, not journal commits."
+        },
+        "history_sequence": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "1000000"
+            }
+          ],
+          "description": "History journal commit sequence, independent of planning."
+        },
+        "pagination": {
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "capture": {
+                          "x-maxCanonicalBytes": 4096,
+                          "x-maxDepth": 4
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        },
+                        "consistency": {
+                          "enum": [
+                            "snapshot_guard",
+                            "current_revision_guard",
+                            "opaque_captured_cursor",
+                            "current_revision_cursor",
+                            "notification_through",
+                            "immutable_history_head",
+                            "run_revision_and_history_head"
+                          ],
+                          "type": "string"
+                        },
+                        "max_bytes": {
+                          "allOf": [
+                            {
+                              "const": "65536",
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
+                        },
+                        "next_request": {
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
+                        },
+                        "required_bytes": {
+                          "anyOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "retry_request": {
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
+                        },
+                        "returned_bytes": {
+                          "allOf": [
+                            {
+                              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                              "type": "string",
+                              "x-maximumDecimal": "4611686018427387903"
+                            }
+                          ],
+                          "description": "Canonical UTF-8 bytes of this continuation metadata object only; not the returned page. Page bytes are reported in meta.budget.returned_bytes when available."
+                        },
+                        "stop": {
+                          "enum": [
+                            "complete",
+                            "page_limit",
+                            "byte_limit",
+                            "no_progress",
+                            "needs_larger_budget",
+                            "indexing_incomplete",
+                            "server_field_omissions",
+                            "server_item_omissions",
+                            "error",
+                            "metadata_limit"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "complete",
+                        "stop",
+                        "consistency",
+                        "capture",
+                        "next_request",
+                        "retry_request",
+                        "required_bytes",
+                        "returned_bytes",
+                        "max_bytes"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "properties": {
+                        "sections": {
+                          "items": {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "complete": {
+                                    "type": "boolean"
+                                  },
+                                  "next_request": {
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "response_path": {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 256
+                                  },
+                                  "retry_request": {
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
+                                  },
+                                  "stop": {
+                                    "enum": [
+                                      "complete",
+                                      "page_limit",
+                                      "byte_limit",
+                                      "no_progress",
+                                      "needs_larger_budget",
+                                      "indexing_incomplete",
+                                      "server_field_omissions",
+                                      "server_item_omissions",
+                                      "error",
+                                      "metadata_limit"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "path",
+                                  "complete",
+                                  "stop",
+                                  "next_request",
+                                  "retry_request"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+                          },
+                          "maxItems": 32,
+                          "type": "array"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    }
+                  ],
+                  "unevaluatedProperties": false
+                }
+              ],
+              "description": "Flat continuation or independently paged nested sections. Section paths identify the portion to consume from each subsequent response."
+            }
+          ],
+          "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
+        },
+        "query_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Pagination capture revision within the accompanying query_scope."
+        },
+        "query_scope": {
+          "enum": [
+            "communication",
+            "runs",
+            "evidence",
+            "policy"
+          ],
+          "type": "string"
+        },
+        "snapshot": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            }
+          ],
+          "description": "64 lowercase hexadecimal SHA-256 characters."
+        },
+        "workspace_revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Workspace planning transaction revision."
         }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      },
+      "required": [],
+      "type": "object"
     },
     "metadata_c20fa74c12625d15cfce8539508f48009ee9df75fed2ed45d69356e3a8204c88": {
       "allOf": [
@@ -4118,7 +4118,17 @@ For preconditions and a small example, run `workgraph help attention.read`. Use 
       ],
       "unevaluatedProperties": false
     },
-    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+    "next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5": {
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -4153,7 +4163,7 @@ For preconditions and a small example, run `workgraph help attention.read`. Use 
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
         },
         "workgraph_api": {
-          "const": "0.6",
+          "const": "0.7",
           "type": "string"
         }
       },
@@ -4165,16 +4175,6 @@ For preconditions and a small example, run `workgraph help attention.read`. Use 
         "params"
       ],
       "type": "object"
-    },
-    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
-        },
-        {
-          "type": "null"
-        }
-      ]
     },
     "origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc": {
       "oneOf": [
@@ -7211,7 +7211,7 @@ For preconditions and a small example, run `workgraph help attention.read`. Use 
       "type": "object"
     },
     "meta": {
-      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+      "$ref": "#/$defs/metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e"
     }
   },
   "required": [

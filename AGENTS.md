@@ -22,7 +22,10 @@ before acknowledgement, exact retry identities and uncertain-write fencing.
 Workgraph is a lightweight local state service. The harness owns agent processes,
 prompt/context policy and external side effects. Do not introduce a model runtime,
 MCP server, distributed coordination or compatibility with unreleased prototype
-formats without an explicit requirement. Only the current schema is supported.
+formats without an explicit requirement. Runtime reads support only current schemas.
+The explicit offline migration helper accepts the released 0.6.2 workspace
+representation and writes a new root; do not add startup compatibility branches or
+broaden that converter to other prototypes without an explicit requirement.
 
 Run focused checks while editing, then apply `./dev fmt` and verify
 `./dev build @fmt @runtest @install`. These include real daemon/socket tests;

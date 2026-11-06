@@ -2303,14 +2303,6 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
       ],
       "type": "object"
     },
-    "item_1efc2ab337e2b16fa1038ef4603143c7960091611dacfc4e82fe4f2f641e600f": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/item_31d7fbddf9f0d517f3ebb9247eade9c24cfaecd5e56404d1a212860d217dad83"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
     "item_2f16d94ce8168d2a52e73082b39c4cf9b624b43f915806fe52360d6a70b33447": {
       "additionalProperties": false,
       "properties": {
@@ -2340,73 +2332,6 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
         "clipped_fields"
       ],
       "type": "object"
-    },
-    "item_31d7fbddf9f0d517f3ebb9247eade9c24cfaecd5e56404d1a212860d217dad83": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/item_bf7479e30fe1db47f9da6e27247fc944b2d09b9e778a55c2723c256a0e78bbfa"
-        },
-        {
-          "$ref": "#/$defs/item_8b0139516ca6ecc66066c37b675b3fe14744c2ddfcc6b52308c741b0d7a70504"
-        },
-        {
-          "$ref": "#/$defs/item_cd8df8b53c68fdc3e77e52918fb74a864f166fb1426ec8f6af6bca8312498272"
-        },
-        {
-          "$ref": "#/$defs/item_f7aea47dd0c13a099f821dbf34948d27128cc3c7c07780e6635f72f846fca9ab"
-        },
-        {
-          "$ref": "#/$defs/item_5cf357b349de12392ea79fc3ff9ad09dc4c9a40dfe3f412d62dbfb46a2489ea5"
-        },
-        {
-          "$ref": "#/$defs/item_127973e2029faf12bbe127cba761a47af54e50e32ed44bd8c3c869e4377a33e5"
-        },
-        {
-          "$ref": "#/$defs/item_ef7044137d9afefda3fa4a2df6eca98471bae0905653b9e0f09ad804575bd34a"
-        },
-        {
-          "$ref": "#/$defs/item_6dc505b7a7ffc5c606f61f3d46d9df77e25214ff53e9fda084e8e8be17dc9865"
-        },
-        {
-          "$ref": "#/$defs/item_7eb985417dad6f908619ee8d5d63a8c96acb2248fce1a033d055dec9c1d9d7e2"
-        },
-        {
-          "$ref": "#/$defs/item_6d8364cb3900bd489a6e82b66598acd29d8370b594d704cccd22dd81836bd626"
-        },
-        {
-          "$ref": "#/$defs/item_2f16d94ce8168d2a52e73082b39c4cf9b624b43f915806fe52360d6a70b33447"
-        },
-        {
-          "$ref": "#/$defs/item_0b282b3e4e0eb728b17ece86aef213cf622daaa057da3bf9cd54e3de17d8358e"
-        },
-        {
-          "$ref": "#/$defs/item_849f7cb09c20016933b8e39bf01fa7e582cea475a0d9bb8edd6af0f60f542a6f"
-        },
-        {
-          "$ref": "#/$defs/item_72775a9490a621cce6d34e015057dec89fa20c3b8fffd8e8eb71eed3d18cdae9"
-        },
-        {
-          "$ref": "#/$defs/item_8ffd993d81c82d2610582173696dc03a16c1cca9cdae0ccdb58b6f3162f03f3a"
-        },
-        {
-          "$ref": "#/$defs/item_753aed05047c8dbcded8b29d44d43b2c25b83528f2064d001b3815f75f594f6b"
-        },
-        {
-          "$ref": "#/$defs/item_a7aa3052ad6c80422578fa18b9f97057410c4fcd183b45e811d5ae8c0128924b"
-        },
-        {
-          "$ref": "#/$defs/item_82681983a6497c1a95543ee8095f716b9ef55e3c80070ff159b8528cf5c27862"
-        },
-        {
-          "$ref": "#/$defs/item_ce92ed071a00c1362fd2f2111c7f4d5397212ac168a6be4255e15e84986c8c18"
-        },
-        {
-          "$ref": "#/$defs/item_aab643cf638ac45daa97d7e792938fca40e67e8545532c6231e52470631dd8c9"
-        },
-        {
-          "$ref": "#/$defs/item_56f4e1be2fa971aef5cc69e1a563e2df994a41cfd8dbe8688f88620d40344f2f"
-        }
-      ]
     },
     "item_56f4e1be2fa971aef5cc69e1a563e2df994a41cfd8dbe8688f88620d40344f2f": {
       "additionalProperties": false,
@@ -2540,6 +2465,36 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
         },
         "record": {
           "$ref": "#/$defs/latest_signal_9dc113febfe150aaa0821f05033a1601f673f311c363615e79af62272aeaed47"
+        },
+        "sources": {
+          "$ref": "#/$defs/sources_6b2f1a6550a1089b3c08c719f64e17d6d64a2d4c0f0aca173126f782e6afc3c7"
+        },
+        "summary": {
+          "type": "string",
+          "x-maxUtf8Bytes": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "summary",
+        "sources",
+        "record",
+        "clipped_fields"
+      ],
+      "type": "object"
+    },
+    "item_747272463296e4ba6fa7ffdaf4df09d07040cbe1450d0510652638276048f885": {
+      "additionalProperties": false,
+      "properties": {
+        "clipped_fields": {
+          "$ref": "#/$defs/clipped_fields_165851fe559e47f683e7ef2c8327a833e87d0122f06fa840ac61b4b4d5d68333"
+        },
+        "kind": {
+          "const": "run",
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/$defs/record_ec03cc9c904b586cbb1f2cbb86c829f5f08ad8ec1c17ecb1ea7294645f479eef"
         },
         "sources": {
           "$ref": "#/$defs/sources_6b2f1a6550a1089b3c08c719f64e17d6d64a2d4c0f0aca173126f782e6afc3c7"
@@ -2798,6 +2753,14 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
       ],
       "type": "object"
     },
+    "item_b9781f1c0320e79fcd7714e57c700d7eef9462dc7bfbc72fd0ef31356707fd88": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/item_bff7f38810a3b28e592271fe63f2357ba161081b88cf2c8a51b085367b601965"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
     "item_bf7479e30fe1db47f9da6e27247fc944b2d09b9e778a55c2723c256a0e78bbfa": {
       "additionalProperties": false,
       "properties": {
@@ -2827,6 +2790,73 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
         "clipped_fields"
       ],
       "type": "object"
+    },
+    "item_bff7f38810a3b28e592271fe63f2357ba161081b88cf2c8a51b085367b601965": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/item_bf7479e30fe1db47f9da6e27247fc944b2d09b9e778a55c2723c256a0e78bbfa"
+        },
+        {
+          "$ref": "#/$defs/item_8b0139516ca6ecc66066c37b675b3fe14744c2ddfcc6b52308c741b0d7a70504"
+        },
+        {
+          "$ref": "#/$defs/item_cd8df8b53c68fdc3e77e52918fb74a864f166fb1426ec8f6af6bca8312498272"
+        },
+        {
+          "$ref": "#/$defs/item_f7aea47dd0c13a099f821dbf34948d27128cc3c7c07780e6635f72f846fca9ab"
+        },
+        {
+          "$ref": "#/$defs/item_5cf357b349de12392ea79fc3ff9ad09dc4c9a40dfe3f412d62dbfb46a2489ea5"
+        },
+        {
+          "$ref": "#/$defs/item_127973e2029faf12bbe127cba761a47af54e50e32ed44bd8c3c869e4377a33e5"
+        },
+        {
+          "$ref": "#/$defs/item_747272463296e4ba6fa7ffdaf4df09d07040cbe1450d0510652638276048f885"
+        },
+        {
+          "$ref": "#/$defs/item_6dc505b7a7ffc5c606f61f3d46d9df77e25214ff53e9fda084e8e8be17dc9865"
+        },
+        {
+          "$ref": "#/$defs/item_7eb985417dad6f908619ee8d5d63a8c96acb2248fce1a033d055dec9c1d9d7e2"
+        },
+        {
+          "$ref": "#/$defs/item_6d8364cb3900bd489a6e82b66598acd29d8370b594d704cccd22dd81836bd626"
+        },
+        {
+          "$ref": "#/$defs/item_2f16d94ce8168d2a52e73082b39c4cf9b624b43f915806fe52360d6a70b33447"
+        },
+        {
+          "$ref": "#/$defs/item_0b282b3e4e0eb728b17ece86aef213cf622daaa057da3bf9cd54e3de17d8358e"
+        },
+        {
+          "$ref": "#/$defs/item_849f7cb09c20016933b8e39bf01fa7e582cea475a0d9bb8edd6af0f60f542a6f"
+        },
+        {
+          "$ref": "#/$defs/item_72775a9490a621cce6d34e015057dec89fa20c3b8fffd8e8eb71eed3d18cdae9"
+        },
+        {
+          "$ref": "#/$defs/item_8ffd993d81c82d2610582173696dc03a16c1cca9cdae0ccdb58b6f3162f03f3a"
+        },
+        {
+          "$ref": "#/$defs/item_753aed05047c8dbcded8b29d44d43b2c25b83528f2064d001b3815f75f594f6b"
+        },
+        {
+          "$ref": "#/$defs/item_a7aa3052ad6c80422578fa18b9f97057410c4fcd183b45e811d5ae8c0128924b"
+        },
+        {
+          "$ref": "#/$defs/item_82681983a6497c1a95543ee8095f716b9ef55e3c80070ff159b8528cf5c27862"
+        },
+        {
+          "$ref": "#/$defs/item_ce92ed071a00c1362fd2f2111c7f4d5397212ac168a6be4255e15e84986c8c18"
+        },
+        {
+          "$ref": "#/$defs/item_aab643cf638ac45daa97d7e792938fca40e67e8545532c6231e52470631dd8c9"
+        },
+        {
+          "$ref": "#/$defs/item_56f4e1be2fa971aef5cc69e1a563e2df994a41cfd8dbe8688f88620d40344f2f"
+        }
+      ]
     },
     "item_cd8df8b53c68fdc3e77e52918fb74a864f166fb1426ec8f6af6bca8312498272": {
       "additionalProperties": false,
@@ -2870,36 +2900,6 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
         },
         "record": {
           "$ref": "#/$defs/policy_5db28eaba3be26dbd7ab9ec085f06fe2e9bd6b56b34c93b6f056c07d584f8912"
-        },
-        "sources": {
-          "$ref": "#/$defs/sources_6b2f1a6550a1089b3c08c719f64e17d6d64a2d4c0f0aca173126f782e6afc3c7"
-        },
-        "summary": {
-          "type": "string",
-          "x-maxUtf8Bytes": 1024
-        }
-      },
-      "required": [
-        "kind",
-        "summary",
-        "sources",
-        "record",
-        "clipped_fields"
-      ],
-      "type": "object"
-    },
-    "item_ef7044137d9afefda3fa4a2df6eca98471bae0905653b9e0f09ad804575bd34a": {
-      "additionalProperties": false,
-      "properties": {
-        "clipped_fields": {
-          "$ref": "#/$defs/clipped_fields_165851fe559e47f683e7ef2c8327a833e87d0122f06fa840ac61b4b4d5d68333"
-        },
-        "kind": {
-          "const": "run",
-          "type": "string"
-        },
-        "record": {
-          "$ref": "#/$defs/record_6447ea4bef8a23216fbd05a3abe80e5f04d97517efdbae334ca0ddeacc997cdb"
         },
         "sources": {
           "$ref": "#/$defs/sources_6b2f1a6550a1089b3c08c719f64e17d6d64a2d4c0f0aca173126f782e6afc3c7"
@@ -3463,7 +3463,15 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
       ],
       "type": "object"
     },
-    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
+    "metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -3628,13 +3636,12 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
               "required": [
                 "workspace_id",
                 "head",
-                "sequence",
-                "sessions"
+                "sequence"
               ],
               "type": "object"
             }
           ],
-          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Omitted sessions means watermarks are not included, not that the workspace has no sessions. Session IDs are unique; through counts session events, not journal commits."
         },
         "history_sequence": {
           "allOf": [
@@ -3668,7 +3675,8 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                             "opaque_captured_cursor",
                             "current_revision_cursor",
                             "notification_through",
-                            "immutable_history_head"
+                            "immutable_history_head",
+                            "run_revision_and_history_head"
                           ],
                           "type": "string"
                         },
@@ -3682,7 +3690,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                           "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
                         },
                         "next_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "required_bytes": {
                           "anyOf": [
@@ -3697,7 +3705,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                           ]
                         },
                         "retry_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "returned_bytes": {
                           "allOf": [
@@ -3750,7 +3758,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                                     "type": "boolean"
                                   },
                                   "next_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "path": {
                                     "type": "string",
@@ -3761,7 +3769,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                                     "x-maxUtf8Bytes": 256
                                   },
                                   "retry_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "stop": {
                                     "enum": [
@@ -3849,15 +3857,17 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
       "required": [],
       "type": "object"
     },
-    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
-      "allOf": [
+    "next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178": {
+      "anyOf": [
         {
-          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
+          "$ref": "#/$defs/next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5"
+        },
+        {
+          "type": "null"
         }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      ]
     },
-    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+    "next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5": {
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -3892,7 +3902,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
         },
         "workgraph_api": {
-          "const": "0.6",
+          "const": "0.7",
           "type": "string"
         }
       },
@@ -3904,16 +3914,6 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
         "params"
       ],
       "type": "object"
-    },
-    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
-        },
-        {
-          "type": "null"
-        }
-      ]
     },
     "origin_080af2244d0819615ecff2cd9b3e3977bba16e64e322ccd215550e8ec49921cc": {
       "oneOf": [
@@ -6507,14 +6507,6 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
         "reason"
       ],
       "type": "object"
-    },
-    "record_6447ea4bef8a23216fbd05a3abe80e5f04d97517efdbae334ca0ddeacc997cdb": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/record_ec03cc9c904b586cbb1f2cbb86c829f5f08ad8ec1c17ecb1ea7294645f479eef"
-        }
-      ],
-      "description": "Canonical data validated by the executable typed codec."
     },
     "record_67413dff2934af6bc73ca7dd531ee76596584f29f28e5dc4cc648f9c339ef1e5": {
       "additionalProperties": false,
@@ -9519,7 +9511,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
                         "x-maximumDecimal": "4611686018427387903"
                       },
                       "item": {
-                        "$ref": "#/$defs/item_1efc2ab337e2b16fa1038ef4603143c7960091611dacfc4e82fe4f2f641e600f"
+                        "$ref": "#/$defs/item_b9781f1c0320e79fcd7714e57c700d7eef9462dc7bfbc72fd0ef31356707fd88"
                       },
                       "workspace_revision": {
                         "allOf": [
@@ -9555,7 +9547,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
             },
             "outstanding_requests": {
               "items": {
-                "$ref": "#/$defs/item_1efc2ab337e2b16fa1038ef4603143c7960091611dacfc4e82fe4f2f641e600f"
+                "$ref": "#/$defs/item_b9781f1c0320e79fcd7714e57c700d7eef9462dc7bfbc72fd0ef31356707fd88"
               },
               "maxItems": 100,
               "type": "array"
@@ -9575,7 +9567,7 @@ For preconditions and a small example, run `workgraph help activity.digest`. Use
       "description": "Validated cooperative coordination record."
     },
     "meta": {
-      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+      "$ref": "#/$defs/metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e"
     }
   },
   "required": [

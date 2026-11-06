@@ -256,6 +256,8 @@ module Session_fields = struct
     ; parent : Session.Event_ref.t option
     ; scopes : Entity_ref.t list
     ; archived : bool
+    ; created_at_unix_ms : int64 option
+    ; last_event_at_unix_ms : int64 option
     }
 
   let fields =
@@ -267,13 +269,45 @@ module Session_fields = struct
        ++ Fields.required "run_id" (Api_codec.nullable run_id)
        ++ Fields.required "parent_event" (Api_codec.nullable event_ref)
        ++ Fields.required "scopes" (Api_codec.list scope ~max_items:100)
-       ++ Fields.required "archived" Api_codec.boolean)
+       ++ Fields.required "archived" Api_codec.boolean
+       ++ Fields.required
+            "created_at_unix_ms"
+            (Api_codec.nullable (Api_codec.decimal64 ~max:Int64.max_value))
+       ++ Fields.required
+            "last_event_at_unix_ms"
+            (Api_codec.nullable (Api_codec.decimal64 ~max:Int64.max_value)))
       ~decode:
         (fun
-          (((((((workspace, id), title), actor), run), parent), scopes), archived) ->
-        { workspace; id; title; actor; run; parent; scopes; archived })
-      ~encode:(fun { workspace; id; title; actor; run; parent; scopes; archived } ->
-        ((((((workspace, id), title), actor), run), parent), scopes), archived)
+          ( ( (((((((workspace, id), title), actor), run), parent), scopes), archived)
+            , created_at_unix_ms )
+          , last_event_at_unix_ms ) ->
+        { workspace
+        ; id
+        ; title
+        ; actor
+        ; run
+        ; parent
+        ; scopes
+        ; archived
+        ; created_at_unix_ms
+        ; last_event_at_unix_ms
+        })
+      ~encode:
+        (fun
+          { workspace
+          ; id
+          ; title
+          ; actor
+          ; run
+          ; parent
+          ; scopes
+          ; archived
+          ; created_at_unix_ms
+          ; last_event_at_unix_ms
+          } ->
+        ( ( (((((((workspace, id), title), actor), run), parent), scopes), archived)
+          , created_at_unix_ms )
+        , last_event_at_unix_ms ))
   ;;
 end
 
@@ -281,17 +315,23 @@ let session =
   Api_codec.map
     (Api_codec.object_ Session_fields.fields)
     ~decode:(fun (fields : Session_fields.t) ->
-      Result.map
-        (Session.create
-           ~workspace:fields.workspace
-           ~id:fields.id
-           ~title:fields.title
-           ~actor:fields.actor
-           ?run:fields.run
-           ?parent:fields.parent
-           ~scopes:fields.scopes
-           ())
-        ~f:(fun session -> if fields.archived then Session.archive session else session))
+      let open Result.Let_syntax in
+      let%bind session =
+        Session.create
+          ~workspace:fields.workspace
+          ~id:fields.id
+          ~title:fields.title
+          ~actor:fields.actor
+          ?run:fields.run
+          ?parent:fields.parent
+          ?created_at_unix_ms:fields.created_at_unix_ms
+          ~scopes:fields.scopes
+          ()
+      in
+      let%map session =
+        Session.with_last_event_at_unix_ms session fields.last_event_at_unix_ms
+      in
+      if fields.archived then Session.archive session else session)
     ~encode:(fun session ->
       { Session_fields.workspace = Session.workspace session
       ; id = Session.id session
@@ -301,9 +341,12 @@ let session =
       ; parent = Session.parent session
       ; scopes = Session.scopes session
       ; archived = Session.archived session
+      ; created_at_unix_ms = Session.created_at_unix_ms session
+      ; last_event_at_unix_ms = Session.last_event_at_unix_ms session
       })
     ~description:
-      "Immutable session metadata; archiving prohibits append and preserves access."
+      "Immutable session metadata with nullable server-observed Unix-millisecond \
+       timestamps; archive preserves access."
 ;;
 
 let event =

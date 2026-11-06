@@ -4,6 +4,7 @@
 Uses installed executable with a minimal environment, ordinary Git, and no OCaml
 toolchain at runtime. Keeps evidence/artifacts; stops only daemons it created.
 """
+import base64
 import json
 import os
 from pathlib import Path
@@ -96,8 +97,8 @@ def start(registry):
             raise RuntimeError("daemon exited: " + (root / "daemon.log").read_text())
         try:
             initialization = call("initialize", {})
-            assert initialization["version"] == "0.6.2"
-            assert initialization["workgraph_api"] == "0.6"
+            assert initialization["version"] == "0.7.0"
+            assert initialization["workgraph_api"] == "0.7"
             assert initialization["registry_format_version"] == "5"
             return
         except subprocess.CalledProcessError:
@@ -154,11 +155,50 @@ def check_memory():
     assert any(item["category"] == "fact" for item in digest["entries"])
     metrics = call("workspace.metrics", {"workspace_id": "smoke", "max_bytes": "4096"})
     assert metrics["completion_transitions"] == "1"
-    assert metrics["reported_usage"]["observations"] == "0"
+    assert metrics["reported_usage"]["observations"] == "1"
+
+
+def seed_history():
+    mutate("run.register", target_run_id="history-run", objective="Installed history qualification")
+    mutate("session.create", session_id="transcript", title="Installed transcript", run_id="history-run")
+    content = base64.b64encode(b"retained needle").decode()
+    mutate("session.append", session_id="transcript", events=[{
+        "client_id": "event", "role": "user", "kind": "message", "phase": "completed",
+        "provenance": {}, "payload": {"kind": "inline", "bytes_base64": content},
+        "searchable_text": {"kind": "inline", "bytes_base64": content}}])
+    mutate("usage.report", usage_id="history-usage", scope={"kind": "run", "run_id": "history-run"},
+           reported_actor_id="agent", tokens="3", elapsed_ms="5",
+           metrics=[{"name": "calls", "unit": "count", "value": "2"}],
+           provenance="installed smoke", timestamp="2026-11-05T00:00:00Z")
+
+
+def check_history():
+    params = {"workspace_id": "smoke"}
+    session = call("session.get", {**params, "session_id": "transcript"})["session"]
+    assert session["created_at_unix_ms"] is not None
+    assert session["last_event_at_unix_ms"] is not None
+    run_view = call("run.get", {**params, "target_run_id": "history-run"})
+    assert run_view["session_ids"] == ["transcript"]
+    head = run_view["session_associations"]["history_head"]
+    linked = call("run.sessions", {**params, "target_run_id": "history-run", "head": head})
+    assert linked["session_ids"] == ["transcript"] and linked["next_request"] is None
+    event = {"session_id": "transcript", "sequence": "1"}
+    payloads = call("history.payloads", {**params, "head": head, "event_refs": [event, event]})
+    assert len(payloads["items"]) == 2
+    for item in payloads["items"]:
+        assert base64.b64decode(item["payload"]["bytes_base64"]) == b"retained needle"
+        assert item["payload"]["has_more"] is False
+    search = call("history.search", {**params, "head": head, "text": "needle"})
+    assert search["index_complete"] is True and search["has_more"] is False and search["next"] is None
+    assert len(search["items"]) == 1
+    usage = call("usage.aggregate", {**params, "group_by": "run", "metrics_layout": "nested"})
+    assert len(usage["items"]) == 1
+    assert usage["items"][0]["metrics"][0]["name"] == "calls"
+    assert usage["totals"]["tokens"] == "3"
 
 
 try:
-    assert run([str(exe), "--version"]).stdout.strip() == "0.6.2"
+    assert run([str(exe), "--version"]).stdout.strip() == "0.7.0"
     check_offline_discovery()
     start("registry-1")
     admin("workspace.create", workspace_id="smoke", name="Installed workflow", root=str(root / "workspace"))
@@ -170,7 +210,9 @@ try:
     complete("first")
     mutate("fact.put", scope={"kind": "ticket", "id": "first"}, key="decision", expected_revision="0",
            value={"choice": "retain input digest", "literal": "$not-an-alias"})
+    seed_history()
     check_memory()
+    check_history()
     job = admin("workspace.export", workspace_id="smoke", destination=str(root / "export"))
     deadline = time.monotonic() + 60
     while True:
@@ -195,6 +237,7 @@ try:
     admin("workspace.register", root=str(clone))
     assert context("first")["ticket"]["status"] == "done"
     check_memory()
+    check_history()
     complete("second")
     admin("workspace.close", workspace_id="smoke")
     stop()
@@ -206,11 +249,13 @@ try:
     assert context("second")["ticket"]["status"] == "todo"
     assert context("first")["handoff"]["summary"] == "Validated from a fresh runtime"
     check_memory()
+    check_history()
     stop()
     print(json.dumps({"result": "passed", "executable": str(exe), "runtime": str(root),
                       "checks": ["version", "offline-discovery", "create", "start", "claimed-resume", "progress", "handoff", "finish",
                                  "facts-and-key-discovery", "resume-selected-facts", "activity-digest", "metrics",
-                                 "resource", "export", "verify", "git-clone-resume", "restore"]}))
+                                 "session-timestamps", "pinned-batch-payloads", "search-terminal-page",
+                                 "run-session-associations", "nested-usage", "resource", "export", "verify", "git-clone-resume", "restore"]}))
 finally:
     if process is not None and process.poll() is None:
         process.terminate()

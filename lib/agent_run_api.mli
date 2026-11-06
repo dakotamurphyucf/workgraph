@@ -28,6 +28,10 @@ module Attempt_result : sig
   val to_json : t -> Jsonaf.t
 end
 
+(** Run get/list accept an optional exact history [head], including explicit
+    null for the empty capture. Run-list continuation requires the captured head
+    and coordination [expected_revision]. Pure [Query.decode] discards the head;
+    service reads use [Run_sessions.query] with the matching immutable capture. *)
 val request_codec : method_:string -> Jsonaf.t Api_codec.t option
 
 (** [reservation.acquire] returns [coordination_revision] and [holds], sorted
@@ -39,7 +43,9 @@ val request_codec : method_:string -> Jsonaf.t Api_codec.t option
     Their holder tokens are input fences, never new grants; waiter lifecycle cannot
     change ownership. Run mutation responses use [Run_receipt.codec]. Pool and ticket-policy
     mutation responses reuse their complete validated definition codecs. Entity
-    revisions remain distinct from coordination/workspace capture revisions. *)
+    revisions remain distinct from coordination/workspace capture revisions.
+    Run get/list responses use a separate derived read view with required
+    [session_associations]; mutation receipts retain only explicit stored links. *)
 val response_codec : method_:string -> Jsonaf.t Api_codec.t option
 
 val descriptor : method_:string -> Api_method.Packed.t option

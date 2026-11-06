@@ -1,28 +1,31 @@
 # AlmaLinux 10 on x86_64, including WSL
 
-Version 0.6.2 uses application API 0.6 and affected stored roots 5, unchanged
-from 0.6.0 and 0.6.1. An upgrade from either retains existing roots, contexts
-and journals;
-stop the daemon gracefully, install the matching client/daemon, replace the complete
-[agent skill](agent-skill.md), and restart. No data reset is required. Read the
-[0.6.2 upgrade notes](releases/v0.6.2.md#upgrade-from-060-or-061) before replacing an executable.
-For 0.5 or earlier, follow the separate
-[preservation-first fresh-root procedure](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
-Release qualification records identify exact source, artifacts and observed platform
-checks; installation instructions do not substitute for that evidence.
+Version 0.7.0 uses application API 0.7, workspace/export format 6 and history
+batch format 2. Upgrade by [migrating a supported 0.6.2-format workspace](migration.md)
+into a new root; this release does not rewrite an older installation in place.
+Resolve uncertain writes with the old executable first, preserve its stopped roots
+and exact journals, then use a fresh registry, socket, contexts and request directory.
+Install the matching client/daemon and replace the complete [agent skill](agent-skill.md).
+Earlier preview formats are not supported by the converter. See the
+[release notes](releases/v0.7.0.md) for changes and qualification limits.
+Release records identify exact source, artifacts and observed platform checks;
+installation instructions do not substitute for that evidence.
 
-Use the [release notes](releases/v0.6.2.md) for features, breaking changes, upgrade
-steps and qualification limits. Use a matching 0.6.2 executable and guide.
+Use the [release notes](releases/v0.7.0.md) for features, breaking changes, upgrade
+steps and qualification limits. Use a matching 0.7.0 executable and guide.
 
-## Install v0.6.2 preview
+## Install v0.7.0 preview
 
-This installation walkthrough targets **v0.6.2 preview**, application API **0.6**
-and affected stored roots **5**, with its matching bundled guide/API.
+This installation walkthrough targets **v0.7.0 preview**, application API **0.7**
+with workspace/export format **6**, history batch format **2** and matching bundled
+guide/API.
 Download its packages and qualification evidence from the
-[v0.6.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.6.2).
+[v0.7.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.7.0).
 Alternatively, use the [source build](../README.md#build-the-current-checkout-from-source)
-or the local packaging procedure below. All 0.5 and earlier installations require
-fresh data and journals; follow the [upgrade steps](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
+or the local packaging procedure below. For existing data, follow the
+[migration procedure](migration.md) before switching
+to the new executable. Only the supported 0.6.2 workspace representation converts;
+older formats require their matching binary.
 
 For copy-and-paste installation, preservation of an older setup, and a first
 ticket workflow, use the [WSL install and quick-start guide](wsl-quickstart.md).
@@ -49,20 +52,20 @@ Use the `almalinux-10-x86_64` download and verify its published SHA256 checksum.
 For the RPM:
 
 ```sh
-sudo dnf install ./workgraph-0.6.2-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.7.0-1.el10.x86_64.rpm
 workgraph --version
 ```
 
 For the tarball:
 
 ```sh
-tar -xzf workgraph-0.6.2-almalinux-10-x86_64.tar.gz
-export PATH="$PWD/workgraph-0.6.2-almalinux-10-x86_64/bin:$PATH"
+tar -xzf workgraph-0.7.0-almalinux-10-x86_64.tar.gz
+export PATH="$PWD/workgraph-0.7.0-almalinux-10-x86_64/bin:$PATH"
 workgraph --version
 ```
 
 Keep the extracted archive directory together so the agent guide and its references
-remain available. The version must print `0.6.2`. The executable links to the
+remain available. The version must print `0.7.0`. The executable links to the
 AlmaLinux system libraries recorded in the release's `linked-libraries.txt`; an OCaml runtime or
 opam installation is unnecessary. Git is needed only for Git handoffs, and
 Python 3.10+ is needed for the WGX dashboard/dependency tree and supplied Python
@@ -74,7 +77,7 @@ Third-party license texts and an exact dependency inventory are retained under
 
 After installation, `workgraph init --help` and `workgraph help request.ask`
 work offline. The bundled [agent CLI contract](../skills/workgraph/references/cli-contract.md) covers
-context setup, saved exact retries and the API 0.6 contract. Its
+context setup, saved exact retries and the API 0.7 contract. Its
 [communication reference](../skills/workgraph/references/communication-evidence.md) shows how to ask a
 question and atomically publish an answer.
 
@@ -87,7 +90,7 @@ when ownership is uncertain. See [administration](../skills/workgraph/references
 ## Run inside AlmaLinux WSL
 
 Keep the registry, managed workspaces and socket on the distribution's Linux
-filesystem, such as `$HOME/.local/state/workgraph-0.6`. Avoid `/mnt/c` for managed
+filesystem, such as `$HOME/.local/state/workgraph-0.7`. Avoid `/mnt/c` for managed
 stores: Workgraph relies on Linux locking, Unix sockets, atomic rename and
 directory synchronization. Microsoft also recommends using the Linux filesystem
 when working with Linux tools. See [Microsoft's WSL filesystem guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
@@ -95,20 +98,20 @@ when working with Linux tools. See [Microsoft's WSL filesystem guidance](https:/
 In an AlmaLinux WSL shell:
 
 ```sh
-mkdir -p "$HOME/.local/state/workgraph-0.6"
-chmod 700 "$HOME/.local/state/workgraph-0.6"
-workgraph serve "$HOME/.local/state/workgraph-0.6/registry" \
-  "$HOME/.local/state/workgraph-0.6/daemon.sock"
+mkdir -p "$HOME/.local/state/workgraph-0.7"
+chmod 700 "$HOME/.local/state/workgraph-0.7"
+workgraph serve "$HOME/.local/state/workgraph-0.7/registry" \
+  "$HOME/.local/state/workgraph-0.7/daemon.sock"
 ```
 
 Leave that foreground process running. In a second AlmaLinux WSL shell:
 
 ```sh
-workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" initialize '{}'
-workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" workspace.create \
-  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph-0.6/demo","actor_id":"operator","mutation_id":"create-demo"}'
-workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" workspace.list '{}'
-workgraph call "$HOME/.local/state/workgraph-0.6/daemon.sock" daemon.shutdown '{}'
+workgraph call "$HOME/.local/state/workgraph-0.7/daemon.sock" initialize '{}'
+workgraph call "$HOME/.local/state/workgraph-0.7/daemon.sock" workspace.create \
+  '{"workspace_id":"demo","name":"Demo","root":"'"$HOME"'/.local/state/workgraph-0.7/demo","actor_id":"operator","mutation_id":"create-demo"}'
+workgraph call "$HOME/.local/state/workgraph-0.7/daemon.sock" workspace.list '{}'
+workgraph call "$HOME/.local/state/workgraph-0.7/daemon.sock" daemon.shutdown '{}'
 ```
 
 For an end-to-end check on the actual WSL installation, install Git and Python 3,
@@ -117,11 +120,11 @@ under the Linux home filesystem:
 
 ```sh
 sudo dnf install git python3
-tar -xzf workgraph-0.6.2-source.tar.gz
-python3 workgraph-0.6.2/tools/installed_smoke.py "$(command -v workgraph)" \
-  "$HOME/.local/state/workgraph-0.6/wsl-qualification"
-python3 workgraph-0.6.2/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
-  --directory "$HOME/.local/state/workgraph-0.6/wsl-history-qualification"
+tar -xzf workgraph-0.7.0-source.tar.gz
+python3 workgraph-0.7.0/tools/installed_smoke.py "$(command -v workgraph)" \
+  "$HOME/.local/state/workgraph-0.7/wsl-qualification"
+python3 workgraph-0.7.0/skills/workgraph/scripts/history-recovery-demo.py "$(command -v workgraph)" \
+  --directory "$HOME/.local/state/workgraph-0.7/wsl-history-qualification"
 ```
 
 Both destination directories must be unused. The first walkthrough checks the

@@ -247,10 +247,12 @@ let%expect_test "run query budgets retain whole records and advance stable curso
     (String.length (Json.text (Json.field (List.hd_exn items) "objective")))
     (Api_response.encoded_size (Domain_query Runs) result <= 8192);
   let data = Api_response.project (Domain_query Runs) result |> Api_response.data in
+  (* This lower-level query has only planning state. The service supplies the
+     immutable history capture for public run read views. *)
   report
-    (Api_codec.encode
-       (Option.value_exn (Agent_run_api.response_codec ~method_:"run.list"))
-       data);
+    (Api_codec.decode
+       (Api_codec.list Agent_run_wire.run ~max_items:100)
+       (Json.field data "items"));
   report
     (Agent_run.query
        state

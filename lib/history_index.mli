@@ -13,7 +13,10 @@ val rebuild : t -> Session_store.Capture.t -> (unit, Problem.t) Result.t
 (** Fixed upper vector captured by caller. Continuation is session/sequence;
     concurrent appends outside capture do not change results. Kinds filter event
     kinds explicitly. Response discloses index watermark, omissions and source
-    events with no searchable text. An incomplete empty result is not absence.
+    events with no searchable text. [index_complete] describes index coverage,
+    independently of [has_more], which describes remaining page candidates.
+    [next] is null at EOF or while indexing is incomplete; interrupted rebuilds
+    require restarting after indexing. An incomplete empty result is not absence.
     Search query <=256 bytes; result budget 4KiB..1MiB, limit 1..100. *)
 val search
   :  t

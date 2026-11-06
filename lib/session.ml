@@ -37,9 +37,18 @@ type t =
   ; parent : Event_ref.t option
   ; scopes : Entity_ref.t list
   ; archived : bool
+  ; created_at_unix_ms : int64 option
+  ; last_event_at_unix_ms : int64 option
   }
 
-let create ~workspace ~id ~title ~actor ?run ?parent ~scopes () =
+let validate_timestamp timestamp =
+  Option.iter timestamp ~f:(fun value ->
+    if Int64.(value < 0L)
+    then
+      Json.fail Invalid_argument "session timestamp must be nonnegative Unix milliseconds")
+;;
+
+let create ~workspace ~id ~title ~actor ?run ?parent ?created_at_unix_ms ~scopes () =
   Json.decode (fun () ->
     ignore (Json.canonical (Json.string title) : string);
     if String.is_empty title || String.length title > 512
@@ -50,7 +59,52 @@ let create ~workspace ~id ~title ~actor ?run ?parent ~scopes () =
       List.length (List.dedup_and_sort scopes ~compare:Entity_ref.compare)
       <> List.length scopes
     then Json.fail Invalid_argument "duplicate session scope";
-    { workspace; id; title; actor; run; parent; scopes; archived = false })
+    validate_timestamp created_at_unix_ms;
+    { workspace
+    ; id
+    ; title
+    ; actor
+    ; run
+    ; parent
+    ; scopes
+    ; archived = false
+    ; created_at_unix_ms
+    ; last_event_at_unix_ms = None
+    })
+;;
+
+let created_at_unix_ms t = t.created_at_unix_ms
+let last_event_at_unix_ms t = t.last_event_at_unix_ms
+
+let with_last_event_at_unix_ms t timestamp =
+  Json.decode (fun () ->
+    validate_timestamp timestamp;
+    { t with last_event_at_unix_ms = timestamp })
+;;
+
+module Order = struct
+  type t =
+    | Session_id
+    | Created_at
+    | Last_event_at
+  [@@deriving equal]
+end
+
+let compare_for_order left right ~order =
+  let compare_time left right =
+    match left, right with
+    | Some left, Some right -> Int64.compare right left
+    | Some _, None -> -1
+    | None, Some _ -> 1
+    | None, None -> 0
+  in
+  let comparison =
+    match order with
+    | Order.Session_id -> 0
+    | Created_at -> compare_time left.created_at_unix_ms right.created_at_unix_ms
+    | Last_event_at -> compare_time left.last_event_at_unix_ms right.last_event_at_unix_ms
+  in
+  if comparison = 0 then Session_id.compare left.id right.id else comparison
 ;;
 
 let id t = t.id
@@ -73,6 +127,10 @@ let to_json t =
     ; "parent", Option.value_map t.parent ~default:`Null ~f:Event_ref.to_json
     ; "scopes", `Array (List.map t.scopes ~f:Entity_ref.jsonaf_of_t)
     ; ("archived", if t.archived then `True else `False)
+    ; ( "created_at_unix_ms"
+      , Option.value_map t.created_at_unix_ms ~default:`Null ~f:Json.int64 )
+    ; ( "last_event_at_unix_ms"
+      , Option.value_map t.last_event_at_unix_ms ~default:`Null ~f:Json.int64 )
     ]
 ;;
 
@@ -81,7 +139,17 @@ let of_json json =
     Json.fields
       json
       ~allowed:
-        [ "workspace_id"; "id"; "title"; "actor"; "run"; "parent"; "scopes"; "archived" ];
+        [ "workspace_id"
+        ; "id"
+        ; "title"
+        ; "actor"
+        ; "run"
+        ; "parent"
+        ; "scopes"
+        ; "archived"
+        ; "created_at_unix_ms"
+        ; "last_event_at_unix_ms"
+        ];
     let optional key f =
       match Json.field json key with
       | `Null -> None
@@ -96,9 +164,14 @@ let of_json json =
            ~actor:(Id.Actor.t_of_jsonaf (Json.field json "actor"))
            ?run:(optional "run" Id.Run.t_of_jsonaf)
            ?parent:(optional "parent" (fun json -> Disk.unwrap (Event_ref.of_json json)))
+           ?created_at_unix_ms:(optional "created_at_unix_ms" Json.integer64)
            ~scopes:
              (List.map (Json.list (Json.field json "scopes")) ~f:Entity_ref.t_of_jsonaf)
            ())
+    in
+    let t =
+      with_last_event_at_unix_ms t (optional "last_event_at_unix_ms" Json.integer64)
+      |> Disk.unwrap
     in
     match Json.field json "archived" with
     | `True -> archive t

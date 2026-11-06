@@ -1,15 +1,15 @@
 # Install and operate Workgraph
 
-Version 0.6.2 uses application API 0.6 and affected stored roots 5, unchanged
-from 0.6.0 and 0.6.1. An upgrade from either retains existing roots, contexts
-and journals;
-stop the daemon gracefully, install the matching client/daemon, replace the complete
-[agent skill](agent-skill.md), and restart. No data reset is required. Read the
-[0.6.2 upgrade notes](releases/v0.6.2.md#upgrade-from-060-or-061) before replacing an executable.
-For 0.5 or earlier, follow the separate
-[preservation-first fresh-root procedure](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
-Release qualification records identify exact source, artifacts and observed platform
-checks; installation instructions do not substitute for that evidence.
+Version 0.7.0 uses application API 0.7, workspace/export format 6 and history
+batch format 2. Upgrade by [migrating a supported 0.6.2-format workspace](migration.md)
+into a new root; this release does not rewrite an older installation in place.
+Resolve uncertain writes with the old executable first, preserve its stopped roots
+and exact journals, then use a fresh registry, socket, contexts and request directory.
+Install the matching client/daemon and replace the complete [agent skill](agent-skill.md).
+Earlier preview formats are not supported by the converter. See the
+[release notes](releases/v0.7.0.md) for changes and qualification limits.
+Release records identify exact source, artifacts and observed platform checks;
+installation instructions do not substitute for that evidence.
 
 Workgraph is a standalone early preview. It needs no hosted service, model
 key, or account. The daemon and CLI are the same executable. All paths supplied
@@ -50,35 +50,34 @@ collects these automatically. Check the tool's `--help` for supported labels and
 does not qualify a binary. Native bundles contain `bin/workgraph`; verify their
 checksums and use a binary matching the target OS, architecture and runtime.
 
-## Bootstrap v0.6.2 preview
+## Bootstrap v0.7.0 preview
 
 <a id="candidate-bootstrap"></a>
 
-This release identifies package 0.6.2/API 0.6 and affected stored roots 5.
-Install a [matching release package](releases/v0.6.2.md#install) or build from source
-as above. Use the [0.6.0/0.6.1 patch upgrade](releases/v0.6.2.md#upgrade-from-060-or-061) for an
-existing 0.6.0 or 0.6.1 installation; use the [fresh-root upgrade](releases/v0.6.0.md#upgrade-from-05-or-an-older-preview)
-for 0.5 or earlier. These bootstrap commands use fresh private sibling
-roots, socket, contexts and journals; WG must name the matching 0.6.2 executable.
-Data, request journals and exports from 0.5 or earlier are not accepted or
-automatically migrated. Preserve older installations separately.
+This release identifies package 0.7.0/API 0.7, workspace/export format 6 and history
+batch format 2. Install a [matching release package](releases/v0.7.0.md#install) or
+build from source as above. For existing data, first complete [offline migration](migration.md)
+from the supported 0.6.2 workspace representation. These bootstrap commands create
+fresh private sibling roots, registry, socket, contexts and journals. WG must name
+the matching 0.7.0 executable. Earlier preview formats and old saved API envelopes
+are not accepted by normal daemon reads. Preserve older installations separately.
 
 ```sh
 WG="$PWD/_build/default/bin/main.exe"
-WG06_STATE="$HOME/.local/state/wg06"
+WG07_STATE="$HOME/.local/state/wg07"
 umask 077
-mkdir -p "$WG06_STATE/agent/requests"
+mkdir -p "$WG07_STATE/agent/requests"
 "$WG" --version
-"$WG" init --context "$WG06_STATE/agent/context.json" \
-  --socket "$WG06_STATE/wg.sock" --workspace-id demo06 --actor-id operator \
-  --root "$WG06_STATE/workspace" --name 'Preview workspace' \
-  --request-directory "$WG06_STATE/agent/requests" \
-  --start-daemon true --registry "$WG06_STATE/registry" \
-  --daemon-log "$WG06_STATE/daemon.log"
-"$WG" --context "$WG06_STATE/agent/context.json" workspace overview
+"$WG" init --context "$WG07_STATE/agent/context.json" \
+  --socket "$WG07_STATE/wg.sock" --workspace-id demo07 --actor-id operator \
+  --root "$WG07_STATE/workspace" --name 'Preview workspace' \
+  --request-directory "$WG07_STATE/agent/requests" \
+  --start-daemon true --registry "$WG07_STATE/registry" \
+  --daemon-log "$WG07_STATE/daemon.log"
+"$WG" --context "$WG07_STATE/agent/context.json" workspace overview
 ```
 
-Use a fresh WG06_STATE when any of these identities already belongs to another
+Use a fresh WG07_STATE when any of these identities already belongs to another
 setup. On WSL keep it on Linux storage. Shorten the private socket parent if needed
 for the OS path limit. For a persistent foreground session, instead run serve in a
 terminal/harness-owned process and omit init's daemon-start fields. Some harnesses

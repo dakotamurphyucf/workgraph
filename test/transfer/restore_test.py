@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix="wg-title-", dir="/tmp") as temporary:
         with socket.socket(socket.AF_UNIX) as stream:
             stream.settimeout(10)
             stream.connect(str(address))
-            body = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.6", "id": "test", "method": method, "params": params}).encode()
+            body = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.7", "id": "test", "method": method, "params": params}).encode()
             stream.sendall(struct.pack(">I", len(body)) + body)
             return json.loads(receive(stream, struct.unpack(">I", receive(stream, 4))[0]))
 

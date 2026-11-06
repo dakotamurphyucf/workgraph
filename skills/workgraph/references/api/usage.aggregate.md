@@ -15,6 +15,7 @@ Tier: `advanced`. The result is `{data, meta}`; see [common envelopes and types]
 | `group_by` | optional | string; enum=[&quot;workspace&quot;,&quot;project&quot;,&quot;milestone&quot;,&quot;ticket&quot;,&quot;run&quot;,&quot;attempt&quot;] |
 | `limit` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;100&quot;; Validated cooperative coordination record. |
 | `max_bytes` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;1048576&quot;; Validated cooperative coordination record. |
+| `metrics_layout` | optional | string; enum=[&quot;rows&quot;,&quot;nested&quot;,&quot;totals_only&quot;] |
 | `milestone_id` | optional | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `project_id` | optional | string; max UTF-8 bytes=96; Validated coordination identity. |
 | `run_id` | optional | string; max UTF-8 bytes=96; Validated coordination identity. |
@@ -117,6 +118,14 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
             }
           ],
           "description": "Validated cooperative coordination record."
+        },
+        "metrics_layout": {
+          "enum": [
+            "rows",
+            "nested",
+            "totals_only"
+          ],
+          "type": "string"
         },
         "milestone_id": {
           "allOf": [
@@ -322,7 +331,15 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
         }
       ]
     },
-    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
+    "metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -487,13 +504,12 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
               "required": [
                 "workspace_id",
                 "head",
-                "sequence",
-                "sessions"
+                "sequence"
               ],
               "type": "object"
             }
           ],
-          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Omitted sessions means watermarks are not included, not that the workspace has no sessions. Session IDs are unique; through counts session events, not journal commits."
         },
         "history_sequence": {
           "allOf": [
@@ -527,7 +543,8 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
                             "opaque_captured_cursor",
                             "current_revision_cursor",
                             "notification_through",
-                            "immutable_history_head"
+                            "immutable_history_head",
+                            "run_revision_and_history_head"
                           ],
                           "type": "string"
                         },
@@ -541,7 +558,7 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
                           "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
                         },
                         "next_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "required_bytes": {
                           "anyOf": [
@@ -556,7 +573,7 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
                           ]
                         },
                         "retry_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "returned_bytes": {
                           "allOf": [
@@ -609,7 +626,7 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
                                     "type": "boolean"
                                   },
                                   "next_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "path": {
                                     "type": "string",
@@ -620,7 +637,7 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
                                     "x-maxUtf8Bytes": 256
                                   },
                                   "retry_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "stop": {
                                     "enum": [
@@ -708,15 +725,59 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
       "required": [],
       "type": "object"
     },
-    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
+    "metric_6db9690374e38112273c6a7726ab5aaea770b64366aa72d1b5a81e836c6858cb": {
       "allOf": [
         {
-          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
+          "$ref": "#/$defs/metric_a7af5a3953b2bd5c964e1d5d84b25372ae3153c47215ac1d777c8c0da92d7e27"
         }
       ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      "description": "Exact source-deduplicated name/unit sum; saturation is explicit."
     },
-    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+    "metric_a7af5a3953b2bd5c964e1d5d84b25372ae3153c47215ac1d777c8c0da92d7e27": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "x-maxUtf8Bytes": 64
+        },
+        "overflow": {
+          "type": "boolean"
+        },
+        "samples": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "unit": {
+          "type": "string",
+          "x-maxUtf8Bytes": 32
+        },
+        "value": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "9223372036854775807"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "samples",
+        "value",
+        "overflow"
+      ],
+      "type": "object"
+    },
+    "next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5": {
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -751,7 +812,7 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
         },
         "workgraph_api": {
-          "const": "0.6",
+          "const": "0.7",
           "type": "string"
         }
       },
@@ -763,16 +824,6 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
         "params"
       ],
       "type": "object"
-    },
-    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
-        },
-        {
-          "type": "null"
-        }
-      ]
     },
     "totals_54359a08d976a3aa3dc1ace4112c43669d2f1fe4d807beba5c5acd8b2a7a846b": {
       "allOf": [
@@ -826,179 +877,164 @@ For preconditions and a small example, run `workgraph help usage.aggregate`. Use
   "additionalProperties": false,
   "properties": {
     "data": {
-      "additionalProperties": false,
-      "properties": {
-        "basis": {
-          "const": "externally_reported",
-          "type": "string"
-        },
-        "cursor": {
-          "anyOf": [
-            {
-              "allOf": [
+      "allOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "basis": {
+              "const": "externally_reported",
+              "type": "string"
+            },
+            "cursor": {
+              "anyOf": [
                 {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 4096
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 4096
+                    }
+                  ],
+                  "description": "Nonblank UTF8 text."
+                },
+                {
+                  "type": "null"
                 }
+              ]
+            },
+            "group_by": {
+              "enum": [
+                "workspace",
+                "project",
+                "milestone",
+                "ticket",
+                "run",
+                "attempt"
               ],
-              "description": "Nonblank UTF8 text."
+              "type": "string"
             },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "group_by": {
-          "enum": [
-            "workspace",
-            "project",
-            "milestone",
-            "ticket",
-            "run",
-            "attempt"
-          ],
-          "type": "string"
-        },
-        "has_more": {
-          "type": "boolean"
-        },
-        "items": {
-          "items": {
-            "oneOf": [
-              {
-                "additionalProperties": false,
-                "properties": {
-                  "group": {
-                    "$ref": "#/$defs/group_d21001d68cf1f4051467d4143f531a8c46edccce4fd06e012ca05a44916918e4"
-                  },
-                  "kind": {
-                    "const": "usage",
-                    "type": "string"
-                  },
-                  "totals": {
-                    "$ref": "#/$defs/totals_54359a08d976a3aa3dc1ace4112c43669d2f1fe4d807beba5c5acd8b2a7a846b"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "group",
-                  "totals"
-                ],
-                "type": "object"
-              },
-              {
-                "additionalProperties": false,
-                "properties": {
-                  "group": {
-                    "$ref": "#/$defs/group_d21001d68cf1f4051467d4143f531a8c46edccce4fd06e012ca05a44916918e4"
-                  },
-                  "kind": {
-                    "const": "metric",
-                    "type": "string"
-                  },
-                  "metric": {
-                    "allOf": [
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "name": {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 64
-                          },
-                          "overflow": {
-                            "type": "boolean"
-                          },
-                          "samples": {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "4611686018427387903"
-                          },
-                          "unit": {
-                            "type": "string",
-                            "x-maxUtf8Bytes": 32
-                          },
-                          "value": {
-                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                            "type": "string",
-                            "x-maximumDecimal": "9223372036854775807"
-                          }
+            "has_more": {
+              "type": "boolean"
+            },
+            "items": {
+              "items": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "group": {
+                        "$ref": "#/$defs/group_d21001d68cf1f4051467d4143f531a8c46edccce4fd06e012ca05a44916918e4"
+                      },
+                      "kind": {
+                        "const": "usage",
+                        "type": "string"
+                      },
+                      "metrics": {
+                        "items": {
+                          "$ref": "#/$defs/metric_6db9690374e38112273c6a7726ab5aaea770b64366aa72d1b5a81e836c6858cb"
                         },
-                        "required": [
-                          "name",
-                          "unit",
-                          "samples",
-                          "value",
-                          "overflow"
-                        ],
-                        "type": "object"
+                        "maxItems": 4611686018427387903,
+                        "type": "array"
+                      },
+                      "totals": {
+                        "$ref": "#/$defs/totals_54359a08d976a3aa3dc1ace4112c43669d2f1fe4d807beba5c5acd8b2a7a846b"
                       }
+                    },
+                    "required": [
+                      "kind",
+                      "group",
+                      "totals"
                     ],
-                    "description": "Exact source-deduplicated name/unit sum; saturation is explicit."
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "group": {
+                        "$ref": "#/$defs/group_d21001d68cf1f4051467d4143f531a8c46edccce4fd06e012ca05a44916918e4"
+                      },
+                      "kind": {
+                        "const": "metric",
+                        "type": "string"
+                      },
+                      "metric": {
+                        "$ref": "#/$defs/metric_6db9690374e38112273c6a7726ab5aaea770b64366aa72d1b5a81e836c6858cb"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "group",
+                      "metric"
+                    ],
+                    "type": "object"
                   }
-                },
-                "required": [
-                  "kind",
-                  "group",
-                  "metric"
-                ],
-                "type": "object"
-              }
-            ]
-          },
-          "maxItems": 100,
-          "type": "array"
-        },
-        "membership_basis": {
-          "const": "current_capture",
-          "type": "string"
-        },
-        "needs_larger_budget": {
-          "type": "boolean"
-        },
-        "required_bytes": {
-          "anyOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
+                ]
+              },
+              "maxItems": 100,
+              "type": "array"
             },
-            {
-              "type": "null"
+            "membership_basis": {
+              "const": "current_capture",
+              "type": "string"
+            },
+            "metrics_layout": {
+              "enum": [
+                "rows",
+                "nested",
+                "totals_only"
+              ],
+              "type": "string"
+            },
+            "needs_larger_budget": {
+              "type": "boolean"
+            },
+            "required_bytes": {
+              "anyOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "totals": {
+              "$ref": "#/$defs/totals_54359a08d976a3aa3dc1ace4112c43669d2f1fe4d807beba5c5acd8b2a7a846b"
+            },
+            "unassigned_in_totals": {
+              "type": "boolean"
+            },
+            "unassigned_run_usage": {
+              "$ref": "#/$defs/totals_54359a08d976a3aa3dc1ace4112c43669d2f1fe4d807beba5c5acd8b2a7a846b"
+            },
+            "unassigned_scope": {
+              "const": "run_and_actor_filters",
+              "type": "string"
             }
-          ]
-        },
-        "totals": {
-          "$ref": "#/$defs/totals_54359a08d976a3aa3dc1ace4112c43669d2f1fe4d807beba5c5acd8b2a7a846b"
-        },
-        "unassigned_in_totals": {
-          "type": "boolean"
-        },
-        "unassigned_run_usage": {
-          "$ref": "#/$defs/totals_54359a08d976a3aa3dc1ace4112c43669d2f1fe4d807beba5c5acd8b2a7a846b"
-        },
-        "unassigned_scope": {
-          "const": "run_and_actor_filters",
-          "type": "string"
+          },
+          "required": [
+            "basis",
+            "membership_basis",
+            "group_by",
+            "metrics_layout",
+            "totals",
+            "unassigned_run_usage",
+            "unassigned_in_totals",
+            "unassigned_scope",
+            "items",
+            "cursor",
+            "has_more",
+            "needs_larger_budget",
+            "required_bytes"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "basis",
-        "membership_basis",
-        "group_by",
-        "totals",
-        "unassigned_run_usage",
-        "unassigned_in_totals",
-        "unassigned_scope",
-        "items",
-        "cursor",
-        "has_more",
-        "needs_larger_budget",
-        "required_bytes"
       ],
-      "type": "object"
+      "description": "Validated cooperative coordination record."
     },
     "meta": {
-      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+      "$ref": "#/$defs/metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e"
     }
   },
   "required": [

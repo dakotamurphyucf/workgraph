@@ -141,7 +141,7 @@ The following applies the additional practices approved by the user:
 * Define typed error variants when callers choose different recovery actions; never dispatch by matching error-message strings. Use `Or_error.t` where diagnostic context is the primary requirement.
 * Scope exception handlers to operations whose failures they can interpret; preserve unexpected failures, original diagnostic context/backtraces and cancellation. A callback's failure must not accidentally become a lookup miss. [RWO: error handling](<https://dev.realworldocaml.org/error-handling.html#catching-specific-exceptions>).
 * Supplement deterministic expect examples with Quickcheck properties, reference-model comparisons and relevant malformed-input/fuzz coverage. For the protocol and event log, retain independent JSON/socket/replay fixtures as well as round trips: matching encoder/decoder mistakes can cancel out. Preserve useful failing inputs as regression cases. [RWO: testing](<https://dev.realworldocaml.org/testing.html#property-testing-with-quickcheck>).
-* Keep public wire and persisted event representations separate from ergonomic domain types. Only the current unreleased schema is supported; update callers and fixtures together, without compatibility branches or migration readers. Deriving `bin_io` alone promises neither backward compatibility nor migration. Future compatibility requires an explicit release policy. [Jane Street: protocol versioning](<https://blog.janestreet.com/lightweight-versioning-for-lightweight-protocols/>).
+* Keep public wire and persisted event representations separate from ergonomic domain types. Runtime readers support only current schemas; update callers and fixtures together without startup compatibility branches. The explicit offline migration policy accepts the released 0.6.2 workspace representation, validates it with isolated source-format readers and writes a new current-format root while preserving the source. Keep those conversion readers separate from ordinary recovery/restore, and do not broaden their supported source representations without an explicit requirement. Deriving `bin_io` alone promises neither backward compatibility nor migration. [Jane Street: protocol versioning](<https://blog.janestreet.com/lightweight-versioning-for-lightweight-protocols/>).
 * Document ordering, complexity, copying/retention, invalidation and ownership where callers depend on them. Explain reasons and non-obvious constraints in comments; keep usage examples beside public contracts.
 * Measure realistic input/frame latency, allocation and retained memory as well as throughput. Record workloads and pinned toolchain/platform details. Use traces/profiles before adopting complex optimizations; test rare expensive paths as well as steady-state streaming. [Jane Street: performance education](<https://blog.janestreet.com/developer-education-at-jane-street-index/#ocaml-performance>).
 * Review stack usage on input-sized recursion. Use a stack-safe traversal or bounded-depth contract where needed; do not assume every recursive function needs rewriting or every library traversal is unsafe. Check the pinned implementation. [OCaml: recursion](<https://ocaml.org/docs/loops-recursion>).
@@ -149,6 +149,31 @@ The following applies the additional practices approved by the user:
 Community guidance also supports separating pure and imperative work, typed error dispatch, documentation of invariants, shallow control flow and explicit branch sequencing. Those compatible principles inform this section; its suggested data-last argument order, polymorphic equality examples and older tooling advice do not override our Core/toolchain choices. [Christian Lindig's OCaml guide](<https://github.com/lindig/ocaml-style>).
 
 ## Eio for OCaml-side I/O
+
+### OCaml 5 domains and shared mutable state
+
+Workgraph uses **OCaml 5 domains**, which execute in parallel. Eio fibers within
+one domain and work on separate domains have different concurrency risks. The
+serialized planning dispatcher does not make the whole process single-threaded.
+Every change must account for the domains that can access its data.
+
+* Give each mutable value an explicit owner and lifetime. Prefer immutable captures
+  for cross-domain reads and messages for transferring work or results. Never
+  share a mutable map, buffer, parser, cache, or native handle between domains
+  without a documented synchronization or exclusive-ownership protocol.
+* Review dependency internals when relying on concurrent use. A pure-looking
+  function can close over a shared mutable buffer or other singleton state.
+  Workgraph's pinned Jsonaf default parser is one such example: use the isolated
+  parser through `Json`, including for validation, rather than bypassing it.
+* Use synchronization appropriate to the invariant. Atomic access to one field
+  does not make a multi-field update or check-then-act sequence atomic. Preserve
+  lock ordering, cancellation behavior, and worker shutdown/lifetime guarantees;
+  do not hold a blocking lock across an Eio suspension.
+* For changes crossing domain boundaries, review both readers and writers,
+  including error paths, caches, callbacks, and foreign-library state. Add focused
+  concurrent regressions that check exact results and state integrity, not merely
+  absence of exceptions. A successful stress run supplements an ownership argument;
+  it does not prove the absence of races.
 
 * Eio is the standard runtime and API for all first-party OCaml-side filesystem, network, process, timer and other I/O work. This supersedes the earlier design wording that described Eio merely as an optional choice.
 * Use `Eio.Path` for filesystem operations; `Eio.Flow`/buffered I/O for streams; Eio networking, process and clock APIs for their respective work. Pass the required Eio capabilities explicitly instead of fetching ambient global filesystem/network access.
@@ -205,6 +230,7 @@ Before accepting new first-party OCaml code, review:
 * State representations, ID separation, units, validated construction/decoding and equality/comparator semantics.
 * `if` versus structural matching, coverage on new constructors, intentional record wildcards and narrow warning suppressions.
 * Eio capabilities/resource ownership, cancellation and explicit recoverable errors/FFI exception boundaries.
+* OCaml 5 domain ownership and synchronization for mutable state, including shared state hidden inside dependencies; exact-result concurrency regressions where applicable.
 * Jane Street formatting/PPX and appropriate deterministic expect coverage.
 
 Enforcement should target actual violations, not blanket token bans or checks that merely mirror implementation. Formatting is automated; semantic API/type/I/O choices also require review. This covers the project's initial engineering baseline, not every topic in OCaml or an assertion that a hidden internal style guide has been exhaustively reproduced.

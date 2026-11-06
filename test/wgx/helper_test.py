@@ -263,7 +263,7 @@ class Helper(unittest.TestCase):
         events=[{'client_id':f'e{n}','role':'assistant','kind':'message','phase':'completed','payload':{'kind':'inline','bytes_base64':base64.b64encode(('needle '+str(n)+'\x1b[2J café').encode()).decode()},'searchable_text':{'kind':'inline','bytes_base64':base64.b64encode(('needle '+str(n)+'\x1b[2J café').encode()).decode()}} for n in range(105)]
         self.write('session.append',session_id='history',events=events)
         deadline=time.monotonic()+5
-        while not self.call('history.search',text='needle')['data']['complete']:
+        while not self.call('history.search',text='needle')['data']['index_complete']:
             self.assertLess(time.monotonic(),deadline);time.sleep(.02)
         result=self.helper('history','needle')
         self.assertIn(b'#105',result.stdout)

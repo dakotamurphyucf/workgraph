@@ -20,7 +20,18 @@
   resume_record
   resume_task
   planning_render)
- (libraries core core_unix eio eio.unix jsonaf digestif cstruct base64 uutf)
+ (libraries
+  core
+  core_unix
+  eio
+  eio.unix
+  jsonaf
+  jsonaf.kernel
+  angstrom
+  digestif
+  cstruct
+  base64
+  uutf)
  (foreign_stubs
   (language c)
   (names platform_stubs))

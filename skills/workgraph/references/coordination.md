@@ -114,6 +114,7 @@ registered instance records its full plan.
 | `run.link_session` | [run.link_session](api/run.link_session.md) |
 | `run.get` | [run.get](api/run.get.md) |
 | `run.list` | [run.list](api/run.list.md) |
+| `run.sessions` | [run.sessions](api/run.sessions.md) |
 | `attempt.start` | [attempt.start](api/attempt.start.md) |
 | `attempt.checkpoint` | [attempt.checkpoint](api/attempt.checkpoint.md) |
 | `attempt.finish` | [attempt.finish](api/attempt.finish.md) |
@@ -172,11 +173,49 @@ Adds one distinct existing session to an owned nonterminal run. Attempt session 
 
 ### `run.get`
 
-Reads a registered run; a missing identity returns Not_found.
+Reads a registered run; a missing identity returns Not_found. Read `session_ids`
+contains the sorted union of explicit `run.link_session` links and sessions whose
+immutable creation metadata names this run. Archived sessions remain associated.
+No second planning write is needed after `session.create` with a `run_id`.
+
+The required `session_associations` section identifies this basis, the exact
+`history_head`, original `explicit_session_ids`, `total`, `omitted` and an exact
+`next_request`. The preview contains at most 100 IDs. A nonzero `omitted` means the
+preview is incomplete; follow `next_request` into `run.sessions` for the rest.
+The run's `revision` still belongs to the stored run record. Creating or archiving
+history does not increment it. Durable run mutation receipts retain their original
+explicit links and revision, including on exact retry.
+
+Omitted `head` selects the current immutable history capture; explicit null selects
+empty history, and a digest selects a retained ancestor. `result.meta.history_capture`
+records workspace, journal head and sequence. Association reads omit event watermarks
+because they read metadata rather than event ranges. `session_ids` and association
+counts are never silently clipped to fit a byte budget; increase `max_bytes` if one
+complete run read view cannot fit.
 
 ### `run.list`
 
-Reads runs in stable ID order from the run coordination projection.
+Reads runs in stable ID order from the run coordination projection, with the same
+derived session read views as `run.get`. Follow `next_offset` using both the returned
+`result.meta.query_revision` as `expected_revision` and the exact
+`result.meta.history_capture.head` as `head`. This keeps run membership and history
+attribution stable during continuation; explicit null remains an exact empty capture.
+Whole records may be removed by byte fitting; their next offset remains accurate.
+
+### `run.sessions`
+
+Reads the complete deduplicated association union in ascending session-ID order.
+Supply `target_run_id`; optional `head`, `expected_run_revision`, `after_session_id`,
+`limit` (1..100) and `max_bytes` (4096..1048576) control capture and paging. Follow
+`next_request` exactly. It binds workspace, target run, stored run revision, exact
+history head and last returned session ID. You may resize limit or budget while
+retaining those capture fields. An explicit-link or other run-record change conflicts
+with an old run revision; new history remains excluded by the pinned head. These are
+read-only projections and consume no planning transaction.
+
+Planning-only `ticket.resume` run excerpts retain explicit stored session links and
+their planning source revision. Use `run.get` or `run.sessions` for current derived
+associations, which also require a history capture.
 
 ### `attempt.start`
 

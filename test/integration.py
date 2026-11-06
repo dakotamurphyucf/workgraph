@@ -27,7 +27,7 @@ STORE_EXE = Path(sys.argv.pop(1)).resolve()
 def request(address, method, params, request_id="test"):
     if method in {"workspace.create", "workspace.register", "workspace.open", "workspace.close", "workspace.unregister", "workspace.export", "daemon.export_all", "workspace.restore", "daemon.restore_all", "restore.cancel", "export.cancel", "export.retry"}:
         params = {"actor_id": "operator", "mutation_id": uuid.uuid4().hex, **params}
-    payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.6", "id": request_id,
+    payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.7", "id": request_id,
                           "method": method, "params": params}).encode()
     with socket.socket(socket.AF_UNIX) as sock:
         sock.settimeout(10)
@@ -1142,7 +1142,7 @@ class Integration(unittest.TestCase):
         self.ticket()
         root = self.root / "verified-export"
         manifest = self.export({"workspace_id": "demo", "destination": str(root)})
-        self.assertEqual("5", manifest["version"])
+        self.assertEqual("6", manifest["version"])
         self.assertEqual(json.loads((root / "portable/HEAD.json").read_text())["digest"], manifest["head"])
         verified = self.data("export.verify", {"directory": str(root)})
         self.assertTrue(verified["verified"])
@@ -1180,7 +1180,7 @@ class Integration(unittest.TestCase):
                 changed.pop("options")
                 expected_kind = "Invalid_argument"
             elif change == "unsupported-version":
-                changed["version"] = "6"
+                changed["version"] = "7"
                 expected_kind = "Unsupported_version"
             else:
                 changed.pop("head")
@@ -1792,12 +1792,12 @@ class Integration(unittest.TestCase):
             reader = socket.socket(socket.AF_UNIX)
             reader.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
             reader.connect(str(self.daemon.address))
-            write_frame(reader, {"jsonrpc": "2.0", "workgraph_api": "0.6", "id": "slow", "method": "comment.list", "params": {"workspace_id": "demo", "max_bytes": "1048576"}})
+            write_frame(reader, {"jsonrpc": "2.0", "workgraph_api": "0.7", "id": "slow", "method": "comment.list", "params": {"workspace_id": "demo", "max_bytes": "1048576"}})
             readers.append(reader)
             with socket.socket(socket.AF_UNIX) as notification:
                 notification.settimeout(3)
                 notification.connect(str(self.daemon.address))
-                write_frame(notification, {"jsonrpc": "2.0", "workgraph_api": "0.6", "method": "ticket.create", "params": {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "notification", "ticket_id": "ignored", "title": "Ignored"}})
+                write_frame(notification, {"jsonrpc": "2.0", "workgraph_api": "0.7", "method": "ticket.create", "params": {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "notification", "ticket_id": "ignored", "title": "Ignored"}})
                 self.assertEqual(b"", notification.recv(1))
             committed = self.mutation("comment.add", {"target": {"kind": "ticket", "id": "a"}, "body": "While peers stall"}, mutation="unblocked")
             self.assertIn("result", committed)
@@ -1819,12 +1819,12 @@ class Integration(unittest.TestCase):
             (b"{", None),
             (b"[]", None),
             (b'{"id":"a","id":"b"}', None),
-            (b'{"jsonrpc":"3.0","workgraph_api":"0.6","id":"a","method":"initialize"}', "a"),
-            (b'{"jsonrpc":"3.0","workgraph_api":"0.6","id":7,"method":"initialize"}', 7),
-            (b'{"jsonrpc":"2.0","workgraph_api":"0.6","id":{},"method":"initialize"}', None),
-            (b'{"jsonrpc":"2.0","workgraph_api":"0.6","id":"a","method":"ticket.create","params":[]}', "a"),
-            (b'{"jsonrpc":"2.0","workgraph_api":"0.6","id":"a","method":"initialize","params":{"bad":"\xff"}}', None),
-            (b'{"jsonrpc":"2.0","workgraph_api":"0.6","id":1e309,"method":"initialize"}', None),
+            (b'{"jsonrpc":"3.0","workgraph_api":"0.7","id":"a","method":"initialize"}', "a"),
+            (b'{"jsonrpc":"3.0","workgraph_api":"0.7","id":7,"method":"initialize"}', 7),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.7","id":{},"method":"initialize"}', None),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.7","id":"a","method":"ticket.create","params":[]}', "a"),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.7","id":"a","method":"initialize","params":{"bad":"\xff"}}', None),
+            (b'{"jsonrpc":"2.0","workgraph_api":"0.7","id":1e309,"method":"initialize"}', None),
         ]
         for body, expected_id in cases:
             with socket.socket(socket.AF_UNIX) as client:
@@ -1839,7 +1839,7 @@ class Integration(unittest.TestCase):
     def test_disconnect_after_admission_and_retry(self):
         params = {"workspace_id": "demo", "actor_id": "agent", "mutation_id": "lost-reply",
                   "ticket_id": "a", "title": "Persist despite disconnect"}
-        payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.6", "id": "disconnected", "method": "ticket.create", "params": params}).encode()
+        payload = json.dumps({"jsonrpc": "2.0", "workgraph_api": "0.7", "id": "disconnected", "method": "ticket.create", "params": params}).encode()
         with socket.socket(socket.AF_UNIX) as client:
             client.connect(str(self.daemon.address))
             client.sendall(struct.pack(">I", len(payload)) + payload)

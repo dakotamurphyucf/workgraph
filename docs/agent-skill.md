@@ -24,12 +24,13 @@ workgraph/
 Copy the **whole `workgraph` folder**, not only `SKILL.md`. Internal links and
 helper imports stay within this folder, so the copy does not need a repository
 checkout beside it. Keep the skill matched to its CLI version. This skill targets
-Workgraph 0.6 / application API 0.6; changing documentation does not migrate data.
+Workgraph 0.7 / application API 0.7; changing documentation does not migrate data.
 
-**Packaging:** v0.6.2 native/source packages include this folder. The standalone
-`workgraph-0.6.2-skill.tar.gz` contains the standalone `workgraph/` skill without a
-binary. Use a matching 0.6 executable; a new skill does not make 0.5 data or requests
-compatible. Release qualification records identify the exact packaged files.
+**Packaging:** v0.7.0 native/source packages include this folder. The standalone
+`workgraph-0.7.0-skill.tar.gz` contains the standalone `workgraph/` skill without a
+binary. Use a matching 0.7 executable; a new skill does not convert stored data
+or saved request envelopes. Follow [migration](migration.md) for the supported
+0.6.2 workspace representation. Release qualification records identify the exact packaged files.
 
 ## Copy it into your harness
 
@@ -50,8 +51,8 @@ change only the destination. Refresh or restart skill discovery as your harness
 requires. A harness without skill support can read `SKILL.md` directly and follow
 its local reference links.
 
-Version 0.6.2 native tarballs keep the folder at `skills/workgraph/` inside the extracted
-bundle. Version 0.6.2 RPM packages place it at
+Version 0.7.0 native tarballs keep the folder at `skills/workgraph/` inside the extracted
+bundle. Version 0.7.0 RPM packages place it at
 `/usr/share/doc/workgraph/skills/workgraph/`. Copy that whole folder using the same
 procedure. These paths describe packages built after the skill conversion.
 

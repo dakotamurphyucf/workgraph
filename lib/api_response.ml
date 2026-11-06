@@ -70,6 +70,11 @@ let project_exn layout json =
   let optional name =
     Option.to_list (Option.map (optional_field name) ~f:(fun value -> name, value))
   in
+  let history_capture =
+    Option.to_list
+      (Option.map (optional_field "capture") ~f:(fun capture ->
+         "history_capture", capture))
+  in
   let budget =
     match layout with
     | Layout.Value
@@ -120,7 +125,8 @@ let project_exn layout json =
     match layout with
     | Layout.Value -> json, []
     | Planning_read ->
-      field "data", ("workspace_revision", field "workspace_revision") :: budget
+      ( field "data"
+      , ("workspace_revision", field "workspace_revision") :: (budget @ history_capture) )
     | Planning_write ->
       ( field "result"
       , [ "workspace_revision", field "workspace_revision"; "durable", field "durable" ] )
@@ -130,13 +136,15 @@ let project_exn layout json =
       let data =
         match Json.optional json "record" with
         | Some record -> record
-        | None -> without [ "revision"; "budget" ]
+        | None -> without [ "revision"; "budget"; "capture" ]
       in
       ( data
       , ("query_scope", Json.string (Query_scope.name scope))
         :: ("query_revision", field "revision")
-        :: budget )
-    | Domain_record scope -> json, [ "query_scope", Json.string (Query_scope.name scope) ]
+        :: (budget @ history_capture) )
+    | Domain_record scope ->
+      ( without [ "capture" ]
+      , ("query_scope", Json.string (Query_scope.name scope)) :: history_capture )
     | Workspace_view -> without [ "revision" ], [ "workspace_revision", field "revision" ]
     | Feed ->
       let position =

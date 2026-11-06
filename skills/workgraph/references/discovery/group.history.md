@@ -8,7 +8,7 @@ History stores explicitly imported conversation and tool events with exact paylo
 
 **Choose carefully:** History is separate from planning activity; Workgraph does not capture model conversations automatically.
 
-**Start with:** [history.read](../api/history.read.md), [history.get](../api/history.get.md), [history.payload](../api/history.payload.md).
+**Start with:** [history.read](../api/history.read.md), [history.payloads](../api/history.payloads.md), [history.payload](../api/history.payload.md).
 
 `workgraph help history` · [Focused reference](../history.md)
 
@@ -16,6 +16,7 @@ History stores explicitly imported conversation and tool events with exact paylo
 | --- | --- | --- |
 | [history.get](../api/history.get.md) | method | You know an event identity and need its recorded content or payload reference. |
 | [history.payload](../api/history.payload.md) | method | An event refers to a larger retained message or tool payload that must be expanded. |
+| [history.payloads](../api/history.payloads.md) | method | You have a page of event references and need their content without one call per event. Follow each partial payload with history.payload at the same head. |
 | [history.read](../api/history.read.md) | method | You need ordered conversation or tool history with resumable bounded retrieval. |
 | [history.search](../api/history.search.md) | method | You need to find a prior visible message or tool event by text. |
 

@@ -24,6 +24,7 @@ Inspect the protocol and service, manage workspaces and recover registry receipt
 | [call](../cli-contract.md) | helper | You need the wire-shaped request rather than named parameter expansion. |
 | [fields](../cli-contract.md) | helper | You need the exact arguments for a method before constructing a request. |
 | [init](../getting-started.md) | helper | You need connection context and workspace setup before beginning the first ticket. |
+| [migrate](../compatibility.md) | helper | You are upgrading from the supported 0.6.2-era format and need to retain planning, resources and history. Read migration instructions before acting. |
 | [receipts](../cli-contract.md) | helper | A script must extract actual output fields without confusing counter namespaces. |
 | [serve](../administration.md) | helper | You need to start the state service in a separate harness-owned process. |
 | [workflow.backup_restore](workflow.backup_restore.md) | workflow | A local workspace must be backed up, transferred or recovered through its supported portable format. |

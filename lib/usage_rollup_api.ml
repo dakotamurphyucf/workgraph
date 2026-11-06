@@ -35,6 +35,18 @@ module Group = struct
   ;;
 end
 
+module Metrics_layout = struct
+  type t =
+    | Rows
+    | Nested
+    | Totals_only
+  [@@deriving sexp, compare, equal]
+
+  let codec =
+    Api_codec.enum [ "rows", Rows; "nested", Nested; "totals_only", Totals_only ] ~equal
+  ;;
+end
+
 module Request = struct
   type t = Jsonaf.t
 
@@ -45,6 +57,13 @@ module Request = struct
       (Json.optional t "group_by")
       ~default:Group.Workspace
       ~f:(W.decode_exn Group.codec)
+  ;;
+
+  let metrics_layout t =
+    Option.value_map
+      (Json.optional t "metrics_layout")
+      ~default:Metrics_layout.Rows
+      ~f:(W.decode_exn Metrics_layout.codec)
   ;;
 
   let project t = optional t "project_id" Id.Project.t_of_jsonaf
@@ -67,6 +86,7 @@ module Request = struct
        ++ opt "attempt_id" (W.id Attempt.Id.of_string Attempt.Id.to_string)
        ++ opt "actor_id" W.actor
        ++ opt "group_by" Group.codec
+       ++ opt "metrics_layout" Metrics_layout.codec
        ++ opt "at_revision" W.counter
        ++ opt "cursor" (W.nonblank ~max_bytes:4096)
        ++ opt "limit" (bound 1 100)
@@ -154,7 +174,15 @@ let row =
   Api_codec.tagged
     ~discriminator:"kind"
     ~cases:
-      [ "usage", branch "usage" (req "totals" summary)
+      [ ( "usage"
+        , branch
+            "usage"
+            (req "totals" summary
+             ++ opt
+                  "metrics"
+                  (Api_codec.list
+                     Usage_record.Metric_total.codec
+                     ~max_items:Int.max_value)) )
       ; "metric", branch "metric" (req "metric" Usage_record.Metric_total.codec)
       ]
     ~select:(fun json -> Json.field json "kind" |> Json.text)
@@ -165,6 +193,7 @@ let response_codec =
     (req "basis" (Api_codec.literal "externally_reported")
      ++ req "membership_basis" (Api_codec.literal "current_capture")
      ++ req "group_by" Group.codec
+     ++ req "metrics_layout" Metrics_layout.codec
      ++ req "totals" summary
      ++ req "unassigned_run_usage" summary
      ++ req "unassigned_in_totals" Api_codec.boolean
@@ -174,6 +203,53 @@ let response_codec =
      ++ req "has_more" Api_codec.boolean
      ++ req "needs_larger_budget" Api_codec.boolean
      ++ req "required_bytes" (Api_codec.nullable W.counter))
+  |> fun codec ->
+  W.checked codec (fun json ->
+    let layout = W.decode_exn Metrics_layout.codec (Json.field json "metrics_layout") in
+    List.iter
+      (Json.field json "items" |> Json.list)
+      ~f:(fun item ->
+        match layout with
+        | Rows | Totals_only ->
+          if Option.is_some (Json.optional item "metrics")
+          then Json.fail Invalid_argument "metric arrays require nested layout";
+          if
+            Metrics_layout.equal layout Totals_only
+            && not (String.equal (Json.field item "kind" |> Json.text) "usage")
+          then Json.fail Invalid_argument "totals-only layout requires usage groups"
+        | Nested ->
+          if not (String.equal (Json.field item "kind" |> Json.text) "usage")
+          then Json.fail Invalid_argument "nested layout requires usage groups";
+          let metrics = Json.field item "metrics" |> Json.list in
+          let totals = Json.field item "totals" in
+          if List.length metrics <> (Json.field totals "metric_series" |> Json.integer)
+          then Json.fail Invalid_argument "nested metric array must contain every series";
+          let keys =
+            List.map metrics ~f:(fun metric ->
+              Json.field metric "name" |> Json.text, Json.field metric "unit" |> Json.text)
+          in
+          if
+            not
+              (List.is_sorted_strictly
+                 keys
+                 ~compare:(Tuple2.compare ~cmp1:String.compare ~cmp2:String.compare))
+          then
+            Json.fail Invalid_argument "nested metric series must be distinct and ordered";
+          let any_overflow =
+            List.exists metrics ~f:(fun metric ->
+              match Json.field metric "overflow" with
+              | `True -> true
+              | `False -> false
+              | _ -> assert false)
+          in
+          let metric_overflow =
+            match Json.field totals "metric_overflow" with
+            | `True -> true
+            | `False -> false
+            | _ -> assert false
+          in
+          if Bool.(any_overflow <> metric_overflow)
+          then Json.fail Invalid_argument "nested metric overflow must match summary"))
 ;;
 
 let method_ =

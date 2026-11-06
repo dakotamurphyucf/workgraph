@@ -25,14 +25,13 @@ model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE.t
 The harness owns agents, prompts, model calls, filesystem edits and external side
 effects; Workgraph records and coordinates their work.
 
-**Version 0.6.2 preview** uses application API **0.6**, affected stored roots
-**5** and saved upload plan **2**, unchanged from 0.6.0 and 0.6.1. Upgrading
-from either retains existing data, contexts and exact journals; restart the daemon
-and use the matching client and complete skill. When moving from 0.5 or earlier,
-use fresh registry/workspace roots, socket, contexts and request journals. Preserve the old
-binary with its old data; exports and saved requests are not a migration path.
-See the [release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.2.md). Qualification records
-bind exact source and package artifacts to their observed platform checks.
+**Version 0.7.0 preview** uses application API **0.7**, workspace/export format
+**6**, history batch format **2** and saved upload plan **2**. Registry and planning
+transaction/event format **5** remain independent. Upgrade supported 0.6.2-format
+workspaces with the offline [migration helper](references/migration.md): it writes a new
+root and preserves the source. Resolve uncertain old writes with the old executable
+first, then use a fresh registry, socket, contexts and request journals. See the
+[release notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.7.0.md) for changes and exact qualification limits.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
 Install the self-contained [Workgraph skill](SKILL.md), then give
@@ -41,7 +40,7 @@ and links to focused instructions, API schemas and runnable helpers. The bundled
 [orchestrator overview](README.md) retains this complete team
 guide, including worker prompts and independent review workflows.
 See [skill installation](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/agent-skill.md) for copying the full folder into a
-harness. Version 0.6.2 packaging includes the full skill folder; the standalone
+harness. Version 0.7.0 packaging includes the full skill folder; the standalone
 skill archive is described in the release notes. [Guide coverage](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
@@ -106,6 +105,26 @@ contract, maintenance checks and observed demo outcomes.
 | Observe work and consume notices | `attention.read`, `attention.wait`, `inbox.read`, `inbox.ack`, `changes.read`, `changes.wait`; [communication](references/communication-evidence.md) | A read does not acknowledge. Advance consumed delivery cursors, preserve current captures, and page nested readiness separately. |
 | Inspect usage and capacity | `usage.aggregate`, `actor.overview`, `workspace.metrics`; [metrics](references/metrics.md) | These are recorded/caller-supplied counters and explicit captures, not provider quota enforcement or process-liveness proof. |
 | Complete a project deliberately | `project.readiness`, `project.finish`; [planning](references/planning.md) | Readiness aggregates current blockers and completion gates. Finish uses an exact project revision and structured handoff; it does not finish tickets or resolve questions for you. |
+
+## History and usage in 0.7
+
+- Concurrent requests use independent JSON parsers across OCaml domains.
+- Current captured reads reuse verified state; searches and cold historical reads
+  use a separate bounded lane. Full lanes return a retryable conflict.
+- `history.payloads` expands up to 100 event payload prefixes under one exact head;
+  partial bodies have explicit byte continuations.
+- Search separates `index_complete` from `has_more`. Session lists support observed
+  creation/activity order and explicit run filters.
+- Run read views include sessions attributed at creation, plus explicit links;
+  `run.sessions` pages the complete captured union.
+- `usage.aggregate --metrics-layout nested` groups complete metric arrays;
+  `totals_only` returns smaller group summaries while retaining counts and overflow.
+
+See the [history guide](references/history.md),
+[coordination guide](references/coordination.md) and
+[metrics guide](references/metrics.md) for runnable contracts.
+The [history reliability design](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/history-reliability.md) explains capture,
+scheduling, parser ownership and integrity limits.
 
 ## Concepts and choosing a record
 
@@ -208,7 +227,7 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following commands install **v0.6.2 preview** with its matching bundled docs.
+The following commands install **v0.7.0 preview** with its matching bundled docs.
 Check the release qualification evidence for the exact artifacts and platform scope.
 For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
 before replacing its executable or RPM.
@@ -220,10 +239,10 @@ under your own machine policy.
 # AlmaLinux 10 x86_64, including AlmaLinux under WSL
 set -euo pipefail
 sudo dnf install -y jq python3 curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.6.2"
-cd "$HOME/Downloads/workgraph-0.6.2"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.2
-FILE=workgraph-0.6.2-1.el10.x86_64.rpm
+mkdir -p "$HOME/Downloads/workgraph-0.7.0"
+cd "$HOME/Downloads/workgraph-0.7.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.7.0
+FILE=workgraph-0.7.0-1.el10.x86_64.rpm
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
@@ -238,18 +257,18 @@ shell examples and helper; install it through your usual package manager.
 
 ```bash
 set -euo pipefail
-mkdir -p "$HOME/Downloads/workgraph-0.6.2"
-cd "$HOME/Downloads/workgraph-0.6.2"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.6.2
-FILE=workgraph-0.6.2-macos-arm64.tar.gz
+mkdir -p "$HOME/Downloads/workgraph-0.7.0"
+cd "$HOME/Downloads/workgraph-0.7.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.7.0
+FILE=workgraph-0.7.0-macos-arm64.tar.gz
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
 shasum -a 256 --check selected.sha256
-mkdir -p "$HOME/.local/opt/workgraph-0.6.2"
-tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.6.2"
+mkdir -p "$HOME/.local/opt/workgraph-0.7.0"
+tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.7.0"
 # Keep the versioned archive and docs together; select its executable explicitly.
-export PATH="$HOME/.local/opt/workgraph-0.6.2/workgraph-0.6.2-macos-arm64/bin:$PATH"
+export PATH="$HOME/.local/opt/workgraph-0.7.0/workgraph-0.7.0-macos-arm64/bin:$PATH"
 hash -r
 workgraph --version
 ```
@@ -270,21 +289,26 @@ unrelated opam switches or global defaults. See [engineering standards](https://
 
 ### Upgrade from an older preview
 
-From 0.6.0 or 0.6.1, preserve existing roots, contexts and exact journals; no reset or
-migration is required. Drain work, stop the daemon gracefully, install the verified
-0.6.2 client and daemon together, and replace the complete skill folder. Restart
-the daemon against its existing roots and check `--version` and `initialize`.
-See the [0.6.2 upgrade steps](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.2.md#upgrade-from-060-or-061), including
-the 0.6.1 JSON error-output change when upgrading from 0.6.0.
+Keep the matching old executable and archives before replacing the command on PATH
+or upgrading an RPM. Use that executable to resolve uncertain writes with their exact
+saved requests, stop launchers and shut down gracefully. Preserve stopped registry
+and workspace roots, contexts, request journals and exports separately.
 
-From 0.5 or earlier, use the following preservation and fresh-root procedure.
-Keep the matching older executable and downloaded archives before replacing the
-command on PATH or upgrading an RPM. With that executable, finish or retain exact
-uncertain requests, export and verify needed workspaces, stop its launchers and
-shut down gracefully. Preserve complete stopped registry/workspace roots, contexts,
-journals and exports separately. Verification is not a cross-version restore path.
-Use fresh 0.6 roots and a new socket/context/request directory; do not edit format
-markers or copy old managed files into them. See the [step-by-step upgrade](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.0.md#upgrade-from-05-or-an-older-preview).
+The offline converter accepts the released **0.6.2 workspace representation** and
+writes a fresh 0.7 root. It preserves planning identities and payload bytes, records
+unknown historical times as null, and reports changed history-head mappings:
+
+```sh
+workgraph migrate --from 0.6.2 \
+  --source /absolute/old-workspace --destination /absolute/new-workspace
+```
+
+Follow the complete [migration and verification procedure](references/migration.md), then
+register the destination in a fresh registry and create new contexts and request
+journals. The old source remains intact. Old API 0.6 saved requests cannot be replayed
+unchanged against API 0.7. Ordinary startup and restore accept current formats only;
+earlier preview representations are outside this converter's scope. Do not edit
+format markers or copy old registry files into the new installation.
 
 ### Bootstrap a private workspace
 
@@ -297,7 +321,7 @@ it is not a promise to overwrite arbitrary mismatched directories safely.
 umask 077
 WG=workgraph                       # or absolute matching checkout executable
 export WG
-WG_HOME="$HOME/.local/state/workgraph-0.6"
+WG_HOME="$HOME/.local/state/workgraph-0.7"
 mkdir -p "$WG_HOME"
 export WG_CONTEXT="$WG_HOME/agent.json"
 "$WG" init --context "$WG_CONTEXT" --socket "$WG_HOME/daemon.sock" \
@@ -308,7 +332,7 @@ wg() { "$WG" --context "$WG_CONTEXT" "$@"; }
 ```
 
 ```text
-~/.local/state/workgraph-0.6/
+~/.local/state/workgraph-0.7/
 ├── daemon.sock       local connection endpoint
 ├── daemon.log        startup and diagnostics; inspect first on failure
 ├── registry/         daemon's workspace registrations
@@ -398,7 +422,7 @@ tokens, revision guards and exact retry paths. The harness owns tools and proces
 
 ## Current coordination checkpoints
 
-The [0.6 contract guide](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/preview-0.6-contracts.md) links the focused rules for
+The [planning contract guide](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/preview-0.6-contracts.md) links the focused rules for
 read-only candidate eligibility, registered/observed participants, bounded activity
 expansion, upload recovery, templates and shared inputs. Configure allocation
 policy before dispatch and check its receipt: its `expected_revision` belongs to
@@ -414,7 +438,7 @@ Keep small fact summaries below about 3 KiB; the 4096 canonical-byte limit cover
 whole replacement JSON, including later verdict fields. Put complete reports and
 verification evidence in pinned resources. JSON null is a value, not deletion.
 Keep private per-agent scratch and caches outside the source checkout, for
-example `~/.local/state/workgraph-0.6/scratch/ACTOR/`, separate from managed data.
+example `~/.local/state/workgraph-0.7/scratch/ACTOR/`, separate from managed data.
 Use repository scratch only when that repository explicitly provides and ignores
 it; clean-worktree checks must not delete shared inputs or force repeated downloads.
 Retain shared accepted context as versioned Workgraph resources. A local scratch
@@ -1166,7 +1190,7 @@ need a socket or context read; `--full` expands the public schema.
 | Consumer-specific notifications | `inbox.read/wait`; selected `inbox.ack` is a write |
 | Resource metadata/content | `resource.brief/get/versions/read`; download for exact large bytes |
 | Decoded execution output | `evidence-show`; separate stdout/stderr and retention metadata |
-| Recorded conversation | `history.search/read/payload`; preserve captured head/index coverage |
+| Recorded conversation | `history.search/read/payloads/payload`; preserve captured head/index coverage |
 | Incremental trail | `activity.since/digest`, `changes.read/wait` |
 | Usage and caller-supplied model counts | `usage.aggregate`, `workspace.metrics`; not provider quota enforcement |
 | Method spelling and precise response paths | `help ticket.start`, `ticket --help`, `help METHOD --full` |
@@ -1221,8 +1245,9 @@ rollover, not silent pruning or an automatic migration.
 
 - The daemon is local and cooperative. Actor identity, capability declarations,
   reservations and reported run state do not authenticate users or prove liveness.
-- Current preview supports its current schema only. Keep old required data with
-  its matching executable; start incompatible versions with fresh roots/journals.
+- Current daemon reads support current schemas only. Use the explicit supported
+  [migration](references/migration.md) for 0.6.2-format workspace copies; preserve other
+  old data with its matching executable. New registries, contexts and journals are separate.
 - Planning and history have separate lifetime admission limits and named meters;
   inspect `workspace.metrics`. Current named maxima include 100000 planning commits,
   128MiB planning transaction bytes, 64MiB planning payload bytes, 1000000 history
@@ -1257,7 +1282,7 @@ rollover, not silent pruning or an automatic migration.
 - [macOS](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/macos-install.md), [AlmaLinux/WSL](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/wsl-quickstart.md), [gated review](references/gated-review-workflow.md)
 - [Coordination runner](scripts/coordination-runner.py), [coordination shell](scripts/coordination-workflow.sh), [notifications](scripts/notification-watcher.py), [history adapter](scripts/history-adapter.py), [Codex hooks](scripts/codex-hooks)
 - [Generated API reference](references/api/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
-- [v0.6.2 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.6.2.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
+- [v0.7.0 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.7.0.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
 
 ## Complete maintained scripts
 

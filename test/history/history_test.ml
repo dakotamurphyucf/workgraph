@@ -653,6 +653,7 @@ let%expect_test "recovery rejects searchable blobs that violate UTF-8 semantics"
              ; "session_id", Session_id.jsonaf_of_t session
              ; "actor", Id.Actor.jsonaf_of_t actor
              ; "run", `Null
+             ; "committed_at_unix_ms", `Null
              ; "events", `Array [ Session_event.to_json event ]
              ])
         ~response:

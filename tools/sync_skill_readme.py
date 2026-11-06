@@ -40,6 +40,8 @@ def relocate(target, root):
     suffix = separator + fragment
     if path.startswith(SKILL_PREFIX):
         return path[len(SKILL_PREFIX):] + suffix
+    if path == 'docs/migration.md':
+        return 'references/migration.md' + suffix
     if path == 'LICENSE':
         return 'LICENSE.txt' + suffix
     if path == 'README.md':

@@ -139,7 +139,15 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
 ```json
 {
   "$defs": {
-    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
+    "metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -304,13 +312,12 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
               "required": [
                 "workspace_id",
                 "head",
-                "sequence",
-                "sessions"
+                "sequence"
               ],
               "type": "object"
             }
           ],
-          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Omitted sessions means watermarks are not included, not that the workspace has no sessions. Session IDs are unique; through counts session events, not journal commits."
         },
         "history_sequence": {
           "allOf": [
@@ -344,7 +351,8 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
                             "opaque_captured_cursor",
                             "current_revision_cursor",
                             "notification_through",
-                            "immutable_history_head"
+                            "immutable_history_head",
+                            "run_revision_and_history_head"
                           ],
                           "type": "string"
                         },
@@ -358,7 +366,7 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
                           "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
                         },
                         "next_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "required_bytes": {
                           "anyOf": [
@@ -373,7 +381,7 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
                           ]
                         },
                         "retry_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "returned_bytes": {
                           "allOf": [
@@ -426,7 +434,7 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
                                     "type": "boolean"
                                   },
                                   "next_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "path": {
                                     "type": "string",
@@ -437,7 +445,7 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
                                     "x-maxUtf8Bytes": 256
                                   },
                                   "retry_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "stop": {
                                     "enum": [
@@ -525,15 +533,17 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
       "required": [],
       "type": "object"
     },
-    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
-      "allOf": [
+    "next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178": {
+      "anyOf": [
         {
-          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
+          "$ref": "#/$defs/next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5"
+        },
+        {
+          "type": "null"
         }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      ]
     },
-    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+    "next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5": {
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -568,7 +578,7 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
         },
         "workgraph_api": {
-          "const": "0.6",
+          "const": "0.7",
           "type": "string"
         }
       },
@@ -580,16 +590,6 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
         "params"
       ],
       "type": "object"
-    },
-    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
-        },
-        {
-          "type": "null"
-        }
-      ]
     }
   },
   "additionalProperties": false,
@@ -669,7 +669,7 @@ For preconditions and a small example, run `workgraph help ticket.start`. Use `-
       "type": "object"
     },
     "meta": {
-      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+      "$ref": "#/$defs/metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e"
     }
   },
   "required": [

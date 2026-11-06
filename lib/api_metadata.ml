@@ -219,7 +219,7 @@ module History_capture = struct
     { workspace : Id.Workspace.t
     ; head : string option
     ; sequence : Api_position.History_sequence.t
-    ; sessions : Session_bound.t list
+    ; sessions : Session_bound.t list option
     }
 
   let codec =
@@ -237,7 +237,7 @@ module History_capture = struct
          (Fields.required "head" (nullable digest)))
       (Fields.both
          (Fields.required "sequence" Api_position.History_sequence.codec)
-         (Fields.required "sessions" (list Session_bound.codec ~max_items:1_000_000)))
+         (Fields.optional "sessions" (list Session_bound.codec ~max_items:1_000_000)))
     |> Fields.map
          ~decode:(fun ((workspace, head), (sequence, sessions)) ->
            { workspace; head; sequence; sessions })
@@ -249,19 +249,23 @@ module History_capture = struct
            let empty = Api_position.History_sequence.to_int t.sequence = 0 in
            if not (Bool.equal empty (Option.is_none t.head))
            then invalid "history capture head and sequence disagree"
-           else if empty && not (List.is_empty t.sessions)
+           else if
+             empty
+             && Option.exists t.sessions ~f:(fun sessions -> not (List.is_empty sessions))
            then invalid "empty history capture cannot contain sessions"
            else if
              List.contains_dup
-               (List.map t.sessions ~f:(fun session -> session.Session_bound.session))
+               (List.map (Option.value t.sessions ~default:[]) ~f:(fun session ->
+                  session.Session_bound.session))
                ~compare:Session_id.compare
            then invalid "history capture contains duplicate sessions"
            else Ok t)
          ~encode:Fn.id
          ~description:
            "Immutable history journal capture. Zero sequence iff head is null; an empty \
-            capture has no sessions. Session IDs are unique; through counts session \
-            events, not journal commits."
+            capture has no sessions. Omitted sessions means watermarks are not included, \
+            not that the workspace has no sessions. Session IDs are unique; through \
+            counts session events, not journal commits."
   ;;
 end
 

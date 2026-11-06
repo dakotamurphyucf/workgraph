@@ -8,10 +8,11 @@ messages used by direct clients; ordinary CLI users can skip the transport secti
 Return to [the capability guide](../SKILL.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for v0.6.2 preview/API 0.6. Preserve 0.5 and earlier data with its
-matching executable; use fresh registry/workspace folders, socket, contexts and
-request journals for 0.6. Old exports cannot be restored into this current format.
-See [compatibility and fresh-data setup](compatibility.md).
+contracts for v0.7.0 preview/API 0.7. Normal daemon reads accept current formats;
+[offline migration](migration.md) converts only the supported 0.6.2 workspace
+representation into a new root. Resolve uncertain requests with the old executable
+first; use a fresh registry, socket, context and request journals after conversion.
+See [format compatibility](compatibility.md).
 
 ## Connection and CLI
 
@@ -271,7 +272,7 @@ request id of at most 256 UTF-8 bytes; notifications without an id are not suppo
 Example request:
 
 ```json
-{"jsonrpc":"2.0","workgraph_api":"0.6","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
+{"jsonrpc":"2.0","workgraph_api":"0.7","id":"read-1","method":"ticket.context","params":{"workspace_id":"demo","ticket_id":"task"}}
 ```
 
 The application marker is required on every request, including initialize and saved exact
@@ -542,7 +543,8 @@ current view; diagnostic omission never means the omitted blockers are satisfied
  backup into a fresh root. Never rewrite HEAD/transactions/blobs to guess a repair.
 
 - `Unsupported_version`: incompatible wire/storage/export representation. Use a matching build;
- this preview has no automatic prototype migration. Preserve the source data unchanged.
+ normal startup does not convert old data. Preserve the source and follow
+ [migration](migration.md) only when it matches the supported source representation.
 
 A disconnect does not cancel admitted work. A durable receipt is the authority for that
 write, not a guess based on current memory. Hashes detect corruption but do not authenticate

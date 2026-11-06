@@ -8,6 +8,7 @@ Tier: `core`. The result is `{data, meta}`; see [common envelopes and types](com
 
 | Input | Presence | Type and constraints |
 | --- | --- | --- |
+| `head` | optional | string; max UTF-8 bytes=64; Lowercase SHA-256 journal head digest. &#124; null |
 | `max_bytes` | optional | string; pattern=&quot;^(0&#124;[1-9][0-9]*)(?![\\s\\S])&quot;; maximum decimal=&quot;1048576&quot;; max_bytes must be 4096..1048576 |
 | `target_run_id` | required | string; max UTF-8 bytes=96; Resolved opaque identity. |
 | `workspace_id` | required | string; max UTF-8 bytes=96; Workspace identity. |
@@ -46,6 +47,22 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
     },
     {
       "properties": {
+        "head": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 64
+                }
+              ],
+              "description": "Lowercase SHA-256 journal head digest."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "max_bytes": {
           "allOf": [
             {
@@ -81,7 +98,15 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
 ```json
 {
   "$defs": {
-    "metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b": {
+    "metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017"
+        }
+      ],
+      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+    },
+    "metadata_b92e88d8363bb6547e9bd2448289fced6edc55694786ec51670b6107a522e017": {
       "additionalProperties": false,
       "properties": {
         "budget": {
@@ -246,13 +271,12 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
               "required": [
                 "workspace_id",
                 "head",
-                "sequence",
-                "sessions"
+                "sequence"
               ],
               "type": "object"
             }
           ],
-          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Session IDs are unique; through counts session events, not journal commits."
+          "description": "Immutable history journal capture. Zero sequence iff head is null; an empty capture has no sessions. Omitted sessions means watermarks are not included, not that the workspace has no sessions. Session IDs are unique; through counts session events, not journal commits."
         },
         "history_sequence": {
           "allOf": [
@@ -286,7 +310,8 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
                             "opaque_captured_cursor",
                             "current_revision_cursor",
                             "notification_through",
-                            "immutable_history_head"
+                            "immutable_history_head",
+                            "run_revision_and_history_head"
                           ],
                           "type": "string"
                         },
@@ -300,7 +325,7 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
                           "description": "Fixed cap on this continuation metadata object only. Independent of the request max_bytes and the daemon page budget in meta.budget.max_bytes."
                         },
                         "next_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "required_bytes": {
                           "anyOf": [
@@ -315,7 +340,7 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
                           ]
                         },
                         "retry_request": {
-                          "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                          "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                         },
                         "returned_bytes": {
                           "allOf": [
@@ -368,7 +393,7 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
                                     "type": "boolean"
                                   },
                                   "next_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "path": {
                                     "type": "string",
@@ -379,7 +404,7 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
                                     "x-maxUtf8Bytes": 256
                                   },
                                   "retry_request": {
-                                    "$ref": "#/$defs/next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665"
+                                    "$ref": "#/$defs/next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178"
                                   },
                                   "stop": {
                                     "enum": [
@@ -467,15 +492,17 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
       "required": [],
       "type": "object"
     },
-    "metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8": {
-      "allOf": [
+    "next_request_001f8c3a3c0ec01762b6a78983f1a5d31310b42f6421426d6a09744548c2e178": {
+      "anyOf": [
         {
-          "$ref": "#/$defs/metadata_7ebbb335e2d1dc58db4e89004eb05cf158c71152ec5ba3b1d0998d7b1d41be2b"
+          "$ref": "#/$defs/next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5"
+        },
+        {
+          "type": "null"
         }
-      ],
-      "description": "Only applicable metadata is present; null does not mean absent. Query revisions require query_scope. Planning and history feed positions are distinct."
+      ]
     },
-    "next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5": {
+    "next_request_cc925313c77557ce2c69193732fdc91b1a4f226bc807a09531ab11a29cb43ae5": {
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -510,7 +537,7 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
           "description": "Validated bounded client-added continuation metadata; daemon payload budget remains separate."
         },
         "workgraph_api": {
-          "const": "0.6",
+          "const": "0.7",
           "type": "string"
         }
       },
@@ -522,16 +549,6 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
         "params"
       ],
       "type": "object"
-    },
-    "next_request_af8218f2b326a839e69e8ced264bc7716d576526c7c3d3ff694375ff397c0665": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/next_request_0a5ff7f452636878ea89ec9da8bb1b185fc4d0dafea4f26fa52b0a31a65045d5"
-        },
-        {
-          "type": "null"
-        }
-      ]
     }
   },
   "additionalProperties": false,
@@ -541,58 +558,10 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
         {
           "allOf": [
             {
-              "additionalProperties": false,
-              "properties": {
-                "actor_id": {
-                  "allOf": [
-                    {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Nonblank name of at most 96 UTF-8 bytes."
-                    }
-                  ],
-                  "description": "Resolved opaque identity."
-                },
-                "capabilities": {
-                  "items": {
-                    "allOf": [
-                      {
-                        "type": "string",
-                        "x-maxUtf8Bytes": 96
-                      }
-                    ],
-                    "description": "Nonblank name of at most 96 UTF-8 bytes."
-                  },
-                  "maxItems": 100,
-                  "type": "array"
-                },
-                "evidence": {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 65536
-                },
-                "last_observed_unix_ms": {
-                  "anyOf": [
-                    {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "9223372036854775807"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "objective": {
-                  "type": "string",
-                  "x-maxUtf8Bytes": 65536
-                },
-                "parent_run_id": {
-                  "anyOf": [
-                    {
+              "allOf": [
+                {
+                  "properties": {
+                    "actor_id": {
                       "allOf": [
                         {
                           "allOf": [
@@ -606,58 +575,8 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
                       ],
                       "description": "Resolved opaque identity."
                     },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "parent_stop_policy": {
-                  "enum": [
-                    "continue",
-                    "request_cancel",
-                    "request_wait"
-                  ],
-                  "type": "string"
-                },
-                "process_ref": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 65536
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "revision": {
-                  "allOf": [
-                    {
-                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-                      "type": "string",
-                      "x-maximumDecimal": "4611686018427387903"
-                    }
-                  ],
-                  "description": "Positive counter."
-                },
-                "run_id": {
-                  "allOf": [
-                    {
-                      "allOf": [
-                        {
-                          "type": "string",
-                          "x-maxUtf8Bytes": 96
-                        }
-                      ],
-                      "description": "Nonblank name of at most 96 UTF-8 bytes."
-                    }
-                  ],
-                  "description": "Resolved opaque identity."
-                },
-                "session_ids": {
-                  "items": {
-                    "allOf": [
-                      {
+                    "capabilities": {
+                      "items": {
                         "allOf": [
                           {
                             "type": "string",
@@ -665,60 +584,352 @@ For preconditions and a small example, run `workgraph help run.get`. Use `--full
                           }
                         ],
                         "description": "Nonblank name of at most 96 UTF-8 bytes."
-                      }
-                    ],
-                    "description": "Resolved opaque identity."
-                  },
-                  "maxItems": 100,
-                  "type": "array"
-                },
-                "status": {
-                  "enum": [
-                    "running",
-                    "waiting",
-                    "completed",
-                    "failed",
-                    "cancelled"
-                  ],
-                  "type": "string"
-                },
-                "worktree_ref": {
-                  "anyOf": [
-                    {
+                      },
+                      "maxItems": 100,
+                      "type": "array"
+                    },
+                    "evidence": {
                       "type": "string",
                       "x-maxUtf8Bytes": 65536
                     },
-                    {
-                      "type": "null"
+                    "last_observed_unix_ms": {
+                      "anyOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "9223372036854775807"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "objective": {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 65536
+                    },
+                    "parent_run_id": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Nonblank name of at most 96 UTF-8 bytes."
+                            }
+                          ],
+                          "description": "Resolved opaque identity."
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "parent_stop_policy": {
+                      "enum": [
+                        "continue",
+                        "request_cancel",
+                        "request_wait"
+                      ],
+                      "type": "string"
+                    },
+                    "process_ref": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 65536
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "revision": {
+                      "allOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4611686018427387903"
+                        }
+                      ],
+                      "description": "Positive counter."
+                    },
+                    "run_id": {
+                      "allOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Nonblank name of at most 96 UTF-8 bytes."
+                        }
+                      ],
+                      "description": "Resolved opaque identity."
+                    },
+                    "session_ids": {
+                      "items": {
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Nonblank name of at most 96 UTF-8 bytes."
+                          }
+                        ],
+                        "description": "Resolved opaque identity."
+                      },
+                      "maxItems": 100,
+                      "type": "array"
+                    },
+                    "status": {
+                      "enum": [
+                        "running",
+                        "waiting",
+                        "completed",
+                        "failed",
+                        "cancelled"
+                      ],
+                      "type": "string"
+                    },
+                    "worktree_ref": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 65536
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
-                  ]
+                  },
+                  "required": [
+                    "run_id",
+                    "revision",
+                    "parent_run_id",
+                    "parent_stop_policy",
+                    "objective",
+                    "actor_id",
+                    "capabilities",
+                    "session_ids",
+                    "process_ref",
+                    "worktree_ref",
+                    "status",
+                    "last_observed_unix_ms",
+                    "evidence"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "description": "Validated current run record with unique links and terminal evidence."
+            },
+            {
+              "properties": {
+                "session_associations": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "basis": {
+                      "const": "explicit_and_history_run",
+                      "type": "string"
+                    },
+                    "explicit_session_ids": {
+                      "items": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Validated coordination identity."
+                      },
+                      "maxItems": 100,
+                      "type": "array"
+                    },
+                    "history_head": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 64
+                            }
+                          ],
+                          "description": "Lowercase SHA-256 journal head digest."
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "next_request": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "method": {
+                                  "const": "run.sessions",
+                                  "type": "string"
+                                },
+                                "params": {
+                                  "allOf": [
+                                    {
+                                      "allOf": [
+                                        {
+                                          "properties": {
+                                            "after_session_id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 96
+                                                }
+                                              ],
+                                              "description": "Validated coordination identity."
+                                            },
+                                            "expected_run_revision": {
+                                              "allOf": [
+                                                {
+                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                  "type": "string",
+                                                  "x-maximumDecimal": "4611686018427387903"
+                                                }
+                                              ],
+                                              "description": "Positive decimal counter."
+                                            },
+                                            "head": {
+                                              "anyOf": [
+                                                {
+                                                  "allOf": [
+                                                    {
+                                                      "type": "string",
+                                                      "x-maxUtf8Bytes": 64
+                                                    }
+                                                  ],
+                                                  "description": "Lowercase SHA-256 journal head digest."
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "limit": {
+                                              "allOf": [
+                                                {
+                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                  "type": "string",
+                                                  "x-maximumDecimal": "100"
+                                                }
+                                              ],
+                                              "description": "limit must be 1..100"
+                                            },
+                                            "max_bytes": {
+                                              "allOf": [
+                                                {
+                                                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                                                  "type": "string",
+                                                  "x-maximumDecimal": "1048576"
+                                                }
+                                              ],
+                                              "description": "max_bytes must be 4096..1048576"
+                                            },
+                                            "target_run_id": {
+                                              "allOf": [
+                                                {
+                                                  "type": "string",
+                                                  "x-maxUtf8Bytes": 96
+                                                }
+                                              ],
+                                              "description": "Validated coordination identity."
+                                            }
+                                          },
+                                          "required": [
+                                            "target_run_id"
+                                          ],
+                                          "type": "object"
+                                        }
+                                      ],
+                                      "description": "Sorted run-session association page. Continuation pins the exact history head and run revision."
+                                    },
+                                    {
+                                      "properties": {
+                                        "workspace_id": {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 96
+                                            }
+                                          ],
+                                          "description": "Validated coordination identity."
+                                        }
+                                      },
+                                      "required": [
+                                        "workspace_id"
+                                      ],
+                                      "type": "object"
+                                    }
+                                  ],
+                                  "unevaluatedProperties": false
+                                }
+                              },
+                              "required": [
+                                "method",
+                                "params"
+                              ],
+                              "type": "object"
+                            }
+                          ],
+                          "description": "Exact next request, preserving workspace, run revision, history head and stable session-ID position."
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "omitted": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "total": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    }
+                  },
+                  "required": [
+                    "basis",
+                    "history_head",
+                    "explicit_session_ids",
+                    "total",
+                    "omitted",
+                    "next_request"
+                  ],
+                  "type": "object"
                 }
               },
               "required": [
-                "run_id",
-                "revision",
-                "parent_run_id",
-                "parent_stop_policy",
-                "objective",
-                "actor_id",
-                "capabilities",
-                "session_ids",
-                "process_ref",
-                "worktree_ref",
-                "status",
-                "last_observed_unix_ms",
-                "evidence"
+                "session_associations"
               ],
               "type": "object"
             }
           ],
-          "description": "Validated current run record with unique links and terminal evidence."
+          "unevaluatedProperties": false
         }
       ],
-      "description": "Canonical data validated by the executable typed codec."
+      "description": "Derived run read view. Session IDs are the bounded sorted union of explicit links and immutable session run attribution; revision remains the stored run revision."
     },
     "meta": {
-      "$ref": "#/$defs/metadata_b740707f0f33274e1d8ed4013bc755989979d8ebc20777eee82e7531ac1cb1e8"
+      "$ref": "#/$defs/metadata_3e00f50d0d7bcb0bfe42e8e5c1ff7db7ded0f194d56127db1f798e2e8bb7598e"
     }
   },
   "required": [

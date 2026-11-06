@@ -158,7 +158,9 @@ uploads, then reference installed blobs.
       "id": "task"
     }
   ],
-  "archived": false
+  "archived": false,
+  "created_at_unix_ms": "0",
+  "last_event_at_unix_ms": null
 }
 ```
 
@@ -210,6 +212,16 @@ uploads, then reference installed blobs.
 }
 ```
 
+Session timestamps are nullable nonnegative Unix epoch milliseconds encoded as decimal
+strings. `created_at_unix_ms` records the server observation for session creation;
+`last_event_at_unix_ms` records the observation for the most recent append containing
+new events. Empty sessions have no last-event time. Exact retries and dedup-only appends
+preserve prior times, and archive preserves both. Migrated metadata can have unknown
+creation time (`null`) while a later append establishes a known last-event time. Clock
+regression is retained rather than rewritten, so these observations do not establish
+cross-session causal order. Original source/provider timestamps remain opaque in the
+preserved input; the server does not infer or parse them.
+
 ## Capture and retention rules
 
 A **capture** fixes which retained journal head and session event bounds a read sees.
@@ -222,8 +234,12 @@ enter that capture.
 The capture contains the complete session/head vector, which itself can exceed a small
 budget. History query max_bytes defaults to "65536", range "4096".."1048576"; results
 fit this byte budget or return Blocked, rather than using planning query text/array
-truncation. Query limit is "1".."100". History queue admission is bounded to eight
-active/queued queries; Conflict means retry after another query finishes.
+truncation. Query limit is "1".."100". History reads use separate lanes for current/cached
+metadata or payload reads and for search/cold historical reconstruction. Each lane
+admits at most sixteen outstanding queries, including running, queued and completed
+queries awaiting dispatcher cleanup. A full lane returns `Conflict`; retry with
+bounded backoff. Planning writes have separate admission. An admitted read pins its
+workspace until worker completion; idle cached captures do not prevent closing it.
 
 The current retention contract retains every acknowledged event; capacity exhaustion
 rejects new work with Blocked and deletes nothing. History journal is bounded to 1000000
@@ -437,7 +453,8 @@ query; it needs no actor or mutation identity.
 
 ### Arguments
 
-Optional head, max_bytes, offset="0", limit="50", include_archived=false (JSON Boolean).
+Optional head, max_bytes, offset="0", limit="50", include_archived=false (JSON Boolean),
+order="session_id"|"created_at"|"last_event_at", and run_id (exact resolved run ID).
 
 ### Result
 
@@ -453,8 +470,14 @@ Optional head, max_bytes, offset="0", limit="50", include_archived=false (JSON B
 
 ### Behavior
 
-Ordered by session ID; excludes archived sessions by default. For the next page use
-next_offset with the same meta.history_capture.head and filters. Offset may be positive
+Default order is ascending session ID; excludes archived sessions by default. Creation
+and last-event orders sort the selected timestamp descending, place unknown (`null`)
+times last, and break ties by ascending session ID. Last-event ordering uses only the
+last-event observation, without substituting creation time for an empty session.
+`run_id` matches the session's recorded originating run exactly; omission means all
+runs, including sessions with no run. This filter is an explicit query argument.
+For the next page use
+next_offset with the same meta.history_capture.head, order and filters. Offset may be positive
 without a head, but then each call takes a new capture, so use head for stable
 pagination. Byte fitting may return fewer than limit. Capture/item that cannot fit
 returns Blocked.
@@ -594,7 +617,7 @@ limit="50", max_bytes, head. Omit absent filters; null is not equivalent to omis
       "indexed_through": "1"
     }
   ],
-  "complete": true,
+  "index_complete": true,
   "unindexed_events": "0",
   "unsearchable_events": "0",
   "omitted_for_budget": "0"
@@ -608,16 +631,17 @@ substring matching (ASCII lowercase transformation, not Unicode case folding), o
 per event at its first matching byte offset. Snippets are UTF-8-safe prefixes of at most
 512 bytes. Ordering is session ID then sequence, not wall-clock order across sessions.
 after_event is exclusive in this ordering, must exist in the capture, and next is the
-last scanned reference, which may be a nonmatching event; use next, not the last hit.
+last scanned reference when has_more=true, which may be a nonmatching event; use next,
+not the last hit. next=null when has_more=false.
 Continue only when has_more=true with unchanged head/text/session/kinds. coverage lists
 every captured session, even with a session filter; unsearchable/unindexed counts apply
-to the filtered set. complete=true means filtered events have been indexed, not that
+to the filtered set. index_complete=true means filtered events have been indexed, not that
 every opaque payload is searchable or that pagination is exhausted. No searchable_text
-contributes to unsearchable_events. If complete=false/restart_after_indexing=true,
+contributes to unsearchable_events. If index_complete=false/restart_after_indexing=true,
 next=null: restart from the beginning after indexing; an empty partial result proves no
 absence. The daemon rebuilds/updates its derived disk index before each search; there is
 no separate public history-index wait method. Source journal/blobs remain authoritative.
-Expand a hit using history.read and history.payload with meta.history_capture.head.
+Expand hits using history.read and history.payloads with meta.history_capture.head.
 
 ### Example
 
@@ -631,6 +655,51 @@ Expand a hit using history.read and history.payload with meta.history_capture.he
     "tool_result"
   ],
   "limit": "10",
+  "max_bytes": "65536"
+}
+```
+
+## `history.payloads`
+
+[Complete request and result schema](api/history.payloads.md).
+
+Supply `workspace_id` and required `event_refs`, an array of 1..100 exact event
+references, including references selected from `history.read` or `history.search`.
+Optional `length="32768"` (0..262144) bounds bytes requested per primary payload;
+`head` and `max_bytes` have the common history query meaning. Use the returned
+`meta.history_capture.head` to pin all subsequent expansions.
+
+The response contains `items` in exactly the supplied order, preserving duplicates.
+Each item is `{event_ref, payload}`; `payload` has the same exact byte fields as
+`history.payload` below. One immutable capture applies to the entire batch. The
+complete data and metadata response fits `max_bytes`, including Base64 expansion,
+all event references and the capture vector. All requested items are included.
+The server reserves every item's metadata first, then fills byte prefixes in request
+order. A large payload can consume the remaining budget: later items then include
+an empty prefix with `next_offset="0"` and `has_more=true`. This explicitly marks
+unfinished retrieval; it never represents an omitted payload as complete.
+
+For each item with `payload.has_more=true`, call `history.payload` with that item's
+`event_ref`, `offset=payload.next_offset`, a positive `length`, and the exact batch
+`meta.history_capture.head`. Continue until that item's `has_more=false`, then verify
+assembled bytes against `blob.digest` and `total_bytes`. A zero requested length is
+metadata inspection and need not advance. Batch retrieval expands primary opaque
+payloads; use `history.payload` directly for searchable text or attachments.
+
+If any event reference is absent from the selected capture, the entire batch returns
+`Not_found`. If all item metadata and capture cannot fit, the entire batch returns
+`Blocked`; increase `max_bytes` or request fewer references. No partial successful
+response silently drops an item.
+
+```json
+{
+  "workspace_id": "demo",
+  "head": "previously returned immutable history journal digest",
+  "event_refs": [
+    {"session_id": "conversation", "sequence": "1"},
+    {"session_id": "conversation", "sequence": "2"}
+  ],
+  "length": "32768",
   "max_bytes": "65536"
 }
 ```

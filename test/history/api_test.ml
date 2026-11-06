@@ -201,15 +201,16 @@ let%expect_test "complete family descriptors and payload cursors validate actual
   report (Api_codec.decode codec (result 1));
   [%expect
     {|
-    methods=9
+    methods=10
     session.create fields=4
     session.archive fields=1
     session.append fields=2
     session.get fields=3
-    session.list fields=5
+    session.list fields=7
     history.get fields=3
     history.read fields=6
     history.search fields=7
+    history.payloads fields=4
     history.payload fields=6
     ok
     inconsistent history payload cursor or byte length

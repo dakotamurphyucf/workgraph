@@ -36,6 +36,7 @@ module Family = struct
         ; observed_clock : bool
         }
     | Inbox
+    | Run_sessions
     | History of
         { position : string
         ; result_field : string
@@ -52,6 +53,7 @@ module Family = struct
       let output name = List.mem outputs name ~equal:String.equal in
       match Api_method.name definition with
       | "inbox.read" -> Some Inbox
+      | "run.sessions" -> Some Run_sessions
       | "changes.read" | "activity.digest" | "ticket.resume" | "activity.read" ->
         Some (Cursor { result_field = "cursor" })
       | "coordinator.overview" -> Some (Cursor { result_field = "next_cursor" })
@@ -100,6 +102,7 @@ module Family = struct
     | Current_cursor _ -> "current_revision_cursor"
     | Inbox -> "notification_through"
     | History _ -> "immutable_history_head"
+    | Run_sessions -> "run_revision_and_history_head"
   ;;
 end
 
@@ -251,7 +254,15 @@ let capture family response =
       ([ metadata, Json.field meta metadata ]
        @ Option.to_list
            (Option.map (Json.optional meta "query_scope") ~f:(fun scope ->
-              "query_scope", scope)))
+              "query_scope", scope))
+       @ Option.to_list
+           (Option.map (Json.optional meta "history_capture") ~f:(fun capture ->
+              "head", Json.field capture "head")))
+  | Run_sessions ->
+    Json.obj
+      [ "head", Json.field (Json.field meta "history_capture") "head"
+      ; "run_revision", Json.field data "run_revision"
+      ]
   | Inbox -> Json.obj [ "through", Json.field data "through" ]
   | History _ ->
     Json.obj [ "head", Json.field (Json.field meta "history_capture") "head" ]
@@ -286,14 +297,20 @@ let pin_request family request response =
   let data = Api_response.data response
   and meta = Api_response.meta response in
   match family with
-  | Family.Offset { guard; metadata } -> pin request guard (Json.field meta metadata)
+  | Family.Offset { guard; metadata } ->
+    let request = pin request guard (Json.field meta metadata) in
+    (match Json.optional meta "history_capture" with
+     | None -> request
+     | Some capture -> pin request "head" (Json.field capture "head"))
   | Inbox ->
     pin request "through" (Json.field data "through")
     |> fun request -> pin request "after" (Json.field data "after")
+  | Run_sessions ->
+    pin request "expected_run_revision" (Json.field data "run_revision")
+    |> fun request ->
+    pin request "head" (Json.field (Json.field meta "history_capture") "head")
   | History _ ->
-    (match Json.field (Json.field meta "history_capture") "head" with
-     | `Null -> request
-     | head -> pin request "head" head)
+    pin request "head" (Json.field (Json.field meta "history_capture") "head")
   | Cursor _ | Current_cursor { guard = None; _ } -> request
   | Current_cursor { guard = Some guard; _ } ->
     pin request guard (Json.field meta "workspace_revision")
@@ -317,6 +334,19 @@ let next_request family request data =
       | _ -> numeric "offset" "next_offset")
   | Inbox ->
     if optional_integer data "remaining" = 0 then `Done else numeric "after" "next_after"
+  | Run_sessions ->
+    if not (flag data "has_more")
+    then `Done
+    else (
+      match Json.field data "next_after_session_id" with
+      | `Null -> `Stopped Stop.No_progress
+      | next ->
+        let text = Json.text next in
+        if
+          Option.exists (Json.optional params "after_session_id") ~f:(fun previous ->
+            String.compare text (Json.text previous) <= 0)
+        then `Stopped Stop.No_progress
+        else `Next (set request "after_session_id" next))
   | History { position; result_field } ->
     if flag data "restart_after_indexing"
     then `Stopped Stop.Indexing_incomplete
@@ -380,7 +410,14 @@ let page_action family request response =
     | Current_cursor _ ->
       flag (Api_response.data response) "has_more"
       && not (equal_json (Json.field (Api_response.data response) "cursor") `Null)
+    | Run_sessions -> flag (Api_response.data response) "has_more"
     | Offset _ | Inbox | History _ | Cursor _ -> false
+  in
+  let whole_item_paths =
+    match family with
+    | Run_sessions -> [ "/data/session_ids" ]
+    | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ ->
+      [ "/items"; "/data/items" ]
   in
   let unsafe_item_omissions =
     Option.exists budget ~f:(fun b ->
@@ -392,7 +429,7 @@ let page_action family request response =
                ~f:(fun detail ->
                  not
                    (List.mem
-                      [ "/items"; "/data/items" ]
+                      whole_item_paths
                       (Json.text (Json.field detail "path"))
                       ~equal:String.equal))))
   in
@@ -417,7 +454,8 @@ let retry_request (family : Family.t) request response =
     (* An initial request cannot recreate the captured position before
                    already-returned rows. Do not advertise a fresh read as exact retry. *)
     None
-  | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ -> Some request
+  | Offset _ | Inbox | Run_sessions | History _ | Cursor _ | Current_cursor _ ->
+    Some request
 ;;
 
 module Continuation = struct
@@ -583,7 +621,7 @@ let collect t ~fetch =
               "initial opaque-cursor pagination requires total bytes >=%d to retain its \
                first captured page; increase --total-bytes or reduce --max-bytes"
               minimum)
-     | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ -> ());
+     | Offset _ | Inbox | Run_sessions | History _ | Cursor _ | Current_cursor _ -> ());
     let rec loop request pages capture_id seen =
       match fetch request with
       | Error problem ->
@@ -645,7 +683,7 @@ let collect t ~fetch =
               Blocked
               "first opaque captured page cannot fit total byte bound; no uncaptured \
                continuation was produced"
-          | Offset _ | Inbox | History _ | Cursor _ | Current_cursor _ ->
+          | Offset _ | Inbox | Run_sessions | History _ | Cursor _ | Current_cursor _ ->
             finish_bounded
               pages
               ~stop:Stop.Byte_limit
