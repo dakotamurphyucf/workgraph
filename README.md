@@ -1,16 +1,47 @@
 # Workgraph
 
-Workgraph gives cooperating agents a local place to plan work, retain memory,
-ask accountable questions, and preserve evidence. A task in Jira or Linear can
-have a local Workgraph project with subtasks, decisions, handoffs, files and
-searchable conversation records. After a reset, an agent reads those records to
-continue from the actual state.
+Workgraph is a **local workspace for planning, coordination, and persistent
+memory**, shared by people, agents, applications, and automated systems. It brings
+task tracking, communication, and review into one system. Agents, integration
+scripts, and other software can read and update that shared state through its CLI
+and API; people can participate through the optional browser UI.
 
-One OCaml/Core/Eio executable supplies a CLI and a daemon reached through a Unix
-socket. Data stays in folders you choose. No hosted account, database server,
-model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE).
-The harness owns agents, prompts, model calls, filesystem edits and external side
-effects; Workgraph records and coordinates their work.
+Use Workgraph to:
+
+- **Break down a goal.** Organize projects, milestones, and tickets. Connect
+  dependencies so workers can find ready tasks and see what is blocked.
+- **Coordinate workers and automation.** Let agents, people, and services claim
+  work, record progress, and hand off tasks. Define who can work on each task and
+  what must happen before it is complete.
+- **Keep context across sessions.** Store decisions, facts, notes, files, and
+  imported conversation history. Search and retrieve the relevant records when
+  an agent resumes work or needs context that is no longer in its prompt.
+- **Communicate around the work.** Comment on tickets, send messages, and ask
+  questions with named recipients and tracked answers.
+- **Connect your tools.** Build scripts and applications that create tasks,
+  watch for changes, publish results, or present custom views of workspace data.
+- **Review and follow progress.** Attach implementation and test evidence,
+  require review before completion, and inspect boards, dependency graphs,
+  activity, session history, and reported usage.
+
+For example, an agent working on a Jira or Linear ticket can create a local
+Workgraph project, split it into tasks, and coordinate several workers. A test
+script can attach its results, an integration can report an external prerequisite,
+and a custom application can display progress. You can open the same workspace to
+answer a question, change the plan, or review the results. Everyone works from a
+shared record of what was done, why decisions were made, and what remains.
+
+Workgraph runs locally, with data in folders you choose and no hosted account or
+separate database to install. One executable provides the CLI and a background
+service that clients share; the optional UI installs alongside it. You can export
+the workspace to readable files for inspection or archiving.
+
+Connected applications and automation remain responsible for executing their
+work and interacting with external systems. When using agents, your harness—the
+software that runs agents and supplies their tools—controls model calls, prompts,
+context management, and code execution. Workgraph provides the durable records
+and coordination rules those workflows use. It is built with OCaml/Core/Eio and
+is [MIT licensed](LICENSE).
 
 **Version 0.8.0 preview** uses application API **0.7**, workspace/export format
 **6**, history batch format **2** and saved upload plan **2**. Registry and planning
