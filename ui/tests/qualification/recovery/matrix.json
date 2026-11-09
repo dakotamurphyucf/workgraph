@@ -1,0 +1,924 @@
+{
+  "format": "workgraph-ui-recovery-matrix-1",
+  "requirements": [
+    {
+      "resource": "ui-safety-research-report",
+      "version": "3",
+      "sha256": "2040087573d260cd5bc4edb49cf6a5de520153d62ae810aafa1ed7fa387beb1a"
+    },
+    {
+      "resource": "ui-consolidated-design-review",
+      "version": "2",
+      "sha256": "eba670f04e292e4b3a35e5668c1486bcd1146c33af6ecc89e12a3162fac7217b"
+    }
+  ],
+  "controls": [
+    {
+      "id": "native-state",
+      "layer": "native_fault",
+      "paths": ["ui/companion/test/state_tests.ml"],
+      "behavior": "Execute the complete state_tests inline-test module with strict expectation comparison.",
+      "selection": "state_tests.ml"
+    },
+    {
+      "id": "native-rpc",
+      "layer": "native_socket",
+      "paths": ["ui/companion/test/rpc_tests.ml"],
+      "behavior": "Execute the complete rpc_tests inline-test module with strict expectation comparison.",
+      "selection": "rpc_tests.ml"
+    },
+    {
+      "id": "native-socket",
+      "layer": "native_socket",
+      "paths": ["ui/companion/test/rpc_socket_test.ml"],
+      "behavior": "Execute the complete rpc_socket_test inline-test module with strict expectation comparison.",
+      "selection": "rpc_socket_test.ml"
+    },
+    {
+      "id": "native-http",
+      "layer": "native_socket",
+      "paths": ["ui/companion/test/http_tests.ml"],
+      "behavior": "Execute the complete http_tests inline-test module with strict expectation comparison.",
+      "selection": "http_tests.ml"
+    },
+    {
+      "id": "native-http-socket",
+      "layer": "native_socket",
+      "paths": ["ui/companion/test/http_socket_test.ml"],
+      "behavior": "Execute the complete http_socket_test inline-test module with strict expectation comparison.",
+      "selection": "http_socket_test.ml"
+    },
+    {
+      "id": "native-launcher",
+      "layer": "native_socket",
+      "paths": ["ui/companion/test/daemon_launcher_test.ml"],
+      "behavior": "Execute the complete daemon_launcher_test inline-test module with strict expectation comparison.",
+      "selection": "daemon_launcher_test.ml"
+    },
+    {
+      "id": "native-admin",
+      "layer": "native_fault",
+      "paths": ["ui/companion/test/admin_jobs_test.ml"],
+      "behavior": "Execute the complete admin_jobs_test inline-test module with strict expectation comparison.",
+      "selection": "admin_jobs_test.ml"
+    },
+    {
+      "id": "native-wait",
+      "layer": "native_fault",
+      "paths": ["ui/companion/test/wait_helper_tests.ml"],
+      "behavior": "Execute the complete wait_helper_tests inline-test module with strict expectation comparison.",
+      "selection": "wait_helper_tests.ml"
+    },
+    {
+      "id": "native-transfer",
+      "layer": "native_fault",
+      "paths": ["ui/companion/test/transfer_helper_tests.ml"],
+      "behavior": "Execute the complete transfer_helper_tests inline-test module with strict expectation comparison.",
+      "selection": "transfer_helper_tests.ml"
+    },
+    {
+      "id": "native-execution",
+      "layer": "native_fault",
+      "paths": ["ui/companion/test/execution_helper_test.ml"],
+      "behavior": "Execute the complete execution_helper_test inline-test module with strict expectation comparison.",
+      "selection": "execution_helper_test.ml"
+    },
+    {
+      "id": "native-observer",
+      "layer": "native_socket",
+      "paths": ["ui/companion/test/request_observer_tests.ml"],
+      "behavior": "Execute the complete request_observer_tests inline-test module with strict expectation comparison.",
+      "selection": "request_observer_tests.ml"
+    },
+    {
+      "id": "native-settings",
+      "layer": "native_fault",
+      "paths": ["ui/companion/test/view_settings_test.ml"],
+      "behavior": "Execute the complete view_settings_test inline-test module with strict expectation comparison.",
+      "selection": "view_settings_test.ml"
+    },
+    {
+      "id": "process-root",
+      "layer": "native_process",
+      "paths": ["ui/companion/test/state_process_test.ml"],
+      "behavior": "Actual owner process: canonical root/alias contention, separate root, SIGKILL/await, permanent lock inode and admitted-send reload; symlink guard rejected.",
+      "selection": null
+    },
+    {
+      "id": "ui-operations",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/work/actions.browser.ts"],
+      "behavior": "Lost native reply, exact saved request recovery; actual claim/lease/expired recovery and stale guarded cross-project operation.",
+      "selection": "native lost reply|native claim,|cross-project relationship"
+    },
+    {
+      "id": "ui-connections",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/connections/connections.browser.ts"],
+      "behavior": "Original-writer retained draft, guarded conflict, two daemons and explicit shutdown versus disconnect.",
+      "selection": null
+    },
+    {
+      "id": "ui-admin",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/administration/administration.browser.ts"],
+      "behavior": "Durable job recovery, report versus conversion outcome, failed export retry, orphan exact CLI handoff, unsent cancellation.",
+      "selection": null
+    },
+    {
+      "id": "ui-coordination",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/participants/coordination/coordination.browser.ts"],
+      "behavior": "Saved acquisition cancellation/unknown exact retry, independent scopes and native ownership guards.",
+      "selection": null
+    },
+    {
+      "id": "ui-requests",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/discussions/requests.browser.ts"],
+      "behavior": "Original author and immutable historical answer; independent acknowledgement/responsibility/resolution and explicit isolated inbox consumer.",
+      "selection": "real questions|real routing|historical request links|actionable Inbox|Requests preserve"
+    },
+    {
+      "id": "ui-threads",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/discussions/threads.browser.ts"],
+      "behavior": "Pinned comment revision/body, captured DM recipient/consumer and native exact ID-order pagination.",
+      "selection": null
+    },
+    {
+      "id": "ui-progress",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/work/progress.browser.ts"],
+      "behavior": "Original captured writer, stale edit guards, pinned source links and exact native comment continuation.",
+      "selection": null
+    },
+    {
+      "id": "ui-history",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/history/transcript/transcript.browser.ts"],
+      "behavior": "Exact retained head, payload byte/partial coverage, original writer and same-ID endpoint generations.",
+      "selection": "Generic exact bytes|Create, reviewed import|Retained generation links"
+    },
+    {
+      "id": "ui-people",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/participants/runs/runs.browser.ts"],
+      "behavior": "Actual ownership/current run records,105 pinned session associations and old-generation same-ID link.",
+      "selection": null
+    },
+    {
+      "id": "ui-resource",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/knowledge/resources/resources.browser.ts"],
+      "behavior": "Original writer, immutable old generation/SHA, staging versus optional link conflict and exact history resource.",
+      "selection": "current editor|old-generation|binary staging"
+    },
+    {
+      "id": "ui-resource-native",
+      "layer": "native_socket",
+      "paths": ["ui/frontend/tests/knowledge/resources/native.browser.ts"],
+      "behavior": "Actual upload interrupted reply/restart/receipt-first recovery and qualified entry controls.",
+      "selection": null
+    },
+    {
+      "id": "ui-facts",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/knowledge/facts/facts.browser.ts"],
+      "behavior": "Actual exact fact value/null/delete/scope and stale edit behavior.",
+      "selection": null
+    },
+    {
+      "id": "ui-evidence",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/workflow/evidence/authoring.browser.ts"],
+      "behavior": "Actual frozen manifest/review generation, native gate errors and wrong/current actor rules.",
+      "selection": null
+    },
+    {
+      "id": "ui-plans",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/workflow/plans/plans.browser.ts"],
+      "behavior": "Actual transaction preflight, expanded-limit/atomic rollback and original-writer exact staged intention.",
+      "selection": "W10-W18|unsafe final hold|numeric form|W11 lost"
+    },
+    {
+      "id": "ui-editor",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/custom/editor/editor.browser.ts"],
+      "behavior": "Saved-view builder recovery, failed edits preserve working view and stale shared index rolls back atomically; complete all-source functional proof remains required on parent Editor.",
+      "selection": "Editor E01|Editor E05"
+    },
+    {
+      "id": "ui-editor-settings",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/custom/editor/settings.browser.ts"],
+      "behavior": "Private CAS conflict retains original guard, endpoint buckets and old generation capacity cleanup.",
+      "selection": null
+    },
+    {
+      "id": "ui-editor-renderer",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/custom/editor/renderer.browser.ts"],
+      "behavior": "Actual guarded shared publication and exact Fact/Resource/History renderer choice.",
+      "selection": null
+    },
+    {
+      "id": "ui-wait",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/discussions/request-wait/foreground.browser.ts"],
+      "behavior": "Same-document Start/Stop/navigation cancellation, retained exact answer and request isolation.",
+      "selection": null
+    },
+    {
+      "id": "ui-overview",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/overview/overview.browser.ts"],
+      "behavior": "Cursor/readiness separation, original actor/consumer and late read/disclosure/no-workspace ownership.",
+      "selection": "Attached empty registry|Activity follows|Foreground attention|same-ID endpoint"
+    },
+    {
+      "id": "ui-local-evidence",
+      "layer": "browser",
+      "paths": ["ui/frontend/tests/workflow/local-evidence/local-evidence.browser.ts"],
+      "behavior": "Actual local helper inspection/publication/cleanup retains exact capture and publication binding.",
+      "selection": null
+    },
+    {
+      "id": "pure-state",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/core/state.test.ts",
+        "ui/frontend/tests/core/observation.test.ts",
+        "ui/frontend/tests/core/launch-observation.test.ts"
+      ],
+      "behavior": "Shared operation ordering, revision/identity guards and finite observation cleanup.",
+      "selection": null
+    },
+    {
+      "id": "pure-read-errors",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/history/transcript/controller.test.ts",
+        "ui/frontend/tests/workflow/evidence/read-ownership.test.ts",
+        "ui/frontend/tests/workflow/graph/controller.test.ts",
+        "ui/frontend/tests/work/progress-controller.test.ts",
+        "ui/frontend/tests/advanced/advanced.test.ts"
+      ],
+      "behavior": "Slot-owned current failures and obsolete request cancellation cannot republish into changed scope.",
+      "selection": null
+    },
+    {
+      "id": "pure-paging",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/work/read.test.ts",
+        "ui/frontend/tests/history/transcript/transfer.test.ts",
+        "ui/frontend/tests/participants/runs/model.test.ts",
+        "ui/frontend/tests/participants/runs/codecs.test.ts"
+      ],
+      "behavior": "Independent exact page/head/revision and budget/partial coverage, transfer hash/deadline ownership.",
+      "selection": null
+    },
+    {
+      "id": "pure-json",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/core/json.test.ts",
+        "ui/frontend/tests/core/worker-wire.test.ts",
+        "ui/frontend/tests/core/protocol.test.ts",
+        "ui/frontend/tests/core/processing.test.ts"
+      ],
+      "behavior": "Lossless JSON concurrency, bounded worker ownership and wire protocol corruption/identity validation.",
+      "selection": null
+    },
+    {
+      "id": "pure-content",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/content/client.test.ts",
+        "ui/frontend/tests/history/formats/registry.test.ts",
+        "ui/frontend/tests/history/formats/coverage.test.ts",
+        "ui/frontend/tests/knowledge/viewers/worker.test.ts",
+        "ui/frontend/tests/knowledge/viewers/controller.test.ts"
+      ],
+      "behavior": "Passive format fallback, unsupported versus unloaded and exact owned worker cancellation.",
+      "selection": null
+    },
+    {
+      "id": "pure-usage",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/history/analytics-model.test.ts",
+        "ui/frontend/tests/history/analytics-controller.test.ts"
+      ],
+      "behavior": "Missing/saturated/provenance-aware usage, exact continuation and original query.",
+      "selection": null
+    },
+    {
+      "id": "pure-facts",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/knowledge/facts/model.test.ts",
+        "ui/frontend/tests/knowledge/facts/codecs.test.ts",
+        "ui/frontend/tests/knowledge/facts/controller.test.ts"
+      ],
+      "behavior": "Fact null/deleted/missing, exact scope and original writer guards.",
+      "selection": null
+    },
+    {
+      "id": "pure-editor",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/custom/config/codecs.test.ts",
+        "ui/frontend/tests/custom/config/schema.test.ts",
+        "ui/frontend/tests/custom/config/render.test.ts",
+        "ui/frontend/tests/custom/editor/controller.test.ts",
+        "ui/frontend/tests/custom/editor/settings.test.ts",
+        "ui/frontend/tests/custom/editor/presentation/model.test.ts",
+        "ui/frontend/tests/custom/editor/forms/model.test.ts"
+      ],
+      "behavior": "Unknown schema/fields/passive renderer, immutable activation, CAS and preservation on failed save/import.",
+      "selection": null
+    },
+    {
+      "id": "pure-coordination",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/participants/coordination/waits.test.ts",
+        "ui/frontend/tests/participants/coordination/wait-controller.test.ts",
+        "ui/frontend/tests/participants/coordination/contention.test.ts"
+      ],
+      "behavior": "Started exchanges versus saved journal count, exact cancel/retry and no claim/process inference.",
+      "selection": null
+    },
+    {
+      "id": "pure-overview",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/overview/controller.test.ts",
+        "ui/frontend/tests/overview/continuation.test.ts",
+        "ui/frontend/tests/overview/codecs.test.ts"
+      ],
+      "behavior": "Independent attention/ready cursors, continuous refresh ownership and pause/scope transition cancellation.",
+      "selection": null
+    },
+    {
+      "id": "pure-requests",
+      "layer": "pure",
+      "paths": [
+        "ui/frontend/tests/discussions/requests-model.test.ts",
+        "ui/frontend/tests/discussions/requests-controller.test.ts",
+        "ui/frontend/tests/discussions/threads-controller.test.ts"
+      ],
+      "behavior": "Immutable actor/recipient/scope, historical snapshot versus current guard and no read acknowledgements.",
+      "selection": null
+    },
+    {
+      "id": "ui-independent",
+      "layer": "browser",
+      "paths": ["ui/tests/qualification/recovery/independent.browser.ts"],
+      "behavior": "Two actual independent tabs author identical comments with distinct intention IDs; repeated Post dispatch never duplicates either native commit.",
+      "selection": null
+    },
+    {
+      "id": "pure-resource",
+      "layer": "pure",
+      "paths": ["ui/frontend/tests/knowledge/resources/controller.test.ts"],
+      "behavior": "Exact Resource content identity/retained selection and obsolete read guards, including latest-to-explicit same-pin renderer retention and changed-identity negatives.",
+      "selection": null
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "S01",
+      "requirement": "Double Submit coalesces one complete saved intention.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-socket", "ui-operations"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S02",
+      "requirement": "Independent tabs own distinct identical-content intentions.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "ui-independent"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S03",
+      "requirement": "Lost browser reply retains durable result and original identity.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-http-socket", "ui-operations"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S04",
+      "requirement": "Lost native reply after commit remains unknown until exact receipt/retry.",
+      "scope": "recovery_replay",
+      "controls": ["native-socket", "native-rpc", "ui-operations", "ui-resource-native"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S05",
+      "requirement": "Pre-exchange failure distinguishes unavailable from known unsent and unknown.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-socket"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S06",
+      "requirement": "Save/publication races never authorize unsynced sends or lose installed identity.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-wait", "native-settings"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S07",
+      "requirement": "Malformed success or missing durability remains unknown with exact journal.",
+      "scope": "recovery_replay",
+      "controls": ["native-rpc", "native-socket", "native-wait"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S08",
+      "requirement": "Registry/history namespace acknowledgements use actual codecs and durability.",
+      "scope": "recovery_replay",
+      "controls": ["native-rpc", "ui-connections", "ui-history"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S09",
+      "requirement": "Ephemeral chunk/heartbeat/shutdown observations do not claim durable publication/lease/exit.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-rpc", "ui-resource", "ui-connections"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S10",
+      "requirement": "Reload unknown stays visible without automatic new write; exact recovery.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-socket", "ui-operations", "ui-admin"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S11",
+      "requirement": "Companion restart retains journals/writer; stale capability cannot dispatch.",
+      "scope": "recovery_replay",
+      "controls": ["native-http", "native-state", "process-root"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S12",
+      "requirement": "Registry uncertainty requires explicit reopen/restart without silent repair.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "ui-connections", "ui-admin"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S13",
+      "requirement": "Unsent actor switch retains original writer/scope/guards until deliberate new preparation.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "ui-connections", "ui-progress", "ui-resource"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S14",
+      "requirement": "Sending/unknown switch preserves immutable writer/run/token/receipt/consumer.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-socket", "ui-operations", "ui-requests"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S15",
+      "requirement": "Wrong actor/run remains a typed ownership error, never mutable retarget.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "ui-people", "ui-operations"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S16",
+      "requirement": "Other claim token grants no authority; explicit recovery uses fresh guards.",
+      "scope": "recovery_replay",
+      "controls": ["ui-operations", "ui-people"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S17",
+      "requirement": "Same-revision concurrent edit conflicts preserve draft and require deliberate refresh.",
+      "scope": "recovery_replay",
+      "controls": ["ui-connections", "ui-progress", "ui-editor-settings", "native-settings"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S18",
+      "requirement": "Expired lease is not process death; exact stale token rejected.",
+      "scope": "recovery_replay",
+      "controls": ["ui-operations", "ui-people", "pure-coordination"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S19",
+      "requirement": "Heartbeat does not renew lease; explicit exact lease revision does.",
+      "scope": "recovery_replay",
+      "controls": ["ui-operations", "pure-coordination"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S20",
+      "requirement": "Run cancellation or stale observation does not prove process death/reuse.",
+      "scope": "recovery_replay",
+      "controls": ["ui-people", "ui-coordination"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S21",
+      "requirement": "Abandoned owner recovery is explicit with fresh guards and external isolation assertion.",
+      "scope": "recovery_replay",
+      "controls": ["ui-operations", "ui-coordination", "native-execution"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S22",
+      "requirement": "Readiness is advisory; actual policy/pool/budget admission decides.",
+      "scope": "recovery_replay",
+      "controls": ["ui-evidence", "ui-coordination", "ui-overview"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S23",
+      "requirement": "Known empty claim_next is non-durable and explicit exact retry may reevaluate.",
+      "scope": "recovery_replay",
+      "controls": ["native-socket"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S24",
+      "requirement": "Cycle/expanded transaction limit rejects atomically; staged batch boundaries visible.",
+      "scope": "recovery_replay",
+      "controls": ["ui-plans"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S25",
+      "requirement": "Changed gate/policy/manifest requires current exact proof generation.",
+      "scope": "recovery_replay",
+      "controls": ["ui-evidence"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S26",
+      "requirement": "Amendment delivery does not auto-ack; pending ack blocks finish.",
+      "scope": "recovery_replay",
+      "controls": ["ui-operations"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S27",
+      "requirement": "Planning continuation conflict preserves old partial capture until explicit restart.",
+      "scope": "recovery_replay",
+      "controls": ["pure-paging", "ui-progress", "ui-editor"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S28",
+      "requirement": "Byte stop preserves exact unconsumed position/retry and never implies empty complete.",
+      "scope": "recovery_replay",
+      "controls": ["pure-paging", "native-socket", "ui-editor"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S29",
+      "requirement": "Nested attention/context continuations are independent without automatic drain.",
+      "scope": "recovery_replay",
+      "controls": ["pure-overview", "ui-overview"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S30",
+      "requirement": "Late endpoint/workspace/actor response cannot replace current selected capture.",
+      "scope": "recovery_replay",
+      "controls": [
+        "pure-read-errors",
+        "pure-overview",
+        "ui-people",
+        "ui-threads",
+        "ui-editor-settings",
+        "pure-resource"
+      ],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S31",
+      "requirement": "Omitted latest head and exact null empty head are distinct.",
+      "scope": "recovery_replay",
+      "controls": ["pure-paging", "ui-history"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S32",
+      "requirement": "Payload batches/ranges preserve exact head/refs/partial/raw hash coverage.",
+      "scope": "recovery_replay",
+      "controls": ["pure-paging", "ui-history"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S33",
+      "requirement": "Incomplete/unsearchable search coverage does not prove absence.",
+      "scope": "other_final_gate",
+      "controls": ["pure-usage"],
+      "otherGate": "ui-q-history-browser",
+      "limitation": "Actual incomplete-index state may be unavailable because native synchronously rebuilds; valid decoder coverage must not be called actual incomplete-index proof."
+    },
+    {
+      "id": "S34",
+      "requirement": "Run session traversal retains head despite concurrent append beyond initial100.",
+      "scope": "recovery_replay",
+      "controls": ["ui-people"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S35",
+      "requirement": "Read queues are bounded, cancellation frees capacity and refresh is deliberate.",
+      "scope": "recovery_replay",
+      "controls": [
+        "native-rpc",
+        "native-socket",
+        "native-http-socket",
+        "pure-read-errors",
+        "pure-json"
+      ],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S36",
+      "requirement": "Attention capture precedes wait; no implicit acknowledgement or missed cursor.",
+      "scope": "recovery_replay",
+      "controls": ["pure-overview", "ui-overview"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S37",
+      "requirement": "Inbox display/open never acknowledges; explicit IDs/consumer only.",
+      "scope": "recovery_replay",
+      "controls": ["ui-requests", "ui-threads", "pure-requests"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S38",
+      "requirement": "Actor switching retains explicit recipient/consumer without cross-ack.",
+      "scope": "recovery_replay",
+      "controls": ["ui-requests", "ui-threads", "pure-requests"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S39",
+      "requirement": "Delivery, responsibility, answer resolution and ticket state stay distinct.",
+      "scope": "recovery_replay",
+      "controls": ["ui-requests", "ui-wait"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S40",
+      "requirement": "Finished upload plus link failure retains published pin and exact link retry.",
+      "scope": "recovery_replay",
+      "controls": ["native-transfer", "ui-resource", "ui-resource-native"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S41",
+      "requirement": "Restart/source change uses receipt-first exact original bytes; no changed-source resume.",
+      "scope": "recovery_replay",
+      "controls": ["native-transfer", "ui-resource-native"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S42",
+      "requirement": "Full hash failure never becomes verified download; prefix is incomplete.",
+      "scope": "recovery_replay",
+      "controls": ["pure-paging", "ui-resource"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S43",
+      "requirement": "Export job cancel/fail/restart status differs from admission receipt/head.",
+      "scope": "recovery_replay",
+      "controls": ["native-admin", "ui-admin"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S44",
+      "requirement": "Restore cutoff/pending receipt is explicit without invented progress/open.",
+      "scope": "recovery_replay",
+      "controls": ["ui-admin"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S45",
+      "requirement": "Attached shutdown/disconnect differs from owned child exit; no socket unlink.",
+      "scope": "recovery_replay",
+      "controls": ["native-launcher", "ui-connections", "process-root"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S46",
+      "requirement": "Version/schema mismatch preserves journals with explicit migration guidance.",
+      "scope": "recovery_replay",
+      "controls": ["native-socket", "native-launcher", "ui-admin"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S47",
+      "requirement": "Host/Origin/capability/form/GET rejection precedes effects, no CORS.",
+      "scope": "recovery_replay",
+      "controls": ["native-http", "native-http-socket"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S48",
+      "requirement": "Exact host/frame CSP policy never expands to localhost wildcard.",
+      "scope": "other_final_gate",
+      "controls": ["native-http", "native-http-socket"],
+      "otherGate": "ui-q-content",
+      "limitation": "Native policy replay is recovery boundary evidence; full browser frame/CSP security validation remains mandatory."
+    },
+    {
+      "id": "S49",
+      "requirement": "Untrusted markup/code remains passive without network or execution.",
+      "scope": "other_final_gate",
+      "controls": ["pure-content"],
+      "otherGate": "ui-q-content",
+      "limitation": "Passive model controls are not a substitute for final malicious-content DOM/network controls."
+    },
+    {
+      "id": "S50",
+      "requirement": "Unknown MIME/schema/UTF8/control/oversize preserves bounded honest fallback.",
+      "scope": "other_final_gate",
+      "controls": ["pure-content", "pure-json"],
+      "otherGate": "ui-q-content",
+      "limitation": "Final real rendered MIME/UTF8/budget/worker coverage remains required."
+    },
+    {
+      "id": "S51",
+      "requirement": "Cancellation during read/save/send/helpers retains identity and frees owned lanes.",
+      "scope": "recovery_replay",
+      "controls": [
+        "native-state",
+        "native-socket",
+        "native-http-socket",
+        "native-wait",
+        "native-transfer",
+        "native-execution",
+        "native-observer",
+        "ui-wait"
+      ],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S52",
+      "requirement": "Concurrent lossless JSON parsing remains isolated and exact.",
+      "scope": "other_final_gate",
+      "controls": ["pure-json"],
+      "otherGate": "ui-q-content",
+      "limitation": "Worker/lossless isolation regression is executable; final product content matrix remains separate."
+    },
+    {
+      "id": "S53",
+      "requirement": "Usage absent/shared/saturated values retain provenance/lower bounds.",
+      "scope": "other_final_gate",
+      "controls": ["pure-usage"],
+      "otherGate": "ui-q-history-browser",
+      "limitation": "Aggregate provenance regression is executable; complete history/usage workflow qualification remains separate."
+    },
+    {
+      "id": "S54",
+      "requirement": "Facts retain explicit scope/null/deleted/missing/tombstone guards.",
+      "scope": "other_final_gate",
+      "controls": ["pure-facts", "ui-facts"],
+      "otherGate": "ui-q-work-browser",
+      "limitation": "Fact recovery controls are included; full fact functional/API matrix remains a separate gate."
+    },
+    {
+      "id": "S55",
+      "requirement": "Unknown saved config/renderer preserves raw and fallback without rewrite.",
+      "scope": "recovery_replay",
+      "controls": [
+        "pure-editor",
+        "native-settings",
+        "ui-editor",
+        "ui-editor-settings",
+        "ui-editor-renderer"
+      ],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "S56",
+      "requirement": "Commandlike recorded content never implicitly executes or escalates.",
+      "scope": "recovery_replay",
+      "controls": ["native-execution", "pure-content", "ui-local-evidence"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "F01",
+      "requirement": "Durable monotone Sending barrier precedes exchange; missing/corrupt status is uncertain.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-http-socket", "process-root"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "F02",
+      "requirement": "Receipt binds exact namespace/server request hash and validates nested original-method durability.",
+      "scope": "recovery_replay",
+      "controls": ["native-rpc", "native-socket", "ui-operations"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "F03",
+      "requirement": "All route/bootstrap reads and writes enforce exact Host/capability/Origin boundary.",
+      "scope": "recovery_replay",
+      "controls": ["native-http", "native-http-socket"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "F04",
+      "requirement": "Complete context equality includes endpoint generation, writer/run, guards and helper inputs.",
+      "scope": "recovery_replay",
+      "controls": ["native-state", "native-wait", "native-transfer", "native-execution"],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "F05",
+      "requirement": "Plan, journal envelope, server request and preparation input hashes remain distinct.",
+      "scope": "recovery_replay",
+      "controls": [
+        "native-rpc",
+        "native-state",
+        "native-wait",
+        "native-transfer",
+        "native-execution"
+      ],
+      "otherGate": null,
+      "limitation": null
+    },
+    {
+      "id": "F06",
+      "requirement": "Only waitable owned child exit proves death; attached endpoint failure is not process exit.",
+      "scope": "recovery_replay",
+      "controls": ["native-launcher", "ui-connections", "process-root"],
+      "otherGate": null,
+      "limitation": null
+    }
+  ]
+}

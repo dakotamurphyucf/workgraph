@@ -132,6 +132,65 @@ module Upload_plan = struct
     |> Disk.unwrap
   ;;
 
+  let link_request t ~publication =
+    let open Result.Let_syntax in
+    let%bind () = Api_response.require_durable publication in
+    Json.decode (fun () ->
+      let data =
+        Api_codec.decode Resource_wire.publication (Api_response.data publication)
+        |> Disk.unwrap
+      in
+      let id = Id.Resource.t_of_jsonaf (Json.field data "resource_id") in
+      let version =
+        Api_codec.decode Resource_wire.version (Json.field data "version") |> Disk.unwrap
+      in
+      if
+        not
+          (Id.Resource.equal id t.resource
+           && Int.equal
+                (Json.integer (Json.field data "revision"))
+                (t.expected_revision + 1)
+           && String.equal version.digest t.digest
+           && Option.equal Int.equal version.size_bytes (Some t.size_bytes)
+           && Id.Actor.equal version.actor t.actor
+           && String.equal version.filename t.filename
+           && String.equal version.mime_type t.mime_type)
+      then Json.fail Conflict "finish publication differs from the saved upload plan";
+      match t.ticket with
+      | None -> None
+      | Some ticket ->
+        let link_mutation =
+          "link_"
+          ^ Json.hash
+              (Json.canonical
+                 (Json.obj
+                    [ "mutation_id", Id.Mutation.jsonaf_of_t t.mutation
+                    ; "resource_id", Id.Resource.jsonaf_of_t t.resource
+                    ; "ticket_id", Id.Ticket.jsonaf_of_t ticket
+                    ]))
+        in
+        let params =
+          Json.obj
+            ([ "workspace_id", Id.Workspace.jsonaf_of_t t.workspace
+             ; "actor_id", Id.Actor.jsonaf_of_t t.actor
+             ; "mutation_id", Json.string link_mutation
+             ; "resource_id", Id.Resource.jsonaf_of_t t.resource
+             ; "expected_revision", Json.field (Api_response.data publication) "revision"
+             ; "target", Entity_ref.jsonaf_of_t (Ticket ticket)
+             ]
+             @ Option.to_list
+                 (Option.map t.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run)))
+        in
+        let request =
+          Protocol.Request.create
+            ~id:"upload-ticket-link"
+            ~method_:"resource.link"
+            ~params
+          |> Disk.unwrap
+        in
+        Some request)
+  ;;
+
   let prepare ~fs ~params =
     Disk.protect (fun () ->
       if Option.is_some (Json.optional params "transfer_version")
@@ -354,36 +413,11 @@ end
 let upload_with_link (plan : Upload_plan.t) ~client ~fs =
   let open Result.Let_syntax in
   let%bind publication = upload_publication plan ~client ~fs in
-  match plan.ticket with
+  let%bind result = Api_response.of_json publication in
+  let%bind request = Upload_plan.link_request plan ~publication:result in
+  match request with
   | None -> Ok (Upload_result.Complete publication)
-  | Some ticket ->
-    let result = Api_response.of_json publication |> Disk.unwrap in
-    let link_mutation =
-      "link_"
-      ^ Json.hash
-          (Json.canonical
-             (Json.obj
-                [ "mutation_id", Id.Mutation.jsonaf_of_t plan.mutation
-                ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
-                ; "ticket_id", Id.Ticket.jsonaf_of_t ticket
-                ]))
-    in
-    let params =
-      Json.obj
-        ([ "workspace_id", Id.Workspace.jsonaf_of_t plan.workspace
-         ; "actor_id", Id.Actor.jsonaf_of_t plan.actor
-         ; "mutation_id", Json.string link_mutation
-         ; "resource_id", Id.Resource.jsonaf_of_t plan.resource
-         ; "expected_revision", Json.field (Api_response.data result) "revision"
-         ; "target", Entity_ref.jsonaf_of_t (Ticket ticket)
-         ]
-         @ Option.to_list
-             (Option.map plan.run ~f:(fun run -> "run_id", Id.Run.jsonaf_of_t run)))
-    in
-    let request =
-      Protocol.Request.create ~id:"upload-ticket-link" ~method_:"resource.link" ~params
-      |> Disk.unwrap
-    in
+  | Some request ->
     let link =
       Result.bind (Client.invoke client request) ~f:(fun response ->
         match

@@ -233,12 +233,12 @@ let fresh_request request mutation =
   |> unwrap
 ;;
 
-let validate_grants t request json =
+let validate_grants t json =
   Json.decode (fun () ->
     let response = Api_response.of_json json |> unwrap in
     Api_response.require_durable response |> unwrap;
     let data = Api_response.data response in
-    (match Api_catalog.find (Protocol.Request.method_ request) with
+    (match Api_catalog.find (Protocol.Request.method_ t.request) with
      | None -> assert false
      | Some (Api_method.Packed.Pack definition) ->
        ignore (Api_codec.decode (Api_method.response_codec definition) data |> unwrap));
@@ -441,7 +441,7 @@ let collect t ~now ~max_exchange_seconds ~fresh_mutation ~save ~exchange =
             journals := { journal with started = true } :: List.tl_exn !journals;
             match exchange ~timeout_seconds request with
             | Ok json ->
-              let validated = validate_grants t request json in
+              let validated = validate_grants t json in
               (match validated with
                | Ok () -> finish ~daemon_response:json Stop.Acquired
                | Error problem ->

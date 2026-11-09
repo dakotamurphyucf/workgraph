@@ -27,6 +27,13 @@ type t
     requested target belongs to this batch. No guards are refreshed. *)
 val create : Protocol.Request.t -> limits:Limits.t -> (t, Problem.t) Result.t
 
+(** Validate an explicitly durable acquisition reply against this original full
+    atomic batch, actor, target run, modes and lease durations, using the original
+    executable method codec. Retries may change mutation identity only. This does
+    not authenticate a journal/request identity or the endpoint that produced a
+    reply; a replaying owner must separately verify those captured associations. *)
+val validate_grants : t -> Jsonaf.t -> (unit, Problem.t) Result.t
+
 module Stop : sig
   type t =
     | Acquired

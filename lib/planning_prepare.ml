@@ -4,6 +4,7 @@ open Planning_replay
 
 type t =
   { candidate : Planning_state.t
+  ; expanded_operation_count : int
   ; events : Jsonaf.t
   ; result : Jsonaf.t
   ; blobs : (string * string) list
@@ -28,6 +29,7 @@ module Submission = struct
 end
 
 let candidate t = t.candidate
+let expanded_operation_count t = t.expanded_operation_count
 let events t = t.events
 let result t = t.result
 let blobs t = t.blobs
@@ -2399,7 +2401,7 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
        && List.length commands <= Transaction_limit.max_operations)
       Invalid_argument
       (sprintf "transaction requires 1..%d operations" Transaction_limit.max_operations);
-    let staged, changes, results, blobs, _ =
+    let staged, changes, results, blobs, expanded_operation_count =
       List.fold
         commands
         ~init:(t, [], [], [], 0)
@@ -2606,7 +2608,8 @@ let prepare_outcome t ?run ?now_unix_ms command ~actor ~timestamp ~observe_empty
                { Transaction_api.Result_item.method_; data }))
         else List.hd_exn results
       in
-      Submission.Prepared { candidate; events; result; blobs = List.rev blobs }))
+      Submission.Prepared
+        { candidate; expanded_operation_count; events; result; blobs = List.rev blobs }))
 ;;
 
 let prepare t ?run ?now_unix_ms command ~actor ~timestamp =

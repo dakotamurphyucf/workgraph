@@ -163,6 +163,13 @@ class NoticeCollection(unittest.TestCase):
         self.assertIn("No license text found for source package base.1.0", result.stderr)
         self.assertFalse((self.destination / "INVENTORY.json").exists())
 
+    def test_older_installed_version_cannot_supply_notice_identity_for_required_source(self):
+        self.configuration["installed"]["core"] = "0.9"
+        result = self.collect()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Installed dependency differs from required source version: core", result.stderr)
+        self.assertFalse(self.destination.exists())
+
     def test_unsupported_manifest_syntax_fails_before_selection(self):
         for depends in ['"core" | "other"', '"core" "dune"',
                         '"core" {os = "linux"}', '"core"\n"core"', ""]:

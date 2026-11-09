@@ -1,0 +1,135 @@
+.wg-admin {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wg-admin-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 20px 0 14px;
+}
+.wg-admin-heading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.wg-admin-heading > span {
+  color: var(--wg-muted);
+  font-size: 11px;
+}
+.wg-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.wg-admin-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--wg-secondary);
+}
+.wg-admin-tabs button[aria-pressed="true"] {
+  background: var(--wg-hover);
+  color: var(--wg-text);
+  border-color: var(--wg-border);
+}
+.wg-admin-tabs svg,
+.wg-admin-card h3 svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--wg-accent);
+}
+.wg-admin-intro {
+  color: var(--wg-secondary);
+  font-size: 12px;
+  margin: 14px 0 20px;
+  line-height: 1.7;
+}
+.wg-admin-export-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.wg-admin-card {
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  padding: 18px;
+  min-width: 0;
+}
+.wg-admin-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 18px;
+  font-size: 13px;
+}
+.wg-admin-card p {
+  margin: 12px 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.wg-admin-card p:last-child {
+  margin-bottom: 0;
+}
+.wg-admin-card .wg-field {
+  margin-block: 16px;
+}
+.wg-admin-inspector {
+  margin-top: 20px;
+  border-top: 1px solid var(--wg-border);
+  padding-top: 14px;
+}
+.wg-admin-inspector summary {
+  color: var(--wg-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.wg-admin > .wg-toolbar {
+  margin-block: 16px;
+}
+.wg-admin-job h4 {
+  font-size: 12px;
+  margin-block: 0 12px;
+}
+.wg-admin-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
+  gap: 0.8rem;
+}
+.wg-admin-fields label {
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+}
+.wg-admin textarea {
+  width: 100%;
+  min-height: 9rem;
+  resize: vertical;
+  font: inherit;
+  background: var(--wg-panel);
+  color: inherit;
+  border: 1px solid var(--wg-border);
+  border-radius: 0.4rem;
+  padding: 0.65rem;
+}
+.wg-admin-job {
+  margin-block: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--wg-border);
+  border-radius: 0.5rem;
+  background: var(--wg-panel);
+}
+.wg-admin-query {
+  margin-block: 1rem;
+}
+.wg-admin pre {
+  overflow: auto;
+  max-width: 100%;
+  white-space: pre-wrap;
+}

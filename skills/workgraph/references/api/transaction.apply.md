@@ -376,59 +376,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "artifact_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe": {
-      "additionalProperties": false,
-      "properties": {
-        "decision_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Validated entity ID."
-                },
-                {
-                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                  "type": "string"
-                }
-              ]
-            },
-            {
-              "maxLength": 97,
-              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-              "type": "string"
-            }
-          ],
-          "description": "Literal entity ID or $alias resolved within transaction.apply."
-        },
-        "kind": {
-          "const": "decision",
-          "type": "string"
-        },
-        "revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive exact revision."
-        }
-      },
-      "required": [
-        "kind",
-        "decision_id",
-        "revision"
-      ],
-      "type": "object"
-    },
-    "artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42": {
+    "artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3": {
       "oneOf": [
         {
           "$ref": "#/$defs/artifact_154506404482744fcb20227a71bb5ca8d0de71d9a38f2debb89c793e8eb1fd71"
@@ -506,12 +454,119 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "$ref": "#/$defs/artifact_be514d44142925cb19bef7e26dc491d5b3aefa3ea0b7ac8752b8078198f545bf"
         },
         {
+          "$ref": "#/$defs/artifact_94f1e67acf21c74b40eb18efc252adc7c824e2d3bfc1ba6cb383797aad8986cb"
+        },
+        {
           "$ref": "#/$defs/artifact_0e6b53bc9960fab6b6225a46d62d9d0bf46492d823c74ac25de732e6c36c2517"
         },
         {
           "$ref": "#/$defs/artifact_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe"
         }
       ]
+    },
+    "artifact_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated entity ID."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "decision",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive exact revision."
+        }
+      },
+      "required": [
+        "kind",
+        "decision_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "artifact_94f1e67acf21c74b40eb18efc252adc7c824e2d3bfc1ba6cb383797aad8986cb": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated entity ID."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive exact revision."
+        }
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
     },
     "artifact_b141ac31589d8ec990a9e71c5829a98b200b57958ece4425d4ae371245bb4c5d": {
       "additionalProperties": false,
@@ -617,9 +672,9 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "evidence_8e35d047af469307c6490e4c8e6be26aa3b8c0a622391aea5efd4ef8620f5fdc": {
+    "evidence_6420cb9edc550f861a92feeaeada7c92183f814bd849c0fe2ea03a938af0f148": {
       "items": {
-        "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+        "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
       },
       "maxItems": 100,
       "type": "array"
@@ -676,14 +731,14 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       ],
       "type": "object"
     },
-    "inputs_f0521b3c9696ae2535497dd9b78f52103228a778b5533836c932fe781f316892": {
+    "inputs_11beeb018ed5767ca3ddcfdde59061efbf122be737eb21973e62cf21f3e8be9e": {
       "items": {
-        "$ref": "#/$defs/inputs_f3613cecf17489f76029d2dc07cb9f11c67152ee821b6f2054a7a30631ff423a"
+        "$ref": "#/$defs/inputs_3d215e66dedc2283119834e67c90dbc31866cf13bc426db713be56c24ffd7864"
       },
       "maxItems": 100,
       "type": "array"
     },
-    "inputs_f3613cecf17489f76029d2dc07cb9f11c67152ee821b6f2054a7a30631ff423a": {
+    "inputs_3d215e66dedc2283119834e67c90dbc31866cf13bc426db713be56c24ffd7864": {
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -696,7 +751,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "description": "Literal ASCII name; aliases are not interpreted."
         },
         "pin": {
-          "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+          "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
         }
       },
       "required": [
@@ -916,173 +971,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
       "maxItems": 1000,
       "type": "array"
     },
-    "params_1b6cbefe294f3ef8c8c52597c7ab2f7ee75d1f9939b28300939d8c9d625a89e8": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/params_b4d532c5fb9facc179f281a97ab07f6150790454020bb82baf0d0b71eac2949a"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "params_531cffa3dd58efe63e69669e93a12aa2c2a244f0ae913358acc4c4e3ce7f14a4": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/params_6c3b467fec478f407dedd87ed790d39f5ca1ecd12c623a11340fe083098376ab"
-        }
-      ],
-      "description": "Raw command object preserving explicit references."
-    },
-    "params_5b6e9495d68f35cd934caade8c62434f7218b6cc723680b2be7410c1def5d987": {
-      "additionalProperties": false,
-      "properties": {
-        "prerequisite_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 97
-            }
-          ],
-          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
-        },
-        "ticket_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 97
-            }
-          ],
-          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
-        }
-      },
-      "required": [
-        "ticket_id",
-        "prerequisite_id"
-      ],
-      "type": "object"
-    },
-    "params_6c3b467fec478f407dedd87ed790d39f5ca1ecd12c623a11340fe083098376ab": {
-      "additionalProperties": false,
-      "properties": {
-        "expected_revision": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "recipient": {
-          "$ref": "#/$defs/members_359ca15e10705a779d3885b1110a95a39406b03b0fd055121d1a302b27def65b"
-        },
-        "request_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Resolved local identity; aliases are not accepted."
-                },
-                {
-                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                  "type": "string"
-                }
-              ]
-            },
-            {
-              "maxLength": 97,
-              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-              "type": "string"
-            }
-          ],
-          "description": "Literal entity ID or $alias resolved within transaction.apply."
-        }
-      },
-      "required": [
-        "request_id",
-        "expected_revision",
-        "recipient"
-      ],
-      "type": "object"
-    },
-    "params_6fa8b40f038b9f14349e42c8ade8dc5fd0801d94d60379c325879d98314bb211": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/params_1b6cbefe294f3ef8c8c52597c7ab2f7ee75d1f9939b28300939d8c9d625a89e8"
-        }
-      ],
-      "description": "Validated cooperative coordination record."
-    },
-    "params_7397898c3a5df4636a7251f79ec5ffc9d0aaffe21f234e9e82aa31708d453c60": {
-      "additionalProperties": false,
-      "properties": {
-        "expected_revision": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "resource_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 97
-            }
-          ],
-          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
-        },
-        "target": {
-          "$ref": "#/$defs/target_50d54700b3be690d1afd683465322dd7f6a9ba9585d5e2a500c3793bf6a930fc"
-        }
-      },
-      "required": [
-        "resource_id",
-        "expected_revision",
-        "target"
-      ],
-      "type": "object"
-    },
-    "params_a3e034a47235f21ae8eb8020a6f2ab4c0cfd99ef1cfe92fe671f91701d30dc45": {
-      "additionalProperties": false,
-      "properties": {
-        "expected_revision": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "related_expected_revision": {
-          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-          "type": "string",
-          "x-maximumDecimal": "4611686018427387903"
-        },
-        "related_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 97
-            }
-          ],
-          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
-        },
-        "ticket_id": {
-          "allOf": [
-            {
-              "type": "string",
-              "x-maxUtf8Bytes": 97
-            }
-          ],
-          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
-        }
-      },
-      "required": [
-        "ticket_id",
-        "related_id",
-        "expected_revision",
-        "related_expected_revision"
-      ],
-      "type": "object"
-    },
-    "params_b4d532c5fb9facc179f281a97ab07f6150790454020bb82baf0d0b71eac2949a": {
+    "params_1fb0d129a8806fc551dcf9ef4f422c1cfe6b59eba9f3bc241d2c73a869139241": {
       "additionalProperties": false,
       "properties": {
         "confirmation": {
@@ -1093,7 +982,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
           "type": "string"
         },
         "evidence": {
-          "$ref": "#/$defs/evidence_8e35d047af469307c6490e4c8e6be26aa3b8c0a622391aea5efd4ef8620f5fdc"
+          "$ref": "#/$defs/evidence_6420cb9edc550f861a92feeaeada7c92183f814bd849c0fe2ea03a938af0f148"
         },
         "expected_epoch": {
           "allOf": [
@@ -1195,6 +1084,172 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
         "reason"
       ],
       "type": "object"
+    },
+    "params_531cffa3dd58efe63e69669e93a12aa2c2a244f0ae913358acc4c4e3ce7f14a4": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/params_6c3b467fec478f407dedd87ed790d39f5ca1ecd12c623a11340fe083098376ab"
+        }
+      ],
+      "description": "Raw command object preserving explicit references."
+    },
+    "params_5b6e9495d68f35cd934caade8c62434f7218b6cc723680b2be7410c1def5d987": {
+      "additionalProperties": false,
+      "properties": {
+        "prerequisite_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        }
+      },
+      "required": [
+        "ticket_id",
+        "prerequisite_id"
+      ],
+      "type": "object"
+    },
+    "params_6c3b467fec478f407dedd87ed790d39f5ca1ecd12c623a11340fe083098376ab": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "recipient": {
+          "$ref": "#/$defs/members_359ca15e10705a779d3885b1110a95a39406b03b0fd055121d1a302b27def65b"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Resolved local identity; aliases are not accepted."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        }
+      },
+      "required": [
+        "request_id",
+        "expected_revision",
+        "recipient"
+      ],
+      "type": "object"
+    },
+    "params_7397898c3a5df4636a7251f79ec5ffc9d0aaffe21f234e9e82aa31708d453c60": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "resource_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "target": {
+          "$ref": "#/$defs/target_50d54700b3be690d1afd683465322dd7f6a9ba9585d5e2a500c3793bf6a930fc"
+        }
+      },
+      "required": [
+        "resource_id",
+        "expected_revision",
+        "target"
+      ],
+      "type": "object"
+    },
+    "params_9ccb0ac1f804fb8dd28cb501823109d9e214805f782dee71b0cf8908a26b0552": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/params_1fb0d129a8806fc551dcf9ef4f422c1cfe6b59eba9f3bc241d2c73a869139241"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
+    },
+    "params_a3e034a47235f21ae8eb8020a6f2ab4c0cfd99ef1cfe92fe671f91701d30dc45": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "related_expected_revision": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "related_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "ticket_id": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        }
+      },
+      "required": [
+        "ticket_id",
+        "related_id",
+        "expected_revision",
+        "related_expected_revision"
+      ],
+      "type": "object"
+    },
+    "params_c42a7f11166ae682e71cbb1cdd7b719429d45bf4fe72633deeef613891632b72": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/params_9ccb0ac1f804fb8dd28cb501823109d9e214805f782dee71b0cf8908a26b0552"
+        }
+      ],
+      "description": "Validated cooperative coordination record."
     },
     "recipient_72ee8295eb9c3a45accd3876ea2d3e1eabc18ffb494bfd7f353d2e2dbd2716bd": {
       "oneOf": [
@@ -6457,7 +6512,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                                               ],
                                               "type": "string"
                                             },
-                                            "maxItems": 8,
+                                            "maxItems": 9,
                                             "type": "array"
                                           },
                                           "scope": {
@@ -7942,7 +7997,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                         "additionalProperties": false,
                         "properties": {
                           "artifact": {
-                            "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+                            "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
                           },
                           "condition_id": {
                             "allOf": [
@@ -8048,7 +8103,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                         "additionalProperties": false,
                         "properties": {
                           "artifact": {
-                            "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+                            "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
                           },
                           "condition_id": {
                             "allOf": [
@@ -8062,7 +8117,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                           "evidence": {
                             "allOf": [
                               {
-                                "$ref": "#/$defs/evidence_8e35d047af469307c6490e4c8e6be26aa3b8c0a622391aea5efd4ef8620f5fdc"
+                                "$ref": "#/$defs/evidence_6420cb9edc550f861a92feeaeada7c92183f814bd849c0fe2ea03a938af0f148"
                               }
                             ],
                             "description": "Validated cooperative coordination record."
@@ -8131,7 +8186,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                         "type": "string"
                       },
                       "params": {
-                        "$ref": "#/$defs/params_6fa8b40f038b9f14349e42c8ade8dc5fd0801d94d60379c325879d98314bb211"
+                        "$ref": "#/$defs/params_c42a7f11166ae682e71cbb1cdd7b719429d45bf4fe72633deeef613891632b72"
                       }
                     },
                     "required": [
@@ -8148,7 +8203,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                         "type": "string"
                       },
                       "params": {
-                        "$ref": "#/$defs/params_6fa8b40f038b9f14349e42c8ade8dc5fd0801d94d60379c325879d98314bb211"
+                        "$ref": "#/$defs/params_c42a7f11166ae682e71cbb1cdd7b719429d45bf4fe72633deeef613891632b72"
                       }
                     },
                     "required": [
@@ -9002,7 +9057,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "x-maximumDecimal": "4611686018427387903"
                           },
                           "inputs": {
-                            "$ref": "#/$defs/inputs_f0521b3c9696ae2535497dd9b78f52103228a778b5533836c932fe781f316892"
+                            "$ref": "#/$defs/inputs_11beeb018ed5767ca3ddcfdde59061efbf122be737eb21973e62cf21f3e8be9e"
                           },
                           "manifest_id": {
                             "anyOf": [
@@ -9032,7 +9087,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "description": "Literal entity ID or $alias resolved within transaction.apply."
                           },
                           "outputs": {
-                            "$ref": "#/$defs/inputs_f0521b3c9696ae2535497dd9b78f52103228a778b5533836c932fe781f316892"
+                            "$ref": "#/$defs/inputs_11beeb018ed5767ca3ddcfdde59061efbf122be737eb21973e62cf21f3e8be9e"
                           },
                           "schema_version": {
                             "allOf": [
@@ -9447,7 +9502,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                           "evidence_pins": {
                             "allOf": [
                               {
-                                "$ref": "#/$defs/evidence_8e35d047af469307c6490e4c8e6be26aa3b8c0a622391aea5efd4ef8620f5fdc"
+                                "$ref": "#/$defs/evidence_6420cb9edc550f861a92feeaeada7c92183f814bd849c0fe2ea03a938af0f148"
                               }
                             ],
                             "description": "At least one exact evidence pin."
@@ -9960,7 +10015,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "description": "Literal entity ID or $alias resolved within transaction.apply."
                           },
                           "evidence": {
-                            "$ref": "#/$defs/evidence_8e35d047af469307c6490e4c8e6be26aa3b8c0a622391aea5efd4ef8620f5fdc"
+                            "$ref": "#/$defs/evidence_6420cb9edc550f861a92feeaeada7c92183f814bd849c0fe2ea03a938af0f148"
                           },
                           "expected_revision": {
                             "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
@@ -9968,7 +10023,7 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                             "x-maximumDecimal": "4611686018427387903"
                           },
                           "rationale": {
-                            "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+                            "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
                           },
                           "scope": {
                             "$ref": "#/$defs/affected_521d34699d87c76c26ceb42954bab8a94a07bd219d10d8d0b33b06346c832581"
@@ -10044,10 +10099,10 @@ For preconditions and a small example, run `workgraph help transaction.apply`. U
                         "additionalProperties": false,
                         "properties": {
                           "current": {
-                            "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+                            "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
                           },
                           "previous": {
-                            "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+                            "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
                           }
                         },
                         "required": [

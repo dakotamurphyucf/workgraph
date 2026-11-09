@@ -1,0 +1,9 @@
+(executable
+ (name main)
+ (public_name workgraph-ui)
+ (package workgraph-ui)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true))
+ (libraries workgraph-ui workgraph_ui_assets workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))

@@ -138,6 +138,11 @@ let pin =
           "comment"
           (req "comment_id" (id Id.Comment.of_string Id.Comment.to_string)
            <*> req "revision" positive) )
+    ; ( "amendment"
+      , tag
+          "amendment"
+          (req "amendment_id" (id Amendment_id.of_string Amendment_id.to_string)
+           <*> req "revision" positive) )
     ; "contract", tag "contract" (req "contract_id" contract <*> req "revision" positive)
     ; "decision", tag "decision" (req "decision_id" decision <*> req "revision" positive)
     ]

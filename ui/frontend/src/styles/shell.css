@@ -1,0 +1,509 @@
+.wg-shell {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+}
+.wg-skip {
+  position: fixed;
+  top: -100px;
+  left: 1rem;
+  padding: 0.7rem 1rem;
+  background: var(--wg-primary);
+  color: var(--wg-primary-text);
+  border-radius: 5px;
+  z-index: 100;
+}
+.wg-skip:focus {
+  top: 0.7rem;
+}
+.wg-sidebar {
+  background: var(--wg-side);
+  border-right: 1px solid var(--wg-border);
+}
+.wg-sidebar aside {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0.9rem 0.77rem;
+}
+.wg-workspace-switch {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.7rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 0.4rem 0.4rem 1.3rem;
+}
+.wg-logo {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #b1b5fa, #7478bc);
+  color: #242640;
+  display: grid;
+  place-items: center;
+  font-size: 1.65rem;
+  font-weight: 800;
+}
+.wg-workspace-switch strong {
+  display: block;
+  font-weight: 650;
+  font-size: 1.077rem;
+  letter-spacing: -0.02em;
+}
+.wg-workspace-switch small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--wg-muted);
+  font-size: 0.846rem;
+  overflow-wrap: anywhere;
+}
+.wg-workspace-switch > svg {
+  width: 1rem;
+  color: var(--wg-muted);
+}
+.wg-search-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--wg-border);
+  border-radius: 6px;
+  background: transparent;
+  padding: 0.55rem 0.6rem;
+  color: var(--wg-muted);
+  text-align: left;
+  font-size: 0.923rem;
+  margin-bottom: 0.8rem;
+}
+.wg-search-trigger span {
+  flex: 1;
+}
+.wg-section-label {
+  color: var(--wg-muted);
+  font-size: 0.77rem;
+  font-weight: 550;
+  letter-spacing: 0.07em;
+  margin: 1rem 0.7rem 0.6rem;
+}
+.wg-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+}
+.wg-sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 5px;
+  min-height: 2.55rem;
+  padding: 0.5rem 0.7rem;
+  color: var(--wg-secondary);
+  line-height: 1.4;
+}
+.wg-sidebar nav a:hover {
+  background: var(--wg-raised);
+  color: var(--wg-text);
+}
+.wg-sidebar nav a[aria-current="page"] {
+  background: var(--wg-raised);
+  color: var(--wg-text);
+  font-weight: 550;
+}
+.wg-sidebar nav svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.wg-sidebar-scope {
+  margin-top: 0.8rem;
+}
+.wg-scope-navigation {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  font-size: 0.923rem;
+  color: var(--wg-secondary);
+}
+.wg-scope-navigation:hover {
+  background: var(--wg-raised);
+}
+.wg-scope-navigation > span:nth-child(2) {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.wg-scope-navigation small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--wg-muted);
+}
+.wg-scope-navigation svg {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+}
+.wg-scope-marker {
+  border: 1px solid var(--wg-accent);
+  border-radius: 3px;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: 0.2rem;
+  flex: 0 0 auto;
+}
+.wg-scope-hint {
+  color: var(--wg-muted);
+  font-size: 0.846rem;
+  line-height: 1.6;
+  margin: 0.35rem 0.7rem 1.4rem;
+}
+.wg-sidebar-bottom {
+  margin-top: auto;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--wg-border);
+}
+.wg-connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: var(--wg-muted);
+  font-size: 0.846rem;
+  padding: 0.4rem 0.5rem;
+}
+.wg-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wg-muted);
+  flex: 0 0 auto;
+}
+.wg-status-dot--available {
+  background: var(--wg-success);
+}
+.wg-actor-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.7rem 0.5rem 0.3rem;
+  text-align: left;
+}
+.wg-actor-trigger strong,
+.wg-actor-trigger small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.wg-actor-trigger strong {
+  font-size: 0.923rem;
+  font-weight: 500;
+}
+.wg-actor-trigger small {
+  color: var(--wg-muted);
+  font-size: 0.846rem;
+  margin-top: 0.15rem;
+}
+.wg-actor-trigger > svg {
+  width: 1rem;
+  color: var(--wg-muted);
+}
+.wg-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--wg-accent-bg);
+  color: var(--wg-accent);
+  display: grid;
+  place-items: center;
+  font-size: 0.77rem;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.wg-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.wg-topbar {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.7rem;
+  min-height: 3.77rem;
+  padding: 0.55rem 1.85rem;
+  border-bottom: 1px solid var(--wg-border);
+  font-size: 0.923rem;
+  color: var(--wg-secondary);
+}
+.wg-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wg-breadcrumbs button {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.wg-breadcrumbs button:hover {
+  color: var(--wg-text);
+}
+.wg-breadcrumbs > span:not([aria-current]) {
+  color: var(--wg-muted);
+}
+.wg-topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 0 auto;
+}
+.wg-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 1.5rem;
+}
+.wg-content:focus {
+  outline: none;
+}
+.wg-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.4rem;
+  margin-bottom: 0.85rem;
+}
+.wg-page-heading h1 {
+  margin-top: 0;
+}
+.wg-page-heading p {
+  color: var(--wg-secondary);
+  margin-top: 0.25rem;
+}
+.wg-page-heading > .wg-button {
+  flex: 0 0 auto;
+}
+.wg-eyebrow {
+  font-size: 0.77rem;
+  font-weight: 550;
+  color: var(--wg-muted);
+  letter-spacing: 0.07em;
+}
+.wg-scope-summary {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.7rem 1.7rem;
+  padding-block: 0.4rem;
+  border-bottom: 1px solid var(--wg-border);
+  font-size: 0.846rem;
+  color: var(--wg-muted);
+  margin-bottom: 0.85rem;
+}
+.wg-scope-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.wg-scope-summary svg {
+  width: 1rem;
+  height: 1rem;
+}
+.wg-foundation {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.75fr) minmax(0, 1.4fr);
+  gap: 2rem;
+  align-items: start;
+  margin-top: 2.2rem;
+}
+.wg-foundation-context {
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  background: var(--wg-panel);
+  padding: 1.5rem;
+  min-width: 0;
+}
+.wg-foundation-context h2 {
+  margin-top: 0.6rem;
+  overflow-wrap: anywhere;
+}
+.wg-foundation-context dl {
+  margin: 1.4rem 0 0;
+}
+.wg-foundation-context dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--wg-border);
+  font-size: 0.923rem;
+}
+.wg-foundation-context dl > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.wg-foundation-context dt {
+  color: var(--wg-muted);
+}
+.wg-foundation-context dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.wg-foundation > .wg-state {
+  padding-top: 2.5rem;
+}
+.wg-statusbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  padding: 0.45rem 1.5rem;
+  border-top: 1px solid var(--wg-border);
+  font-size: 0.77rem;
+  color: var(--wg-muted);
+}
+.wg-mobile-menu,
+.wg-mobile-close,
+.wg-nav-scrim {
+  display: none;
+}
+.wg-crash {
+  max-width: 65rem;
+  margin: 8vh auto;
+  padding: 1rem;
+}
+@media (min-width: 1800px) {
+  .wg-content > * {
+    max-width: 130rem;
+    margin-inline: auto;
+  }
+}
+@media (max-width: 1050px) {
+  .wg-foundation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wg-foundation-context dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.5rem;
+  }
+}
+@media (max-width: 760px) {
+  .wg-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    display: none;
+    width: min(23rem, calc(100vw - 3rem)) !important;
+    box-shadow: var(--wg-shadow);
+  }
+  .wg-sidebar--open {
+    display: flex;
+  }
+  .wg-sidebar > .wg-resizer {
+    display: none;
+  }
+  .wg-mobile-close {
+    display: inline-flex;
+    margin-bottom: 0.7rem;
+    align-self: flex-start;
+  }
+  .wg-mobile-menu {
+    display: inline-flex;
+  }
+  .wg-nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: #080b1480;
+    z-index: 29;
+    border: 0;
+  }
+  .wg-topbar {
+    padding: 0.6rem 0.9rem;
+  }
+  .wg-breadcrumbs {
+    gap: 0.4rem;
+  }
+  .wg-topbar-actions .wg-badge {
+    display: none;
+  }
+  .wg-content {
+    padding: 1rem;
+  }
+  .wg-page-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .wg-page-heading > .wg-button {
+    margin-top: -0.4rem;
+  }
+  .wg-foundation-context dl {
+    display: block;
+  }
+  .wg-statusbar {
+    padding-inline: 1.3rem;
+  }
+  .wg-statusbar span:last-child {
+    display: none;
+  }
+}
+
+/* The approved Overview uses the prototype page insets beneath its 48px bar. */
+.wg-content[data-view="overview"] {
+  padding: 28px 28px 24px;
+}
+@media (max-width: 560px) {
+  .wg-content[data-view="overview"] {
+    padding: 20px 16px;
+  }
+}
+
+.wg-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--wg-muted);
+  white-space: nowrap;
+}
+.wg-live-indicator > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wg-muted);
+}
+.wg-live-indicator--live > span {
+  background: #62c59b;
+  box-shadow: 0 0 8px #62c59b24;
+}
+.wg-live-indicator--offline > span,
+.wg-live-indicator--reconnecting > span {
+  background: #d9ad61;
+}

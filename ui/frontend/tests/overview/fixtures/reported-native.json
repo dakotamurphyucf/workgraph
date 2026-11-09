@@ -1,0 +1,1333 @@
+{
+  "binary": "/Users/dakotamurphy/workgraph/scratch/agents/ui-design-research-20261106/viewers/qualified-bin-v2/workgraph",
+  "reads": [
+    {
+      "method": "workspace.overview",
+      "params": {
+        "workspace_id": "demo",
+        "limit": "2",
+        "max_bytes": "65536"
+      },
+      "raw": "{\"id\":\"cli\",\"jsonrpc\":\"2.0\",\"result\":{\"data\":{\"active_projects\":{\"items\":[{\"acceptance_criteria\":\"\",\"archived\":false,\"description\":\"Isolated UI test data; never a user workspace.\",\"handoff\":null,\"priority\":\"0\",\"project_id\":\"release\",\"revision\":\"1\",\"status\":\"todo\",\"summary\":\"\",\"title\":\"Synthetic delivery workflow\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"blocked_work\":{\"items\":[{\"display_key\":\"WG-2\",\"priority\":\"0\",\"readiness\":{\"assessment\":{\"scope\":\"graph\",\"unknown_checks\":[]},\"completion\":{\"blocked_prerequisite_count\":\"1\",\"blocked_prerequisite_ids\":[\"design\"],\"can_complete\":false,\"checks\":[{\"kind\":\"hold\",\"passed\":true},{\"kind\":\"prerequisites\",\"passed\":false},{\"kind\":\"children\",\"passed\":true},{\"kind\":\"amendment_acknowledgements\",\"passed\":true},{\"kind\":\"configured_policy\",\"passed\":true}],\"policy\":{\"applied_override\":null,\"criteria\":[],\"digest\":\"085fe6772ab2897e38c94c83f741232acc4fdf45c38bd77ce4afeee50233285d\",\"membership_revision\":\"1\",\"minimum_reopening_token\":null,\"ownership_token\":null,\"project_id\":\"release\",\"reviewers\":[],\"separate_actor\":false,\"sources\":[],\"stale_override\":null,\"ticket_id\":\"build\",\"validators\":[]},\"problem\":{\"kind\":\"Blocked\",\"message\":\"unfinished prerequisites\"},\"unfinished_child_count\":\"0\",\"unfinished_child_ids\":[]},\"ready\":false,\"reason_count\":\"1\",\"reasons\":[{\"kind\":\"prerequisite\",\"ticket_id\":\"design\"}],\"reassessments\":[]},\"revision\":\"2\",\"status\":\"todo\",\"ticket_id\":\"build\",\"title\":\"Implement the interface \u2014 Unicode title with clear scope\"},{\"display_key\":\"WG-3\",\"priority\":\"0\",\"readiness\":{\"assessment\":{\"scope\":\"graph\",\"unknown_checks\":[]},\"completion\":{\"blocked_prerequisite_count\":\"1\",\"blocked_prerequisite_ids\":[\"build\"],\"can_complete\":false,\"checks\":[{\"kind\":\"hold\",\"passed\":true},{\"kind\":\"prerequisites\",\"passed\":false},{\"kind\":\"children\",\"passed\":true},{\"kind\":\"amendment_acknowledgements\",\"passed\":true},{\"kind\":\"configured_policy\",\"passed\":true}],\"policy\":{\"applied_override\":null,\"criteria\":[],\"digest\":\"96761ebf50fb4050bfc95df4a285d6751736b7485e619a50f427e41614827edb\",\"membership_revision\":\"1\",\"minimum_reopening_token\":null,\"ownership_token\":null,\"project_id\":\"release\",\"reviewers\":[],\"separate_actor\":false,\"sources\":[],\"stale_override\":null,\"ticket_id\":\"review\",\"validators\":[]},\"problem\":{\"kind\":\"Blocked\",\"message\":\"unfinished prerequisites\"},\"unfinished_child_count\":\"0\",\"unfinished_child_ids\":[]},\"ready\":false,\"reason_count\":\"1\",\"reasons\":[{\"kind\":\"prerequisite\",\"ticket_id\":\"build\"}],\"reassessments\":[]},\"revision\":\"2\",\"status\":\"todo\",\"ticket_id\":\"review\",\"title\":\"Review the exact implementation and browser evidence\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"counts_by_status\":{\"backlog\":\"0\",\"canceled\":\"0\",\"done\":\"0\",\"in_progress\":\"1\",\"todo\":\"2\"},\"held_work\":{\"items\":[{\"display_key\":\"WG-1\",\"priority\":\"0\",\"readiness\":{\"assessment\":{\"scope\":\"graph\",\"unknown_checks\":[]},\"completion\":{\"blocked_prerequisite_count\":\"0\",\"blocked_prerequisite_ids\":[],\"can_complete\":true,\"checks\":[{\"kind\":\"hold\",\"passed\":true},{\"kind\":\"prerequisites\",\"passed\":true},{\"kind\":\"children\",\"passed\":true},{\"kind\":\"amendment_acknowledgements\",\"passed\":true},{\"kind\":\"configured_policy\",\"passed\":true}],\"policy\":{\"applied_override\":null,\"criteria\":[],\"digest\":\"ad08d62bf0bf418b892df0e4ba96bf8e00ea897849f700619bcd62874c3b15e4\",\"membership_revision\":\"1\",\"minimum_reopening_token\":null,\"ownership_token\":\"1\",\"project_id\":\"release\",\"reviewers\":[],\"separate_actor\":false,\"sources\":[],\"stale_override\":null,\"ticket_id\":\"design\",\"validators\":[]},\"problem\":null,\"unfinished_child_count\":\"0\",\"unfinished_child_ids\":[]},\"ready\":false,\"reason_count\":\"2\",\"reasons\":[{\"category\":\"in_progress\",\"kind\":\"status\"},{\"details\":{\"actor_id\":\"fixture-author\",\"lease\":{\"deadline_unix_ms\":null,\"duration_ms\":null,\"epoch\":\"1\",\"last_unix_ms\":\"1794079242025\",\"revision\":\"1\"},\"run_id\":\"reported-run\",\"token\":\"1\"},\"kind\":\"claimed\",\"revision\":\"2\"}],\"reassessments\":[]},\"revision\":\"2\",\"status\":\"in_progress\",\"ticket_id\":\"design\",\"title\":\"Clarify the workflow and ownership rules\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"name\":\"Synthetic UI qualification\",\"projects\":\"1\",\"ready\":\"0\",\"recent_changes\":{\"items\":[{\"actor_id\":\"fixture-author\",\"changes\":\"1\",\"revision\":\"17\",\"run_id\":null,\"targets\":[{\"kind\":\"workspace\"},{\"kind\":\"project\",\"project_id\":\"release\"},{\"kind\":\"ticket\",\"ticket_id\":\"design\"}],\"timestamp\":\"2026-11-07 19:20:42.127386112Z\"},{\"actor_id\":\"fixture-author\",\"changes\":\"3\",\"revision\":\"16\",\"run_id\":null,\"targets\":[{\"kind\":\"workspace\"},{\"kind\":\"project\",\"project_id\":\"release\"},{\"kind\":\"ticket\",\"ticket_id\":\"build\"}],\"timestamp\":\"2026-11-07 19:20:42.101083136Z\"}],\"next_offset\":\"2\",\"offset\":\"0\",\"remaining\":\"15\"},\"resources\":{\"items\":[],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"settings\":{\"archived\":false,\"description\":\"\",\"instructions\":\"\",\"name\":null,\"revision\":\"0\",\"summary\":\"\"},\"tickets\":\"3\"},\"meta\":{\"budget\":{\"details\":[],\"details_complete\":true,\"max_bytes\":\"65536\",\"omitted_fields\":\"0\",\"omitted_items\":\"0\",\"returned_bytes\":\"5013\",\"truncated\":false},\"workspace_revision\":\"17\"}}}\n",
+      "response": {
+        "id": "cli",
+        "jsonrpc": "2.0",
+        "result": {
+          "data": {
+            "active_projects": {
+              "items": [
+                {
+                  "acceptance_criteria": "",
+                  "archived": false,
+                  "description": "Isolated UI test data; never a user workspace.",
+                  "handoff": null,
+                  "priority": "0",
+                  "project_id": "release",
+                  "revision": "1",
+                  "status": "todo",
+                  "summary": "",
+                  "title": "Synthetic delivery workflow"
+                }
+              ],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "blocked_work": {
+              "items": [
+                {
+                  "display_key": "WG-2",
+                  "priority": "0",
+                  "readiness": {
+                    "assessment": {
+                      "scope": "graph",
+                      "unknown_checks": []
+                    },
+                    "completion": {
+                      "blocked_prerequisite_count": "1",
+                      "blocked_prerequisite_ids": ["design"],
+                      "can_complete": false,
+                      "checks": [
+                        {
+                          "kind": "hold",
+                          "passed": true
+                        },
+                        {
+                          "kind": "prerequisites",
+                          "passed": false
+                        },
+                        {
+                          "kind": "children",
+                          "passed": true
+                        },
+                        {
+                          "kind": "amendment_acknowledgements",
+                          "passed": true
+                        },
+                        {
+                          "kind": "configured_policy",
+                          "passed": true
+                        }
+                      ],
+                      "policy": {
+                        "applied_override": null,
+                        "criteria": [],
+                        "digest": "085fe6772ab2897e38c94c83f741232acc4fdf45c38bd77ce4afeee50233285d",
+                        "membership_revision": "1",
+                        "minimum_reopening_token": null,
+                        "ownership_token": null,
+                        "project_id": "release",
+                        "reviewers": [],
+                        "separate_actor": false,
+                        "sources": [],
+                        "stale_override": null,
+                        "ticket_id": "build",
+                        "validators": []
+                      },
+                      "problem": {
+                        "kind": "Blocked",
+                        "message": "unfinished prerequisites"
+                      },
+                      "unfinished_child_count": "0",
+                      "unfinished_child_ids": []
+                    },
+                    "ready": false,
+                    "reason_count": "1",
+                    "reasons": [
+                      {
+                        "kind": "prerequisite",
+                        "ticket_id": "design"
+                      }
+                    ],
+                    "reassessments": []
+                  },
+                  "revision": "2",
+                  "status": "todo",
+                  "ticket_id": "build",
+                  "title": "Implement the interface \u2014 Unicode title with clear scope"
+                },
+                {
+                  "display_key": "WG-3",
+                  "priority": "0",
+                  "readiness": {
+                    "assessment": {
+                      "scope": "graph",
+                      "unknown_checks": []
+                    },
+                    "completion": {
+                      "blocked_prerequisite_count": "1",
+                      "blocked_prerequisite_ids": ["build"],
+                      "can_complete": false,
+                      "checks": [
+                        {
+                          "kind": "hold",
+                          "passed": true
+                        },
+                        {
+                          "kind": "prerequisites",
+                          "passed": false
+                        },
+                        {
+                          "kind": "children",
+                          "passed": true
+                        },
+                        {
+                          "kind": "amendment_acknowledgements",
+                          "passed": true
+                        },
+                        {
+                          "kind": "configured_policy",
+                          "passed": true
+                        }
+                      ],
+                      "policy": {
+                        "applied_override": null,
+                        "criteria": [],
+                        "digest": "96761ebf50fb4050bfc95df4a285d6751736b7485e619a50f427e41614827edb",
+                        "membership_revision": "1",
+                        "minimum_reopening_token": null,
+                        "ownership_token": null,
+                        "project_id": "release",
+                        "reviewers": [],
+                        "separate_actor": false,
+                        "sources": [],
+                        "stale_override": null,
+                        "ticket_id": "review",
+                        "validators": []
+                      },
+                      "problem": {
+                        "kind": "Blocked",
+                        "message": "unfinished prerequisites"
+                      },
+                      "unfinished_child_count": "0",
+                      "unfinished_child_ids": []
+                    },
+                    "ready": false,
+                    "reason_count": "1",
+                    "reasons": [
+                      {
+                        "kind": "prerequisite",
+                        "ticket_id": "build"
+                      }
+                    ],
+                    "reassessments": []
+                  },
+                  "revision": "2",
+                  "status": "todo",
+                  "ticket_id": "review",
+                  "title": "Review the exact implementation and browser evidence"
+                }
+              ],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "counts_by_status": {
+              "backlog": "0",
+              "canceled": "0",
+              "done": "0",
+              "in_progress": "1",
+              "todo": "2"
+            },
+            "held_work": {
+              "items": [
+                {
+                  "display_key": "WG-1",
+                  "priority": "0",
+                  "readiness": {
+                    "assessment": {
+                      "scope": "graph",
+                      "unknown_checks": []
+                    },
+                    "completion": {
+                      "blocked_prerequisite_count": "0",
+                      "blocked_prerequisite_ids": [],
+                      "can_complete": true,
+                      "checks": [
+                        {
+                          "kind": "hold",
+                          "passed": true
+                        },
+                        {
+                          "kind": "prerequisites",
+                          "passed": true
+                        },
+                        {
+                          "kind": "children",
+                          "passed": true
+                        },
+                        {
+                          "kind": "amendment_acknowledgements",
+                          "passed": true
+                        },
+                        {
+                          "kind": "configured_policy",
+                          "passed": true
+                        }
+                      ],
+                      "policy": {
+                        "applied_override": null,
+                        "criteria": [],
+                        "digest": "ad08d62bf0bf418b892df0e4ba96bf8e00ea897849f700619bcd62874c3b15e4",
+                        "membership_revision": "1",
+                        "minimum_reopening_token": null,
+                        "ownership_token": "1",
+                        "project_id": "release",
+                        "reviewers": [],
+                        "separate_actor": false,
+                        "sources": [],
+                        "stale_override": null,
+                        "ticket_id": "design",
+                        "validators": []
+                      },
+                      "problem": null,
+                      "unfinished_child_count": "0",
+                      "unfinished_child_ids": []
+                    },
+                    "ready": false,
+                    "reason_count": "2",
+                    "reasons": [
+                      {
+                        "category": "in_progress",
+                        "kind": "status"
+                      },
+                      {
+                        "details": {
+                          "actor_id": "fixture-author",
+                          "lease": {
+                            "deadline_unix_ms": null,
+                            "duration_ms": null,
+                            "epoch": "1",
+                            "last_unix_ms": "1794079242025",
+                            "revision": "1"
+                          },
+                          "run_id": "reported-run",
+                          "token": "1"
+                        },
+                        "kind": "claimed",
+                        "revision": "2"
+                      }
+                    ],
+                    "reassessments": []
+                  },
+                  "revision": "2",
+                  "status": "in_progress",
+                  "ticket_id": "design",
+                  "title": "Clarify the workflow and ownership rules"
+                }
+              ],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "name": "Synthetic UI qualification",
+            "projects": "1",
+            "ready": "0",
+            "recent_changes": {
+              "items": [
+                {
+                  "actor_id": "fixture-author",
+                  "changes": "1",
+                  "revision": "17",
+                  "run_id": null,
+                  "targets": [
+                    {
+                      "kind": "workspace"
+                    },
+                    {
+                      "kind": "project",
+                      "project_id": "release"
+                    },
+                    {
+                      "kind": "ticket",
+                      "ticket_id": "design"
+                    }
+                  ],
+                  "timestamp": "2026-11-07 19:20:42.127386112Z"
+                },
+                {
+                  "actor_id": "fixture-author",
+                  "changes": "3",
+                  "revision": "16",
+                  "run_id": null,
+                  "targets": [
+                    {
+                      "kind": "workspace"
+                    },
+                    {
+                      "kind": "project",
+                      "project_id": "release"
+                    },
+                    {
+                      "kind": "ticket",
+                      "ticket_id": "build"
+                    }
+                  ],
+                  "timestamp": "2026-11-07 19:20:42.101083136Z"
+                }
+              ],
+              "next_offset": "2",
+              "offset": "0",
+              "remaining": "15"
+            },
+            "resources": {
+              "items": [],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "settings": {
+              "archived": false,
+              "description": "",
+              "instructions": "",
+              "name": null,
+              "revision": "0",
+              "summary": ""
+            },
+            "tickets": "3"
+          },
+          "meta": {
+            "budget": {
+              "details": [],
+              "details_complete": true,
+              "max_bytes": "65536",
+              "omitted_fields": "0",
+              "omitted_items": "0",
+              "returned_bytes": "5013",
+              "truncated": false
+            },
+            "workspace_revision": "17"
+          }
+        }
+      }
+    },
+    {
+      "method": "project.brief",
+      "params": {
+        "workspace_id": "demo",
+        "project_id": "release",
+        "limit": "2",
+        "max_bytes": "65536"
+      },
+      "raw": "{\"id\":\"cli\",\"jsonrpc\":\"2.0\",\"result\":{\"data\":{\"blocked_work\":{\"items\":[{\"display_key\":\"WG-2\",\"priority\":\"0\",\"readiness\":{\"assessment\":{\"scope\":\"graph\",\"unknown_checks\":[]},\"completion\":{\"blocked_prerequisite_count\":\"1\",\"blocked_prerequisite_ids\":[\"design\"],\"can_complete\":false,\"checks\":[{\"kind\":\"hold\",\"passed\":true},{\"kind\":\"prerequisites\",\"passed\":false},{\"kind\":\"children\",\"passed\":true},{\"kind\":\"amendment_acknowledgements\",\"passed\":true},{\"kind\":\"configured_policy\",\"passed\":true}],\"policy\":{\"applied_override\":null,\"criteria\":[],\"digest\":\"085fe6772ab2897e38c94c83f741232acc4fdf45c38bd77ce4afeee50233285d\",\"membership_revision\":\"1\",\"minimum_reopening_token\":null,\"ownership_token\":null,\"project_id\":\"release\",\"reviewers\":[],\"separate_actor\":false,\"sources\":[],\"stale_override\":null,\"ticket_id\":\"build\",\"validators\":[]},\"problem\":{\"kind\":\"Blocked\",\"message\":\"unfinished prerequisites\"},\"unfinished_child_count\":\"0\",\"unfinished_child_ids\":[]},\"ready\":false,\"reason_count\":\"1\",\"reasons\":[{\"kind\":\"prerequisite\",\"ticket_id\":\"design\"}],\"reassessments\":[]},\"revision\":\"2\",\"status\":\"todo\",\"ticket_id\":\"build\",\"title\":\"Implement the interface \u2014 Unicode title with clear scope\"},{\"display_key\":\"WG-3\",\"priority\":\"0\",\"readiness\":{\"assessment\":{\"scope\":\"graph\",\"unknown_checks\":[]},\"completion\":{\"blocked_prerequisite_count\":\"1\",\"blocked_prerequisite_ids\":[\"build\"],\"can_complete\":false,\"checks\":[{\"kind\":\"hold\",\"passed\":true},{\"kind\":\"prerequisites\",\"passed\":false},{\"kind\":\"children\",\"passed\":true},{\"kind\":\"amendment_acknowledgements\",\"passed\":true},{\"kind\":\"configured_policy\",\"passed\":true}],\"policy\":{\"applied_override\":null,\"criteria\":[],\"digest\":\"96761ebf50fb4050bfc95df4a285d6751736b7485e619a50f427e41614827edb\",\"membership_revision\":\"1\",\"minimum_reopening_token\":null,\"ownership_token\":null,\"project_id\":\"release\",\"reviewers\":[],\"separate_actor\":false,\"sources\":[],\"stale_override\":null,\"ticket_id\":\"review\",\"validators\":[]},\"problem\":{\"kind\":\"Blocked\",\"message\":\"unfinished prerequisites\"},\"unfinished_child_count\":\"0\",\"unfinished_child_ids\":[]},\"ready\":false,\"reason_count\":\"1\",\"reasons\":[{\"kind\":\"prerequisite\",\"ticket_id\":\"build\"}],\"reassessments\":[]},\"revision\":\"2\",\"status\":\"todo\",\"ticket_id\":\"review\",\"title\":\"Review the exact implementation and browser evidence\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"communication\":{\"requests\":{\"items\":[{\"comment_id\":\"ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question\",\"comment_revision\":\"1\",\"correlation_id\":null,\"created\":{\"actor_id\":\"fixture-author\",\"run_id\":null,\"timestamp\":\"2026-11-07 19:20:42.101083136Z\"},\"deadline_unix_ms\":null,\"deliveries\":[{\"acknowledged\":null,\"recipient\":{\"id\":\"fixture-author\",\"kind\":\"actor\"}}],\"kind\":\"clarification\",\"priority\":\"0\",\"related_request_ids\":[],\"reply_to_request_id\":null,\"request_id\":\"overview-question\",\"resolver_id\":\"fixture-author\",\"responsibility\":{\"kind\":\"unaccepted\"},\"revision\":\"1\",\"status\":{\"kind\":\"open\"},\"supersedes_request_ids\":[],\"thread_id\":\"planning\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"threads\":{\"items\":[{\"board_id\":\"team\",\"closure_policy\":\"manual\",\"comment_ids\":[\"comment_12_1\",\"ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question\"],\"links\":[{\"id\":\"build\",\"kind\":\"ticket\"}],\"mentions\":[],\"participants\":[\"fixture-author\",\"human\"],\"pinned\":false,\"pinned_comment_ids\":[],\"revision\":\"3\",\"state\":\"open\",\"thread_id\":\"planning\",\"title\":\"Implementation discussion\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"}},\"in_progress_work\":{\"items\":[{\"display_key\":\"WG-1\",\"priority\":\"0\",\"readiness\":{\"assessment\":{\"scope\":\"graph\",\"unknown_checks\":[]},\"completion\":{\"blocked_prerequisite_count\":\"0\",\"blocked_prerequisite_ids\":[],\"can_complete\":true,\"checks\":[{\"kind\":\"hold\",\"passed\":true},{\"kind\":\"prerequisites\",\"passed\":true},{\"kind\":\"children\",\"passed\":true},{\"kind\":\"amendment_acknowledgements\",\"passed\":true},{\"kind\":\"configured_policy\",\"passed\":true}],\"policy\":{\"applied_override\":null,\"criteria\":[],\"digest\":\"ad08d62bf0bf418b892df0e4ba96bf8e00ea897849f700619bcd62874c3b15e4\",\"membership_revision\":\"1\",\"minimum_reopening_token\":null,\"ownership_token\":\"1\",\"project_id\":\"release\",\"reviewers\":[],\"separate_actor\":false,\"sources\":[],\"stale_override\":null,\"ticket_id\":\"design\",\"validators\":[]},\"problem\":null,\"unfinished_child_count\":\"0\",\"unfinished_child_ids\":[]},\"ready\":false,\"reason_count\":\"2\",\"reasons\":[{\"category\":\"in_progress\",\"kind\":\"status\"},{\"details\":{\"actor_id\":\"fixture-author\",\"lease\":{\"deadline_unix_ms\":null,\"duration_ms\":null,\"epoch\":\"1\",\"last_unix_ms\":\"1794079242025\",\"revision\":\"1\"},\"run_id\":\"reported-run\",\"token\":\"1\"},\"kind\":\"claimed\",\"revision\":\"2\"}],\"reassessments\":[]},\"revision\":\"2\",\"status\":\"in_progress\",\"ticket_id\":\"design\",\"title\":\"Clarify the workflow and ownership rules\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"milestones\":{\"items\":[],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"progress\":{\"blocked\":\"2\",\"done\":\"0\",\"total\":\"3\"},\"project\":{\"acceptance_criteria\":\"\",\"archived\":false,\"description\":\"Isolated UI test data; never a user workspace.\",\"handoff\":null,\"priority\":\"0\",\"project_id\":\"release\",\"revision\":\"1\",\"status\":\"todo\",\"summary\":\"\",\"title\":\"Synthetic delivery workflow\"},\"ready_work\":{\"items\":[],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"resources\":{\"items\":[{\"current_version\":{\"actor_id\":\"fixture-author\",\"digest\":\"0ecdf29f132437190d1348eb432989d377d7c8e1a081e606645e07a0d4a0e0e5\",\"filename\":\"notes.md\",\"mime_type\":\"text/markdown\",\"revision\":\"1\",\"size_bytes\":\"81\",\"timestamp\":\"2026-11-07 19:20:41.817466112Z\"},\"metadata\":{\"archived\":false,\"description\":\"\",\"filename\":\"notes.md\",\"mime_type\":\"text/markdown\",\"targets\":[{\"id\":\"release\",\"kind\":\"project\"}],\"title\":\"Implementation notes\"},\"resource_id\":\"notes\",\"revision\":\"2\",\"version_count\":\"1\"}],\"next_offset\":null,\"offset\":\"0\",\"remaining\":\"0\"},\"tickets\":{\"items\":[{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"created_at\":\"2026-11-07 19:20:41.690966016Z\",\"created_order\":\"2\",\"created_sequence\":\"3\",\"description\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"display_key\":\"WG-2\",\"hold\":null,\"label_ids\":[],\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"parent_ticket_id\":null,\"prerequisite_ticket_ids\":[\"design\"],\"priority\":\"0\",\"project_id\":\"release\",\"reassessments\":[],\"related_ticket_ids\":[],\"reopened_token\":null,\"revision\":\"2\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"build\",\"title\":\"Implement the interface \u2014 Unicode title with clear scope\",\"updated_at\":\"2026-11-07 19:20:41.740991232Z\",\"waivers\":[]},{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":{\"actor_id\":\"fixture-author\",\"lease\":{\"deadline_unix_ms\":null,\"duration_ms\":null,\"epoch\":\"1\",\"last_unix_ms\":\"1794079242025\",\"revision\":\"1\"},\"run_id\":\"reported-run\",\"token\":\"1\"},\"created_at\":\"2026-11-07 19:20:41.666457856Z\",\"created_order\":\"1\",\"created_sequence\":\"2\",\"description\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"display_key\":\"WG-1\",\"hold\":null,\"label_ids\":[],\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"2\",\"parent_ticket_id\":null,\"prerequisite_ticket_ids\":[],\"priority\":\"0\",\"project_id\":\"release\",\"reassessments\":[],\"related_ticket_ids\":[],\"reopened_token\":null,\"revision\":\"2\",\"status\":\"in_progress\",\"status_id\":null,\"ticket_id\":\"design\",\"title\":\"Clarify the workflow and ownership rules\",\"updated_at\":\"2026-11-07 19:20:42.025851136Z\",\"waivers\":[]}],\"next_offset\":\"2\",\"offset\":\"0\",\"remaining\":\"1\"}},\"meta\":{\"budget\":{\"details\":[],\"details_complete\":true,\"max_bytes\":\"65536\",\"omitted_fields\":\"0\",\"omitted_items\":\"0\",\"returned_bytes\":\"7731\",\"truncated\":false},\"workspace_revision\":\"17\"}}}\n",
+      "response": {
+        "id": "cli",
+        "jsonrpc": "2.0",
+        "result": {
+          "data": {
+            "blocked_work": {
+              "items": [
+                {
+                  "display_key": "WG-2",
+                  "priority": "0",
+                  "readiness": {
+                    "assessment": {
+                      "scope": "graph",
+                      "unknown_checks": []
+                    },
+                    "completion": {
+                      "blocked_prerequisite_count": "1",
+                      "blocked_prerequisite_ids": ["design"],
+                      "can_complete": false,
+                      "checks": [
+                        {
+                          "kind": "hold",
+                          "passed": true
+                        },
+                        {
+                          "kind": "prerequisites",
+                          "passed": false
+                        },
+                        {
+                          "kind": "children",
+                          "passed": true
+                        },
+                        {
+                          "kind": "amendment_acknowledgements",
+                          "passed": true
+                        },
+                        {
+                          "kind": "configured_policy",
+                          "passed": true
+                        }
+                      ],
+                      "policy": {
+                        "applied_override": null,
+                        "criteria": [],
+                        "digest": "085fe6772ab2897e38c94c83f741232acc4fdf45c38bd77ce4afeee50233285d",
+                        "membership_revision": "1",
+                        "minimum_reopening_token": null,
+                        "ownership_token": null,
+                        "project_id": "release",
+                        "reviewers": [],
+                        "separate_actor": false,
+                        "sources": [],
+                        "stale_override": null,
+                        "ticket_id": "build",
+                        "validators": []
+                      },
+                      "problem": {
+                        "kind": "Blocked",
+                        "message": "unfinished prerequisites"
+                      },
+                      "unfinished_child_count": "0",
+                      "unfinished_child_ids": []
+                    },
+                    "ready": false,
+                    "reason_count": "1",
+                    "reasons": [
+                      {
+                        "kind": "prerequisite",
+                        "ticket_id": "design"
+                      }
+                    ],
+                    "reassessments": []
+                  },
+                  "revision": "2",
+                  "status": "todo",
+                  "ticket_id": "build",
+                  "title": "Implement the interface \u2014 Unicode title with clear scope"
+                },
+                {
+                  "display_key": "WG-3",
+                  "priority": "0",
+                  "readiness": {
+                    "assessment": {
+                      "scope": "graph",
+                      "unknown_checks": []
+                    },
+                    "completion": {
+                      "blocked_prerequisite_count": "1",
+                      "blocked_prerequisite_ids": ["build"],
+                      "can_complete": false,
+                      "checks": [
+                        {
+                          "kind": "hold",
+                          "passed": true
+                        },
+                        {
+                          "kind": "prerequisites",
+                          "passed": false
+                        },
+                        {
+                          "kind": "children",
+                          "passed": true
+                        },
+                        {
+                          "kind": "amendment_acknowledgements",
+                          "passed": true
+                        },
+                        {
+                          "kind": "configured_policy",
+                          "passed": true
+                        }
+                      ],
+                      "policy": {
+                        "applied_override": null,
+                        "criteria": [],
+                        "digest": "96761ebf50fb4050bfc95df4a285d6751736b7485e619a50f427e41614827edb",
+                        "membership_revision": "1",
+                        "minimum_reopening_token": null,
+                        "ownership_token": null,
+                        "project_id": "release",
+                        "reviewers": [],
+                        "separate_actor": false,
+                        "sources": [],
+                        "stale_override": null,
+                        "ticket_id": "review",
+                        "validators": []
+                      },
+                      "problem": {
+                        "kind": "Blocked",
+                        "message": "unfinished prerequisites"
+                      },
+                      "unfinished_child_count": "0",
+                      "unfinished_child_ids": []
+                    },
+                    "ready": false,
+                    "reason_count": "1",
+                    "reasons": [
+                      {
+                        "kind": "prerequisite",
+                        "ticket_id": "build"
+                      }
+                    ],
+                    "reassessments": []
+                  },
+                  "revision": "2",
+                  "status": "todo",
+                  "ticket_id": "review",
+                  "title": "Review the exact implementation and browser evidence"
+                }
+              ],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "communication": {
+              "requests": {
+                "items": [
+                  {
+                    "comment_id": "ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question",
+                    "comment_revision": "1",
+                    "correlation_id": null,
+                    "created": {
+                      "actor_id": "fixture-author",
+                      "run_id": null,
+                      "timestamp": "2026-11-07 19:20:42.101083136Z"
+                    },
+                    "deadline_unix_ms": null,
+                    "deliveries": [
+                      {
+                        "acknowledged": null,
+                        "recipient": {
+                          "id": "fixture-author",
+                          "kind": "actor"
+                        }
+                      }
+                    ],
+                    "kind": "clarification",
+                    "priority": "0",
+                    "related_request_ids": [],
+                    "reply_to_request_id": null,
+                    "request_id": "overview-question",
+                    "resolver_id": "fixture-author",
+                    "responsibility": {
+                      "kind": "unaccepted"
+                    },
+                    "revision": "1",
+                    "status": {
+                      "kind": "open"
+                    },
+                    "supersedes_request_ids": [],
+                    "thread_id": "planning"
+                  }
+                ],
+                "next_offset": null,
+                "offset": "0",
+                "remaining": "0"
+              },
+              "threads": {
+                "items": [
+                  {
+                    "board_id": "team",
+                    "closure_policy": "manual",
+                    "comment_ids": [
+                      "comment_12_1",
+                      "ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question"
+                    ],
+                    "links": [
+                      {
+                        "id": "build",
+                        "kind": "ticket"
+                      }
+                    ],
+                    "mentions": [],
+                    "participants": ["fixture-author", "human"],
+                    "pinned": false,
+                    "pinned_comment_ids": [],
+                    "revision": "3",
+                    "state": "open",
+                    "thread_id": "planning",
+                    "title": "Implementation discussion"
+                  }
+                ],
+                "next_offset": null,
+                "offset": "0",
+                "remaining": "0"
+              }
+            },
+            "in_progress_work": {
+              "items": [
+                {
+                  "display_key": "WG-1",
+                  "priority": "0",
+                  "readiness": {
+                    "assessment": {
+                      "scope": "graph",
+                      "unknown_checks": []
+                    },
+                    "completion": {
+                      "blocked_prerequisite_count": "0",
+                      "blocked_prerequisite_ids": [],
+                      "can_complete": true,
+                      "checks": [
+                        {
+                          "kind": "hold",
+                          "passed": true
+                        },
+                        {
+                          "kind": "prerequisites",
+                          "passed": true
+                        },
+                        {
+                          "kind": "children",
+                          "passed": true
+                        },
+                        {
+                          "kind": "amendment_acknowledgements",
+                          "passed": true
+                        },
+                        {
+                          "kind": "configured_policy",
+                          "passed": true
+                        }
+                      ],
+                      "policy": {
+                        "applied_override": null,
+                        "criteria": [],
+                        "digest": "ad08d62bf0bf418b892df0e4ba96bf8e00ea897849f700619bcd62874c3b15e4",
+                        "membership_revision": "1",
+                        "minimum_reopening_token": null,
+                        "ownership_token": "1",
+                        "project_id": "release",
+                        "reviewers": [],
+                        "separate_actor": false,
+                        "sources": [],
+                        "stale_override": null,
+                        "ticket_id": "design",
+                        "validators": []
+                      },
+                      "problem": null,
+                      "unfinished_child_count": "0",
+                      "unfinished_child_ids": []
+                    },
+                    "ready": false,
+                    "reason_count": "2",
+                    "reasons": [
+                      {
+                        "category": "in_progress",
+                        "kind": "status"
+                      },
+                      {
+                        "details": {
+                          "actor_id": "fixture-author",
+                          "lease": {
+                            "deadline_unix_ms": null,
+                            "duration_ms": null,
+                            "epoch": "1",
+                            "last_unix_ms": "1794079242025",
+                            "revision": "1"
+                          },
+                          "run_id": "reported-run",
+                          "token": "1"
+                        },
+                        "kind": "claimed",
+                        "revision": "2"
+                      }
+                    ],
+                    "reassessments": []
+                  },
+                  "revision": "2",
+                  "status": "in_progress",
+                  "ticket_id": "design",
+                  "title": "Clarify the workflow and ownership rules"
+                }
+              ],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "milestones": {
+              "items": [],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "progress": {
+              "blocked": "2",
+              "done": "0",
+              "total": "3"
+            },
+            "project": {
+              "acceptance_criteria": "",
+              "archived": false,
+              "description": "Isolated UI test data; never a user workspace.",
+              "handoff": null,
+              "priority": "0",
+              "project_id": "release",
+              "revision": "1",
+              "status": "todo",
+              "summary": "",
+              "title": "Synthetic delivery workflow"
+            },
+            "ready_work": {
+              "items": [],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "resources": {
+              "items": [
+                {
+                  "current_version": {
+                    "actor_id": "fixture-author",
+                    "digest": "0ecdf29f132437190d1348eb432989d377d7c8e1a081e606645e07a0d4a0e0e5",
+                    "filename": "notes.md",
+                    "mime_type": "text/markdown",
+                    "revision": "1",
+                    "size_bytes": "81",
+                    "timestamp": "2026-11-07 19:20:41.817466112Z"
+                  },
+                  "metadata": {
+                    "archived": false,
+                    "description": "",
+                    "filename": "notes.md",
+                    "mime_type": "text/markdown",
+                    "targets": [
+                      {
+                        "id": "release",
+                        "kind": "project"
+                      }
+                    ],
+                    "title": "Implementation notes"
+                  },
+                  "resource_id": "notes",
+                  "revision": "2",
+                  "version_count": "1"
+                }
+              ],
+              "next_offset": null,
+              "offset": "0",
+              "remaining": "0"
+            },
+            "tickets": {
+              "items": [
+                {
+                  "acceptance_criteria": "",
+                  "archived": false,
+                  "assignee_id": null,
+                  "claim": null,
+                  "created_at": "2026-11-07 19:20:41.690966016Z",
+                  "created_order": "2",
+                  "created_sequence": "3",
+                  "description": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                  "display_key": "WG-2",
+                  "hold": null,
+                  "label_ids": [],
+                  "membership_revision": "1",
+                  "milestone_id": null,
+                  "next_token": "1",
+                  "parent_ticket_id": null,
+                  "prerequisite_ticket_ids": ["design"],
+                  "priority": "0",
+                  "project_id": "release",
+                  "reassessments": [],
+                  "related_ticket_ids": [],
+                  "reopened_token": null,
+                  "revision": "2",
+                  "status": "todo",
+                  "status_id": null,
+                  "ticket_id": "build",
+                  "title": "Implement the interface \u2014 Unicode title with clear scope",
+                  "updated_at": "2026-11-07 19:20:41.740991232Z",
+                  "waivers": []
+                },
+                {
+                  "acceptance_criteria": "",
+                  "archived": false,
+                  "assignee_id": null,
+                  "claim": {
+                    "actor_id": "fixture-author",
+                    "lease": {
+                      "deadline_unix_ms": null,
+                      "duration_ms": null,
+                      "epoch": "1",
+                      "last_unix_ms": "1794079242025",
+                      "revision": "1"
+                    },
+                    "run_id": "reported-run",
+                    "token": "1"
+                  },
+                  "created_at": "2026-11-07 19:20:41.666457856Z",
+                  "created_order": "1",
+                  "created_sequence": "2",
+                  "description": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                  "display_key": "WG-1",
+                  "hold": null,
+                  "label_ids": [],
+                  "membership_revision": "1",
+                  "milestone_id": null,
+                  "next_token": "2",
+                  "parent_ticket_id": null,
+                  "prerequisite_ticket_ids": [],
+                  "priority": "0",
+                  "project_id": "release",
+                  "reassessments": [],
+                  "related_ticket_ids": [],
+                  "reopened_token": null,
+                  "revision": "2",
+                  "status": "in_progress",
+                  "status_id": null,
+                  "ticket_id": "design",
+                  "title": "Clarify the workflow and ownership rules",
+                  "updated_at": "2026-11-07 19:20:42.025851136Z",
+                  "waivers": []
+                }
+              ],
+              "next_offset": "2",
+              "offset": "0",
+              "remaining": "1"
+            }
+          },
+          "meta": {
+            "budget": {
+              "details": [],
+              "details_complete": true,
+              "max_bytes": "65536",
+              "omitted_fields": "0",
+              "omitted_items": "0",
+              "returned_bytes": "7731",
+              "truncated": false
+            },
+            "workspace_revision": "17"
+          }
+        }
+      }
+    },
+    {
+      "method": "coordinator.overview",
+      "params": {
+        "workspace_id": "demo",
+        "project_id": "release",
+        "limit": "100",
+        "max_bytes": "65536"
+      },
+      "raw": "{\"id\":\"cli\",\"jsonrpc\":\"2.0\",\"result\":{\"data\":{\"captured_now_unix_ms\":\"1794079242205\",\"critical_path_duration_ms\":null,\"critical_path_reason\":\"Task duration estimates are unavailable\",\"dependency_path\":null,\"dependency_path_omitted\":\"0\",\"items\":[{\"kind\":\"active_attempt\",\"metadata\":{\"last_checkpoint\":null,\"run_id\":\"reported-run\",\"state\":\"running\",\"ticket_id\":\"design\",\"token\":\"1\"},\"source\":{\"attempt_id\":\"reported-attempt\",\"kind\":\"attempt\"}},{\"kind\":\"dependency_bottleneck\",\"metadata\":{\"waiting_count\":\"1\",\"waiting_ticket_ids\":[\"review\"]},\"source\":{\"kind\":\"ticket\",\"ticket_id\":\"build\"}},{\"kind\":\"dependency_bottleneck\",\"metadata\":{\"waiting_count\":\"1\",\"waiting_ticket_ids\":[\"build\"]},\"source\":{\"kind\":\"ticket\",\"ticket_id\":\"design\"}},{\"kind\":\"reported_usage\",\"metadata\":{\"actor_id\":\"fixture-author\",\"elapsed_ms\":\"7\",\"metrics\":[],\"provenance\":\"Synthetic observed report\",\"scope\":{\"attempt_id\":\"reported-attempt\",\"kind\":\"attempt\"},\"timestamp\":\"source time unspecified\",\"tokens\":\"9007199254740993\",\"usage_id\":\"overview-usage\"},\"source\":{\"kind\":\"usage\",\"usage_id\":\"overview-usage\"}},{\"kind\":\"unanswered_request\",\"metadata\":{\"comment_id\":\"ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question\",\"deadline_unix_ms\":null,\"kind\":\"clarification\",\"responsibility\":{\"kind\":\"unaccepted\"},\"thread_id\":\"planning\",\"unacknowledged_recipients\":\"1\"},\"source\":{\"kind\":\"request\",\"request_id\":\"overview-question\"}},{\"kind\":\"unobserved_run\",\"metadata\":{\"clock_regressed\":false,\"held_work\":{\"active_attempt_count\":\"1\",\"named_reservation_count\":\"0\",\"path_reservation_count\":\"0\",\"ticket_claim_count\":\"1\"},\"last_observed_unix_ms\":null,\"liveness\":\"unobserved\",\"liveness_is_advisory\":true,\"observation_age_ms\":null,\"status\":\"running\"},\"source\":{\"kind\":\"run\",\"run_id\":\"reported-run\"}}],\"needs_larger_budget\":false,\"next_cursor\":null,\"next_item_source\":null,\"omitted\":\"0\",\"required_bytes\":null,\"workspace_id\":\"demo\"},\"meta\":{\"workspace_revision\":\"17\"}}}\n",
+      "response": {
+        "id": "cli",
+        "jsonrpc": "2.0",
+        "result": {
+          "data": {
+            "captured_now_unix_ms": "1794079242205",
+            "critical_path_duration_ms": null,
+            "critical_path_reason": "Task duration estimates are unavailable",
+            "dependency_path": null,
+            "dependency_path_omitted": "0",
+            "items": [
+              {
+                "kind": "active_attempt",
+                "metadata": {
+                  "last_checkpoint": null,
+                  "run_id": "reported-run",
+                  "state": "running",
+                  "ticket_id": "design",
+                  "token": "1"
+                },
+                "source": {
+                  "attempt_id": "reported-attempt",
+                  "kind": "attempt"
+                }
+              },
+              {
+                "kind": "dependency_bottleneck",
+                "metadata": {
+                  "waiting_count": "1",
+                  "waiting_ticket_ids": ["review"]
+                },
+                "source": {
+                  "kind": "ticket",
+                  "ticket_id": "build"
+                }
+              },
+              {
+                "kind": "dependency_bottleneck",
+                "metadata": {
+                  "waiting_count": "1",
+                  "waiting_ticket_ids": ["build"]
+                },
+                "source": {
+                  "kind": "ticket",
+                  "ticket_id": "design"
+                }
+              },
+              {
+                "kind": "reported_usage",
+                "metadata": {
+                  "actor_id": "fixture-author",
+                  "elapsed_ms": "7",
+                  "metrics": [],
+                  "provenance": "Synthetic observed report",
+                  "scope": {
+                    "attempt_id": "reported-attempt",
+                    "kind": "attempt"
+                  },
+                  "timestamp": "source time unspecified",
+                  "tokens": "9007199254740993",
+                  "usage_id": "overview-usage"
+                },
+                "source": {
+                  "kind": "usage",
+                  "usage_id": "overview-usage"
+                }
+              },
+              {
+                "kind": "unanswered_request",
+                "metadata": {
+                  "comment_id": "ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question",
+                  "deadline_unix_ms": null,
+                  "kind": "clarification",
+                  "responsibility": {
+                    "kind": "unaccepted"
+                  },
+                  "thread_id": "planning",
+                  "unacknowledged_recipients": "1"
+                },
+                "source": {
+                  "kind": "request",
+                  "request_id": "overview-question"
+                }
+              },
+              {
+                "kind": "unobserved_run",
+                "metadata": {
+                  "clock_regressed": false,
+                  "held_work": {
+                    "active_attempt_count": "1",
+                    "named_reservation_count": "0",
+                    "path_reservation_count": "0",
+                    "ticket_claim_count": "1"
+                  },
+                  "last_observed_unix_ms": null,
+                  "liveness": "unobserved",
+                  "liveness_is_advisory": true,
+                  "observation_age_ms": null,
+                  "status": "running"
+                },
+                "source": {
+                  "kind": "run",
+                  "run_id": "reported-run"
+                }
+              }
+            ],
+            "needs_larger_budget": false,
+            "next_cursor": null,
+            "next_item_source": null,
+            "omitted": "0",
+            "required_bytes": null,
+            "workspace_id": "demo"
+          },
+          "meta": {
+            "workspace_revision": "17"
+          }
+        }
+      }
+    },
+    {
+      "method": "attention.read",
+      "params": {
+        "workspace_id": "demo",
+        "filter": {
+          "project_id": "release",
+          "kinds": ["ticket", "fact", "readiness"]
+        },
+        "limit": "2",
+        "max_bytes": "65536"
+      },
+      "raw": "{\"id\":\"cli\",\"jsonrpc\":\"2.0\",\"result\":{\"data\":{\"cursor\":\"eyJjaGVja3N1bSI6ImJlNjMxMzg5Nzc0YWRiN2YzZGEyNWQzZDA0NzgyYTYwOWIxNGUwZjkxN2YwMWY4NDRkN2I0YWMyMTZlYTJlODAiLCJwYXlsb2FkIjp7ImFmdGVyIjoiMCIsImFuY2hvciI6ImE1YjRiMmJkNDZmMjk2NTU5YmNmN2Q0ZjJiNGRiYWU2Yjg3MWM0NTBkYjc0NWRhNzc3YWRkYjY4NThjNGJlZjYiLCJjbG9jayI6IjE3OTQwNzkyNDIyMzEiLCJmaWx0ZXIiOiI1ZTQxMzA5N2QyYTM2YTY2Yzk4YzI1MGMzYjJiODBhZjM0YjM1NTZjZjc0MzU2ZDUzMWU5ZDc0Yzk3ZmI1OTMwIiwib2Zmc2V0IjoiMiIsInRocm91Z2giOiIxNyIsInZlcnNpb24iOiIxIiwid29ya3NwYWNlIjoiZGVtbyJ9fQ==\",\"has_more\":true,\"items\":[{\"kind\":\"readiness_invalidated\",\"reason\":\"project_policy\",\"source\":{\"change_index\":\"0\",\"workspace_revision\":\"1\"}},{\"kind\":\"ticket_changed\",\"source\":{\"change_index\":\"0\",\"workspace_revision\":\"2\"},\"status\":\"todo\",\"ticket_id\":\"design\",\"ticket_revision\":\"1\"}],\"needs_larger_budget\":false,\"readiness\":{\"cursor\":null,\"has_more\":false,\"items\":[],\"needs_larger_budget\":false,\"observed_unix_ms\":\"1794079242231\",\"required_bytes\":null,\"workspace_revision\":\"17\"},\"required_bytes\":null,\"through\":\"17\"},\"meta\":{\"budget\":{\"details\":[],\"details_complete\":true,\"max_bytes\":\"65536\",\"omitted_fields\":\"0\",\"omitted_items\":\"0\",\"returned_bytes\":\"1176\",\"truncated\":false},\"workspace_revision\":\"17\"}}}\n",
+      "response": {
+        "id": "cli",
+        "jsonrpc": "2.0",
+        "result": {
+          "data": {
+            "cursor": "eyJjaGVja3N1bSI6ImJlNjMxMzg5Nzc0YWRiN2YzZGEyNWQzZDA0NzgyYTYwOWIxNGUwZjkxN2YwMWY4NDRkN2I0YWMyMTZlYTJlODAiLCJwYXlsb2FkIjp7ImFmdGVyIjoiMCIsImFuY2hvciI6ImE1YjRiMmJkNDZmMjk2NTU5YmNmN2Q0ZjJiNGRiYWU2Yjg3MWM0NTBkYjc0NWRhNzc3YWRkYjY4NThjNGJlZjYiLCJjbG9jayI6IjE3OTQwNzkyNDIyMzEiLCJmaWx0ZXIiOiI1ZTQxMzA5N2QyYTM2YTY2Yzk4YzI1MGMzYjJiODBhZjM0YjM1NTZjZjc0MzU2ZDUzMWU5ZDc0Yzk3ZmI1OTMwIiwib2Zmc2V0IjoiMiIsInRocm91Z2giOiIxNyIsInZlcnNpb24iOiIxIiwid29ya3NwYWNlIjoiZGVtbyJ9fQ==",
+            "has_more": true,
+            "items": [
+              {
+                "kind": "readiness_invalidated",
+                "reason": "project_policy",
+                "source": {
+                  "change_index": "0",
+                  "workspace_revision": "1"
+                }
+              },
+              {
+                "kind": "ticket_changed",
+                "source": {
+                  "change_index": "0",
+                  "workspace_revision": "2"
+                },
+                "status": "todo",
+                "ticket_id": "design",
+                "ticket_revision": "1"
+              }
+            ],
+            "needs_larger_budget": false,
+            "readiness": {
+              "cursor": null,
+              "has_more": false,
+              "items": [],
+              "needs_larger_budget": false,
+              "observed_unix_ms": "1794079242231",
+              "required_bytes": null,
+              "workspace_revision": "17"
+            },
+            "required_bytes": null,
+            "through": "17"
+          },
+          "meta": {
+            "budget": {
+              "details": [],
+              "details_complete": true,
+              "max_bytes": "65536",
+              "omitted_fields": "0",
+              "omitted_items": "0",
+              "returned_bytes": "1176",
+              "truncated": false
+            },
+            "workspace_revision": "17"
+          }
+        }
+      }
+    },
+    {
+      "method": "attention.wait",
+      "params": {
+        "workspace_id": "demo",
+        "filter": {
+          "project_id": "release",
+          "kinds": ["ticket", "fact", "readiness"]
+        },
+        "after": "12",
+        "timeout_ms": "1",
+        "limit": "2",
+        "max_bytes": "65536"
+      },
+      "raw": "{\"id\":\"cli\",\"jsonrpc\":\"2.0\",\"result\":{\"data\":{\"cursor\":\"eyJjaGVja3N1bSI6ImRiZjgzZjZkYjdlYTQ0ZGNjMzAwNDE0YWQwZWZmYmRhNmFkMjY4ZTVkYzJjNzIzNGIzOGQ4NDk3YzIxYWViMzMiLCJwYXlsb2FkIjp7ImFmdGVyIjoiMTIiLCJhbmNob3IiOiJhNWI0YjJiZDQ2ZjI5NjU1OWJjZjdkNGYyYjRkYmFlNmI4NzFjNDUwZGI3NDVkYTc3N2FkZGI2ODU4YzRiZWY2IiwiY2xvY2siOiIxNzk0MDc5MjQyMjU2IiwiZmlsdGVyIjoiNWU0MTMwOTdkMmEzNmE2NmM5OGMyNTBjM2IyYjgwYWYzNGIzNTU2Y2Y3NDM1NmQ1MzFlOWQ3NGM5N2ZiNTkzMCIsIm9mZnNldCI6IjIiLCJ0aHJvdWdoIjoiMTciLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZSI6ImRlbW8ifX0=\",\"has_more\":true,\"items\":[{\"kind\":\"ticket_changed\",\"source\":{\"change_index\":\"0\",\"workspace_revision\":\"14\"},\"status\":\"in_progress\",\"ticket_id\":\"design\",\"ticket_revision\":\"2\"},{\"kind\":\"readiness_invalidated\",\"reason\":\"ticket_readiness\",\"source\":{\"change_index\":\"0\",\"workspace_revision\":\"14\"}}],\"needs_larger_budget\":false,\"readiness\":{\"cursor\":null,\"has_more\":false,\"items\":[],\"needs_larger_budget\":false,\"observed_unix_ms\":\"1794079242256\",\"required_bytes\":null,\"workspace_revision\":\"17\"},\"required_bytes\":null,\"through\":\"17\"},\"meta\":{\"budget\":{\"details\":[],\"details_complete\":true,\"max_bytes\":\"65536\",\"omitted_fields\":\"0\",\"omitted_items\":\"0\",\"returned_bytes\":\"1187\",\"truncated\":false},\"workspace_revision\":\"17\"}}}\n",
+      "response": {
+        "id": "cli",
+        "jsonrpc": "2.0",
+        "result": {
+          "data": {
+            "cursor": "eyJjaGVja3N1bSI6ImRiZjgzZjZkYjdlYTQ0ZGNjMzAwNDE0YWQwZWZmYmRhNmFkMjY4ZTVkYzJjNzIzNGIzOGQ4NDk3YzIxYWViMzMiLCJwYXlsb2FkIjp7ImFmdGVyIjoiMTIiLCJhbmNob3IiOiJhNWI0YjJiZDQ2ZjI5NjU1OWJjZjdkNGYyYjRkYmFlNmI4NzFjNDUwZGI3NDVkYTc3N2FkZGI2ODU4YzRiZWY2IiwiY2xvY2siOiIxNzk0MDc5MjQyMjU2IiwiZmlsdGVyIjoiNWU0MTMwOTdkMmEzNmE2NmM5OGMyNTBjM2IyYjgwYWYzNGIzNTU2Y2Y3NDM1NmQ1MzFlOWQ3NGM5N2ZiNTkzMCIsIm9mZnNldCI6IjIiLCJ0aHJvdWdoIjoiMTciLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZSI6ImRlbW8ifX0=",
+            "has_more": true,
+            "items": [
+              {
+                "kind": "ticket_changed",
+                "source": {
+                  "change_index": "0",
+                  "workspace_revision": "14"
+                },
+                "status": "in_progress",
+                "ticket_id": "design",
+                "ticket_revision": "2"
+              },
+              {
+                "kind": "readiness_invalidated",
+                "reason": "ticket_readiness",
+                "source": {
+                  "change_index": "0",
+                  "workspace_revision": "14"
+                }
+              }
+            ],
+            "needs_larger_budget": false,
+            "readiness": {
+              "cursor": null,
+              "has_more": false,
+              "items": [],
+              "needs_larger_budget": false,
+              "observed_unix_ms": "1794079242256",
+              "required_bytes": null,
+              "workspace_revision": "17"
+            },
+            "required_bytes": null,
+            "through": "17"
+          },
+          "meta": {
+            "budget": {
+              "details": [],
+              "details_complete": true,
+              "max_bytes": "65536",
+              "omitted_fields": "0",
+              "omitted_items": "0",
+              "returned_bytes": "1187",
+              "truncated": false
+            },
+            "workspace_revision": "17"
+          }
+        }
+      }
+    },
+    {
+      "method": "activity.digest",
+      "params": {
+        "workspace_id": "demo",
+        "scope": {
+          "kind": "project",
+          "project_id": "release"
+        },
+        "limit": "2",
+        "max_bytes": "65536"
+      },
+      "raw": "{\"id\":\"cli\",\"jsonrpc\":\"2.0\",\"result\":{\"data\":{\"capture\":{\"after\":\"0\",\"after_change_index\":null,\"lineage\":\"a5b4b2bd46f296559bcf7d4f2b4dbae6b871c450db745da777addb6858c4bef6\",\"through\":\"17\"},\"counts\":[{\"omitted\":\"11\",\"returned\":\"2\",\"section\":\"entries\",\"total\":\"13\"},{\"omitted\":\"0\",\"returned\":\"1\",\"section\":\"outstanding_requests\",\"total\":\"1\"},{\"omitted\":\"5\",\"returned\":\"0\",\"section\":\"other_resolved_changes\",\"total\":\"5\"}],\"cursor\":\"eyJhbmNob3IiOiJhNWI0YjJiZDQ2ZjI5NjU1OWJjZjdkNGYyYjRkYmFlNmI4NzFjNDUwZGI3NDVkYTc3N2FkZGI2ODU4YzRiZWY2IiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjMifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTciLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==\",\"entries\":[{\"category\":\"task_changed\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"task\",\"record\":{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"display_key\":\"WG-1\",\"excluded_arrays\":{\"labels\":\"0\",\"prerequisites\":\"0\",\"reassessments\":\"0\",\"related\":\"0\",\"waivers\":\"0\"},\"hold\":null,\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"objective\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"parent_ticket_id\":null,\"priority\":\"0\",\"project_id\":\"release\",\"reopened_token\":null,\"revision\":\"1\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"design\",\"title\":\"Clarify the workflow and ownership rules\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"2\"},{\"kind\":\"ticket\",\"revision\":\"1\",\"ticket_id\":\"design\"}],\"summary\":\"task_changed: Clarify the workflow and ownership rules\"},\"workspace_revision\":\"2\"},{\"category\":\"task_changed\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"task\",\"record\":{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"display_key\":\"WG-2\",\"excluded_arrays\":{\"labels\":\"0\",\"prerequisites\":\"0\",\"reassessments\":\"0\",\"related\":\"0\",\"waivers\":\"0\"},\"hold\":null,\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"objective\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"parent_ticket_id\":null,\"priority\":\"0\",\"project_id\":\"release\",\"reopened_token\":null,\"revision\":\"1\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"build\",\"title\":\"Implement the interface \u2014 Unicode title with clear scope\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"3\"},{\"kind\":\"ticket\",\"revision\":\"1\",\"ticket_id\":\"build\"}],\"summary\":\"task_changed: Implement the interface \u2014 Unicode title with clear scope\"},\"workspace_revision\":\"3\"}],\"has_more\":true,\"outstanding_requests\":[{\"clipped_fields\":[],\"kind\":\"request\",\"record\":{\"comment_id\":\"ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question\",\"comment_revision\":\"1\",\"correlation_id\":null,\"created\":{\"actor_id\":\"fixture-author\",\"run_id\":null,\"timestamp\":\"2026-11-07 19:20:42.101083136Z\"},\"deadline_unix_ms\":null,\"deliveries\":[{\"acknowledged\":null,\"recipient\":{\"id\":\"fixture-author\",\"kind\":\"actor\"}}],\"kind\":\"clarification\",\"priority\":\"0\",\"related_request_ids\":[],\"reply_to_request_id\":null,\"request_id\":\"overview-question\",\"resolver_id\":\"fixture-author\",\"responsibility\":{\"kind\":\"unaccepted\"},\"revision\":\"1\",\"status\":{\"kind\":\"open\"},\"supersedes_request_ids\":[],\"thread_id\":\"planning\"},\"sources\":[{\"kind\":\"request\",\"request_id\":\"overview-question\",\"revision\":\"1\"}],\"summary\":\"Outstanding request: overview-question\"}]},\"meta\":{\"workspace_revision\":\"17\"}}}\n",
+      "response": {
+        "id": "cli",
+        "jsonrpc": "2.0",
+        "result": {
+          "data": {
+            "capture": {
+              "after": "0",
+              "after_change_index": null,
+              "lineage": "a5b4b2bd46f296559bcf7d4f2b4dbae6b871c450db745da777addb6858c4bef6",
+              "through": "17"
+            },
+            "counts": [
+              {
+                "omitted": "11",
+                "returned": "2",
+                "section": "entries",
+                "total": "13"
+              },
+              {
+                "omitted": "0",
+                "returned": "1",
+                "section": "outstanding_requests",
+                "total": "1"
+              },
+              {
+                "omitted": "5",
+                "returned": "0",
+                "section": "other_resolved_changes",
+                "total": "5"
+              }
+            ],
+            "cursor": "eyJhbmNob3IiOiJhNWI0YjJiZDQ2ZjI5NjU1OWJjZjdkNGYyYjRkYmFlNmI4NzFjNDUwZGI3NDVkYTc3N2FkZGI2ODU4YzRiZWY2IiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjMifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTciLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+            "entries": [
+              {
+                "category": "task_changed",
+                "change_index": "0",
+                "item": {
+                  "clipped_fields": [],
+                  "kind": "task",
+                  "record": {
+                    "acceptance_criteria": "",
+                    "archived": false,
+                    "assignee_id": null,
+                    "claim": null,
+                    "display_key": "WG-1",
+                    "excluded_arrays": {
+                      "labels": "0",
+                      "prerequisites": "0",
+                      "reassessments": "0",
+                      "related": "0",
+                      "waivers": "0"
+                    },
+                    "hold": null,
+                    "membership_revision": "1",
+                    "milestone_id": null,
+                    "next_token": "1",
+                    "objective": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                    "parent_ticket_id": null,
+                    "priority": "0",
+                    "project_id": "release",
+                    "reopened_token": null,
+                    "revision": "1",
+                    "status": "todo",
+                    "status_id": null,
+                    "ticket_id": "design",
+                    "title": "Clarify the workflow and ownership rules"
+                  },
+                  "sources": [
+                    {
+                      "change_index": "0",
+                      "kind": "planning_change",
+                      "workspace_revision": "2"
+                    },
+                    {
+                      "kind": "ticket",
+                      "revision": "1",
+                      "ticket_id": "design"
+                    }
+                  ],
+                  "summary": "task_changed: Clarify the workflow and ownership rules"
+                },
+                "workspace_revision": "2"
+              },
+              {
+                "category": "task_changed",
+                "change_index": "0",
+                "item": {
+                  "clipped_fields": [],
+                  "kind": "task",
+                  "record": {
+                    "acceptance_criteria": "",
+                    "archived": false,
+                    "assignee_id": null,
+                    "claim": null,
+                    "display_key": "WG-2",
+                    "excluded_arrays": {
+                      "labels": "0",
+                      "prerequisites": "0",
+                      "reassessments": "0",
+                      "related": "0",
+                      "waivers": "0"
+                    },
+                    "hold": null,
+                    "membership_revision": "1",
+                    "milestone_id": null,
+                    "next_token": "1",
+                    "objective": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                    "parent_ticket_id": null,
+                    "priority": "0",
+                    "project_id": "release",
+                    "reopened_token": null,
+                    "revision": "1",
+                    "status": "todo",
+                    "status_id": null,
+                    "ticket_id": "build",
+                    "title": "Implement the interface \u2014 Unicode title with clear scope"
+                  },
+                  "sources": [
+                    {
+                      "change_index": "0",
+                      "kind": "planning_change",
+                      "workspace_revision": "3"
+                    },
+                    {
+                      "kind": "ticket",
+                      "revision": "1",
+                      "ticket_id": "build"
+                    }
+                  ],
+                  "summary": "task_changed: Implement the interface \u2014 Unicode title with clear scope"
+                },
+                "workspace_revision": "3"
+              }
+            ],
+            "has_more": true,
+            "outstanding_requests": [
+              {
+                "clipped_fields": [],
+                "kind": "request",
+                "record": {
+                  "comment_id": "ask-9d82b0eb179880e1148fc5093f0bd0876239b1f4b8e8c33e83198e95c4d2dfa2-question",
+                  "comment_revision": "1",
+                  "correlation_id": null,
+                  "created": {
+                    "actor_id": "fixture-author",
+                    "run_id": null,
+                    "timestamp": "2026-11-07 19:20:42.101083136Z"
+                  },
+                  "deadline_unix_ms": null,
+                  "deliveries": [
+                    {
+                      "acknowledged": null,
+                      "recipient": {
+                        "id": "fixture-author",
+                        "kind": "actor"
+                      }
+                    }
+                  ],
+                  "kind": "clarification",
+                  "priority": "0",
+                  "related_request_ids": [],
+                  "reply_to_request_id": null,
+                  "request_id": "overview-question",
+                  "resolver_id": "fixture-author",
+                  "responsibility": {
+                    "kind": "unaccepted"
+                  },
+                  "revision": "1",
+                  "status": {
+                    "kind": "open"
+                  },
+                  "supersedes_request_ids": [],
+                  "thread_id": "planning"
+                },
+                "sources": [
+                  {
+                    "kind": "request",
+                    "request_id": "overview-question",
+                    "revision": "1"
+                  }
+                ],
+                "summary": "Outstanding request: overview-question"
+              }
+            ]
+          },
+          "meta": {
+            "workspace_revision": "17"
+          }
+        }
+      }
+    }
+  ],
+  "comment": {
+    "comment_id": "comment_0da6e77d8a99c3eb817a2eff17c35dfa729f5923bf364cc126c9fbea36044756",
+    "revision": "1",
+    "sequence": "17"
+  },
+  "cleanup": {
+    "capturedAt": "2026-11-07T19:20:46.653Z",
+    "startedAt": "2026-11-07T19:20:41.516Z",
+    "disposeStartedAt": "2026-11-07T19:20:46.590Z",
+    "exit": {
+      "at": "2026-11-07T19:20:46.650Z",
+      "code": 0,
+      "signal": null
+    },
+    "stdoutTail": "",
+    "stderrTail": "workgraph daemon starting registry=\"/tmp/wgui-2ipvup/registry\" socket=\"/tmp/wgui-2ipvup/s\"\nworkgraph daemon ready registry=\"/tmp/wgui-2ipvup/registry\" socket=\"/tmp/wgui-2ipvup/s\"\nworkgraph daemon shutdown complete registry=\"/tmp/wgui-2ipvup/registry\" socket=\"/tmp/wgui-2ipvup/s\"\n"
+  }
+}

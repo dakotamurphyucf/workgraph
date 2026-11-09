@@ -37,7 +37,7 @@ let run state request ~fresh ~now_unix_ms ~timestamp =
   let response =
     { Preflight_api.Response.workspace_revision = revision
     ; proposed_revision = State.revision (State.candidate prepared)
-    ; operation_count = List.length request.operations
+    ; operation_count = State.expanded_operation_count prepared
     ; generated_ids = List.rev !generated
     ; staged_blob_count = List.length blobs
     ; staged_blob_bytes

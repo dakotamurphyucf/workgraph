@@ -10,3 +10,10 @@ dist
 **/.DS_Store
 **/._*
 .env*
+ui/frontend/node_modules
+ui/frontend/dist
+**/playwright-report
+**/test-results
+ui/tools/embedded/generated
+ui/tools/embedded/manifest.json
+ui/tools/embedded/frontend-notices.txt

@@ -29,8 +29,10 @@ setup and `"$WG" help ticket.start` for offline method help.
 
 ## Set up a fresh local example
 
-Skip this section when you already have a working context. Use a matching 0.7
-executable. Normal startup/restore accept current formats. Existing supported
+Skip this section when you already have a working context. Use the matching
+supplied 0.8.0 executable for this source skill. Its application
+API is still 0.7; this is distinct from the executable package version and does
+not announce a published download. Normal startup/restore accept current formats. Existing supported
 0.6.2-format workspaces need [offline migration](migration.md) into a new root,
 with a fresh registry, context and request directory afterward. Preserve old saved
 requests and resolve uncertain writes with their old matching executable first;

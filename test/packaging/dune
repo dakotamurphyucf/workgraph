@@ -26,8 +26,26 @@
 (rule
  (alias runtest)
  (deps
+  ui_package_test.py
+  ../../tools/package.py
+  (source_tree ../../packaging))
+ (action
+  (run python3 %{dep:ui_package_test.py})))
+
+(rule
+ (alias runtest)
+ (deps
   notices_test.py
   ../../packaging/almalinux/collect_notices.py
+  ../../packaging/ui_inputs.py
   ../../workgraph.opam)
  (action
   (run python3 %{dep:notices_test.py})))
+
+(rule
+ (alias runtest)
+ (deps
+  ui_qualification_test.py
+  (source_tree ../../packaging))
+ (action
+  (run python3 %{dep:ui_qualification_test.py})))

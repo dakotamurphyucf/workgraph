@@ -1,0 +1,161 @@
+.wg-search-feature {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.wg-search-feature h3 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+.wg-search-feature p {
+  margin: 6px 0;
+}
+.wg-search-feature code {
+  overflow-wrap: anywhere;
+}
+.wg-search-query {
+  display: grid;
+  gap: 10px;
+}
+.wg-search-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--wg-secondary);
+  font-size: 12px;
+  border-bottom: 1px solid var(--wg-border);
+  padding-bottom: 10px;
+}
+.wg-search-scope strong {
+  color: var(--wg-text);
+}
+.wg-search-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.wg-search-feature .wg-field {
+  min-width: 0;
+}
+.wg-search-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.wg-search-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 0;
+}
+.wg-search-feature label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.wg-search-result-list,
+.wg-search-recents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wg-search-result {
+  padding: 12px 0;
+  border-top: 1px solid var(--wg-border);
+  overflow-wrap: anywhere;
+}
+.wg-search-result-title.wg-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 0;
+  background: transparent;
+  border-color: transparent;
+}
+.wg-search-result-title.wg-button:hover {
+  background: var(--wg-hover);
+}
+.wg-search-result small,
+.wg-search-recents small {
+  color: var(--wg-muted);
+  font-size: 11px;
+}
+.wg-search-snippets {
+  padding: 2px 0;
+}
+.wg-search-snippets p {
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+.wg-search-snippets p > span {
+  color: var(--wg-muted);
+  font-size: 11px;
+}
+.wg-search-snippets mark {
+  color: var(--wg-text);
+  background: var(--wg-accent-bg);
+  font-weight: 650;
+}
+.wg-search-coverage,
+.wg-search-filters {
+  font-size: 12px;
+  color: var(--wg-secondary);
+}
+.wg-search-coverage {
+  margin-top: 12px;
+}
+.wg-search-recents {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  max-height: 200px;
+  overflow: auto;
+}
+.wg-search-recents button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.wg-command-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--wg-border);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+.wg-command-tabs [role="tab"] {
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--wg-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+.wg-command-tabs [aria-selected="true"] {
+  color: var(--wg-text);
+  background: var(--wg-hover);
+  border-color: var(--wg-border);
+  font-weight: 650;
+}
+@media (max-width: 600px) {
+  .wg-search-kind-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .wg-search-recents {
+    grid-template-columns: 1fr;
+  }
+}

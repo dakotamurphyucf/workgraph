@@ -1,0 +1,14 @@
+(library
+ (name workgraph_ui_assets)
+ (package workgraph-ui)
+ (libraries core)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true)))
+
+(rule
+ (targets workgraph_ui_assets.ml)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true))
+ (deps generated/workgraph_ui_assets.ml)
+ (action
+  (copy generated/workgraph_ui_assets.ml workgraph_ui_assets.ml)))

@@ -15,6 +15,6 @@ Transactions prepare and atomically publish bounded ordered planning operations.
 | Entry | Kind | When to use |
 | --- | --- | --- |
 | [transaction.apply](../api/transaction.apply.md) | method | A coherent plan, coupled policy or publication-and-link operation must publish together. |
-| [transaction.preflight](../api/transaction.preflight.md) | method | You need to check a coupled plan and its guards before submitting the durable write. |
+| [transaction.preflight](../api/transaction.preflight.md) | method | You need to check a coupled plan, its guards and exact expanded count before submitting the durable write. |
 
 [Discovery index](index.md)

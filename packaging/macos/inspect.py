@@ -7,7 +7,10 @@ import re
 import subprocess
 import sys
 
-binary, destination = map(Path, sys.argv[1:])
+binary, destination = map(Path, sys.argv[1:3])
+label = sys.argv[3] if len(sys.argv) == 4 else 'bin/workgraph'
+if label not in {'bin/workgraph', 'bin/workgraph-ui'}:
+    raise ValueError('Expected core or UI binary label')
 
 def command(*args):
     return subprocess.run(args, check=True, text=True, capture_output=True).stdout
@@ -31,6 +34,6 @@ if minimum is None:
 signature = subprocess.run(['codesign', '-dv', str(binary)], text=True, capture_output=True)
 result = {'architecture': architectures, 'dependencies': dependencies,
           'mach_o_minimum_macos': minimum[1], 'tested_macos': platform.mac_ver()[0],
-          'load_commands': loads.replace(str(binary), 'bin/workgraph'), 'code_signature': {'exit_code': signature.returncode, 'details': re.sub(r'^Executable=.*$', 'Executable=bin/workgraph', signature.stderr, flags=re.M)},
+          'load_commands': loads.replace(str(binary), label), 'code_signature': {'exit_code': signature.returncode, 'details': re.sub(r'^Executable=.*$', 'Executable=' + label, signature.stderr, flags=re.M)},
           'signing_scope': 'No Developer ID signing or notarization performed by packaging'}
 destination.write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')

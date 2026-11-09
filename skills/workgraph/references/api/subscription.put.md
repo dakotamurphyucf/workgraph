@@ -113,7 +113,7 @@ For preconditions and a small example, run `workgraph help subscription.put`. Us
                             ],
                             "type": "string"
                           },
-                          "maxItems": 8,
+                          "maxItems": 9,
                           "type": "array"
                         },
                         "scope": {

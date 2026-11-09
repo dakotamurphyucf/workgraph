@@ -66,6 +66,44 @@ let grant ?(target = "build") ?(owner = "owner") ?(durable = true) () =
        ))
 ;;
 
+let%expect_test "public replay validation binds the original batch and durable grant" =
+  let original = plan () in
+  let altered change =
+    let source = Json.canonical (grant ()) in
+    json (change source)
+  in
+  let replace pattern with_ source = String.substr_replace_all source ~pattern ~with_ in
+  let cases =
+    [ "original", grant ()
+    ; "no durable publication", grant ~durable:false ()
+    ; "different target", grant ~target:"foreign" ()
+    ; "different actor", grant ~owner:"other" ()
+    ; "different run", altered (replace "waiter" "foreign-run")
+    ; "different mode", altered (replace "exclusive" "shared")
+    ; ( "different lease"
+      , altered (fun source ->
+          source
+          |> replace "\"duration_ms\":null" "\"duration_ms\":\"1\""
+          |> replace "\"deadline_unix_ms\":null" "\"deadline_unix_ms\":\"1\"") )
+    ]
+  in
+  List.iter cases ~f:(fun (label, response) ->
+    printf
+      "%s: %b\n"
+      label
+      (Result.is_ok (Reservation_wait.validate_grants original response)));
+  [%expect
+    {|
+    original: true
+    no durable publication: false
+    different target: false
+    different actor: false
+    different run: false
+    different mode: false
+    different lease: false
+    |}]
+;;
+
 let contention ?(target = "build") () =
   Problem.with_details
     (Problem.create Conflict "actual contention")

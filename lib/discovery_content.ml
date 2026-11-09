@@ -1911,10 +1911,10 @@ let methods : Method.t list =
     ; related = [ "resource.list"; "resource.put_text"; "resource.read" ]
     }
   ; { name = "resource.history"
-    ; summary = "Read retained resource metadata and publication history."
+    ; summary = "Read retained immutable resource content-version descriptors."
     ; use_when =
-        "You need to trace artifact changes while distinguishing metadata revisions from \
-         content versions."
+        "You need publication versions in increasing order; metadata-only edits are not \
+         history entries."
     ; search_terms = [ "artifact revisions" ]
     ; related = [ "resource.list"; "resource.get"; "resource.put_text"; "resource.read" ]
     }
@@ -2739,10 +2739,11 @@ let methods : Method.t list =
     }
   ; { name = "transaction.preflight"
     ; summary =
-        "Validate an atomic plan using actual domain preparation without committing it."
+        "Validate an atomic plan and its exact native expanded operation count without \
+         committing it."
     ; use_when =
-        "You need to check a coupled plan and its guards before submitting the durable \
-         write."
+        "You need to check a coupled plan, its guards and exact expanded count before \
+         submitting the durable write."
     ; search_terms = [ "preview plan"; "dry run" ]
     ; related = [ "transaction.apply"; "ticket.readiness" ]
     }

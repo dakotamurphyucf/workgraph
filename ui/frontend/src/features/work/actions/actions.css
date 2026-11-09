@@ -1,0 +1,221 @@
+.work-actions-feature {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.work-actions-feature > .wg-toolbar {
+  align-items: end;
+  gap: 12px;
+}
+.work-actions-feature > .wg-toolbar .wg-field {
+  min-width: 180px;
+  max-width: 280px;
+}
+.work-workspace-actions {
+  margin-left: auto;
+  max-width: 320px;
+  font-size: 12px;
+}
+.work-workspace-actions summary {
+  padding: 7px 0;
+  color: var(--wg-muted);
+  cursor: pointer;
+}
+.work-action-picker {
+  border-top: 1px solid var(--wg-border);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.work-action-picker h3,
+.work-action-directory h3 {
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 650;
+  margin: 0;
+}
+.work-action-picker .wg-button {
+  align-self: start;
+}
+.work-action-intent {
+  background: var(--wg-accent-bg);
+  padding: 12px;
+  border-radius: 7px;
+}
+.work-action-intent .wg-button {
+  margin-right: 8px;
+}
+.work-action-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 14px;
+}
+.work-action-provenance {
+  background: var(--wg-app);
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.work-action-provenance dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.work-action-provenance dl > div {
+  display: grid;
+  grid-template-columns: 155px minmax(0, 1fr);
+  gap: 12px;
+}
+.work-action-provenance dt {
+  color: var(--wg-muted);
+}
+.work-action-provenance dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.work-action-provenance .wg-hint {
+  margin-bottom: 0;
+}
+.work-action-fields {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+}
+.work-action-field {
+  display: grid;
+  gap: 6px;
+}
+.work-action-field > .wg-field:first-child:not(:last-child) select {
+  max-width: 280px;
+}
+.work-action-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 90px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--wg-text);
+  background: var(--wg-raised);
+  border: 1px solid var(--wg-border);
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+.work-action-field textarea:focus-visible {
+  outline: 2px solid var(--wg-accent);
+  outline-offset: 2px;
+}
+.work-action-field .wg-hint {
+  margin: 0;
+}
+.work-action-collection {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.work-action-collection legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.work-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border-bottom: 1px solid var(--wg-border);
+  padding: 0 0 14px;
+  margin: 0 0 14px;
+}
+.work-action-row > .wg-button {
+  justify-self: start;
+  align-self: end;
+}
+.work-action-load {
+  border-top: 1px solid var(--wg-border);
+  padding: 16px 0;
+}
+.work-action-directory {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--wg-border);
+  border-radius: 7px;
+  padding: 12px;
+  margin: 12px 0;
+}
+.work-action-directory > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--wg-border);
+}
+.work-action-directory code {
+  color: var(--wg-muted);
+}
+@media (max-width: 700px) {
+  .work-action-provenance dl > div {
+    grid-template-columns: 1fr;
+    gap: 1px;
+  }
+  .work-action-row {
+    grid-template-columns: 1fr;
+  }
+  .work-workspace-actions {
+    margin-left: 0;
+  }
+}
+
+.work-actions-feature > .work-feature {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.work-action-fields .wg-field {
+  margin-block: 0.3rem;
+}
+.work-field-options {
+  font-size: 0.846rem;
+  color: var(--wg-secondary);
+}
+.work-field-options > summary,
+.work-action-details > summary {
+  cursor: pointer;
+  padding-block: 0.3rem;
+}
+.work-field-options .wg-field {
+  max-width: 24rem;
+}
+.work-action-author {
+  margin-block: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.work-action-details {
+  margin-bottom: 0.75rem;
+}
+.work-action-details .work-action-provenance {
+  margin-top: 0.5rem;
+}
+
+.work-action-secondary {
+  margin-block: 0.75rem;
+}
+.work-action-secondary > summary {
+  color: var(--wg-secondary);
+  cursor: pointer;
+}
+.work-action-secondary[open] > summary {
+  margin-bottom: 0.75rem;
+}

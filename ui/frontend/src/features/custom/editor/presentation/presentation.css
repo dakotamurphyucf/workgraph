@@ -1,0 +1,133 @@
+.wg-custom-presentation {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.wg-custom-coverage {
+  display: grid;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--wg-border);
+  padding-bottom: 0.8rem;
+  color: var(--wg-muted);
+}
+.wg-custom-coverage strong {
+  color: var(--wg-text);
+  font-size: 1.1rem;
+}
+.wg-custom-coverage dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.wg-custom-coverage dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.wg-custom-coverage summary {
+  cursor: pointer;
+}
+.wg-custom-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.8rem;
+  align-items: start;
+}
+.wg-custom-groups {
+  display: grid;
+  gap: 1rem;
+}
+.wg-custom-group {
+  min-width: 0;
+}
+.wg-custom-group h4 {
+  margin: 0 0 0.65rem;
+  text-transform: capitalize;
+}
+.wg-custom-group h4 small {
+  color: var(--wg-muted);
+  font-weight: 400;
+  text-transform: none;
+}
+.wg-custom-card-list {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+.wg-custom-card-list article {
+  border: 1px solid var(--wg-border);
+  border-radius: 0.6rem;
+  padding: 0.8rem;
+  background: var(--wg-panel);
+}
+.wg-custom-card-list article > header {
+  margin-bottom: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.wg-custom-card-list dl {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+.wg-custom-card-field dt {
+  color: var(--wg-muted);
+  font-size: 0.8rem;
+}
+.wg-custom-card-field dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+.wg-custom-cell {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wg-custom-cell pre {
+  white-space: pre-wrap;
+  max-height: 20rem;
+  overflow: auto;
+}
+.wg-custom-table-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.wg-custom-table-scroll table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.wg-custom-table-scroll :is(td, th) {
+  padding: 0.65rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--wg-border);
+  overflow-wrap: anywhere;
+  min-width: 7rem;
+}
+.wg-custom-table-scroll thead {
+  background: var(--wg-hover);
+}
+.wg-custom-render-fields {
+  display: grid;
+  gap: 0.8rem;
+}
+.wg-custom-render-fields > div {
+  display: grid;
+  grid-template-columns: minmax(5rem, 1fr) minmax(0, 3fr);
+  gap: 0.7rem;
+}
+.wg-custom-render-fields dd {
+  margin: 0;
+}
+.wg-custom-tone-warning {
+  color: var(--wg-warning);
+}
+.wg-custom-tone-info {
+  color: var(--wg-accent);
+}
+
+.wg-custom-tone-success {
+  color: var(--wg-success);
+}
+.wg-custom-tone-danger {
+  color: var(--wg-danger);
+}

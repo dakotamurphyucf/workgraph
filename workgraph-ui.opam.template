@@ -1,0 +1,7 @@
+# The generated dependency metadata lives in dune-project. This build deliberately
+# uses the current opam environment directly; it never selects a developer switch.
+maintainer: ["Dakota Murphy"]
+build: [
+  ["./dev-ui" "package"]
+  ["./dev-ui" "package-test"] {with-test}
+]

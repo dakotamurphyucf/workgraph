@@ -73,6 +73,26 @@ let report codec json =
   | Error problem -> print_s [%sexp (problem.kind : Problem.kind)]
 ;;
 
+let%expect_test "subscription raw and resolved requests accept every notification kind" =
+  let params =
+    Jsonaf.of_string
+      {|{"subscription_id":"all-kinds","expected_revision":"0","recipient":{"kind":"actor","id":"bob"},"filter":{"kinds":["thread_changed","message_received","request_created","request_acknowledged","request_accepted","request_reassigned","request_resolved","request_cancelled","request_updated"]},"active":true}|}
+  in
+  List.iter
+    [ Communication_command.raw_request_codec; Communication_command.request_codec ]
+    ~f:(fun codec -> report (Option.value_exn (codec ~method_:"subscription.put")) params);
+  let command =
+    Communication_command.decode ~method_:"subscription.put" ~params |> unwrap
+  in
+  let method_, encoded = Communication_command.encode command |> unwrap in
+  report (Option.value_exn (Communication_command.raw_request_codec ~method_)) encoded;
+  [%expect
+    {|
+    ok
+    ok
+    ok |}]
+;;
+
 let%expect_test "remaining communication descriptors use executable request codecs" =
   List.iter examples ~f:(fun (name, source) ->
     let codec = request_codec name in

@@ -41,6 +41,11 @@ val prepare_submission
   -> timestamp:string
   -> (Submission.t, Problem.t) Result.t
 
+(** Exact operation count accumulated by the same staged-state path enforcing the
+    atomic limit. Ordinary commands and existing-instance observations count one;
+    a fresh template instance counts its actual native expansion. Not serialized. *)
+val expanded_operation_count : t -> int
+
 val candidate : t -> Planning_state.t
 val events : t -> Jsonaf.t
 val result : t -> Jsonaf.t

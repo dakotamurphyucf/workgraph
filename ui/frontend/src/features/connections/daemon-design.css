@@ -1,0 +1,521 @@
+/* Scoped to the daemon dialog: other management pages retain their own layout. */
+.wg-dialog:has(.wg-connections-manager) {
+  --wg-bg: #111318;
+  --wg-panel: #1c2028;
+  --wg-raised: #252b35;
+  --wg-hover: #252b35;
+  --wg-border: #3c4554;
+  --wg-text: #f4f5fa;
+  --wg-secondary: #c8cfdd;
+  --wg-muted: #aeb9cc;
+  --wg-accent: #a1a8ff;
+  --cm-blue: #91baff;
+  --cm-green: #7de4aa;
+  --cm-purple: #c4a3ff;
+  --cm-orange: #ffb86e;
+  width: min(1180px, calc(100vw - 48px));
+  height: min(940px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  border: 1px solid var(--wg-border);
+  border-radius: 20px;
+  background: var(--wg-bg);
+  color: var(--wg-text);
+  padding: 0;
+  overflow: hidden;
+}
+[data-theme="light"] .wg-dialog:has(.wg-connections-manager) {
+  --wg-bg: #f6f7fb;
+  --wg-panel: #fff;
+  --wg-raised: #eff2f8;
+  --wg-hover: #eff2f8;
+  --wg-border: #c6cedd;
+  --wg-text: #202638;
+  --wg-secondary: #47536b;
+  --wg-muted: #58657d;
+  --wg-accent: #5751b7;
+  --cm-blue: #285fa3;
+  --cm-green: #237348;
+  --cm-purple: #7450ad;
+  --cm-orange: #9b5b16;
+}
+.wg-dialog:has(.wg-connections-manager) .wg-dialog-header {
+  padding: 20px 26px;
+  background: var(--wg-panel);
+  flex-shrink: 0;
+}
+.wg-dialog:has(.wg-connections-manager) .wg-dialog-header h2 {
+  font-size: 23px;
+}
+.wg-dialog:has(.wg-connections-manager) .wg-dialog-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px 26px 0;
+  min-height: 0;
+  flex: 1;
+}
+.wg-dialog:has(.wg-connections-manager) .wg-dialog-description {
+  margin: 0 0 18px;
+  color: var(--wg-secondary);
+  line-height: 1.6;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.wg-connections-manager {
+  --cm-tone: var(--cm-blue);
+  --management-color: var(--cm-tone);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0;
+  font-size: 15px;
+}
+.wg-connections-manager[data-section="daemon"] {
+  --cm-tone: var(--cm-green);
+}
+.wg-connections-manager[data-section="launches"] {
+  --cm-tone: var(--cm-purple);
+}
+.wg-connections-manager[data-section="administration"] {
+  --cm-tone: var(--cm-orange);
+}
+.wg-connections-manager svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.wg-connections-manager .cm-tabs {
+  gap: 10px;
+  padding-bottom: 18px;
+  flex-shrink: 0;
+}
+.wg-connections-manager .cm-tabs [data-tone="blue"] {
+  --cm-tab: var(--cm-blue);
+}
+.wg-connections-manager .cm-tabs [data-tone="green"] {
+  --cm-tab: var(--cm-green);
+}
+.wg-connections-manager .cm-tabs [data-tone="purple"] {
+  --cm-tab: var(--cm-purple);
+}
+.wg-connections-manager .cm-tabs [data-tone="orange"] {
+  --cm-tab: var(--cm-orange);
+}
+.wg-connections-manager .cm-tabs .wg-button {
+  border: 1px solid var(--wg-border);
+  border-radius: 11px;
+  background: var(--wg-panel);
+  padding: 11px 16px;
+  font-size: 15px;
+  gap: 9px;
+}
+.wg-connections-manager .cm-tabs .wg-button svg {
+  color: var(--cm-tab);
+}
+.wg-connections-manager .cm-tabs .wg-button[aria-pressed="true"] {
+  border-color: var(--cm-tab);
+  background: color-mix(in srgb, var(--cm-tab) 12%, var(--wg-panel));
+  color: var(--wg-text);
+}
+.cm-intro {
+  display: flex;
+  gap: 15px;
+  margin: 20px 0;
+  flex-shrink: 0;
+}
+.cm-intro > span {
+  padding: 11px;
+  background: color-mix(in srgb, var(--cm-tone) 14%, var(--wg-panel));
+  border-radius: 12px;
+  color: var(--cm-tone);
+  align-self: flex-start;
+  display: flex;
+}
+.wg-connections-manager .cm-intro h3 {
+  font-size: 19px;
+  margin: 0 0 7px;
+}
+.cm-intro p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--wg-secondary);
+  max-width: 90ch;
+}
+.cm-scroll {
+  overflow: auto;
+  scrollbar-gutter: stable;
+  min-height: 0;
+  padding: 0 6px 26px 0;
+}
+.wg-connections-manager .cm-section {
+  display: grid;
+  gap: 20px;
+}
+.wg-connections-manager .cm-section[hidden] {
+  display: none;
+}
+.wg-connections-manager .wg-panel,
+.wg-connections-manager .wg-admin-card,
+.wg-connections-manager .cm-profile-editor form {
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  overflow: clip;
+}
+.wg-connections-manager .wg-panel-header {
+  padding: 17px 20px;
+  background: var(--wg-raised);
+  border-bottom: 1px solid var(--wg-border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.wg-connections-manager .wg-panel-header h2 {
+  font-size: 17px;
+  color: var(--cm-tone);
+}
+.wg-connections-manager .wg-panel-body {
+  padding: 20px;
+}
+.wg-connections-manager p {
+  font-size: 15px;
+  line-height: 1.65;
+}
+.wg-connections-manager .wg-hint,
+.wg-connections-manager .wg-admin-intro,
+.wg-connections-manager .wg-admin-heading > span {
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.wg-connections-manager .cm-explainer {
+  color: var(--wg-secondary);
+  margin-top: 0;
+  max-width: 90ch;
+}
+.wg-connections-manager .wg-button {
+  padding: 9px 13px;
+  min-height: 36px;
+  font-size: 14px;
+  border-radius: 9px;
+}
+.wg-connections-manager .wg-toolbar {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.wg-connections-manager .wg-connection-profiles {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 16px;
+  margin: 18px 0 0;
+}
+.wg-connections-manager .wg-connection-profile {
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid var(--wg-border);
+  background: var(--wg-bg);
+}
+.wg-connections-manager .wg-connection-profile--selected {
+  border-color: var(--cm-blue);
+  background: color-mix(in srgb, var(--cm-blue) 6%, var(--wg-panel));
+}
+.wg-connections-manager .wg-connection-profile header {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wg-connections-manager .wg-connection-profile header strong {
+  font-size: 16px;
+  color: var(--wg-text);
+}
+.wg-connections-manager .wg-connection-profile header svg {
+  color: var(--cm-blue);
+}
+.wg-connections-manager .wg-connection-profile > code {
+  font-size: 13px;
+  display: block;
+  margin-top: 14px;
+  color: var(--wg-secondary);
+}
+.wg-connections-manager code {
+  overflow-wrap: anywhere;
+}
+.wg-connections-manager .wg-badge {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.wg-connections-manager .cm-profile-editor form {
+  padding: 24px;
+}
+.wg-connections-manager h3 {
+  font-size: 18px;
+}
+.wg-connections-manager .cm-profile-editor h3 {
+  margin: 0 0 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--cm-blue);
+}
+.wg-connections-manager .wg-lifecycle-fields,
+.wg-connections-manager .wg-admin-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 24px;
+  margin: 22px 0;
+}
+.wg-connections-manager .wg-field {
+  margin: 0;
+  gap: 8px;
+  min-width: 0;
+}
+.wg-connections-manager .wg-field label {
+  font-size: 15px;
+}
+.wg-connections-manager .wg-field input,
+.wg-connections-manager .wg-field select,
+.wg-connections-manager textarea {
+  background: var(--wg-raised);
+  border: 1px solid var(--wg-border);
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 11px 13px;
+}
+.wg-connections-manager details {
+  border: 1px solid var(--wg-border);
+  border-radius: 13px;
+  background: var(--wg-panel);
+  padding: 13px 17px;
+  margin-top: 18px;
+}
+.wg-connections-manager details > summary {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wg-text);
+  padding: 3px 0;
+  cursor: pointer;
+}
+.wg-connections-manager details > summary svg {
+  color: var(--cm-tone);
+  vertical-align: middle;
+  margin-right: 5px;
+}
+.wg-connections-manager .cm-shutdown {
+  border-color: color-mix(in srgb, var(--cm-orange) 55%, var(--wg-border));
+}
+.wg-connections-manager .cm-shutdown > summary svg {
+  color: var(--cm-orange);
+}
+.wg-connections-manager .cm-health h4 {
+  color: var(--cm-green);
+  font-size: 16px;
+}
+.wg-connections-manager .wg-captured-values {
+  display: grid;
+  gap: 12px;
+}
+.wg-connections-manager .wg-captured-values > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 3fr);
+  gap: 16px;
+  border-bottom: 1px solid var(--wg-border);
+  padding: 9px 0;
+}
+.wg-connections-manager .wg-captured-values dt {
+  color: var(--wg-secondary);
+  text-transform: capitalize;
+}
+.wg-connections-manager .wg-captured-values dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.wg-connections-manager .wg-captured-list {
+  padding-left: 20px;
+}
+.wg-connections-manager .wg-captured-text {
+  white-space: pre-wrap;
+}
+.wg-connections-manager .wg-lifecycle-recent {
+  gap: 12px;
+}
+.wg-connections-manager .wg-lifecycle-recent li {
+  display: grid;
+  gap: 7px;
+  padding: 16px;
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  background: var(--wg-bg);
+}
+.wg-connections-manager .wg-lifecycle-recent li .wg-button {
+  justify-self: start;
+}
+.wg-connections-manager .wg-lifecycle-recent li code {
+  font-size: 12px;
+  color: var(--wg-muted);
+}
+.cm-empty {
+  text-align: center;
+  padding: 22px;
+}
+.cm-empty > svg {
+  color: var(--cm-purple);
+  width: 28px;
+  height: 28px;
+}
+.cm-empty p {
+  max-width: 62ch;
+  margin-inline: auto;
+  color: var(--wg-secondary);
+}
+.wg-connections-manager .wg-connections-notice {
+  padding: 12px 16px;
+  border: 1px solid var(--wg-border);
+  border-left: 3px solid var(--cm-tone);
+  border-radius: 12px;
+  background: var(--wg-panel);
+}
+.wg-connections-manager .wg-admin-heading {
+  margin-top: 0;
+}
+.wg-connections-manager .wg-admin-heading h2 {
+  font-size: 20px;
+}
+.wg-connections-manager .wg-admin-tabs {
+  gap: 10px;
+}
+.wg-connections-manager .wg-admin-tabs button {
+  background: var(--wg-panel);
+  border: 1px solid var(--wg-border);
+}
+.wg-connections-manager .wg-admin-tabs button[aria-pressed="true"] {
+  color: var(--cm-orange);
+  border-color: currentColor;
+}
+.wg-connections-manager .wg-admin-card {
+  padding: 20px;
+  margin: 18px 0;
+}
+.wg-connections-manager .wg-admin-card h3 {
+  font-size: 18px;
+  color: var(--cm-orange);
+}
+.wg-connections-manager .wg-admin-card p {
+  font-size: 15px;
+}
+.wg-connections-manager .wg-admin-query {
+  padding: 18px;
+  border-radius: 12px;
+}
+@media (max-width: 760px) {
+  .wg-dialog:has(.wg-connections-manager) {
+    width: calc(100vw - 20px);
+    height: calc(100dvh - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 16px;
+  }
+  .wg-dialog:has(.wg-connections-manager) .wg-dialog-body {
+    padding: 14px 16px 0;
+  }
+  .wg-dialog:has(.wg-connections-manager) .wg-dialog-header {
+    padding: 15px 16px;
+  }
+  .wg-connections-manager .wg-lifecycle-fields,
+  .wg-connections-manager .wg-admin-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wg-connections-manager .cm-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .wg-connections-manager .cm-tabs .wg-button {
+    padding: 9px;
+    justify-content: start;
+  }
+  .wg-connections-manager .wg-captured-values > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}
+@media (max-height: 720px) {
+  .wg-dialog:has(.wg-connections-manager) .wg-dialog-body {
+    overflow: auto;
+  }
+  .wg-connections-manager {
+    min-height: auto;
+  }
+  .cm-scroll {
+    overflow: visible;
+  }
+}
+/* Override the original compact manager's more-specific zero-padding rules. */
+.wg-connections-manager .cm-section > .wg-panel > .wg-panel-header {
+  padding: 17px 20px;
+}
+.wg-connections-manager .cm-section > .wg-panel > .wg-panel-body {
+  padding: 20px;
+}
+.wg-connections-manager .wg-panel-body > p {
+  margin: 0 0 14px;
+}
+.wg-connections-manager .wg-connections-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 0 0 18px;
+}
+.wg-connections-manager .wg-connections-notice p {
+  margin: 0;
+  flex: 1;
+}
+.wg-connections-manager .wg-connections-notice .wg-button {
+  padding: 6px;
+}
+.wg-connections-manager .cm-stop-review > .cm-explainer {
+  border-left: 3px solid var(--cm-orange);
+  padding: 12px 16px;
+  background: var(--wg-panel);
+  border-radius: 12px;
+}
+
+.wg-connections-manager .wg-action-explanation {
+  border-left: 3px solid var(--management-color);
+  border-radius: 0 12px 12px 0;
+  background: var(--wg-raised);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.wg-connections-manager .wg-action-explanation > strong {
+  color: var(--management-color);
+  font-size: 15px;
+}
+.wg-connections-manager .wg-action-explanation p {
+  margin: 8px 0;
+  line-height: 1.65;
+}
+.wg-connections-manager .wg-action-explanation-detail {
+  color: var(--wg-secondary);
+  font-size: 14px;
+}
+.wg-connections-manager .wg-action-explanation-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--management-color);
+}
+.wg-connections-manager .wg-action-explanation .wg-action-explanation-footnote {
+  font-size: 13px;
+  color: var(--wg-secondary);
+  margin-bottom: 0;
+}
+
+.wg-connections-manager .cm-startup > summary {
+  display: list-item;
+}
+.wg-connections-manager .wg-management-editor {
+  margin-top: 20px;
+  margin-bottom: 24px;
+}
+@media (max-width: 900px) {
+  .wg-connections-manager .wg-admin-export-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

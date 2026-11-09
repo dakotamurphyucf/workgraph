@@ -36,14 +36,14 @@ For preconditions and a small example, run `workgraph help manifest.publish`. Us
 ```json
 {
   "$defs": {
-    "inputs_f0521b3c9696ae2535497dd9b78f52103228a778b5533836c932fe781f316892": {
+    "inputs_11beeb018ed5767ca3ddcfdde59061efbf122be737eb21973e62cf21f3e8be9e": {
       "items": {
-        "$ref": "#/$defs/inputs_f3613cecf17489f76029d2dc07cb9f11c67152ee821b6f2054a7a30631ff423a"
+        "$ref": "#/$defs/inputs_3d215e66dedc2283119834e67c90dbc31866cf13bc426db713be56c24ffd7864"
       },
       "maxItems": 100,
       "type": "array"
     },
-    "inputs_f3613cecf17489f76029d2dc07cb9f11c67152ee821b6f2054a7a30631ff423a": {
+    "inputs_3d215e66dedc2283119834e67c90dbc31866cf13bc426db713be56c24ffd7864": {
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -56,7 +56,7 @@ For preconditions and a small example, run `workgraph help manifest.publish`. Us
           "description": "Literal ASCII name; aliases are not interpreted."
         },
         "pin": {
-          "$ref": "#/$defs/pin_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+          "$ref": "#/$defs/pin_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
         }
       },
       "required": [
@@ -179,59 +179,7 @@ For preconditions and a small example, run `workgraph help manifest.publish`. Us
       ],
       "type": "object"
     },
-    "pin_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe": {
-      "additionalProperties": false,
-      "properties": {
-        "decision_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Validated entity ID."
-                },
-                {
-                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                  "type": "string"
-                }
-              ]
-            },
-            {
-              "maxLength": 97,
-              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-              "type": "string"
-            }
-          ],
-          "description": "Literal entity ID or $alias resolved within transaction.apply."
-        },
-        "kind": {
-          "const": "decision",
-          "type": "string"
-        },
-        "revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive exact revision."
-        }
-      },
-      "required": [
-        "kind",
-        "decision_id",
-        "revision"
-      ],
-      "type": "object"
-    },
-    "pin_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42": {
+    "pin_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3": {
       "oneOf": [
         {
           "$ref": "#/$defs/pin_154506404482744fcb20227a71bb5ca8d0de71d9a38f2debb89c793e8eb1fd71"
@@ -309,12 +257,119 @@ For preconditions and a small example, run `workgraph help manifest.publish`. Us
           "$ref": "#/$defs/pin_be514d44142925cb19bef7e26dc491d5b3aefa3ea0b7ac8752b8078198f545bf"
         },
         {
+          "$ref": "#/$defs/pin_94f1e67acf21c74b40eb18efc252adc7c824e2d3bfc1ba6cb383797aad8986cb"
+        },
+        {
           "$ref": "#/$defs/pin_0e6b53bc9960fab6b6225a46d62d9d0bf46492d823c74ac25de732e6c36c2517"
         },
         {
           "$ref": "#/$defs/pin_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe"
         }
       ]
+    },
+    "pin_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated entity ID."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "decision",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive exact revision."
+        }
+      },
+      "required": [
+        "kind",
+        "decision_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "pin_94f1e67acf21c74b40eb18efc252adc7c824e2d3bfc1ba6cb383797aad8986cb": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated entity ID."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive exact revision."
+        }
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
     },
     "pin_b141ac31589d8ec990a9e71c5829a98b200b57958ece4425d4ae371245bb4c5d": {
       "additionalProperties": false,
@@ -550,7 +605,7 @@ For preconditions and a small example, run `workgraph help manifest.publish`. Us
           "x-maximumDecimal": "4611686018427387903"
         },
         "inputs": {
-          "$ref": "#/$defs/inputs_f0521b3c9696ae2535497dd9b78f52103228a778b5533836c932fe781f316892"
+          "$ref": "#/$defs/inputs_11beeb018ed5767ca3ddcfdde59061efbf122be737eb21973e62cf21f3e8be9e"
         },
         "manifest_id": {
           "anyOf": [
@@ -580,7 +635,7 @@ For preconditions and a small example, run `workgraph help manifest.publish`. Us
           "description": "Literal entity ID or $alias resolved within transaction.apply."
         },
         "outputs": {
-          "$ref": "#/$defs/inputs_f0521b3c9696ae2535497dd9b78f52103228a778b5533836c932fe781f316892"
+          "$ref": "#/$defs/inputs_11beeb018ed5767ca3ddcfdde59061efbf122be737eb21973e62cf21f3e8be9e"
         },
         "schema_version": {
           "allOf": [

@@ -1,5 +1,6 @@
 Name:           workgraph
-Version:        0.7.0
+%{!?workgraph_version:%{error:Pass --define 'workgraph_version VERSION' from dune-project}}
+Version:        %{workgraph_version}
 Release:        1%{?dist}
 Summary:        Local durable project memory for agents
 License:        MIT

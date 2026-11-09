@@ -1,0 +1,94 @@
+.wg-custom-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 64rem;
+}
+.wg-custom-form-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: start;
+}
+.wg-custom-form h3,
+.wg-custom-form p {
+  margin-top: 0;
+}
+.wg-custom-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+.wg-custom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.8rem;
+}
+.wg-custom-form details {
+  border: 1px solid var(--wg-border);
+  border-radius: 0.6rem;
+  padding: 0.85rem;
+  background: var(--wg-panel);
+  min-width: 0;
+}
+.wg-custom-form summary {
+  cursor: pointer;
+  font-weight: 650;
+  padding: 0.15rem 0;
+}
+.wg-custom-form details[open] > summary {
+  margin-bottom: 0.9rem;
+}
+.wg-custom-rows {
+  display: grid;
+  gap: 0.8rem;
+  margin-block: 0.75rem;
+}
+.wg-custom-row {
+  border: 1px solid var(--wg-border);
+  border-radius: 0.5rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
+}
+.wg-custom-row legend {
+  color: var(--wg-muted);
+  font-size: 0.85rem;
+  padding-inline: 0.35rem;
+}
+.wg-custom-optional {
+  display: grid;
+  gap: 0.65rem;
+  margin-block: 0.65rem;
+}
+.wg-custom-optional > label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.wg-custom-validation {
+  border-left: 0.2rem solid var(--wg-warning);
+  padding: 0.75rem;
+  background: var(--wg-hover);
+}
+.wg-custom-validation ul {
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.wg-custom-form .wg-field {
+  margin-block: 0.3rem;
+}
+.wg-custom-form .wg-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

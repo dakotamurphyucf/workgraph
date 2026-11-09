@@ -1,0 +1,858 @@
+.wg-discussions-layout {
+  display: flex;
+  align-items: start;
+  gap: 1rem;
+}
+.wg-discussions-master,
+.wg-discussions-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wg-discussions-detail {
+  flex: 1;
+}
+.wg-discussions-master {
+  max-height: calc(100dvh - 18rem);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.wg-discussions-detail article {
+  margin-block: 1rem;
+  padding: 1rem;
+}
+@media (max-width: 900px) {
+  .wg-discussions-layout {
+    flex-direction: column;
+  }
+  .wg-discussions-pane {
+    width: 100% !important;
+  }
+  .wg-discussions-pane > .wg-resizer {
+    display: none;
+  }
+  .wg-discussions-detail {
+    width: 100%;
+  }
+  .wg-discussions-master {
+    max-height: 28rem;
+  }
+}
+
+/* The shared viewer still owns rendering, raw bytes and language selection.
+   Ordinary messages lead with content; users disclose its technical toolbar. */
+.wg-discussion-body:not(.wg-discussion-body--tools) .wg-content-toolbar {
+  display: none;
+}
+
+.wg-discussion-body:not(.wg-discussion-body--tools) .wg-content-provenance {
+  display: none;
+}
+.wg-discussion-body .wg-content-viewer {
+  border: 0;
+  background: transparent;
+}
+.wg-discussion-body .wg-rich-content {
+  padding: 0.5rem 0;
+}
+.wg-discussion-body .wg-rich-content > :last-child {
+  margin-bottom: 0;
+}
+.wg-discussions-detail article.wg-comment {
+  border: 0;
+  border-bottom: 1px solid var(--wg-border);
+  border-radius: 0;
+  margin: 0;
+  padding: 1rem 0;
+}
+.wg-comment-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.7rem;
+}
+.wg-comment-heading time {
+  color: var(--wg-secondary);
+  font-size: 0.923rem;
+}
+.wg-comment > .wg-toolbar {
+  margin-block: 0.35rem;
+}
+.wg-comment > details {
+  font-size: 0.923rem;
+}
+.wg-comment-actions > summary {
+  padding: 0.45rem;
+  cursor: pointer;
+}
+.wg-comment-actions[open] {
+  flex-basis: 100%;
+}
+.wg-comment-actions[open] > .wg-toolbar {
+  margin-block: 0.5rem;
+}
+
+/* The discussion shell follows the original collection/conversation mockup. */
+.wg-content[data-view="discussions"]:has(.wg-discussions-feature) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.wg-content[data-view="discussions"]:has(.wg-discussions-feature) .wg-connection-surface {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.wg-content[data-view="discussions"]:has(.wg-discussions-feature) .wg-connection-body {
+  flex: 1;
+  min-height: 0;
+}
+.wg-content[data-view="discussions"]:has(.wg-discussions-feature) .wg-feature-surface {
+  height: 100%;
+}
+.wg-discussions-feature {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.wg-discussions-feature[data-pane="discussions"] {
+  overflow: hidden;
+}
+.dc-topbar > .wg-button {
+  margin-left: auto;
+  font-size: 13px;
+}
+.dc-topbar > .wg-button svg {
+  width: 13px;
+  height: 13px;
+}
+.dc-threads {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.dc-threads > [role="alert"],
+.dc-threads > [role="status"] {
+  margin: 8px 24px;
+}
+.dc-browsebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px 18px;
+  border-bottom: 1px solid var(--wg-border);
+  flex-shrink: 0;
+}
+.dc-browsebar .wg-toolbar {
+  margin: 0;
+  gap: 2px;
+}
+.dc-browsebar .wg-button {
+  font-size: 13px;
+}
+.dc-browsebar .wg-button svg {
+  width: 13px;
+  height: 13px;
+}
+.dc-browsebar .wg-button[aria-pressed="true"] {
+  color: var(--wg-accent);
+  background: var(--wg-accent-bg);
+}
+.dc-create-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dc-more-menu {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.dc-more-menu > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  color: var(--wg-secondary);
+}
+.dc-more-menu > div {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  padding: 6px;
+  min-width: 210px;
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  box-shadow: 0 10px 32px #0004;
+  display: flex;
+  flex-direction: column;
+}
+.dc-more-menu .wg-button {
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+}
+.wg-discussions-layout {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  gap: 0;
+}
+.wg-discussions-pane {
+  border-right: 1px solid var(--wg-border);
+  min-height: 0;
+}
+.wg-discussions-master {
+  max-height: none;
+  height: 100%;
+  overflow: auto;
+  scrollbar-gutter: auto;
+}
+.dc-collection-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.dc-collection-heading form {
+  flex: 1;
+  min-width: 0;
+}
+.dc-collection-heading .wg-field {
+  margin: 0;
+}
+.dc-collection-heading .wg-field label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.dc-collection-heading input {
+  width: 100%;
+  font-size: 14px;
+}
+.dc-collection-heading svg {
+  width: 14px;
+  height: 14px;
+}
+.dc-read > .wg-panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  margin: 0;
+}
+.dc-read > .wg-panel > .wg-panel-header {
+  border: 0;
+  background: transparent;
+  padding: 16px 18px 10px;
+}
+.dc-read > .wg-panel > .wg-panel-header h2 {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--wg-secondary);
+}
+.dc-read > .wg-panel > .wg-panel-body {
+  padding: 0;
+}
+.dc-list-row {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--wg-border);
+  border-left: 2px solid transparent;
+}
+.dc-list-row[data-selected="true"] {
+  border-left-color: var(--wg-accent);
+  background: var(--wg-hover);
+}
+.dc-list-row h3 {
+  margin: 0;
+}
+.dc-list-row h3 .wg-button {
+  padding: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  justify-content: flex-start;
+  align-items: start;
+  font-size: 14px;
+  line-height: 1.65;
+  font-weight: 500;
+}
+.dc-list-row h3 .wg-button svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  color: var(--wg-accent);
+}
+.dc-list-row p {
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 5px 0 0 23px;
+  color: var(--wg-secondary);
+}
+.dc-read .wg-panel-body > .wg-toolbar {
+  padding: 8px 18px;
+  margin: 0;
+  gap: 4px;
+}
+.dc-read .wg-panel-body > .wg-toolbar .wg-button {
+  font-size: 12px;
+  padding: 4px 6px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--wg-secondary);
+}
+.dc-read .wg-panel-body > details {
+  margin: 6px 18px 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wg-secondary);
+  font-size: 12px;
+}
+.wg-discussions-detail {
+  overflow: auto;
+  padding: 26px 28px 40px;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.dc-back {
+  font-size: 13px;
+  margin: 0 0 18px;
+  color: var(--wg-secondary);
+}
+.dc-empty-conversation {
+  max-width: 420px;
+  margin: 15vh auto 0;
+  text-align: center;
+}
+.dc-empty-conversation > svg {
+  width: 34px;
+  height: 34px;
+  color: var(--wg-accent);
+  margin-bottom: 16px;
+}
+.dc-empty-conversation h2 {
+  font-size: 20px;
+  letter-spacing: -0.4px;
+  font-weight: 600;
+}
+.dc-empty-conversation p {
+  color: var(--wg-secondary);
+  font-size: 15px;
+  line-height: 1.8;
+  margin: 12px 0 22px;
+}
+.dc-read[data-read-kind="thread"] > .wg-panel > .wg-panel-header {
+  display: none;
+}
+.dc-conversation-heading {
+  padding: 0 0 18px;
+}
+.dc-eyebrow {
+  color: var(--wg-accent);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.dc-conversation-heading h2 {
+  font-size: 22px;
+  line-height: 1.45;
+  letter-spacing: -0.5px;
+  font-weight: 600;
+  margin: 12px 0;
+}
+.dc-conversation-heading p {
+  font-size: 13px;
+  color: var(--wg-secondary);
+  line-height: 1.8;
+}
+.wg-discussions-detail article.wg-comment {
+  padding: 22px 0;
+  border: 0;
+}
+.wg-comment-heading {
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.wg-comment-heading time {
+  font-size: 12px;
+}
+.wg-comment-heading .wg-actor-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  margin-right: 2px;
+}
+.wg-comment .wg-discussion-body {
+  margin: 10px 0 0 38px;
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  padding: 10px 16px;
+  background: var(--wg-panel);
+}
+.wg-comment .wg-rich-content {
+  font-size: 15px;
+  line-height: 1.8;
+}
+.wg-comment .wg-discussion-body > .wg-button {
+  font-size: 12px;
+  color: var(--wg-secondary);
+  padding: 4px 0;
+}
+.wg-comment > .wg-toolbar {
+  margin-left: 38px;
+  gap: 6px;
+}
+.wg-comment > .wg-toolbar .wg-button,
+.wg-comment > .wg-toolbar summary {
+  font-size: 12px;
+  color: var(--wg-secondary);
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+}
+.wg-comment > details {
+  margin: 4px 0 0 38px;
+  padding: 0;
+  border: 0;
+  font-size: 12px;
+  color: var(--wg-secondary);
+}
+.dc-inline-reply {
+  margin: 28px 0 22px;
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  overflow: hidden;
+}
+.dc-reply-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 0;
+  color: var(--wg-secondary);
+  font-size: 13px;
+}
+.dc-reply-author .wg-actor-avatar {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+.dc-writer-warning {
+  color: var(--wg-warning);
+}
+.dc-inline-reply textarea {
+  display: block;
+  border: 0;
+  outline-offset: -2px;
+  border-radius: 0;
+  resize: vertical;
+  background: transparent;
+  color: var(--wg-text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.7;
+  padding: 14px;
+  min-height: 110px;
+  width: 100%;
+}
+.dc-inline-reply footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+}
+.dc-inline-reply footer > span {
+  color: var(--wg-secondary);
+  font-size: 12px;
+  flex: 1;
+}
+.dc-inline-reply footer .wg-button {
+  font-size: 13px;
+}
+.dc-inline-reply > p {
+  padding: 0 14px;
+  font-size: 14px;
+}
+.dc-threads > .wg-panel {
+  overflow: auto;
+  flex-shrink: 1;
+  min-height: 0;
+}
+@media (max-width: 900px) {
+  .wg-discussions-layout {
+    flex-direction: row;
+  }
+  .wg-discussions-pane {
+    width: 100% !important;
+  }
+  .wg-discussions-detail {
+    display: none;
+  }
+  .dc-threads[data-selected="true"] .wg-discussions-pane {
+    display: none;
+  }
+  .dc-threads[data-selected="true"] .wg-discussions-detail {
+    display: block;
+    width: 100%;
+    padding: 22px 16px;
+  }
+  .dc-browsebar {
+    padding: 7px 10px;
+  }
+  .wg-comment .wg-discussion-body {
+    margin-left: 0;
+  }
+}
+.dc-conversation-note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--wg-secondary);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--wg-border);
+}
+.dc-thread-options {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wg-secondary);
+  font-size: 13px;
+}
+.dc-thread-options summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.dc-thread-options .wg-toolbar {
+  padding: 10px 0;
+}
+.dc-thread-options .wg-button {
+  font-size: 13px;
+}
+.dc-draft-drawer {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--wg-border);
+  background: var(--wg-panel);
+  color: var(--wg-secondary);
+  font-size: 13px;
+  max-height: 200px;
+  overflow: auto;
+}
+.dc-draft-drawer summary {
+  cursor: pointer;
+}
+.dc-draft-drawer .wg-button {
+  font-size: 13px;
+}
+.dc-thread-status[data-status="awaiting_response"] {
+  color: #d8b66d;
+}
+.dc-thread-status[data-status="resolved"] {
+  color: #79c9a6;
+}
+:root[data-theme="light"] .dc-thread-status[data-status="awaiting_response"] {
+  color: #926500;
+}
+:root[data-theme="light"] .dc-thread-status[data-status="resolved"] {
+  color: #287a56;
+}
+.dc-read .wg-toolbar:empty {
+  display: none;
+}
+.wg-comment .wg-discussion-body {
+  position: relative;
+}
+.wg-comment .wg-discussion-body > .wg-button {
+  position: absolute;
+  right: 0;
+  bottom: -24px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.wg-comment .wg-discussion-body > .wg-button:focus,
+.wg-comment:hover .wg-discussion-body > .wg-button {
+  opacity: 1;
+}
+.wg-comment-actions > details {
+  font-size: 12px;
+  color: var(--wg-secondary);
+  border: 0;
+  padding: 4px 0;
+}
+.dc-conversation-heading .wg-badge {
+  background: var(--wg-accent-bg);
+  border-color: transparent;
+  color: var(--wg-accent);
+}
+
+@media (max-width: 900px) {
+  .dc-threads[data-board-selected="true"] .wg-discussions-layout {
+    flex-direction: column;
+  }
+  .dc-threads[data-board-selected="true"] .wg-discussions-detail {
+    display: block;
+    order: -1;
+    flex: 0 0 auto;
+    max-height: 35%;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--wg-border);
+  }
+  .dc-threads[data-board-selected="true"] .wg-discussions-pane {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+/* Direct delivery shares the conversation typography without implying that the
+   native notification stream is a complete, bidirectional chat archive. */
+.dc-received-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.dc-received-page {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 30px 36px 48px;
+}
+.dc-received-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.dc-received-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  background: var(--wg-accent-bg);
+  color: var(--wg-accent);
+}
+.dc-received-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.dc-received-heading h2 {
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+}
+.dc-received-heading p {
+  margin: 0;
+  color: var(--wg-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.dc-recipient-form {
+  padding: 20px;
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  margin-bottom: 28px;
+}
+.dc-recipient-fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.dc-recipient-fields legend {
+  font-size: 13px;
+  color: var(--wg-secondary);
+  padding: 0;
+  margin-bottom: 14px;
+}
+.dc-recipient-row {
+  display: grid;
+  grid-template-columns: 130px minmax(160px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+.dc-recipient-form .wg-field {
+  margin: 0;
+  min-width: 0;
+}
+.dc-recipient-form .wg-field label,
+.dc-recipient-form .wg-button,
+.dc-recipient-form input,
+.dc-recipient-form select {
+  font-size: 13px;
+}
+.dc-received-filters {
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+  background: transparent;
+  color: var(--wg-secondary);
+}
+.dc-received-filters summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.dc-received-filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding-block: 16px;
+}
+.dc-received-filter-grid .wg-field:last-child {
+  grid-column: 1 / -1;
+}
+.dc-received-capture-note {
+  color: var(--wg-secondary);
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 12px 0 16px;
+}
+.dc-recipient-form > .wg-toolbar {
+  margin: 14px 0 0;
+}
+.dc-received-page .dc-read > .wg-panel > .wg-panel-header {
+  display: none;
+}
+.dc-received-feed-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.dc-received-feed-heading p {
+  margin: 0;
+}
+.dc-received-feed-heading span {
+  color: var(--wg-secondary);
+  font-size: 12px;
+}
+.dc-received-message {
+  padding: 22px;
+  margin: 18px 0;
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+}
+.dc-received-sender {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dc-received-sender .wg-actor-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+.dc-received-sender > div {
+  min-width: 0;
+  flex: 1;
+}
+.dc-received-sender h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.dc-received-sender p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--wg-secondary);
+}
+.dc-received-sender .wg-badge {
+  background: var(--wg-accent-bg);
+  color: var(--wg-accent);
+  border: 0;
+  font-size: 12px;
+}
+.dc-received-message .wg-discussion-body {
+  margin-left: 42px;
+  padding: 4px 0 12px;
+  border: 0;
+  background: transparent;
+}
+.dc-received-message .wg-discussion-body > .wg-button {
+  position: static;
+}
+.dc-received-message > .wg-toolbar,
+.dc-received-message > details {
+  margin-left: 42px;
+}
+.dc-received-message > .wg-toolbar {
+  gap: 12px;
+}
+.dc-received-start {
+  margin: 50px auto;
+  max-width: 380px;
+  text-align: center;
+  color: var(--wg-secondary);
+}
+.dc-received-start svg {
+  width: 32px;
+  height: 32px;
+  color: var(--wg-accent);
+}
+.dc-received-start h3 {
+  color: var(--wg-text);
+  font-size: 16px;
+  font-weight: 500;
+}
+.dc-received-start p {
+  font-size: 14px;
+  line-height: 1.8;
+}
+@media (max-width: 900px) {
+  .dc-received-page {
+    padding: 24px 20px 36px;
+  }
+  .dc-recipient-row {
+    grid-template-columns: 120px minmax(120px, 1fr);
+  }
+  .dc-recipient-row > .wg-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+@media (max-width: 580px) {
+  .dc-received-page {
+    padding-inline: 14px;
+  }
+  .dc-recipient-form,
+  .dc-received-message {
+    padding: 16px;
+  }
+  .dc-received-filter-grid {
+    grid-template-columns: 1fr;
+  }
+  .dc-received-message .wg-discussion-body,
+  .dc-received-message > .wg-toolbar,
+  .dc-received-message > details {
+    margin-left: 0;
+  }
+  .dc-received-sender {
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,188 @@
+/* Graph composition shares the Work inspector, but owns its collection canvas. */
+.wg-content[data-view="workflow"]:has(.graph-main) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.wg-content[data-view="workflow"]:has(.graph-main) .wg-connection-surface {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.wg-content[data-view="workflow"]:has(.graph-main) .wg-connection-body {
+  flex: 1;
+  min-height: 0;
+}
+.wg-content[data-view="workflow"]:has(.graph-main) .wg-feature-surface {
+  height: 100%;
+}
+.graph-main {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.graph-topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 8px 24px;
+  min-height: 54px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.graph-topbar h1 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.graph-topbar h1 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--wg-accent);
+}
+.graph-topbar .wg-toolbar {
+  gap: 3px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.graph-topbar .wg-toolbar .wg-button {
+  font-size: 12px;
+  color: var(--wg-muted);
+}
+.graph-topbar .wg-button[aria-pressed="true"] {
+  color: var(--wg-accent);
+  background: var(--wg-accent-bg);
+  border-color: transparent;
+}
+.graph-topbar-actions {
+  margin-left: auto;
+}
+.graph-topbar-actions .wg-toolbar {
+  margin: 0;
+}
+.graph-filterbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--wg-border);
+  flex-wrap: wrap;
+}
+.graph-filterbar .wg-button {
+  font-size: 11px;
+}
+.graph-count {
+  margin-left: auto;
+  color: var(--wg-muted);
+  font-size: 11px;
+}
+.graph-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 24px 36px;
+}
+.graph-body > .wg-toolbar {
+  margin: 0 0 16px;
+}
+.graph-canvas-section {
+  margin-top: 0;
+}
+.graph-scroll {
+  height: max(420px, calc(100vh - 330px));
+  border-radius: 10px;
+  background-color: var(--wg-app);
+}
+.graph-node {
+  box-shadow: 0 3px 14px #0002;
+}
+.graph-node--selected {
+  box-shadow:
+    0 0 0 2px var(--wg-accent-bg),
+    0 6px 20px #0002;
+}
+.graph-heading {
+  margin-bottom: 10px;
+}
+.graph-heading h2 {
+  font-size: 14px;
+}
+.graph-heading p {
+  font-size: 11px;
+}
+.graph-advanced-details {
+  margin: 20px 0;
+  border-top: 1px solid var(--wg-border);
+  padding-top: 14px;
+  font-size: 11px;
+  color: var(--wg-secondary);
+}
+.graph-advanced-details > summary {
+  cursor: pointer;
+}
+.graph-display-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.graph-display-settings .graph-layers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.graph-display-settings .graph-layers label {
+  padding: 12px;
+  background: var(--wg-panel);
+  border: 1px solid var(--wg-border);
+  border-radius: 7px;
+}
+.graph-display-settings .graph-layer-options {
+  width: 100%;
+}
+.graph-display-settings .graph-edit-options {
+  margin: 0;
+}
+.graph-display-settings .graph-jump {
+  margin-top: 16px;
+  margin-left: 0;
+  flex-basis: 100%;
+}
+@media (max-width: 760px) {
+  .graph-topbar,
+  .graph-filterbar {
+    padding-inline: 16px;
+    gap: 10px;
+  }
+  .graph-topbar > .wg-toolbar {
+    order: 3;
+    width: 100%;
+  }
+  .graph-body {
+    padding: 16px;
+  }
+  .graph-filterbar .work-scope-chip {
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .graph-display-settings .graph-layers {
+    grid-template-columns: 1fr;
+  }
+}
+
+.graph-display-settings h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.graph-display-settings .graph-layer-options > .wg-field {
+  margin-top: 20px;
+}

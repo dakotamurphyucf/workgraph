@@ -317,7 +317,7 @@ let raw_filter =
   raw_record
     (Fields.optional "scope" raw_scope
      ++ Fields.optional ~raw:(reference thread_id) "thread_id" thread_id
-     ++ Fields.optional "kinds" (Api_codec.list Communication_wire.kind ~max_items:8))
+     ++ Fields.optional "kinds" (Api_codec.list Communication_wire.kind ~max_items:9))
 ;;
 
 let validate_request_recipients params =

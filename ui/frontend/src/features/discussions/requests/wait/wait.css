@@ -1,0 +1,9 @@
+.wg-request-wait-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.8rem 1.2rem;
+  margin-block: 1rem;
+}
+.wg-request-wait-fields .wg-field {
+  min-width: 0;
+}

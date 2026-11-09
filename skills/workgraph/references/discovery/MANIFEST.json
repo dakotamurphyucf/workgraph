@@ -1,6 +1,6 @@
 {
   "capability_count": 8,
-  "catalog_sha256": "0a177e38f0ae33deb776f79af99e6a1c51385bb1d30d1899cd20872f242f013b",
+  "catalog_sha256": "574398ca08c58b504ade8069351e6abd512aed61c5803676ff8b1f592d40230b",
   "files": {
     "capability.administration.md": "7322be38b1f22bb2265450059aa7c32f85f27c6beff9ea16b946711946e335a4",
     "capability.communication.md": "7bee34b62420bc5925e59b563e6fb252971a39aee7b0af3053cc25bd98d660c3",
@@ -45,7 +45,7 @@
     "group.related.md": "706b05798168adac68eba4573b8f2fb53e62f4687e51b3f5cd0d824beadb60df",
     "group.request.md": "c9bff7cea00fb85519633324f02e2f2831440b575302e4786a20969ac7115021",
     "group.reservation.md": "14e6b89e8f590970dc8da8b571b85f1527d472b099b583c8c16decb5f7e8ee98",
-    "group.resource.md": "76ccbc50efddffe55f7647d9cb3517a288986ed2483c1c00bc17864f05a97791",
+    "group.resource.md": "23dae56e450636b84bbd49600a663a825763c25061823f976b9a879ee61c5f0f",
     "group.restore.md": "2d087600c78051563c9e45ffddbdd3996281c8a6210e1cfdf16666037b5cf906",
     "group.review.md": "796c90e7883875f603336373d4b27154065caeb37b38f6e6edaa016436b323c3",
     "group.run.md": "9eeb30279f796f01eb770f898ce790dbb8cf636f59292c5a7d806dc42a0aa191",
@@ -57,7 +57,7 @@
     "group.template.md": "054d59b6c911973e304abbebe018337d1c4ad6510dc63da026200ab3185ed253",
     "group.thread.md": "884b115869459b1d7cb9688fcab6ed5fc0137b769a461273dd2a5b81d69f9e54",
     "group.ticket.md": "c038b31081819e7ff1ca343c3d6944493ec4d925822b3c7cf59c0888af8a5eb4",
-    "group.transaction.md": "926813de067ecc218c7b9698ca52b196b48e209b40b849d5bdcad24ce3d269d8",
+    "group.transaction.md": "90737f4d717e15820b53e3218bc09b7b7b6f08b5a1bad984da029d1e6bed1305",
     "group.upload.md": "8feaa1fc5eac2768e2f46bdf99db6496d709aa185582f128a56b571695bde1a5",
     "group.usage.md": "3712b086e2bc6ac45b819a4a1fbe66d7c38b1bec0fa127107a0c0896b2127d8a",
     "group.validation.md": "e3bd20a508a6da2777298330fcdcf23567f24112d01934530ea20723521a30b6",

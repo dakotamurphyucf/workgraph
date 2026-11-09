@@ -2,6 +2,11 @@ name: AlmaLinux 10 package
 
 on:
   workflow_dispatch:
+    inputs:
+      optional_ui:
+        description: Include the optional UI archive and exact-core-dependency UI RPM
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -10,6 +15,8 @@ jobs:
   package:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      WORKGRAPH_PACKAGE_UI: ${{ inputs.optional_ui && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Build isolated AlmaLinux toolchain
@@ -18,6 +25,7 @@ jobs:
             -f packaging/almalinux/Containerfile \
             --build-arg BUILDER_UID="$(id -u)" \
             --build-arg BUILDER_GID="$(id -g)" \
+            --build-arg WORKGRAPH_PACKAGE_UI="$WORKGRAPH_PACKAGE_UI" \
             -t workgraph-alma-builder .
       - name: Build, test and package
         run: |

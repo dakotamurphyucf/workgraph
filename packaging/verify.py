@@ -11,6 +11,7 @@ import json
 from pathlib import Path, PurePosixPath
 import re
 import tarfile
+import unicodedata
 
 
 DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -42,7 +43,9 @@ def unique_object(pairs):
 
 
 def decode(data):
-    return json.loads(data, object_pairs_hook=unique_object)
+    def nonfinite(value):
+        raise ValueError("Non-JSON numeric constant: " + value)
+    return json.loads(data, object_pairs_hook=unique_object, parse_constant=nonfinite)
 
 
 def safe_name(name):
@@ -56,7 +59,8 @@ def validate_notices(files):
     """Check the collector's actual inventory against every declared license text."""
     prefix = "THIRD_PARTY_NOTICES/"
     inventory = decode(files[prefix + "INVENTORY.json"])
-    if inventory["schema"] != 1 or not inventory["packages"]:
+    if type(inventory["schema"]) is not int or inventory["schema"] != 1 \
+            or not isinstance(inventory["packages"], list) or not inventory["packages"]:
         raise ValueError("Missing dependency notice package inventory")
     identities = set()
     declared = {prefix + "INVENTORY.json", prefix + "README.md"}
@@ -66,6 +70,8 @@ def validate_notices(files):
             raise ValueError("Invalid or duplicate dependency identity")
         identities.add((name, version))
         licenses = package["license_files"]
+        if not isinstance(licenses, dict):
+            raise ValueError("Invalid dependency license inventory")
         if package["source_url_opam"] and not licenses:
             raise ValueError("Dependency source has no license texts: " + name)
         for relative, digest in licenses.items():
@@ -89,6 +95,7 @@ class Bundle:
 def read_archive(path):
     """Read one root of regular files, validating exact inventory and all hashes."""
     files, modes, roots, directories, names = {}, {}, set(), set(), set()
+    portable_names = {}
     with tarfile.open(path, "r:gz") as archive:
         for member in archive:
             name = safe_name(member.name.rstrip("/") if member.isdir() else member.name)
@@ -96,6 +103,12 @@ def read_archive(path):
                 raise ValueError("Duplicate archive member: " + name)
             names.add(name)
             parts = PurePosixPath(name).parts
+            for index in range(1, len(parts) + 1):
+                prefix = "/".join(parts[:index])
+                portable = unicodedata.normalize("NFD", prefix).casefold()
+                previous = portable_names.setdefault(portable, prefix)
+                if previous != prefix:
+                    raise ValueError("Archive names collide on a case-insensitive/normalizing filesystem")
             roots.add(parts[0])
             if member.isdir():
                 if member.mode != 0o755:
@@ -103,7 +116,7 @@ def read_archive(path):
                 directories.add(name)
             elif member.isfile() and len(parts) > 1:
                 relative = "/".join(parts[1:])
-                expected_mode = 0o755 if relative in {"dev", "bin/workgraph"} or relative.endswith(".sh") else 0o644
+                expected_mode = 0o755 if relative in {"dev", "dev-ui", "bin/workgraph", "bin/workgraph-ui"} or relative.endswith(".sh") else 0o644
                 if member.mode != expected_mode:
                     raise ValueError("Unexpected archive file mode: " + name)
                 files[relative] = archive.extractfile(member).read()
@@ -134,11 +147,14 @@ def read_archive(path):
     if manifest["kind"] == "source":
         if root != "workgraph-" + manifest["version"] or identity != sha(encode(declared)):
             raise ValueError("Source root or identity disagrees with source contents")
-    elif manifest["kind"] == "native":
-        if root != "workgraph-" + manifest["version"] + "-" + manifest["platform"]:
+    elif manifest["kind"] in {"native", "ui-native"}:
+        prefix = "workgraph-ui-" if manifest["kind"] == "ui-native" else "workgraph-"
+        if root != prefix + manifest["version"] + "-" + manifest["platform"]:
             raise ValueError("Native root disagrees with target")
         if modes.get("bin/workgraph") != 0o755:
             raise ValueError("Native executable must have mode0755")
+        if manifest["kind"] == "ui-native" and modes.get("bin/workgraph-ui") != 0o755:
+            raise ValueError("UI executable must have mode0755")
     else:
         raise ValueError("Unknown archive kind")
     return Bundle(root, manifest, files, modes)
@@ -146,8 +162,13 @@ def read_archive(path):
 
 def verify_pair(source, native):
     """Validate source agreement, complete installed guides, notices and provenance."""
+    if native.manifest["kind"] == "ui-native":
+        from ui_bundle import verify_ui_pair
+        return verify_ui_pair(source, native)
     if source.manifest["kind"] != "source" or native.manifest["kind"] != "native":
         raise ValueError("Expected source and native archives")
+    if not NATIVE_SOURCE_FILES.issubset(source.files):
+        raise ValueError("Source package lacks required offline native guides/tools")
     for field in ("version", "source_identity"):
         if source.manifest[field] != native.manifest[field]:
             raise ValueError("Source/native mismatch: " + field)
@@ -189,12 +210,14 @@ def regular_files(directory):
 def verify_installation(native, directory, *, rpm=False):
     """Check exact installed inventory; RPM uses the spec's explicit path mapping."""
     if rpm:
-        doc = directory / "usr/share/doc/workgraph"
-        licenses = directory / "usr/share/licenses/workgraph"
+        ui = native.manifest["kind"] == "ui-native"
+        package = "workgraph-ui" if ui else "workgraph"
+        doc = directory / ("usr/share/doc/" + package)
+        licenses = directory / ("usr/share/licenses/" + package)
         def location(name):
-            if name == "bin/workgraph":
-                return directory / "usr/bin/workgraph"
-            if name == "LICENSE" or name.startswith("THIRD_PARTY_NOTICES/"):
+            if name in {"bin/workgraph", "bin/workgraph-ui"}:
+                return directory / "usr" / name
+            if name in {"LICENSE", "ui-package/frontend-notices.txt"} or name.startswith("THIRD_PARTY_NOTICES/"):
                 return licenses / name
             return doc / name
         expected_doc = {name for name in native.files if location(name).is_relative_to(doc)} | {"MANIFEST.json"}

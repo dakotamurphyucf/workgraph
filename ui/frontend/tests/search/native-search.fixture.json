@@ -1,0 +1,225 @@
+{
+  "id": "cli",
+  "jsonrpc": "2.0",
+  "result": {
+    "data": {
+      "coverage": {
+        "current_revisions_only": true,
+        "eligible_text_resources": "2",
+        "indexed_text_resources": "2",
+        "request_text_bytes": "1048576",
+        "resource_prefix_bytes": "65536",
+        "truncated_text_resources": "0",
+        "unindexed_text_resources": "0"
+      },
+      "index_revision": "20",
+      "items": [
+        {
+          "matches": [
+            {
+              "field": "name",
+              "match_bytes": "9",
+              "match_offset": "0",
+              "snippet": "copperfox workspace",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "kind": "workspace",
+            "revision": "1",
+            "workspace_id": "demo"
+          },
+          "target": {
+            "kind": "workspace"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "title",
+              "match_bytes": "9",
+              "match_offset": "0",
+              "snippet": "copperfox project",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "kind": "project",
+            "project_id": "release",
+            "revision": "2"
+          },
+          "target": {
+            "kind": "project",
+            "project_id": "release"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "title",
+              "match_bytes": "9",
+              "match_offset": "0",
+              "snippet": "copperfox milestone",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "kind": "milestone",
+            "milestone_id": "search-milestone",
+            "revision": "1"
+          },
+          "target": {
+            "kind": "milestone",
+            "milestone_id": "search-milestone"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "title",
+              "match_bytes": "9",
+              "match_offset": "0",
+              "snippet": "copperfox ticket",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "kind": "ticket",
+            "revision": "1",
+            "ticket_id": "search-ticket"
+          },
+          "target": {
+            "kind": "ticket",
+            "ticket_id": "search-ticket"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "body",
+              "match_bytes": "9",
+              "match_offset": "0",
+              "snippet": "copperfox original comment",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "comment_id": "search-comment",
+            "kind": "comment",
+            "revision": "1"
+          },
+          "target": {
+            "kind": "project",
+            "project_id": "release"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "summary",
+              "match_bytes": "9",
+              "match_offset": "0",
+              "snippet": "copperfox handoff",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "kind": "handoff",
+            "revision": "1",
+            "ticket_id": "search-ticket"
+          },
+          "target": {
+            "kind": "ticket",
+            "ticket_id": "search-ticket"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "title",
+              "match_bytes": "9",
+              "match_offset": "0",
+              "snippet": "copperfox resource",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "kind": "resource",
+            "resource_id": "search-resource",
+            "revision": "1"
+          },
+          "target": {
+            "kind": "resource",
+            "resource_id": "search-resource"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "text",
+              "match_bytes": "9",
+              "match_offset": "2",
+              "snippet": "# copperfox original resource\n\nExact retained Markdown.",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "kind": "resource_text",
+            "resource_id": "search-resource",
+            "revision": "1"
+          },
+          "target": {
+            "kind": "resource",
+            "resource_id": "search-resource"
+          }
+        },
+        {
+          "matches": [
+            {
+              "field": "value",
+              "match_bytes": "9",
+              "match_offset": "1",
+              "snippet": "\"copperfox original fact\"",
+              "snippet_offset": "0"
+            }
+          ],
+          "source": {
+            "key": "search.setting",
+            "kind": "fact",
+            "revision": "1",
+            "scope": {
+              "id": "release",
+              "kind": "project"
+            }
+          },
+          "target": {
+            "kind": "project",
+            "project_id": "release"
+          }
+        }
+      ],
+      "next_offset": null,
+      "offset": "0",
+      "remaining": "0",
+      "sources_scanned": "16",
+      "unindexed_resources": {
+        "items": [],
+        "next_offset": null,
+        "offset": "0",
+        "remaining": "0"
+      }
+    },
+    "meta": {
+      "budget": {
+        "details": [],
+        "details_complete": true,
+        "max_bytes": "1048576",
+        "omitted_fields": "0",
+        "omitted_items": "0",
+        "returned_bytes": "2920",
+        "truncated": false
+      },
+      "workspace_revision": "20"
+    }
+  }
+}

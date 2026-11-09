@@ -94,7 +94,15 @@ module Response = struct
              ++ F.required "proposed_revision" (decimal ~max:Int.max_value)
              ++ F.required
                   "operation_count"
-                  (decimal ~max:Transaction_limit.max_operations)
+                  (map
+                     (decimal ~max:Transaction_limit.max_operations)
+                     ~decode:Result.return
+                     ~encode:Fn.id
+                     ~description:
+                       "Exact native expanded operation count at the staged capture. \
+                        Fresh template instances include their actual expansion; \
+                        existing instances count one. Not the source-operation or event \
+                        count.")
              ++ F.required
                   "generated_ids"
                   (list Generated_id.codec ~max_items:Transaction_limit.max_operations)
@@ -144,7 +152,8 @@ let method_ =
   Api_method.create
     ~name:"transaction.preflight"
     ~summary:
-      "Validate an atomic plan with actual domain preparation, without committing it."
+      "Validate an atomic plan and its exact native expanded operation count, without \
+       committing it."
     ~mode:Read
     ~request:Request.codec
     ~response:Response.codec

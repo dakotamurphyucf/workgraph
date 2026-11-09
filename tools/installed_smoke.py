@@ -5,6 +5,7 @@ Uses installed executable with a minimal environment, ordinary Git, and no OCaml
 toolchain at runtime. Keeps evidence/artifacts; stops only daemons it created.
 """
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -30,6 +31,15 @@ counter = 0
 
 def run(arguments):
     return subprocess.run(arguments, env=environment, capture_output=True, text=True, check=True)
+
+
+package_manifest = exe.parent.parent / "MANIFEST.json"
+if not package_manifest.is_file():
+    package_manifest = exe.parent.parent / "share/doc/workgraph/MANIFEST.json"
+manifest = json.loads(package_manifest.read_bytes())
+expected_version = manifest["version"]
+if hashlib.sha256(exe.read_bytes()).hexdigest() != manifest["files"]["bin/workgraph"]:
+    raise ValueError("Installed executable differs from package manifest")
 
 
 def check_offline_discovery():
@@ -97,7 +107,7 @@ def start(registry):
             raise RuntimeError("daemon exited: " + (root / "daemon.log").read_text())
         try:
             initialization = call("initialize", {})
-            assert initialization["version"] == "0.7.0"
+            assert initialization["version"] == expected_version
             assert initialization["workgraph_api"] == "0.7"
             assert initialization["registry_format_version"] == "5"
             return
@@ -198,7 +208,7 @@ def check_history():
 
 
 try:
-    assert run([str(exe), "--version"]).stdout.strip() == "0.7.0"
+    assert run([str(exe), "--version"]).stdout.strip() == expected_version
     check_offline_discovery()
     start("registry-1")
     admin("workspace.create", workspace_id="smoke", name="Installed workflow", root=str(root / "workspace"))

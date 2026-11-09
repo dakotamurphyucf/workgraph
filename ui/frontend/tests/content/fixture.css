@@ -1,0 +1,76 @@
+body {
+  margin: 0;
+  background: var(--wg-app);
+  color: var(--wg-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.fixture-main {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 38px 36px 48px;
+}
+.fixture-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 26px;
+}
+.fixture-eyebrow {
+  color: var(--wg-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+}
+.fixture-heading h1 {
+  font-size: 27px;
+  font-weight: 620;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  margin: 9px 0 8px;
+}
+.fixture-heading p {
+  margin: 0;
+  color: var(--wg-muted);
+}
+.fixture-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.fixture-controls output {
+  margin-left: auto;
+  color: var(--wg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.fixture-status {
+  border-top: 1px solid var(--wg-border);
+  padding-top: 18px;
+  margin-top: 22px;
+  display: grid;
+  gap: 8px;
+}
+.fixture-status span {
+  color: var(--wg-muted);
+  font-size: 11px;
+}
+.fixture-status output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .fixture-main {
+    padding: 20px 14px;
+  }
+  .fixture-heading {
+    align-items: flex-start;
+  }
+  .fixture-heading h1 {
+    font-size: 23px;
+  }
+}

@@ -1,6 +1,7 @@
 (executable
  (name main)
  (public_name workgraph)
+ (package workgraph)
  (libraries workgraph core eio_main)
  (preprocess
   (pps ppx_jane)))

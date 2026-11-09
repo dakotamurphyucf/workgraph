@@ -1,0 +1,795 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workgraph.invalid/ui/config/v1",
+  "title": "Workgraph UI bounded declarative config v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/view"
+    },
+    {
+      "$ref": "#/$defs/renderer"
+    },
+    {
+      "$ref": "#/$defs/catalog"
+    },
+    {
+      "$ref": "#/$defs/index"
+    }
+  ],
+  "$defs": {
+    "pin": {
+      "type": "object",
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,96}$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "maxLength": 19
+        }
+      },
+      "required": [
+        "resource_id",
+        "version",
+        "digest",
+        "size_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "workspace"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "project",
+                "milestone",
+                "ticket"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,96}$"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "format": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": [
+                "text",
+                "multiline",
+                "boolean",
+                "number",
+                "bytes",
+                "unix_ms",
+                "json",
+                "entity_ref",
+                "resource_pin"
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "duration"
+            },
+            "unit": {
+              "enum": [
+                "ns",
+                "us",
+                "ms",
+                "s"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "enum"
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "tone": {
+                    "enum": [
+                      "neutral",
+                      "info",
+                      "success",
+                      "warning",
+                      "danger"
+                    ]
+                  }
+                },
+                "required": [
+                  "value",
+                  "label",
+                  "tone"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "type",
+            "values"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "column": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,96}$"
+        },
+        "selector": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "field"
+                },
+                "field": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 96
+                }
+              },
+              "required": [
+                "kind",
+                "field"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "pointer"
+                },
+                "pointer": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "pattern": "^(|(/([^~]|~[01])*)*)$"
+                }
+              },
+              "required": [
+                "kind",
+                "pointer"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "format": {
+          "$ref": "#/$defs/format"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 80,
+          "maximum": 800
+        }
+      },
+      "required": [
+        "id",
+        "selector",
+        "label",
+        "format"
+      ],
+      "additionalProperties": false
+    },
+    "filter": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "pointer": {
+              "type": "string",
+              "maxLength": 512,
+              "pattern": "^(|(/([^~]|~[01])*)*)$"
+            },
+            "op": {
+              "const": "equals"
+            },
+            "value": {
+              "type": [
+                "null",
+                "boolean",
+                "string",
+                "number"
+              ]
+            }
+          },
+          "required": [
+            "pointer",
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            },
+            "op": {
+              "const": "equals"
+            },
+            "value": {
+              "type": [
+                "null",
+                "boolean",
+                "string",
+                "number"
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            },
+            "op": {
+              "const": "one_of"
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "null",
+                  "boolean",
+                  "string",
+                  "number"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "field",
+            "op",
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            },
+            "op": {
+              "enum": [
+                "literal_prefix",
+                "contains_text"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "field",
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "render_field": {
+      "type": "object",
+      "properties": {
+        "pointer": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^(|(/([^~]|~[01])*)*)$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "format": {
+          "$ref": "#/$defs/format"
+        }
+      },
+      "required": [
+        "pointer",
+        "label",
+        "format"
+      ],
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "config_version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "view"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,96}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "source": {
+          "enum": [
+            "tickets",
+            "runs",
+            "attempts",
+            "sessions",
+            "resources",
+            "facts",
+            "discussions",
+            "activity"
+          ]
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "filter_mode": {
+          "enum": [
+            "server",
+            "loaded"
+          ]
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/filter"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 96
+              },
+              "direction": {
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              "nulls": {
+                "const": "last"
+              }
+            },
+            "required": [
+              "field",
+              "direction",
+              "nulls"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 3
+        },
+        "group_by": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "presentation": {
+          "enum": [
+            "list",
+            "board",
+            "table",
+            "timeline"
+          ]
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/column"
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "renderer": {
+          "$ref": "#/$defs/pin"
+        }
+      },
+      "required": [
+        "config_version",
+        "kind",
+        "id",
+        "title",
+        "source",
+        "scope",
+        "filter_mode",
+        "filters",
+        "sort",
+        "group_by",
+        "presentation",
+        "columns"
+      ],
+      "additionalProperties": false
+    },
+    "renderer": {
+      "type": "object",
+      "properties": {
+        "config_version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "renderer"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,96}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "match": {
+          "type": "object",
+          "properties": {
+            "entity": {
+              "enum": [
+                "fact",
+                "resource",
+                "history"
+              ]
+            },
+            "key_prefix": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "mime_type": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$",
+              "maxLength": 128
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,96}$"
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              },
+              "required": [
+                "id",
+                "version"
+              ],
+              "additionalProperties": false
+            },
+            "root_type": {
+              "enum": [
+                "null",
+                "boolean",
+                "number",
+                "string",
+                "array",
+                "object"
+              ]
+            }
+          },
+          "required": [
+            "entity"
+          ],
+          "additionalProperties": false
+        },
+        "presentation": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "fields"
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/render_field"
+                  },
+                  "minItems": 1,
+                  "maxItems": 32
+                }
+              },
+              "required": [
+                "type",
+                "fields"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "table"
+                },
+                "rows": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "pattern": "^(|(/([^~]|~[01])*)*)$"
+                },
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/render_field"
+                  },
+                  "minItems": 1,
+                  "maxItems": 16
+                }
+              },
+              "required": [
+                "type",
+                "rows",
+                "columns"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "markdown"
+                },
+                "pointer": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "pattern": "^(|(/([^~]|~[01])*)*)$"
+                }
+              },
+              "required": [
+                "type",
+                "pointer"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "code"
+                },
+                "pointer": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "pattern": "^(|(/([^~]|~[01])*)*)$"
+                },
+                "language": {
+                  "enum": [
+                    "plain",
+                    "ocaml",
+                    "typescript",
+                    "javascript",
+                    "json",
+                    "bash",
+                    "yaml",
+                    "markdown",
+                    "diff"
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "pointer",
+                "language"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "json"
+                },
+                "pointer": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "pattern": "^(|(/([^~]|~[01])*)*)$"
+                }
+              },
+              "required": [
+                "type",
+                "pointer"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "fallback": {
+          "const": "generic"
+        }
+      },
+      "required": [
+        "config_version",
+        "kind",
+        "id",
+        "title",
+        "match",
+        "presentation",
+        "fallback"
+      ],
+      "additionalProperties": false
+    },
+    "catalog": {
+      "type": "object",
+      "properties": {
+        "config_version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "catalog"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "view",
+                  "renderer"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,96}$"
+              },
+              "pin": {
+                "$ref": "#/$defs/pin"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "pin"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "config_version",
+        "kind",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "index": {
+      "type": "object",
+      "properties": {
+        "config_version": {
+          "const": 1
+        },
+        "catalog": {
+          "$ref": "#/$defs/pin"
+        }
+      },
+      "required": [
+        "config_version",
+        "catalog"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

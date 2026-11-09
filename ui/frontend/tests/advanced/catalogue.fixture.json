@@ -1,0 +1,2365 @@
+{
+  "methods": [
+    {
+      "name": "acceptance.assert",
+      "tier": "advanced",
+      "summary": "Record an attributed pass or fail for an exact current acceptance criterion and policy digest.",
+      "mode": "mutation"
+    },
+    {
+      "name": "acceptance.assertions",
+      "tier": "advanced",
+      "summary": "List recorded acceptance assertions and their exact criterion and evidence references.",
+      "mode": "read"
+    },
+    {
+      "name": "acceptance.policy.effective",
+      "tier": "advanced",
+      "summary": "Read the acceptance criteria effective for a ticket after applicable policy inheritance.",
+      "mode": "read"
+    },
+    {
+      "name": "acceptance.policy.get",
+      "tier": "advanced",
+      "summary": "Read one scope's stored acceptance policy and its revision.",
+      "mode": "read"
+    },
+    {
+      "name": "acceptance.policy.put",
+      "tier": "advanced",
+      "summary": "Create or replace guarded acceptance criteria for a project or ticket scope.",
+      "mode": "mutation"
+    },
+    {
+      "name": "activity.digest",
+      "tier": "core",
+      "summary": "Build a bounded deterministic digest of recorded planning activity with exact source references.",
+      "mode": "read"
+    },
+    {
+      "name": "activity.read",
+      "tier": "advanced",
+      "summary": "Traverse captured planning audit changes as bounded canonical JSON chunks.",
+      "mode": "read"
+    },
+    {
+      "name": "activity.since",
+      "tier": "advanced",
+      "summary": "Read bounded committed planning activity after a retained sequence.",
+      "mode": "read"
+    },
+    {
+      "name": "actor.list",
+      "tier": "advanced",
+      "summary": "List registered actor identities and their catalog metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "actor.overview",
+      "tier": "advanced",
+      "summary": "Read an actor's held ownership, requests and selected unread state in one capture.",
+      "mode": "read"
+    },
+    {
+      "name": "actor.put",
+      "tier": "advanced",
+      "summary": "Create or update guarded actor identity metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "allocation.pool_put",
+      "tier": "advanced",
+      "summary": "Create or update a shared allocation pool's guarded capacity limits.",
+      "mode": "mutation"
+    },
+    {
+      "name": "allocation.pools",
+      "tier": "advanced",
+      "summary": "Read shared allocation pools and their recorded capacity policy.",
+      "mode": "read"
+    },
+    {
+      "name": "allocation.ticket_policies",
+      "tier": "advanced",
+      "summary": "Read ticket-specific allocation requirements and their independent policy revisions.",
+      "mode": "read"
+    },
+    {
+      "name": "allocation.ticket_policy_put",
+      "tier": "advanced",
+      "summary": "Install guarded capability, actor and pool requirements for a ticket's allocation.",
+      "mode": "mutation"
+    },
+    {
+      "name": "attempt.checkpoint",
+      "tier": "advanced",
+      "summary": "Append an immutable checkpoint to an owned active attempt.",
+      "mode": "mutation"
+    },
+    {
+      "name": "attempt.finish",
+      "tier": "advanced",
+      "summary": "Record a guarded terminal outcome for an attempt without implicitly completing its ticket.",
+      "mode": "mutation"
+    },
+    {
+      "name": "attempt.get",
+      "tier": "core",
+      "summary": "Read one attempt's owner, claim binding, checkpoints and current revision.",
+      "mode": "read"
+    },
+    {
+      "name": "attempt.list",
+      "tier": "advanced",
+      "summary": "List attempts under explicit ticket, run and state filters.",
+      "mode": "read"
+    },
+    {
+      "name": "attempt.start",
+      "tier": "advanced",
+      "summary": "Start a recorded attempt under an existing valid ticket claim and admitted run.",
+      "mode": "mutation"
+    },
+    {
+      "name": "attention.read",
+      "tier": "advanced",
+      "summary": "Read filtered attention events with exact source references and bounded coverage.",
+      "mode": "read"
+    },
+    {
+      "name": "attention.wait",
+      "tier": "advanced",
+      "summary": "Wait for filtered attention after the captured position without acknowledging sources.",
+      "mode": "read"
+    },
+    {
+      "name": "board.get",
+      "tier": "advanced",
+      "summary": "Read a discussion board and its current metadata revision.",
+      "mode": "read"
+    },
+    {
+      "name": "board.list",
+      "tier": "advanced",
+      "summary": "List discussion boards in explicit workspace or project scope.",
+      "mode": "read"
+    },
+    {
+      "name": "board.put",
+      "tier": "advanced",
+      "summary": "Create a discussion board at revision zero or update its guarded metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "changes.read",
+      "tier": "advanced",
+      "summary": "Read complete captured commit metadata with exact prefix continuation.",
+      "mode": "read"
+    },
+    {
+      "name": "changes.wait",
+      "tier": "advanced",
+      "summary": "Wait for matching commit metadata while preserving the feed's exact cursor and filters.",
+      "mode": "read"
+    },
+    {
+      "name": "comment.add",
+      "tier": "advanced",
+      "summary": "Add an attributed comment to a supported planning subject.",
+      "mode": "mutation"
+    },
+    {
+      "name": "comment.edit",
+      "tier": "advanced",
+      "summary": "Publish a guarded new text revision of an existing comment.",
+      "mode": "mutation"
+    },
+    {
+      "name": "comment.get",
+      "tier": "advanced",
+      "summary": "Read a comment's current retained text and provenance.",
+      "mode": "read"
+    },
+    {
+      "name": "comment.history",
+      "tier": "advanced",
+      "summary": "Read a comment's retained attributed revisions in order.",
+      "mode": "read"
+    },
+    {
+      "name": "comment.list",
+      "tier": "advanced",
+      "summary": "List comments attached to a selected planning subject.",
+      "mode": "read"
+    },
+    {
+      "name": "comment.tombstone",
+      "tier": "advanced",
+      "summary": "Mark a comment as tombstoned while retaining its revision history.",
+      "mode": "mutation"
+    },
+    {
+      "name": "condition.get",
+      "tier": "advanced",
+      "summary": "Read one external condition's definition and revision.",
+      "mode": "read"
+    },
+    {
+      "name": "condition.list",
+      "tier": "advanced",
+      "summary": "List declared external conditions under explicit scope filters.",
+      "mode": "read"
+    },
+    {
+      "name": "condition.put",
+      "tier": "advanced",
+      "summary": "Create or update a guarded external-condition definition.",
+      "mode": "mutation"
+    },
+    {
+      "name": "condition.signal",
+      "tier": "advanced",
+      "summary": "Record an explicit attributed state signal for an external condition.",
+      "mode": "mutation"
+    },
+    {
+      "name": "condition.signals",
+      "tier": "advanced",
+      "summary": "Read retained attributed signals for an external condition.",
+      "mode": "read"
+    },
+    {
+      "name": "contract.get",
+      "tier": "advanced",
+      "summary": "Read an exact or current contract version and its pinned schema requirements.",
+      "mode": "read"
+    },
+    {
+      "name": "contract.history",
+      "tier": "advanced",
+      "summary": "Read retained contract versions and their attribution.",
+      "mode": "read"
+    },
+    {
+      "name": "contract.list",
+      "tier": "advanced",
+      "summary": "List evidence contracts under explicit filters.",
+      "mode": "read"
+    },
+    {
+      "name": "contract.put",
+      "tier": "core",
+      "summary": "Publish guarded versioned input and output requirements with exact schema references.",
+      "mode": "mutation"
+    },
+    {
+      "name": "coordinator.overview",
+      "tier": "advanced",
+      "summary": "Read bounded whole coordination rows from one planning, history and heartbeat capture.",
+      "mode": "read"
+    },
+    {
+      "name": "daemon.export_all",
+      "tier": "advanced",
+      "summary": "Start a captured export of all registered workspaces, reporting any explicitly omitted members.",
+      "mode": "mutation"
+    },
+    {
+      "name": "daemon.health",
+      "tier": "core",
+      "summary": "Read local daemon health, registry fences and registered workspace availability.",
+      "mode": "read"
+    },
+    {
+      "name": "daemon.restore_all",
+      "tier": "advanced",
+      "summary": "Verify and restore every member of a complete export container into fresh mapped roots.",
+      "mode": "mutation"
+    },
+    {
+      "name": "daemon.shutdown",
+      "tier": "advanced",
+      "summary": "Drain admitted operations and gracefully stop the local daemon.",
+      "mode": "write"
+    },
+    {
+      "name": "decision.get",
+      "tier": "advanced",
+      "summary": "Read a retained decision's current or exact version and rationale.",
+      "mode": "read"
+    },
+    {
+      "name": "decision.history",
+      "tier": "advanced",
+      "summary": "Read retained attributed versions of a decision.",
+      "mode": "read"
+    },
+    {
+      "name": "decision.list",
+      "tier": "advanced",
+      "summary": "List recorded decisions matching explicit scope filters.",
+      "mode": "read"
+    },
+    {
+      "name": "decision.put",
+      "tier": "advanced",
+      "summary": "Publish a guarded versioned decision with its rationale and evidence references.",
+      "mode": "mutation"
+    },
+    {
+      "name": "dependency.add",
+      "tier": "advanced",
+      "summary": "Add a directed prerequisite edge between tickets, rejecting invalid cycles.",
+      "mode": "mutation"
+    },
+    {
+      "name": "dependency.remove",
+      "tier": "advanced",
+      "summary": "Remove an explicitly selected prerequisite relationship between tickets.",
+      "mode": "mutation"
+    },
+    {
+      "name": "dependency.waive",
+      "tier": "advanced",
+      "summary": "Record an explicit reason to waive a prerequisite's blocking effect without removing its edge.",
+      "mode": "mutation"
+    },
+    {
+      "name": "evidence.context",
+      "tier": "advanced",
+      "summary": "Read the captured contracts, manifests, checks and policy evidence relevant to work.",
+      "mode": "read"
+    },
+    {
+      "name": "export.cancel",
+      "tier": "advanced",
+      "summary": "Request cancellation of an active export before its destination is published.",
+      "mode": "mutation"
+    },
+    {
+      "name": "export.get",
+      "tier": "advanced",
+      "summary": "Read an export job's current status, captured heads and publication outcome.",
+      "mode": "read"
+    },
+    {
+      "name": "export.list",
+      "tier": "advanced",
+      "summary": "List complete export-job records under a fixed listing snapshot.",
+      "mode": "read"
+    },
+    {
+      "name": "export.retry",
+      "tier": "advanced",
+      "summary": "Retry a failed, cancelled or interrupted export using its original immutable capture.",
+      "mode": "mutation"
+    },
+    {
+      "name": "export.verify",
+      "tier": "advanced",
+      "summary": "Verify an exported workspace's inventory, hashes, paths and captured metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "fact.delete",
+      "tier": "advanced",
+      "summary": "Delete a scoped fact under its revision guard while retaining a tombstone and history.",
+      "mode": "mutation"
+    },
+    {
+      "name": "fact.get",
+      "tier": "core",
+      "summary": "Read one named scoped JSON fact and its current revision.",
+      "mode": "read"
+    },
+    {
+      "name": "fact.history",
+      "tier": "advanced",
+      "summary": "Read retained attributed versions and deletion history for a scoped fact.",
+      "mode": "read"
+    },
+    {
+      "name": "fact.keys",
+      "tier": "core",
+      "summary": "Discover scoped fact keys without loading their JSON values.",
+      "mode": "read"
+    },
+    {
+      "name": "fact.list",
+      "tier": "advanced",
+      "summary": "List scoped fact values and metadata under explicit filters and byte bounds.",
+      "mode": "read"
+    },
+    {
+      "name": "fact.multi_get",
+      "tier": "core",
+      "summary": "Read an explicit collection of scoped fact keys in one capture.",
+      "mode": "read"
+    },
+    {
+      "name": "fact.put",
+      "tier": "core",
+      "summary": "Write one bounded scoped JSON fact with its required revision guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "fact.references",
+      "tier": "advanced",
+      "summary": "Find scoped facts with explicitly declared ticket or resource navigation references.",
+      "mode": "read"
+    },
+    {
+      "name": "fact.search",
+      "tier": "advanced",
+      "summary": "Search scoped fact keys and retained searchable value text with bounded coverage.",
+      "mode": "read"
+    },
+    {
+      "name": "handoff.get",
+      "tier": "core",
+      "summary": "Read the current structured handoff and its independent revision.",
+      "mode": "read"
+    },
+    {
+      "name": "handoff.history",
+      "tier": "advanced",
+      "summary": "Read retained attributed revisions of a ticket's structured handoff.",
+      "mode": "read"
+    },
+    {
+      "name": "handoff.set",
+      "tier": "core",
+      "summary": "Publish a structured ownership-guarded handoff with explicit coverage.",
+      "mode": "mutation"
+    },
+    {
+      "name": "history.get",
+      "tier": "advanced",
+      "summary": "Read one retained conversation event and its exact source metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "history.payload",
+      "tier": "advanced",
+      "summary": "Read a bounded exact payload range from retained conversation history.",
+      "mode": "read"
+    },
+    {
+      "name": "history.payloads",
+      "tier": "advanced",
+      "summary": "Read bounded payload prefixes for many exact events in one capture.",
+      "mode": "read"
+    },
+    {
+      "name": "history.read",
+      "tier": "advanced",
+      "summary": "Traverse explicitly imported session events under a fixed history capture.",
+      "mode": "read"
+    },
+    {
+      "name": "history.search",
+      "tier": "advanced",
+      "summary": "Search retained imported conversation events with bounded results and source coverage.",
+      "mode": "read"
+    },
+    {
+      "name": "inbox.ack",
+      "tier": "core",
+      "summary": "Acknowledge only selected delivered inbox entries for an explicit consumer.",
+      "mode": "mutation"
+    },
+    {
+      "name": "inbox.read",
+      "tier": "core",
+      "summary": "Read bounded recipient notifications with resumable visible-row pagination.",
+      "mode": "read"
+    },
+    {
+      "name": "inbox.wait",
+      "tier": "core",
+      "summary": "Wait up to 25 seconds for recipient notifications without acknowledging them.",
+      "mode": "read"
+    },
+    {
+      "name": "initialize",
+      "tier": "core",
+      "summary": "Read live daemon capabilities, protocol version and request limits.",
+      "mode": "read"
+    },
+    {
+      "name": "input.changed",
+      "tier": "advanced",
+      "summary": "Record that an exact pinned input has been superseded, retaining the changed-input evidence.",
+      "mode": "mutation"
+    },
+    {
+      "name": "label.list",
+      "tier": "advanced",
+      "summary": "List reusable ticket labels and their metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "label.put",
+      "tier": "advanced",
+      "summary": "Create or update guarded metadata for a reusable ticket label.",
+      "mode": "mutation"
+    },
+    {
+      "name": "manifest.get",
+      "tier": "advanced",
+      "summary": "Read a manifest's exact named input and output pins at a selected revision.",
+      "mode": "read"
+    },
+    {
+      "name": "manifest.history",
+      "tier": "advanced",
+      "summary": "Read retained manifest revisions and attribution.",
+      "mode": "read"
+    },
+    {
+      "name": "manifest.list",
+      "tier": "advanced",
+      "summary": "List manifests matching explicit ticket, attempt or contract filters.",
+      "mode": "read"
+    },
+    {
+      "name": "manifest.publish",
+      "tier": "core",
+      "summary": "Publish a guarded manifest binding an attempt's named inputs and outputs to exact evidence pins.",
+      "mode": "mutation"
+    },
+    {
+      "name": "message.send",
+      "tier": "core",
+      "summary": "Send an immutable-body informal message with frozen actor, run or team routing.",
+      "mode": "mutation"
+    },
+    {
+      "name": "milestone.archive",
+      "tier": "advanced",
+      "summary": "Archive a milestone while retaining its recorded work and history.",
+      "mode": "mutation"
+    },
+    {
+      "name": "milestone.create",
+      "tier": "advanced",
+      "summary": "Create a dated project milestone with explicit planning metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "milestone.get",
+      "tier": "advanced",
+      "summary": "Read a milestone's metadata, placement and current revision.",
+      "mode": "read"
+    },
+    {
+      "name": "milestone.list",
+      "tier": "advanced",
+      "summary": "List milestones under project and archive filters.",
+      "mode": "read"
+    },
+    {
+      "name": "milestone.schedule",
+      "tier": "advanced",
+      "summary": "Update a milestone's guarded date schedule.",
+      "mode": "mutation"
+    },
+    {
+      "name": "milestone.update",
+      "tier": "advanced",
+      "summary": "Update selected milestone planning fields under its entity revision guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "participant.list",
+      "tier": "advanced",
+      "summary": "Discover catalog actors and retained attributed participants without inferring liveness.",
+      "mode": "read"
+    },
+    {
+      "name": "project.archive",
+      "tier": "advanced",
+      "summary": "Archive a project while preserving its planning state and history.",
+      "mode": "mutation"
+    },
+    {
+      "name": "project.brief",
+      "tier": "core",
+      "summary": "Read a bounded captured project summary with tickets and milestones.",
+      "mode": "read"
+    },
+    {
+      "name": "project.create",
+      "tier": "core",
+      "summary": "Create a project for a delivery goal with explicit planning metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "project.finish",
+      "tier": "core",
+      "summary": "Complete a project after its captured work, ownership and configured gates permit it.",
+      "mode": "mutation"
+    },
+    {
+      "name": "project.get",
+      "tier": "core",
+      "summary": "Read a project's planning metadata and current entity revision.",
+      "mode": "read"
+    },
+    {
+      "name": "project.list",
+      "tier": "core",
+      "summary": "List projects matching explicit archive and planning filters.",
+      "mode": "read"
+    },
+    {
+      "name": "project.readiness",
+      "tier": "core",
+      "summary": "Check project completion, ownership and gates without changing work.",
+      "mode": "read"
+    },
+    {
+      "name": "project.update",
+      "tier": "advanced",
+      "summary": "Update selected project planning fields under its entity revision guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reconciliation.list",
+      "tier": "advanced",
+      "summary": "List recorded reconciliations for explicitly changed evidence inputs.",
+      "mode": "read"
+    },
+    {
+      "name": "reconciliation.record",
+      "tier": "advanced",
+      "summary": "Record an attributed reconciliation decision for an explicitly changed pinned input.",
+      "mode": "mutation"
+    },
+    {
+      "name": "recovery.get",
+      "tier": "advanced",
+      "summary": "Read one immutable named or path ownership-recovery audit record.",
+      "mode": "read"
+    },
+    {
+      "name": "recovery.list",
+      "tier": "advanced",
+      "summary": "List retained ownership-recovery audit records under explicit filters.",
+      "mode": "read"
+    },
+    {
+      "name": "registry.receipt",
+      "tier": "advanced",
+      "summary": "Read the registry-scoped durable receipt or pending intent for an exact mutation identity.",
+      "mode": "read"
+    },
+    {
+      "name": "related.add",
+      "tier": "advanced",
+      "summary": "Add an informational relationship between tickets without changing readiness.",
+      "mode": "mutation"
+    },
+    {
+      "name": "related.remove",
+      "tier": "advanced",
+      "summary": "Remove an informational relationship between tickets.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.accept",
+      "tier": "advanced",
+      "summary": "Record a recipient's explicit acceptance of responsibility for a request.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.acknowledge",
+      "tier": "advanced",
+      "summary": "Record explicit delivery acknowledgement for a request recipient.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.ask",
+      "tier": "core",
+      "summary": "Ask an accountable question and create its discussion and request atomically.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.cancel",
+      "tier": "advanced",
+      "summary": "Cancel an accountable request under its current revision guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.create",
+      "tier": "core",
+      "summary": "Create an accountable request with explicit recipients and a designated resolver.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.get",
+      "tier": "core",
+      "summary": "Read a request's pinned question, exact answer and current thread revision.",
+      "mode": "read"
+    },
+    {
+      "name": "request.history",
+      "tier": "advanced",
+      "summary": "Read retained attributed request transitions and metadata revisions.",
+      "mode": "read"
+    },
+    {
+      "name": "request.list",
+      "tier": "core",
+      "summary": "List requests with recipient, ticket and resolver filters; reading acknowledges nothing.",
+      "mode": "read"
+    },
+    {
+      "name": "request.metadata",
+      "tier": "advanced",
+      "summary": "Update supported request metadata under its revision guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.reassign",
+      "tier": "advanced",
+      "summary": "Change or clear accepted request responsibility under its current revision guard, preserving its resolver.",
+      "mode": "mutation"
+    },
+    {
+      "name": "request.resolve",
+      "tier": "core",
+      "summary": "Resolve a request as its designated resolver, optionally attaching an exact answer atomically.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.acquire",
+      "tier": "advanced",
+      "summary": "Atomically acquire a batch of named shared or exclusive reservations for a registered run.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.contention",
+      "tier": "advanced",
+      "summary": "Read actual holders and advisory waiters or expected-release notes without granting ownership.",
+      "mode": "read"
+    },
+    {
+      "name": "reservation.get",
+      "tier": "advanced",
+      "summary": "Read one named reservation's retained holders and ownership metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "reservation.holder_note.put",
+      "tier": "advanced",
+      "summary": "Set or clear an advisory note under the exact current holder fence and note revision.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.list",
+      "tier": "advanced",
+      "summary": "List retained named reservations and their recorded holders.",
+      "mode": "read"
+    },
+    {
+      "name": "reservation.path.get",
+      "tier": "advanced",
+      "summary": "Read a retained logical path reservation and its current ownership metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "reservation.path.list",
+      "tier": "advanced",
+      "summary": "List logical file or subtree reservations under explicit worktree and ownership filters.",
+      "mode": "read"
+    },
+    {
+      "name": "reservation.path.recover",
+      "tier": "advanced",
+      "summary": "Recover an exact expired logical path hold after the harness stops or isolates its prior execution.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.path.release",
+      "tier": "advanced",
+      "summary": "Release an owned logical path reservation using its actual fencing token.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.path.renew",
+      "tier": "advanced",
+      "summary": "Renew an owned timed logical path reservation under its exact lease guards.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.paths.acquire",
+      "tier": "advanced",
+      "summary": "Atomically acquire a batch of lexical file or subtree scopes for a registered run.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.recover",
+      "tier": "advanced",
+      "summary": "Recover an exact expired named hold after the harness stops or isolates its prior execution.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.release",
+      "tier": "advanced",
+      "summary": "Release an owned named reservation using its actual fencing token.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.renew",
+      "tier": "advanced",
+      "summary": "Renew an owned timed named reservation under its exact lease guards.",
+      "mode": "mutation"
+    },
+    {
+      "name": "reservation.waiter.put",
+      "tier": "advanced",
+      "summary": "Begin, refresh or close an advisory waiter record with its own revision and bounded lifetime.",
+      "mode": "mutation"
+    },
+    {
+      "name": "resource.archive",
+      "tier": "advanced",
+      "summary": "Archive resource metadata while preserving immutable content and retained history.",
+      "mode": "mutation"
+    },
+    {
+      "name": "resource.brief",
+      "tier": "advanced",
+      "summary": "Read a bounded resource summary with exact expansion references and omission counts.",
+      "mode": "read"
+    },
+    {
+      "name": "resource.finish_upload",
+      "tier": "advanced",
+      "summary": "Publish verified staged bytes as an immutable resource version under its metadata guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "resource.get",
+      "tier": "core",
+      "summary": "Read resource metadata, links and immutable content-version descriptors.",
+      "mode": "read"
+    },
+    {
+      "name": "resource.history",
+      "tier": "advanced",
+      "summary": "Read retained resource metadata and publication history.",
+      "mode": "read"
+    },
+    {
+      "name": "resource.link",
+      "tier": "advanced",
+      "summary": "Attach an existing resource to a supported planning entity under guarded metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "resource.list",
+      "tier": "core",
+      "summary": "List resource metadata under explicit scope, link and archive filters.",
+      "mode": "read"
+    },
+    {
+      "name": "resource.put_text",
+      "tier": "core",
+      "summary": "Publish immutable UTF-8 content with required creation title and retained metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "resource.read",
+      "tier": "core",
+      "summary": "Read complete UTF-8 content up to 65536 bytes from an immutable resource version.",
+      "mode": "read"
+    },
+    {
+      "name": "resource.read_chunk",
+      "tier": "advanced",
+      "summary": "Read a verified binary byte range by resource ID and immutable version.",
+      "mode": "read"
+    },
+    {
+      "name": "resource.read_text",
+      "tier": "advanced",
+      "summary": "Read a bounded UTF-8 text range with byte-correct continuation and immutable version or digest.",
+      "mode": "read"
+    },
+    {
+      "name": "resource.unlink",
+      "tier": "advanced",
+      "summary": "Remove a resource's planning-entity attachment while preserving its content.",
+      "mode": "mutation"
+    },
+    {
+      "name": "resource.update",
+      "tier": "advanced",
+      "summary": "Update guarded resource metadata without publishing replacement content bytes.",
+      "mode": "mutation"
+    },
+    {
+      "name": "restore.cancel",
+      "tier": "advanced",
+      "summary": "Cancel a pending restore only before any target is installed or occupied.",
+      "mode": "mutation"
+    },
+    {
+      "name": "review.accept",
+      "tier": "core",
+      "summary": "Accept the current submission only after its configured review and validation gates pass.",
+      "mode": "mutation"
+    },
+    {
+      "name": "review.gate",
+      "tier": "core",
+      "summary": "Inspect current submission requirements, reviewer decisions and outstanding gate reasons.",
+      "mode": "read"
+    },
+    {
+      "name": "review.list",
+      "tier": "advanced",
+      "summary": "List immutable reviewer verdicts with exact submission and evidence references.",
+      "mode": "read"
+    },
+    {
+      "name": "review.policy.get",
+      "tier": "advanced",
+      "summary": "Read the review projection of a ticket's canonical acceptance policy and its revision.",
+      "mode": "read"
+    },
+    {
+      "name": "review.policy.put",
+      "tier": "advanced",
+      "summary": "Update guarded ticket-review requirements while preserving criteria and inherited-policy overrides.",
+      "mode": "mutation"
+    },
+    {
+      "name": "review.record",
+      "tier": "core",
+      "summary": "Record an immutable reviewer verdict for an exact submitted generation.",
+      "mode": "mutation"
+    },
+    {
+      "name": "review.submission.get",
+      "tier": "advanced",
+      "summary": "Read a ticket's current submission generation and frozen manifest and policy binding.",
+      "mode": "read"
+    },
+    {
+      "name": "review.submission.list",
+      "tier": "advanced",
+      "summary": "List current review submissions under explicit ticket filters.",
+      "mode": "read"
+    },
+    {
+      "name": "review.submit",
+      "tier": "core",
+      "summary": "Bind submitted outputs to an exact manifest and active attempt in a new review generation.",
+      "mode": "mutation"
+    },
+    {
+      "name": "run.action_acknowledge",
+      "tier": "advanced",
+      "summary": "Acknowledge a selected recorded run-budget action under its exact guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "run.actions",
+      "tier": "advanced",
+      "summary": "Read recorded budget actions associated with a run.",
+      "mode": "read"
+    },
+    {
+      "name": "run.budget_attention",
+      "tier": "advanced",
+      "summary": "Read run-budget attention and the reasons a recorded budget requires action.",
+      "mode": "read"
+    },
+    {
+      "name": "run.budget_get",
+      "tier": "advanced",
+      "summary": "Read one run's declared budget policy and independent revision.",
+      "mode": "read"
+    },
+    {
+      "name": "run.budget_put",
+      "tier": "advanced",
+      "summary": "Create or update guarded run-budget limits for admitted work and reported consumption.",
+      "mode": "mutation"
+    },
+    {
+      "name": "run.get",
+      "tier": "core",
+      "summary": "Read one run's immutable identity, reported lifecycle and entity revision.",
+      "mode": "read"
+    },
+    {
+      "name": "run.heartbeat",
+      "tier": "advanced",
+      "summary": "Record advisory liveness without renewing ownership or requiring a mutation ID.",
+      "mode": "write"
+    },
+    {
+      "name": "run.heartbeat_get",
+      "tier": "advanced",
+      "summary": "Read the current and last persisted advisory heartbeat observation.",
+      "mode": "read"
+    },
+    {
+      "name": "run.link_session",
+      "tier": "advanced",
+      "summary": "Associate an existing imported conversation session with a registered run.",
+      "mode": "mutation"
+    },
+    {
+      "name": "run.list",
+      "tier": "advanced",
+      "summary": "List registered invocations under explicit actor and lifecycle filters.",
+      "mode": "read"
+    },
+    {
+      "name": "run.observe",
+      "tier": "core",
+      "summary": "Durably record a guarded run observation and caller-reported progress metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "run.register",
+      "tier": "core",
+      "summary": "Register an attributed invocation with objective, capabilities and an independent run revision.",
+      "mode": "mutation"
+    },
+    {
+      "name": "run.sessions",
+      "tier": "advanced",
+      "summary": "List a run's explicit and automatically attributed conversation sessions.",
+      "mode": "read"
+    },
+    {
+      "name": "run.transition",
+      "tier": "advanced",
+      "summary": "Record a guarded run lifecycle transition without controlling its external process.",
+      "mode": "mutation"
+    },
+    {
+      "name": "search.query",
+      "tier": "core",
+      "summary": "Search captured planning entities and content with bounded results and coverage metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "session.append",
+      "tier": "advanced",
+      "summary": "Append a validated batch of explicit conversation or tool events to a session.",
+      "mode": "mutation"
+    },
+    {
+      "name": "session.archive",
+      "tier": "advanced",
+      "summary": "Archive a conversation session while preserving retained events and payloads.",
+      "mode": "mutation"
+    },
+    {
+      "name": "session.create",
+      "tier": "advanced",
+      "summary": "Create a durable container for explicitly imported conversation and tool events.",
+      "mode": "mutation"
+    },
+    {
+      "name": "session.get",
+      "tier": "advanced",
+      "summary": "Read a session's metadata and retained history head.",
+      "mode": "read"
+    },
+    {
+      "name": "session.list",
+      "tier": "advanced",
+      "summary": "List explicitly created history sessions under supported filters.",
+      "mode": "read"
+    },
+    {
+      "name": "status.list",
+      "tier": "advanced",
+      "summary": "List the workspace's named ticket statuses and lifecycle categories.",
+      "mode": "read"
+    },
+    {
+      "name": "status.put",
+      "tier": "advanced",
+      "summary": "Create or update guarded ticket-status metadata and its lifecycle category.",
+      "mode": "mutation"
+    },
+    {
+      "name": "subscription.get",
+      "tier": "advanced",
+      "summary": "Read one notification subscription and its current revision.",
+      "mode": "read"
+    },
+    {
+      "name": "subscription.list",
+      "tier": "advanced",
+      "summary": "List retained notification subscriptions under explicit filters.",
+      "mode": "read"
+    },
+    {
+      "name": "subscription.put",
+      "tier": "advanced",
+      "summary": "Create or update guarded notification routing preferences.",
+      "mode": "mutation"
+    },
+    {
+      "name": "team.get",
+      "tier": "advanced",
+      "summary": "Read a team and its explicitly recorded actor members.",
+      "mode": "read"
+    },
+    {
+      "name": "team.list",
+      "tier": "advanced",
+      "summary": "List named actor teams and their routing metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "team.put",
+      "tier": "advanced",
+      "summary": "Create or update guarded team metadata and explicit actor membership.",
+      "mode": "mutation"
+    },
+    {
+      "name": "template.get",
+      "tier": "advanced",
+      "summary": "Read a complete registered template at its exact pinned content version.",
+      "mode": "read"
+    },
+    {
+      "name": "template.instance_get",
+      "tier": "advanced",
+      "summary": "Read an immutable template instance and its generated ticket plan.",
+      "mode": "read"
+    },
+    {
+      "name": "template.instance_list",
+      "tier": "advanced",
+      "summary": "List immutable template instances in stable instance-ID order.",
+      "mode": "read"
+    },
+    {
+      "name": "template.instance_register",
+      "tier": "advanced",
+      "summary": "Validate and register a deterministic template instance against an already existing graph.",
+      "mode": "mutation"
+    },
+    {
+      "name": "template.instantiate",
+      "tier": "advanced",
+      "summary": "Expand a pinned canonical template into tickets, dependencies and declared policies atomically.",
+      "mode": "mutation"
+    },
+    {
+      "name": "template.list",
+      "tier": "advanced",
+      "summary": "List registered immutable template versions.",
+      "mode": "read"
+    },
+    {
+      "name": "template.register",
+      "tier": "advanced",
+      "summary": "Register a canonical graph specification pinned to matching published resource bytes and digest.",
+      "mode": "mutation"
+    },
+    {
+      "name": "thread.attach",
+      "tier": "advanced",
+      "summary": "Attach an existing comment to a guarded discussion thread in its board scope.",
+      "mode": "mutation"
+    },
+    {
+      "name": "thread.get",
+      "tier": "advanced",
+      "summary": "Read a thread's metadata, references and optional bounded current messages.",
+      "mode": "read"
+    },
+    {
+      "name": "thread.history",
+      "tier": "advanced",
+      "summary": "Read retained attributed thread metadata revisions.",
+      "mode": "read"
+    },
+    {
+      "name": "thread.list",
+      "tier": "advanced",
+      "summary": "List threads under explicit board and planning-scope filters.",
+      "mode": "read"
+    },
+    {
+      "name": "thread.pin_message",
+      "tier": "advanced",
+      "summary": "Pin or unpin an already attached comment in a guarded discussion thread.",
+      "mode": "mutation"
+    },
+    {
+      "name": "thread.put",
+      "tier": "advanced",
+      "summary": "Create a discussion thread at revision zero or update its guarded metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "thread.reply",
+      "tier": "advanced",
+      "summary": "Publish an attributed reply into a guarded discussion thread.",
+      "mode": "mutation"
+    },
+    {
+      "name": "thread.search",
+      "tier": "advanced",
+      "summary": "Search discussion thread titles with bounded results and explicit scope filters.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.amendment.acknowledge",
+      "tier": "advanced",
+      "summary": "Acknowledge an exact instruction-amendment revision under the current ticket claim.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.amendment.acknowledgements",
+      "tier": "advanced",
+      "summary": "List exact amendment acknowledgements and their claim bindings.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.amendment.get",
+      "tier": "advanced",
+      "summary": "Read an exact immutable instruction amendment with its current withdrawal state.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.amendment.history",
+      "tier": "advanced",
+      "summary": "Read retained immutable revisions and lifecycle history of an instruction amendment.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.amendment.list",
+      "tier": "advanced",
+      "summary": "List captured ticket instruction amendments with whole-record pagination.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.amendment.publish",
+      "tier": "advanced",
+      "summary": "Publish an attributed immutable revision of changed ticket instructions.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.amendment.withdraw",
+      "tier": "advanced",
+      "summary": "Explicitly withdraw an instruction amendment under its exact revision guard.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.archive",
+      "tier": "advanced",
+      "summary": "Archive an eligible ticket while retaining its planning record and history.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.blockers",
+      "tier": "core",
+      "summary": "Read captured reasons currently blocking a ticket's readiness or completion.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.brief",
+      "tier": "advanced",
+      "summary": "Read a bounded ticket summary with exact expansion references and omission counts.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.claim",
+      "tier": "advanced",
+      "summary": "Acquire logical ticket ownership and its fencing token without starting an attempt.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.claim_next",
+      "tier": "core",
+      "summary": "Atomically select and claim eligible work; a standalone empty observation writes nothing.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.complete",
+      "tier": "advanced",
+      "summary": "Complete claimed work with nonempty evidence, finishing active attempts and clearing ownership.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.context",
+      "tier": "core",
+      "summary": "Read captured ticket instructions, ownership, links, handoff and related context.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.create",
+      "tier": "core",
+      "summary": "Create a ticket with explicit instructions, placement and planning metadata.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.finish",
+      "tier": "core",
+      "summary": "Record completion evidence and finish an active attempt atomically.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.hierarchy.get",
+      "tier": "advanced",
+      "summary": "Read stored hierarchy policy and the effective flat-plan defaults.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.hierarchy.put",
+      "tier": "advanced",
+      "summary": "Create or update guarded parent-child planning policy.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.hold",
+      "tier": "advanced",
+      "summary": "Set a ticket hold reason or lift the hold with JSON null.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.list",
+      "tier": "core",
+      "summary": "List tickets under explicit project, status, assignment and other planning filters.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.metadata",
+      "tier": "core",
+      "summary": "Update guarded priority, assignee, labels, acceptance criteria or status.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.move",
+      "tier": "advanced",
+      "summary": "Move a ticket between supported project, milestone or parent placements under guards.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.paths.get",
+      "tier": "advanced",
+      "summary": "Read a ticket's declared required logical path-ownership policy.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.paths.list",
+      "tier": "advanced",
+      "summary": "List declared ticket path requirements under explicit filters.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.paths.put",
+      "tier": "advanced",
+      "summary": "Install guarded required logical file or subtree ownership for a ticket.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.progress",
+      "tier": "core",
+      "summary": "Append an attributed progress comment under current ticket ownership.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.read",
+      "tier": "advanced",
+      "summary": "Read complete instructions, acceptance criteria and ownership without related histories.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.readiness",
+      "tier": "core",
+      "summary": "Explain graph readiness and optional candidate or registered-run admission checks.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.ready",
+      "tier": "core",
+      "summary": "List graph-ready work or candidate/run-admissible tickets under explicit selectors.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.reassign",
+      "tier": "advanced",
+      "summary": "Transfer or release an existing ticket claim with a fresh ownership fence and explicit reason.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.recover",
+      "tier": "advanced",
+      "summary": "Recover an exact expired claim with explicit disposition after the harness stops or isolates prior execution.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.recovery.get",
+      "tier": "advanced",
+      "summary": "Read one immutable guarded ticket-recovery audit record.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.recovery.list",
+      "tier": "advanced",
+      "summary": "List immutable ticket-recovery records under one guarded workspace capture.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.release",
+      "tier": "core",
+      "summary": "Release current ticket ownership, return work to Todo and cancel active attempts with release evidence.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.renew_lease",
+      "tier": "advanced",
+      "summary": "Renew a timed ticket claim under its exact token and lease revision.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.reopen",
+      "tier": "advanced",
+      "summary": "Reopen eligible completed work under its current planning guards.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.resolve",
+      "tier": "advanced",
+      "summary": "Resolve a human-facing display key to its canonical ticket ID.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.resume",
+      "tier": "core",
+      "summary": "Recover bounded recorded task context with exact historical source references.",
+      "mode": "read"
+    },
+    {
+      "name": "ticket.start",
+      "tier": "core",
+      "summary": "Claim a ready ticket and optionally start an attempt atomically.",
+      "mode": "mutation"
+    },
+    {
+      "name": "ticket.update",
+      "tier": "core",
+      "summary": "Update guarded title, description or status; use ticket.metadata for priority.",
+      "mode": "mutation"
+    },
+    {
+      "name": "transaction.apply",
+      "tier": "core",
+      "summary": "Commit 1..128 ordered planning operations atomically with typed creation aliases.",
+      "mode": "mutation"
+    },
+    {
+      "name": "transaction.preflight",
+      "tier": "advanced",
+      "summary": "Validate an atomic plan using actual domain preparation without committing it.",
+      "mode": "read"
+    },
+    {
+      "name": "upload.abort",
+      "tier": "advanced",
+      "summary": "Discard actor-owned private upload staging and free its admission.",
+      "mode": "write"
+    },
+    {
+      "name": "upload.begin",
+      "tier": "advanced",
+      "summary": "Begin or resume actor-owned ephemeral byte staging with declared content metadata.",
+      "mode": "write"
+    },
+    {
+      "name": "upload.chunk",
+      "tier": "advanced",
+      "summary": "Stage a contiguous opaque byte chunk or retry an identical byte range.",
+      "mode": "write"
+    },
+    {
+      "name": "upload.list",
+      "tier": "advanced",
+      "summary": "Inspect complete live upload owner, progress, lifecycle and age metadata.",
+      "mode": "read"
+    },
+    {
+      "name": "upload.status",
+      "tier": "advanced",
+      "summary": "Read one actor-owned live upload's contiguous progress and lifecycle.",
+      "mode": "read"
+    },
+    {
+      "name": "usage.aggregate",
+      "tier": "advanced",
+      "summary": "Aggregate immutable caller-reported usage and named integer samples in one capture.",
+      "mode": "read"
+    },
+    {
+      "name": "usage.list",
+      "tier": "advanced",
+      "summary": "List immutable caller-reported usage records under explicit scope filters.",
+      "mode": "read"
+    },
+    {
+      "name": "usage.report",
+      "tier": "advanced",
+      "summary": "Record an immutable attributed consumption report and supported named integer samples.",
+      "mode": "mutation"
+    },
+    {
+      "name": "validation.add",
+      "tier": "advanced",
+      "summary": "Record an attributed validator outcome against exact pinned evidence.",
+      "mode": "mutation"
+    },
+    {
+      "name": "validation.list",
+      "tier": "advanced",
+      "summary": "List recorded checks and their exact evidence bindings.",
+      "mode": "read"
+    },
+    {
+      "name": "workspace.archive",
+      "tier": "advanced",
+      "summary": "Archive guarded workspace planning metadata while retaining its durable contents.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.close",
+      "tier": "advanced",
+      "summary": "Close a loaded workspace and checkpoint its planning and history heads while retaining registration.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.create",
+      "tier": "advanced",
+      "summary": "Create, register and open a new durable workspace at a fresh private root.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.export",
+      "tier": "advanced",
+      "summary": "Start an immutable captured workspace export while normal writes may continue.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.get",
+      "tier": "advanced",
+      "summary": "Read workspace planning metadata and its current entity revision.",
+      "mode": "read"
+    },
+    {
+      "name": "workspace.list",
+      "tier": "advanced",
+      "summary": "List registry workspaces with open intent, availability and explicit name provenance.",
+      "mode": "read"
+    },
+    {
+      "name": "workspace.metrics",
+      "tier": "core",
+      "summary": "Observe committed activity, reported usage and exact admission accounting.",
+      "mode": "read"
+    },
+    {
+      "name": "workspace.open",
+      "tier": "advanced",
+      "summary": "Replay and verify a closed registered workspace before serving scoped operations.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.overview",
+      "tier": "core",
+      "summary": "Read a bounded captured workspace summary and its open work.",
+      "mode": "read"
+    },
+    {
+      "name": "workspace.receipt",
+      "tier": "advanced",
+      "summary": "Read a workspace-planning mutation's exact durable saved receipt.",
+      "mode": "read"
+    },
+    {
+      "name": "workspace.register",
+      "tier": "advanced",
+      "summary": "Verify and register an existing portable workspace tree, then open it.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.restore",
+      "tier": "advanced",
+      "summary": "Verify, copy and replay a complete export into a fresh root, registering the result closed.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.unregister",
+      "tier": "advanced",
+      "summary": "Remove a closed workspace's local registry association while leaving portable files intact.",
+      "mode": "mutation"
+    },
+    {
+      "name": "workspace.update",
+      "tier": "advanced",
+      "summary": "Update guarded workspace planning name, summary, description or instructions.",
+      "mode": "mutation"
+    }
+  ],
+  "helpers": [
+    {
+      "capability": "administration",
+      "effect": "Local transport helper; raw params cannot be merged with named field flags.",
+      "kind": "helper",
+      "name": "call",
+      "next": "workgraph help call",
+      "reference": "references/cli-contract.md",
+      "related": [],
+      "search_terms": ["raw JSON", "RPC", "exact request"],
+      "steps": [],
+      "summary": "Send a raw exact method and one JSON params object using selected transport defaults.",
+      "tier": null,
+      "use_when": "You need the wire-shaped request rather than named parameter expansion."
+    },
+    {
+      "capability": "verification",
+      "effect": "Offline helper index; actual execution and publication are explicit separate helpers.",
+      "kind": "helper",
+      "name": "evidence",
+      "next": "workgraph help evidence",
+      "reference": "references/execution.md",
+      "related": [],
+      "search_terms": ["command evidence", "capture output"],
+      "steps": [],
+      "summary": "List the local captured-execution inspection, publication and cleanup helpers.",
+      "tier": null,
+      "use_when": "You need to choose the next step in retaining command evidence."
+    },
+    {
+      "capability": "verification",
+      "effect": "Local publication workflow; optional ticket linking is a separate recoverable write.",
+      "kind": "helper",
+      "name": "evidence-publish",
+      "next": "workgraph help evidence-publish",
+      "reference": "references/execution.md",
+      "related": [],
+      "search_terms": ["publish test results", "retain logs"],
+      "steps": [],
+      "summary": "Publish a finished local evidence capture using a saved exact plan without rerunning execution.",
+      "tier": null,
+      "use_when": "Captured command output must become a durable immutable resource, optionally linked separately to work."
+    },
+    {
+      "capability": "verification",
+      "effect": "Local process execution; no daemon access and no implied approval or complete-tree proof.",
+      "kind": "helper",
+      "name": "evidence-run",
+      "next": "workgraph help evidence-run",
+      "reference": "references/execution.md",
+      "related": [],
+      "search_terms": ["run tests", "capture command", "stdout", "source provenance"],
+      "steps": [],
+      "summary": "Execute explicit child argv locally and retain bounded output, hashes and declared source coverage.",
+      "tier": null,
+      "use_when": "A check must run through the harness and produce inspectable capture evidence."
+    },
+    {
+      "capability": "verification",
+      "effect": "Explicit local cleanup; refuses live, unfinished or foreign stages and unknown files.",
+      "kind": "helper",
+      "name": "evidence.clean",
+      "next": "workgraph help evidence.clean",
+      "reference": "references/execution.md",
+      "related": [],
+      "search_terms": ["cleanup capture", "remove stage"],
+      "steps": [],
+      "summary": "Clean one finished validated evidence stage using its actual ownership token.",
+      "tier": null,
+      "use_when": "An owned local capture is no longer needed and has no unresolved publication intent."
+    },
+    {
+      "capability": "verification",
+      "effect": "Local read; no execution, publication or daemon access.",
+      "kind": "helper",
+      "name": "evidence.show",
+      "next": "workgraph help evidence.show",
+      "reference": "references/execution.md",
+      "related": [],
+      "search_terms": ["stdout", "stderr", "log tail", "inspect capture"],
+      "steps": [],
+      "summary": "Inspect a bounded retained output range from a local evidence stage.",
+      "tier": null,
+      "use_when": "You need exact captured stdout or stderr bytes and truncation coverage without rerunning the command."
+    },
+    {
+      "capability": "administration",
+      "effect": "Offline schema inspection; flat fields do not replace cross-field validation.",
+      "kind": "helper",
+      "name": "fields",
+      "next": "workgraph help fields",
+      "reference": "references/cli-contract.md",
+      "related": [],
+      "search_terms": ["arguments", "parameters", "schema", "input fields"],
+      "steps": [],
+      "summary": "Inspect offline request-field descriptors and the original validation schema.",
+      "tier": null,
+      "use_when": "You need the exact arguments for a method before constructing a request."
+    },
+    {
+      "capability": "administration",
+      "effect": "Local setup workflow; inspect init help for filesystem and daemon operations.",
+      "kind": "helper",
+      "name": "init",
+      "next": "workgraph help init",
+      "reference": "references/getting-started.md",
+      "related": [],
+      "search_terms": ["setup", "bootstrap", "context file"],
+      "steps": [],
+      "summary": "Create or resume explicit local setup through the bootstrap CLI workflow.",
+      "tier": null,
+      "use_when": "You need connection context and workspace setup before beginning the first ticket."
+    },
+    {
+      "capability": "recovery",
+      "effect": "Offline read; saved attempts prove neither transmission nor commit.",
+      "kind": "helper",
+      "name": "journal.inspect",
+      "next": "workgraph help journal.inspect",
+      "reference": "references/cli-contract.md",
+      "related": [],
+      "search_terms": ["saved request", "request hash", "uncertain write"],
+      "steps": [],
+      "summary": "Inspect one exact saved request's identity, hashes and receipt namespace offline.",
+      "tier": null,
+      "use_when": "You need to understand a saved attempt before choosing an exact retry."
+    },
+    {
+      "capability": "recovery",
+      "effect": "Offline read; scan completeness and commit status remain explicit.",
+      "kind": "helper",
+      "name": "journal.list",
+      "next": "workgraph help journal.list",
+      "reference": "references/cli-contract.md",
+      "related": [],
+      "search_terms": ["saved requests", "duplicate requests", "journal audit"],
+      "steps": [],
+      "summary": "List a bounded nonrecursive directory of saved requests and group matching or conflicting identities.",
+      "tier": null,
+      "use_when": "You need to audit saved attempts without contacting the daemon or replaying writes."
+    },
+    {
+      "capability": "administration",
+      "effect": "Offline local filesystem write; preserves the source and publishes a new destination. Old registry jobs and saved API envelopes are not migrated.",
+      "kind": "helper",
+      "name": "migrate",
+      "next": "workgraph help migrate",
+      "reference": "references/compatibility.md",
+      "related": [],
+      "search_terms": ["upgrade workspace", "convert storage", "preserve old data"],
+      "steps": [],
+      "summary": "Convert a stopped supported older workspace into a verified new root.",
+      "tier": null,
+      "use_when": "You are upgrading from the supported 0.6.2-era format and need to retain planning, resources and history. Read migration instructions before acting."
+    },
+    {
+      "capability": "observation",
+      "effect": "Local read traversal guidance; incomplete limits stay explicit and notifications are never acknowledged.",
+      "kind": "helper",
+      "name": "pagination",
+      "next": "workgraph help pagination",
+      "reference": "references/cli-contract.md",
+      "related": [],
+      "search_terms": ["next page", "all results", "cursor", "complete list"],
+      "steps": [],
+      "summary": "Explain bounded local traversal, independent captures and resumable continuation requests.",
+      "tier": null,
+      "use_when": "A supported list must be read beyond one page without silently refreshing its capture."
+    },
+    {
+      "capability": "administration",
+      "effect": "Offline reference; no request is transmitted.",
+      "kind": "helper",
+      "name": "receipts",
+      "next": "workgraph help receipts",
+      "reference": "references/cli-contract.md",
+      "related": [],
+      "search_terms": ["result fields", "JSON paths", "revision counters"],
+      "steps": [],
+      "summary": "Explain method-specific durable results, revisions and exact retry handling.",
+      "tier": null,
+      "use_when": "A script must extract actual output fields without confusing counter namespaces."
+    },
+    {
+      "capability": "communication",
+      "effect": "Local read helper; no daemon method or persistent worker.",
+      "kind": "helper",
+      "name": "request.wait",
+      "next": "workgraph help request.wait",
+      "reference": "references/communication-evidence.md",
+      "related": [],
+      "search_terms": ["wait answer", "poll question"],
+      "steps": [],
+      "summary": "Poll one request locally until a complete resolved observation or a bounded stop.",
+      "tier": null,
+      "use_when": "You need to wait for an accountable answer without asking again or acknowledging delivery."
+    },
+    {
+      "capability": "coordination",
+      "effect": "Local acquisition workflow; grants remain logical and uncertain writes keep exact identity.",
+      "kind": "helper",
+      "name": "reservation.paths.wait",
+      "next": "workgraph help reservation.paths.wait",
+      "reference": "references/path-conditions-recovery.md",
+      "related": [],
+      "search_terms": ["wait files", "wait source ownership", "path lock"],
+      "steps": [],
+      "summary": "Run bounded foreground retries for an atomic logical path acquisition after typed contention.",
+      "tier": null,
+      "use_when": "A cooperating run must wait for overlapping file scopes without splitting its requested batch."
+    },
+    {
+      "capability": "coordination",
+      "effect": "Local acquisition workflow; no fairness queue, renewal or process supervision.",
+      "kind": "helper",
+      "name": "reservation.wait",
+      "next": "workgraph help reservation.wait",
+      "reference": "references/coordination.md",
+      "related": [],
+      "search_terms": ["wait database", "wait mutex", "lock wait"],
+      "steps": [],
+      "summary": "Run bounded foreground retries for an atomic named-resource acquisition after typed contention.",
+      "tier": null,
+      "use_when": "A cooperating run must wait for a shared database or other named resource, preserving exact uncertain requests."
+    },
+    {
+      "capability": "context",
+      "effect": "Local filesystem write plus daemon reads; stdout streams can precede a later integrity error unless spooled.",
+      "kind": "helper",
+      "name": "resource.download",
+      "next": "workgraph help resource.download",
+      "reference": "references/resources.md",
+      "related": [],
+      "search_terms": ["download file", "verify digest", "binary export"],
+      "steps": [],
+      "summary": "Download an immutable version with verified chunks and complete digest into a fresh destination.",
+      "tier": null,
+      "use_when": "You need exact resource bytes as a local file or a deliberately selected byte stream."
+    },
+    {
+      "capability": "context",
+      "effect": "Local helper expands one saved transaction.apply; publication is not approval.",
+      "kind": "helper",
+      "name": "resource.publish_text",
+      "next": "workgraph help resource.publish_text",
+      "reference": "references/resources.md",
+      "related": [],
+      "search_terms": ["publish and link", "attach text", "save note"],
+      "steps": [],
+      "summary": "Atomically publish small immutable text and attach it to a ticket.",
+      "tier": null,
+      "use_when": "A new note or artifact must appear on its ticket in the same durable transaction."
+    },
+    {
+      "capability": "context",
+      "effect": "Local staged-upload workflow; optional ticket link is separate from publication.",
+      "kind": "helper",
+      "name": "resource.upload",
+      "next": "workgraph help resource.upload",
+      "reference": "references/resources.md",
+      "related": [],
+      "search_terms": ["upload file", "binary artifact", "large document"],
+      "steps": [],
+      "summary": "Upload a bounded local file as immutable content through an exact saved upload plan.",
+      "tier": null,
+      "use_when": "A binary or large text artifact must be published beyond the small-text limit."
+    },
+    {
+      "capability": "context",
+      "effect": "Local write workflow; published content and exact finish receipts remain.",
+      "kind": "helper",
+      "name": "resource.upload-abort",
+      "next": "workgraph help resource.upload-abort",
+      "reference": "references/resources.md",
+      "related": [],
+      "search_terms": ["abort saved upload", "cleanup upload"],
+      "steps": [],
+      "summary": "Abort the owner staging identified by an exact saved upload plan without reading its source file.",
+      "tier": null,
+      "use_when": "An abandoned saved upload should free staging without deleting published bytes or receipts."
+    },
+    {
+      "capability": "recovery",
+      "effect": "Local replay workflow; saved bytes and original guards remain exact, and evidence commands never rerun.",
+      "kind": "helper",
+      "name": "retry",
+      "next": "workgraph help retry",
+      "reference": "references/cli-contract.md",
+      "related": [],
+      "search_terms": ["uncertain write", "lost reply", "idempotency", "recover mutation"],
+      "steps": [],
+      "summary": "Replay an exact saved request or supported upload plan without changing identity or attribution.",
+      "tier": null,
+      "use_when": "A transmitted write's outcome is uncertain and must be recovered without issuing a new intention."
+    },
+    {
+      "capability": "administration",
+      "effect": "Local service process; preserve managed roots, locks and occupied sockets.",
+      "kind": "helper",
+      "name": "serve",
+      "next": "workgraph help serve",
+      "reference": "references/administration.md",
+      "related": [],
+      "search_terms": ["start daemon", "local service"],
+      "steps": [],
+      "summary": "Run the standalone local daemon with its explicit registry directory and socket.",
+      "tier": null,
+      "use_when": "You need to start the state service in a separate harness-owned process."
+    },
+    {
+      "capability": "planning",
+      "effect": "Local helper expands one saved transaction.apply; no new daemon method.",
+      "kind": "helper",
+      "name": "template.publish",
+      "next": "workgraph help template.publish",
+      "reference": "references/coordination.md",
+      "related": [],
+      "search_terms": ["publish template", "canonical graph", "recipe"],
+      "steps": [],
+      "summary": "Canonicalize a small graph specification and atomically publish its resource and template registration.",
+      "tier": null,
+      "use_when": "You want a repeatable work recipe without manually calculating its exact content pin."
+    }
+  ],
+  "workflows": [
+    {
+      "capability": "communication",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.ask_question",
+      "next": "workgraph help workflow.ask_question",
+      "reference": "references/communication-evidence.md",
+      "related": [
+        "request.ask",
+        "request.get",
+        "request.resolve",
+        "request.wait",
+        "inbox.read",
+        "inbox.ack"
+      ],
+      "search_terms": [
+        "Ask and resolve an accountable question",
+        "ask reviewer",
+        "wait for answer",
+        "clarification",
+        "question answer"
+      ],
+      "steps": [
+        "Save request.ask with explicit recipients, resolver_id and body; select a new topic or an existing thread with its actual expected_thread_revision.",
+        "Retain the returned request_id, request_revision and exact question reference; request.ask does not return a generic revision or status.",
+        "The designated resolver reads request.get, retains its current revision and saves request.resolve with that expected_revision and an optional nonblank answer body.",
+        "Read request.get or use the bounded local request.wait helper; inspect status.kind and the exact pinned answer, including a resolved request with answer:null.",
+        "Process inbox delivery separately and acknowledge only the selected handled notifications with inbox.ack; resolution never completes the linked ticket."
+      ],
+      "summary": "Create a pinned question, receive its exact answer and keep delivery acknowledgement separate.",
+      "tier": null,
+      "use_when": "A participant needs an answer from a designated resolver and must retain its provenance."
+    },
+    {
+      "capability": "administration",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.backup_restore",
+      "next": "workgraph help workflow.backup_restore",
+      "reference": "references/administration.md",
+      "related": [
+        "daemon.health",
+        "workspace.list",
+        "workspace.export",
+        "export.get",
+        "export.verify",
+        "workspace.restore",
+        "workspace.open",
+        "workspace.overview",
+        "workspace.close"
+      ],
+      "search_terms": [
+        "Export, verify and restore a workspace",
+        "backup workspace",
+        "restore backup",
+        "portable snapshot",
+        "transfer data"
+      ],
+      "steps": [
+        "Read daemon.health and workspace.list; choose a fresh absolute export destination outside managed roots with an existing parent.",
+        "Save workspace.export and retain the actual export job ID and captured heads; writes may continue while that immutable capture materializes.",
+        "Poll export.get until a terminal status and use export.verify on the published complete workspace export; admission is not proof of completed publication.",
+        "Save workspace.restore for a fresh private root in a registry where the exported workspace identity is absent. Preserve the old data while verification and replay run.",
+        "Inspect the durable restore receipt, then explicitly workspace.open because restore registers the new root closed. Read workspace.overview and exact retained sources before new work.",
+        "For a direct portable-tree handoff instead, finish exports and workspace.close before the harness copies or transfers it; maintain one writer at a time and verify ancestry on register/open."
+      ],
+      "summary": "Create an immutable portable backup and restore it into a fresh root with explicit lifecycle checks.",
+      "tier": null,
+      "use_when": "A local workspace must be backed up, transferred or recovered through its supported portable format."
+    },
+    {
+      "capability": "context",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.import_history",
+      "next": "workgraph help workflow.import_history",
+      "reference": "references/history.md",
+      "related": [
+        "session.create",
+        "session.append",
+        "history.search",
+        "history.get",
+        "history.payload"
+      ],
+      "search_terms": [
+        "Import and retrieve visible conversation history",
+        "import conversation JSONL",
+        "transcript adapter",
+        "history import helper",
+        "convert messages",
+        "recover old conversation"
+      ],
+      "steps": [
+        "Inspect the source format and select only user-visible messages and tool results. Never invent missing messages, import private reasoning, or treat recorded claims as verification.",
+        "Read references/history.md and the bundled scripts/history-adapter.py --help. The optional scripts/transcript-converter.py supports selected Claude JSONL records, not arbitrary role/content JSONL; inspect its --help and input requirements before use. These are Python scripts in the skill folder, not daemon API methods.",
+        "Create a session with session.create. Convert each event to a stable client_id, exact payload bytes and deliberately selected searchable_text; preserve source provenance. Append with session.append or the adapter, saving exact retry identities. Only durable acknowledgements permit discarding another copy.",
+        "Use history.search for selected text, retaining the returned history capture and event reference. Follow bounded continuation metadata before assuming the search was complete.",
+        "Use history.get and history.payload to retrieve the exact selected message or tool bytes at that capture. Check offsets, omitted content and payload hashes; planning workspace revisions are not history captures."
+      ],
+      "summary": "Convert selected visible transcript events, save exact bytes, and find them later under a fixed history capture.",
+      "tier": null,
+      "use_when": "You have a conversation or tool transcript to import, search and retrieve without loading the whole history."
+    },
+    {
+      "capability": "observation",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.observe_changes",
+      "next": "workgraph help workflow.observe_changes",
+      "reference": "references/attention.md",
+      "related": [
+        "attention.read",
+        "attention.wait",
+        "changes.read",
+        "changes.wait",
+        "inbox.read",
+        "inbox.wait",
+        "inbox.ack",
+        "ticket.readiness"
+      ],
+      "search_terms": [
+        "Catch up and wait without losing a wakeup",
+        "watch workspace",
+        "idle worker",
+        "wait for work",
+        "catch up",
+        "notifications"
+      ],
+      "steps": [
+        "Choose the source: attention for a worker's filtered wakeups, changes for complete commit metadata, or inbox for addressed notifications.",
+        "Read the first bounded capture and retain its exact cursor and filters; inspect omissions and next-position metadata before treating coverage as complete.",
+        "Continue the same capture without substituting workspace, query, history or notification counters. An oversized next row requires a larger budget at the unchanged position.",
+        "After inspecting current readiness or notifications, wait from the retained source position using attention.wait, changes.wait or inbox.wait; a timeout creates no acknowledgement or ownership.",
+        "The harness decides whether to act or park again. Acknowledge only selected handled inbox entries explicitly and acquire work through the actual guarded mutation."
+      ],
+      "summary": "Use bounded captures and exact continuation positions before parking a worker in a filtered wait.",
+      "tier": null,
+      "use_when": "A consumer must follow relevant changes or notifications while avoiding repeated acquisition writes."
+    },
+    {
+      "capability": "planning",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.plan_work",
+      "next": "workgraph help workflow.plan_work",
+      "reference": "references/planning.md",
+      "related": [
+        "project.get",
+        "status.list",
+        "ticket.create",
+        "dependency.add",
+        "allocation.ticket_policy_put",
+        "transaction.preflight",
+        "transaction.apply"
+      ],
+      "search_terms": [
+        "Create a coherent work plan",
+        "plan project",
+        "atomic plan",
+        "dependencies",
+        "dispatch preparation"
+      ],
+      "steps": [
+        "Inspect project.get and status.list; read existing entity and policy revisions instead of guessing guards.",
+        "Draft transaction.apply operations for ticket creation, dependency.add and any required allocation.ticket_policy_put; use typed creation aliases within the plan.",
+        "Call transaction.preflight with the proposed operations and inspect blockers; preflight reserves no state.",
+        "Save and submit transaction.apply using one stable mutation identity; retain its actual IDs, revisions and durable receipt before the harness dispatches workers."
+      ],
+      "summary": "Prepare tickets, prerequisites and admission policy together before dispatching workers.",
+      "tier": null,
+      "use_when": "A delivery goal needs multiple related work items whose dependencies and gates must publish consistently."
+    },
+    {
+      "capability": "recovery",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.recover_work",
+      "next": "workgraph help workflow.recover_work",
+      "reference": "references/path-conditions-recovery.md",
+      "related": [
+        "ticket.resume",
+        "actor.overview",
+        "coordinator.overview",
+        "journal.inspect",
+        "retry",
+        "ticket.context",
+        "ticket.recover",
+        "reservation.recover",
+        "reservation.path.recover",
+        "ticket.recovery.get"
+      ],
+      "search_terms": [
+        "Recover context and abandoned ownership",
+        "stale worker",
+        "abandoned task",
+        "resume after interruption",
+        "lost reply",
+        "requeue"
+      ],
+      "steps": [
+        "Read ticket.resume and actor.overview or coordinator.overview to recover recorded instructions, handoff, held claims and attempts. Stale observations and expiry never prove process termination.",
+        "For an uncertain write inspect the saved journal and use retry on the exact saved request; do not refresh guards or replace its mutation identity.",
+        "The harness must stop or isolate the old execution and checkout before reclaiming its logical ownership.",
+        "Read current ticket.context or reservation ownership and retain the exact old token, lease revision and other required recovery guards.",
+        "Save ticket.recover with explicit disposition:requeue when work should return to Todo, or use the exact named/path reservation recovery method. Read retained recovery audit before starting replacement work."
+      ],
+      "summary": "Inspect retained work and exact saved requests before any guarded ownership recovery.",
+      "tier": null,
+      "use_when": "An invocation ended or became stale and another harness must decide how to resume safely."
+    },
+    {
+      "capability": "context",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.share_context",
+      "next": "workgraph help workflow.share_context",
+      "reference": "references/resources.md",
+      "related": [
+        "fact.keys",
+        "fact.get",
+        "fact.put",
+        "resource.list",
+        "resource.put_text",
+        "resource.publish_text",
+        "resource.upload",
+        "resource.read",
+        "resource.read_text",
+        "resource.download"
+      ],
+      "search_terms": [
+        "Publish and reuse shared context",
+        "shared memory",
+        "save findings",
+        "publish document",
+        "retain context"
+      ],
+      "steps": [
+        "Use fact.keys or resource.list to discover existing context before creating a duplicate record; expand only selected values or metadata.",
+        "For small JSON values read fact.get and use its actual fact revision with fact.put; JSON null is a value rather than deletion.",
+        "For small UTF-8 text use resource.put_text with the resource metadata guard, or the local resource.publish_text helper when a new ticket link must publish atomically.",
+        "For large or binary bytes use the local resource.upload saved plan; ticket linking in that helper is separate and can require exact recovery.",
+        "Retain the returned immutable content version and digest independently of metadata revision; retrieve exact content through resource.read, resource.read_text or verified resource.download."
+      ],
+      "summary": "Choose bounded facts or versioned resources and carry exact evidence pins into later work.",
+      "tier": null,
+      "use_when": "Agents need to share structured context, longer notes or binary artifacts durably."
+    },
+    {
+      "capability": "verification",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.verify_outputs",
+      "next": "workgraph help workflow.verify_outputs",
+      "reference": "references/gated-review-workflow.md",
+      "related": [
+        "acceptance.policy.effective",
+        "evidence-run",
+        "evidence-publish",
+        "contract.put",
+        "manifest.publish",
+        "review.submit",
+        "validation.add",
+        "review.record",
+        "review.gate",
+        "review.accept",
+        "acceptance.assert",
+        "ticket.readiness",
+        "ticket.finish"
+      ],
+      "search_terms": [
+        "Capture evidence and accept reviewed outputs",
+        "run tests",
+        "review output",
+        "approve submission",
+        "verify artifact",
+        "completion evidence"
+      ],
+      "steps": [
+        "Read the effective acceptance policy and review requirements before running checks; retain the observed policy digest and current claim and attempt binding.",
+        "Run the actual command through the harness, optionally using local evidence-run; inspect its observed outcome, truncation and declared source coverage before publishing with evidence-publish.",
+        "Publish the contract and manifest with exact resource versions and digests; retain the returned manifest revision, then submit it through review.submit as a new generation.",
+        "Record validation.add against the exact manifest and observed policy digest. A distinct configured reviewer inspects those exact outputs and records review.record for the actual generation.",
+        "Inspect review.gate; an approve message alone does not establish acceptance. Resolve changes requests explicitly, resubmit changed outputs as a new generation, and obtain fresh proof.",
+        "For each required acceptance criterion, perform the stated check and record acceptance.assert with its current effective policy digest, exact evidence pins and actual ownership guards. Validation and reviewer verdicts do not replace these assertions.",
+        "When the current generation passes review.gate, save review.accept under the observed submission revision. Inspect ticket.readiness for all remaining completion requirements, then ticket.finish under actual ownership."
+      ],
+      "summary": "Publish exact output evidence, obtain formal checks and review, then accept and finish the current generation.",
+      "tier": null,
+      "use_when": "Completed work must satisfy reproducible validation and independent review requirements."
+    },
+    {
+      "capability": "coordination",
+      "effect": null,
+      "kind": "workflow",
+      "name": "workflow.work_ticket",
+      "next": "workgraph help workflow.work_ticket",
+      "reference": "references/coordination.md",
+      "related": [
+        "run.register",
+        "ticket.context",
+        "ticket.readiness",
+        "ticket.start",
+        "ticket.claim_next",
+        "ticket.progress",
+        "handoff.set",
+        "ticket.finish"
+      ],
+      "search_terms": [
+        "Start, report and finish a ticket",
+        "begin task",
+        "claim work",
+        "agent loop",
+        "complete task"
+      ],
+      "steps": [
+        "The harness provisions and supervises the process and checkout; register that actual invocation with run.register and retain its run revision.",
+        "Read ticket.context and ticket.readiness with target_run_id; inspect instructions, amendments, path ownership and policy before acquiring work.",
+        "Save ticket.start for the chosen ticket, or ticket.claim_next for selection, with the actual target run and an attempt ID when recording a try. Inspect the returned kind before using any token.",
+        "Retain the returned ticket token and attempt/lease revisions; record ticket.progress and handoff.set under current ownership, renewing timed ownership explicitly when needed.",
+        "Run the actual work and checks through the harness, satisfy applicable gates, then save ticket.finish with the actual token and concrete evidence. Report only observed completion."
+      ],
+      "summary": "Record a real invocation, acquire admitted work and retain its actual ownership token through completion.",
+      "tier": null,
+      "use_when": "A harness has provisioned a worker that needs a durable ticket execution loop."
+    }
+  ],
+  "capabilities": [
+    {
+      "groups": [
+        "project",
+        "milestone",
+        "ticket",
+        "dependency",
+        "related",
+        "label",
+        "status",
+        "template",
+        "transaction"
+      ],
+      "id": "planning",
+      "reference": "references/planning.md",
+      "summary": "Organize goals, work items, prerequisites and repeatable atomic plans before dispatch.",
+      "title": "Plan work"
+    },
+    {
+      "groups": [
+        "actor",
+        "allocation",
+        "attempt",
+        "condition",
+        "coordinator",
+        "participant",
+        "reservation",
+        "run"
+      ],
+      "id": "coordination",
+      "reference": "references/coordination.md",
+      "summary": "Record real invocations, admit capable work and manage logical ownership while the harness controls processes.",
+      "title": "Coordinate workers"
+    },
+    {
+      "groups": [
+        "board",
+        "comment",
+        "inbox",
+        "message",
+        "request",
+        "subscription",
+        "team",
+        "thread"
+      ],
+      "id": "communication",
+      "reference": "references/communication-evidence.md",
+      "summary": "Send durable messages, organize discussion and track accountable questions with explicit delivery and resolution.",
+      "title": "Communicate and resolve requests"
+    },
+    {
+      "groups": ["fact", "resource", "upload", "history", "session"],
+      "id": "context",
+      "reference": "references/resources.md",
+      "summary": "Keep small scoped JSON facts and immutable text or binary resources, with explicit version and digest pins.",
+      "title": "Share durable context"
+    },
+    {
+      "groups": ["handoff", "recovery"],
+      "id": "recovery",
+      "reference": "references/resume-digest.md",
+      "summary": "Recover recorded handoffs and ownership audits while preserving exact retries and prior execution isolation.",
+      "title": "Resume and recover safely"
+    },
+    {
+      "groups": [
+        "acceptance",
+        "contract",
+        "decision",
+        "evidence",
+        "input",
+        "manifest",
+        "reconciliation",
+        "review",
+        "validation"
+      ],
+      "id": "verification",
+      "reference": "references/communication-evidence.md",
+      "summary": "Define exact requirements, publish pinned outputs and record checks, review, acceptance and input reconciliation.",
+      "title": "Verify and accept evidence"
+    },
+    {
+      "groups": ["activity", "attention", "changes", "search", "usage"],
+      "id": "observation",
+      "reference": "references/attention.md",
+      "summary": "Inspect recorded changes, attention, search and reported usage through bounded captures and resumable waits.",
+      "title": "Observe and wait"
+    },
+    {
+      "groups": ["daemon", "export", "initialize", "registry", "restore", "workspace"],
+      "id": "administration",
+      "reference": "references/administration.md",
+      "summary": "Inspect the protocol and service, manage workspaces and recover registry receipts or portable exports.",
+      "title": "Administer local state"
+    }
+  ]
+}

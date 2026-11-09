@@ -77,8 +77,25 @@ class Templates(unittest.TestCase):
                     self.assertEqual('2', json.loads((root/'publish-next.json').read_text())['params']['operations'][1]['params']['template_revision'])
                     self.assertEqual('2', read('template.get', template_id='plan', template_revision='2')['data']['template_revision'])
                     args = dict(template_id='plan', template_revision='2', instance_id='tree', parameters={'topic':'parser'}, project_id='p', milestone_id='m', parent_ticket_id='root')
+                    def preflight(operations):
+                        return read('transaction.preflight', actor_id='lead', operations=operations)['data']
+                    before_preview = read('workspace.get')['meta']['workspace_revision']
+                    self.assertEqual('7', preflight([dict(method='template.instantiate', params=args)])['operation_count'])
+                    self.assertEqual('8', preflight([
+                        dict(method='ticket.create', params=dict(ticket_id='preview-only', title='Preview only')),
+                        dict(method='template.instantiate', params=args)])['operation_count'])
+                    # Earlier publication in the same staged batch must feed actual expansion.
+                    inline_publication = [
+                        dict(operations[0], params={**operations[0]['params'], 'resource_id':'inline'}),
+                        dict(operations[1], params={**operations[1]['params'], 'template_id':'inline'})]
+                    self.assertEqual('9', preflight(inline_publication + [dict(
+                        method='template.instantiate', params={**args, 'template_id':'inline',
+                                                              'template_revision':'1', 'instance_id':'inline'})])['operation_count'])
+                    self.assertEqual(before_preview, read('workspace.get')['meta']['workspace_revision'])
                     created = write('template.instantiate', **args)['data']
                     instance = created['instance']
+                    self.assertEqual('1', preflight([dict(method='template.instantiate', params=args)])['operation_count'])
+                    self.assertEqual('2', preflight([dict(method='template.instantiate', params=args)] * 2)['operation_count'])
                     self.assertEqual(['z-parent','a-child'], [node['alias'] for node in instance['tickets']])
                     self.assertEqual(dict(project_id='p', milestone_id='m', parent_ticket_id='root'), instance['bindings'])
                     for alias, parent_id in [('z-parent','root'),('a-child',ticket('z-parent'))]:
@@ -110,6 +127,14 @@ class Templates(unittest.TestCase):
                     publish(dict(parameters=[], nodes=large_nodes), 3, root/'publish-large.json')
                     bulk_args = dict(template_id='plan', template_revision='3', instance_id='bulk', parameters={})
                     revision = read('workspace.get')['meta']['workspace_revision']
+                    self.assertEqual('128', preflight([dict(method='template.instantiate', params=bulk_args)])['operation_count'])
+                    counter += 1
+                    rejected_preview = cli('call', address, 'transaction.preflight', json.dumps(dict(
+                        workspace_id='w', actor_id='lead', operations=[
+                            dict(method='template.instantiate', params=bulk_args),
+                            dict(method='ticket.create', params=dict(ticket_id='preview-too-many', title='Too many'))])), expected=1)
+                    self.assertEqual('Invalid_argument', rejected_preview['error']['data']['kind'])
+                    self.assertEqual(revision, read('workspace.get')['meta']['workspace_revision'])
                     # An extra operation beside a full expansion must reject atomically.
                     counter += 1
                     rejected = cli('call', address, 'transaction.apply', json.dumps(dict(
@@ -126,6 +151,7 @@ class Templates(unittest.TestCase):
                     self.assertEqual(bulk['instance'], read('template.instance_get', instance_id='bulk')['data'])
                     self.assertEqual(instance,read('template.instance_get',instance_id='tree')['data'])
                     self.assertEqual('Later edit',read('ticket.read',ticket_id=ticket('z-parent'))['data']['ticket']['title'])
+                    self.assertIn(b'exact native expanded operation count',subprocess.check_output([EXE,'help','transaction.preflight']))
                     self.assertIn(b'CONTENT version',subprocess.check_output([EXE,'help','template.register']))
                     self.assertIn(b'single read-only',subprocess.check_output([EXE,'help','template.publish']))
                     self.assertIn(b'template.publish',subprocess.check_output([EXE,'help','template']))

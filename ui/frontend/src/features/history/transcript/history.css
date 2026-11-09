@@ -1,0 +1,209 @@
+.ht-root {
+  min-width: 0;
+  color: var(--wg-text);
+}
+.ht-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.7rem;
+}
+.ht-heading h2 {
+  font-size: 1.23rem;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ht-heading p {
+  color: var(--wg-muted);
+  max-width: 70ch;
+  line-height: 1.65;
+}
+.ht-eyebrow {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+.ht-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 290px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.ht-layout aside,
+.ht-timeline {
+  min-width: 0;
+}
+.ht-capture,
+.ht-source,
+.ht-range {
+  font-size: 0.75rem;
+  line-height: 1.65;
+  color: var(--wg-muted);
+  overflow-wrap: anywhere;
+}
+.ht-directory {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.ht-directory li {
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--wg-border);
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.ht-directory small {
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: var(--wg-muted);
+  overflow-wrap: anywhere;
+}
+.ht-event {
+  border: 1px solid var(--wg-border);
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  background: var(--wg-panel);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ht-event-open {
+  border-color: var(--wg-accent);
+}
+.ht-event header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+.ht-event header > a {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+.ht-event p {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.ht-seq {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--wg-muted);
+}
+.ht-payload code,
+.ht-capture code {
+  word-break: break-all;
+}
+.ht-field {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.ht-field textarea {
+  width: 100%;
+  min-height: 14rem;
+  box-sizing: border-box;
+  background: var(--wg-app);
+  color: inherit;
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+.ht-warning {
+  border-left: 3px solid var(--wg-warning);
+  padding: 0.7rem 1rem;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+.ht-projected-item {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--wg-border);
+  min-width: 0;
+}
+.ht-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.65rem;
+}
+.ht-metrics > div {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem;
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.ht-metrics code {
+  font-variant-numeric: tabular-nums;
+}
+.ht-metrics small {
+  color: var(--wg-muted);
+  font-size: 0.7rem;
+}
+.ht-report {
+  border-left: 3px solid var(--wg-accent);
+  padding-left: 0.75rem;
+}
+.ht-root .wg-panel {
+  margin-bottom: 1rem;
+}
+@media (max-width: 950px) {
+  .ht-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ht-directory {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  .ht-heading {
+    flex-direction: column;
+  }
+  .ht-event header > a {
+    margin-left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ht-root {
+    scroll-behavior: auto;
+  }
+}
+
+.ht-search-tools,
+.ht-session-details,
+.ht-directory-filters {
+  margin-block: 0.65rem;
+  min-width: 0;
+}
+.ht-search-tools > summary,
+.ht-session-details > summary,
+.ht-directory-filters > summary {
+  cursor: pointer;
+  color: var(--wg-secondary);
+  padding-block: 0.4rem;
+}
+.ht-session-details {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--wg-border);
+  border-radius: 6px;
+}
+.ht-session-details[open] {
+  padding-bottom: 0.8rem;
+}
+.ht-layout > aside .wg-panel-body {
+  padding: 0.75rem;
+}
+.ht-layout > aside .wg-field {
+  margin-block: 0.65rem;
+}

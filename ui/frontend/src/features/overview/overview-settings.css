@@ -1,0 +1,707 @@
+.ov-settings-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 24px;
+}
+.ov-settings-tabs button {
+  --section-color: #a9adff;
+  --section-tint: #a9adff12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--wg-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+.ov-settings-tabs button[data-section="milestone"] {
+  --section-color: #e5bd80;
+  --section-tint: #e5bd8012;
+}
+.ov-settings-tabs button[data-section="workspace"] {
+  --section-color: #8ab5f0;
+  --section-tint: #8ab5f012;
+}
+.ov-settings-tabs button[data-section="maintenance"] {
+  --section-color: #79d2b6;
+  --section-tint: #79d2b612;
+}
+.ov-settings-tabs button:hover {
+  background: var(--section-tint);
+}
+.ov-settings-tabs button[aria-current] {
+  background: var(--section-tint);
+  border-color: var(--section-color);
+  box-shadow: inset 0 -2px var(--section-color);
+  color: var(--wg-text);
+}
+.ov-settings-tabs button:focus-visible {
+  outline: 2px solid var(--section-color);
+  outline-offset: 3px;
+}
+.ov-settings-tab-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--section-tint);
+  color: var(--section-color);
+}
+.ov-settings-tab-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.ov-settings-tabs strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ov-settings-tabs small {
+  display: block;
+  font-size: 10px;
+  color: var(--wg-muted);
+  margin-top: 2px;
+}
+:root[data-theme="light"] .ov-settings-tabs button {
+  --section-color: #6268b7;
+  --section-tint: #6268b710;
+}
+:root[data-theme="light"] .ov-settings-tabs button[data-section="milestone"] {
+  --section-color: #9a6323;
+  --section-tint: #9a632310;
+}
+:root[data-theme="light"] .ov-settings-tabs button[data-section="workspace"] {
+  --section-color: #3e6dba;
+  --section-tint: #3e6dba10;
+}
+:root[data-theme="light"] .ov-settings-tabs button[data-section="maintenance"] {
+  --section-color: #28775f;
+  --section-tint: #28775f10;
+}
+@media (max-width: 680px) {
+  .ov-settings-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.ov-settings-content .wg-panel {
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.ov-settings-content .wg-panel-header {
+  padding: 0 0 14px;
+}
+.ov-settings-content .wg-lifecycle-table caption {
+  text-align: left;
+  padding: 0 0 12px;
+  color: var(--wg-muted);
+}
+.ov-settings-content .wg-lifecycle-table th,
+.ov-settings-content .wg-lifecycle-table td {
+  padding: 14px 10px;
+}
+.ov-settings-content .wg-lifecycle-table th .wg-button {
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+  text-align: left;
+}
+.ov-settings-content .wg-lifecycle-table code {
+  font-size: 10px;
+  color: var(--wg-muted);
+}
+.ov-settings-content .wg-lifecycle-table-scroll {
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+}
+.ov-settings-content .wg-lifecycle-table caption {
+  padding: 12px;
+}
+.ov-settings-content .wg-lifecycle-table td:last-child .wg-toolbar {
+  gap: 6px;
+}
+.ov-settings-content .wg-lifecycle-table td:last-child .wg-button {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+.ov-settings-content details {
+  margin-top: 16px;
+  color: var(--wg-muted);
+  font-size: 11px;
+}
+.ov-settings-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.ov-settings-section-heading h3 {
+  font-size: 13px;
+  margin: 0;
+}
+.ov-recent-observations {
+  border-top: 1px solid var(--wg-border);
+  padding-top: 20px;
+  margin-top: 24px;
+}
+.ov-observation-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+}
+.ov-observation-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--wg-border);
+}
+.ov-observation-list svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--wg-accent);
+}
+.ov-observation-list small {
+  display: block;
+  color: var(--wg-muted);
+  margin-top: 4px;
+}
+.ov-notification-settings .wg-form-actions {
+  margin-top: 16px;
+}
+
+.wg-dialog:has(.ov-settings, .ov-notification-settings) {
+  width: min(860px, calc(100vw - 32px));
+}
+.ov-observation-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+.ov-settings-content .wg-lifecycle-table td:nth-child(2) {
+  min-width: 100px;
+}
+
+/* Management uses the approved Overview palette, typography and rounded surfaces. */
+.wg-dialog:has(.ov-settings, .ov-notification-settings) {
+  --wg-text: #f4f5fa;
+  --wg-secondary: #c8cfdd;
+  --wg-muted: #aeb9cc;
+  --wg-panel: #1c2028;
+  --wg-raised: #252b35;
+  --wg-border: #3c4554;
+  width: min(1240px, calc(100vw - 48px));
+  height: min(940px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  border: 1px solid var(--wg-border);
+  border-radius: 20px;
+  font-size: 15px;
+  color: var(--wg-text);
+}
+:root[data-theme="light"] .wg-dialog:has(.ov-settings, .ov-notification-settings) {
+  --wg-text: #202635;
+  --wg-secondary: #455168;
+  --wg-muted: #5c687b;
+  --wg-panel: #ffffff;
+  --wg-raised: #f1f4f9;
+  --wg-border: #cbd3df;
+}
+.wg-dialog:has(.ov-settings, .ov-notification-settings) > .wg-dialog-header {
+  padding: 22px 28px;
+  background: var(--wg-raised);
+}
+.wg-dialog:has(.ov-settings, .ov-notification-settings) > .wg-dialog-header h2 {
+  font-size: 21px;
+  font-weight: 650;
+}
+.wg-dialog:has(.ov-settings, .ov-notification-settings) > .wg-dialog-body {
+  padding: 22px 28px 28px;
+  scrollbar-gutter: stable;
+}
+.wg-dialog:has(.ov-settings, .ov-notification-settings) .wg-dialog-description {
+  margin: 0 0 20px;
+  font-size: 15px;
+  color: var(--wg-secondary);
+}
+.ov-settings-tabs {
+  gap: 12px;
+  margin: 0 0 26px;
+}
+.ov-settings-tabs button {
+  padding: 16px;
+  border-radius: 14px;
+  border-width: 1px;
+  background: var(--wg-panel);
+}
+.ov-settings-tabs button[aria-current] {
+  box-shadow: inset 0 0 0 1px var(--section-color);
+}
+.ov-settings-tab-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+}
+.ov-settings-tab-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.ov-settings-tabs strong {
+  font-size: 16px;
+  color: var(--wg-text);
+}
+.ov-settings-tabs small {
+  font-size: 13px;
+  color: var(--wg-secondary);
+  margin-top: 4px;
+}
+.ov-settings-content {
+  --management-color: #c4a3ff;
+  min-width: 0;
+}
+.ov-settings-content[data-section="milestone"] {
+  --management-color: #f4d76d;
+}
+.ov-settings-content[data-section="workspace"] {
+  --management-color: #91baff;
+}
+.ov-settings-content[data-section="maintenance"] {
+  --management-color: #7de4aa;
+}
+:root[data-theme="light"] .ov-settings-content {
+  --management-color: #7253b4;
+}
+:root[data-theme="light"] .ov-settings-content[data-section="milestone"] {
+  --management-color: #866314;
+}
+:root[data-theme="light"] .ov-settings-content[data-section="workspace"] {
+  --management-color: #3263a8;
+}
+:root[data-theme="light"] .ov-settings-content[data-section="maintenance"] {
+  --management-color: #28775f;
+}
+.ov-settings-content .wg-management-intro {
+  order: -3;
+}
+.ov-settings-content .wg-management-intro h2,
+.ov-settings-content .wg-admin-heading h2 {
+  font-size: 23px;
+  margin: 0 0 8px;
+}
+.ov-settings-content .wg-management-intro p {
+  max-width: 82ch;
+  margin: 0;
+  color: var(--wg-secondary);
+  line-height: 1.65;
+}
+.ov-settings-content .wg-lifecycle {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.ov-settings-content .wg-management-editor {
+  order: -1;
+  border-color: var(--management-color);
+}
+.ov-settings-content .wg-management-editor + * {
+  margin-top: 4px;
+}
+.ov-settings-content .wg-panel,
+.ov-settings-content .wg-admin-card {
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  overflow: clip;
+}
+.ov-settings-content .wg-panel-header {
+  padding: 18px 20px;
+  background: var(--wg-raised);
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--wg-border);
+}
+.ov-settings-content .wg-panel-header h2,
+.ov-settings-content .wg-admin-card h3 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.ov-settings-content .wg-panel-header h2 {
+  color: var(--management-color);
+}
+.ov-settings-content .wg-panel-body {
+  padding: 20px;
+}
+.ov-settings-content .wg-button {
+  padding: 8px 13px;
+  font-size: 14px;
+  border-radius: 9px;
+}
+.ov-settings-content .wg-hint,
+.ov-settings-content .wg-admin-intro,
+.ov-settings-content .wg-admin-card p,
+.ov-settings-content .wg-admin-heading > span {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--wg-secondary);
+}
+.ov-settings-content .wg-field {
+  font-size: 15px;
+  gap: 8px;
+  margin: 0;
+}
+.ov-settings-content .wg-field input,
+.ov-settings-content .wg-field select,
+.ov-settings-content textarea {
+  font-size: 15px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: var(--wg-raised);
+  line-height: 1.5;
+}
+.ov-settings-content .wg-field input[readonly] {
+  color: var(--wg-secondary);
+  background: var(--wg-panel);
+}
+.ov-settings-content .wg-lifecycle-fields,
+.ov-settings-content .wg-admin-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 24px;
+  margin: 22px 0;
+}
+.ov-settings-content .wg-lifecycle-rich {
+  grid-column: 1 / -1;
+}
+.ov-settings-content .wg-lifecycle-rich textarea {
+  min-height: 115px;
+}
+.ov-settings-content .wg-lifecycle-table-scroll {
+  border-radius: 12px;
+}
+.ov-settings-content .wg-lifecycle-table {
+  font-size: 14px;
+}
+.ov-settings-content .wg-lifecycle-table caption {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.ov-settings-content .wg-lifecycle-table th,
+.ov-settings-content .wg-lifecycle-table td {
+  padding: 16px;
+}
+.ov-settings-content .wg-lifecycle-table th .wg-button {
+  font-size: 15px;
+  font-weight: 600;
+}
+.ov-settings-content .wg-lifecycle-table code {
+  font-size: 12px;
+}
+.ov-settings-content .wg-lifecycle-table td:last-child .wg-button {
+  font-size: 13px;
+  padding: 7px 11px;
+}
+.ov-settings-content .wg-lifecycle-table td:last-child {
+  width: 35%;
+}
+.ov-settings-content .wg-badge {
+  font-size: 12px;
+  border-radius: 7px;
+}
+.ov-settings-content .wg-lifecycle-checkbox {
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.ov-settings-content input[type="checkbox"] {
+  accent-color: var(--management-color);
+  width: 16px;
+  height: 16px;
+}
+.ov-settings-content .wg-admin-heading {
+  margin-top: 0;
+}
+.ov-settings-content .wg-admin-tabs {
+  gap: 8px;
+  border-bottom: 0;
+}
+.ov-settings-content .wg-admin-tabs button {
+  background: var(--wg-panel);
+  border: 1px solid var(--wg-border);
+  padding: 11px 15px;
+}
+.ov-settings-content .wg-admin-tabs button[aria-pressed="true"] {
+  color: var(--management-color);
+  border-color: currentColor;
+  background: var(--wg-raised);
+}
+.ov-settings-content .wg-admin-tabs svg,
+.ov-settings-content .wg-admin-card h3 svg {
+  width: 19px;
+  height: 19px;
+  color: var(--management-color);
+}
+.ov-settings-content .wg-admin-card {
+  padding: 22px;
+}
+.ov-settings-content .wg-admin-export-layout {
+  gap: 20px;
+  margin-top: 20px;
+}
+.ov-settings-content .wg-admin-fields label:has(textarea) {
+  grid-column: 1 / -1;
+}
+.ov-settings-content .wg-admin-job {
+  border-radius: 12px;
+}
+.ov-settings-content details {
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.ov-settings-content .wg-admin-inspector summary {
+  font-size: 14px;
+}
+.ov-settings-content .wg-captured-values {
+  margin: 12px 0;
+}
+.ov-settings-content .wg-captured-values > div {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr);
+  padding: 10px 0;
+  gap: 16px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.ov-settings-content .wg-captured-values dt {
+  text-transform: capitalize;
+  color: var(--wg-secondary);
+}
+.ov-settings-content .wg-captured-values dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ov-settings-content .wg-captured-text {
+  white-space: pre-wrap;
+}
+.ov-settings-content .wg-captured-list {
+  padding-left: 20px;
+}
+@media (max-width: 760px) {
+  .wg-dialog:has(.ov-settings, .ov-notification-settings) {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 16px;
+  }
+  .wg-dialog:has(.ov-settings, .ov-notification-settings) > .wg-dialog-body {
+    padding: 16px;
+  }
+  .ov-settings-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ov-settings-tabs button {
+    padding: 12px;
+  }
+  .ov-settings-tabs strong {
+    font-size: 14px;
+  }
+  .ov-settings-tabs small {
+    font-size: 12px;
+  }
+  .ov-settings-content .wg-lifecycle-fields,
+  .ov-settings-content .wg-admin-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ov-settings-content .wg-captured-values > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}
+.wg-dialog:has(.ov-settings, .ov-notification-settings) {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+.wg-dialog:has(.ov-settings, .ov-notification-settings) > .wg-dialog-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.wg-dialog:has(.ov-settings, .ov-notification-settings) .wg-dialog-description {
+  flex-shrink: 0;
+}
+.ov-settings {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.ov-settings-tabs {
+  flex-shrink: 0;
+}
+.ov-settings-content {
+  overflow: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+.ov-settings-content .wg-lifecycle-rich {
+  grid-column: auto;
+}
+.ov-settings-content .wg-lifecycle-rich--description,
+.ov-settings-content .wg-lifecycle-rich--instructions {
+  grid-column: 1 / -1;
+}
+.ov-settings-content .wg-lifecycle-fields > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.ov-settings-content .wg-editor-version {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--wg-raised);
+  border-radius: 10px;
+  color: var(--wg-secondary);
+  font-size: 13px;
+}
+.ov-settings-content .wg-editor-version span {
+  margin-left: auto;
+}
+.ov-settings-content .wg-editor-context p {
+  margin: 6px 0;
+}
+.ov-settings-content .wg-management-editor {
+  border-color: var(--management-color);
+}
+.ov-settings-content td[data-status="in_progress"] .wg-badge {
+  color: #f4d76d;
+  background: #f4d76d12;
+  border-color: #f4d76d40;
+}
+.ov-settings-content td[data-status="todo"] .wg-badge,
+.ov-settings-content td[data-status="open"] .wg-badge {
+  color: #7de4aa;
+  background: #7de4aa12;
+  border-color: #7de4aa40;
+}
+.ov-settings-content td[data-status="done"] .wg-badge {
+  color: #91baff;
+  background: #91baff12;
+  border-color: #91baff40;
+}
+:root[data-theme="light"] .ov-settings-content td[data-status] .wg-badge {
+  color: var(--wg-text);
+}
+.ov-settings-content .wg-admin-tabs button[data-section="restore"] {
+  --management-color: #91baff;
+}
+.ov-settings-content .wg-admin-tabs button[data-section="offline"] {
+  --management-color: #f4d76d;
+}
+.ov-settings-content .wg-admin-tabs button[data-section="journals"] {
+  --management-color: #c4a3ff;
+}
+:root[data-theme="light"] .ov-settings-content .wg-admin-tabs button[data-section="restore"] {
+  --management-color: #3263a8;
+}
+:root[data-theme="light"] .ov-settings-content .wg-admin-tabs button[data-section="offline"] {
+  --management-color: #866314;
+}
+:root[data-theme="light"] .ov-settings-content .wg-admin-tabs button[data-section="journals"] {
+  --management-color: #7253b4;
+}
+
+.ov-settings-content .wg-field > label {
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.ov-settings-content .wg-management-help {
+  margin: 16px 0 0;
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  background: var(--wg-panel);
+  font-size: 14px;
+}
+.ov-settings-content .wg-management-help > summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  color: var(--management-color);
+  font-weight: 550;
+}
+.ov-settings-content .wg-management-help > summary svg {
+  display: inline-block;
+  vertical-align: -3px;
+  width: 17px;
+  height: 17px;
+  margin: 0 8px 0 4px;
+}
+.ov-settings-content .wg-management-help > summary:focus-visible {
+  outline: 2px solid var(--management-color);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+.ov-settings-content .wg-management-help[open] > summary {
+  border-bottom: 1px solid var(--wg-border);
+}
+.ov-settings-content .wg-management-help dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 22px;
+  margin: 0;
+  padding: 18px;
+}
+.ov-settings-content .wg-management-help dt {
+  color: var(--wg-text);
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.ov-settings-content .wg-management-help dd {
+  color: var(--wg-secondary);
+  line-height: 1.65;
+  margin: 0;
+}
+.ov-settings-content .wg-admin-query > .wg-button + .wg-button {
+  margin-left: 8px;
+}
+
+.ov-settings-content .wg-action-explanation {
+  border-left: 3px solid var(--management-color);
+  border-radius: 0 12px 12px 0;
+  background: var(--wg-raised);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.ov-settings-content .wg-action-explanation > strong {
+  color: var(--management-color);
+  font-size: 15px;
+}
+.ov-settings-content .wg-action-explanation p {
+  margin: 8px 0;
+  line-height: 1.65;
+}
+.ov-settings-content .wg-action-explanation-detail {
+  color: var(--wg-secondary);
+  font-size: 14px;
+}
+.ov-settings-content .wg-action-explanation-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--management-color);
+}
+.ov-settings-content .wg-action-explanation .wg-action-explanation-footnote {
+  font-size: 13px;
+  color: var(--wg-secondary);
+  margin-bottom: 0;
+}

@@ -5,7 +5,9 @@ description: Use Workgraph through its CLI to discover features, plan local work
 
 # Workgraph
 
-Requires a matching Workgraph 0.7 executable on macOS or Linux. State operations
+This source skill targets the Workgraph **0.8.0 package**, whose daemon
+application API remains **0.7**. Use the matching supplied executable on macOS or
+Linux; the API number alone does not establish package compatibility. State operations
 also need a local Unix socket service; discovery and help work offline. Shell
 examples use POSIX shell and `jq` where shown. Runtime reads accept current formats;
 use [offline migration](references/migration.md) for supported 0.6.2-format workspace
@@ -22,7 +24,8 @@ those actions or stop processes.
 
 When connection setup is needed, use [getting started](references/getting-started.md)
 for setup and a complete first ticket. With a supplied context, start with discovery below. Read [concepts](references/concepts.md) when an
-unfamiliar term appears. Use an executable matching this skill's 0.7 API contracts.
+unfamiliar term appears. Use an executable matching this skill's generated API
+contracts and package version.
 [Compatibility](references/compatibility.md) explains the separate API and storage
 versions and the explicit supported migration into a new root.
 

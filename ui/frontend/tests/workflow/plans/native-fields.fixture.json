@@ -1,0 +1,2606 @@
+{
+  "request.ask": {
+    "fields": [
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "actor_id", "JSON"],
+        "name": "actor_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": ["Literal entity ID or $alias resolved within transaction.apply."],
+        "json_argument": ["--json-field", "board_id", "JSON"],
+        "name": "board_id",
+        "requirement": "optional",
+        "schema": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Resolved local identity; aliases are not accepted."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "summary": "string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\""
+      },
+      {
+        "descriptions": ["Nonblank UTF8 text."],
+        "json_argument": ["--json-field", "body", "JSON"],
+        "name": "body",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 65536
+            }
+          ],
+          "description": "Nonblank UTF8 text."
+        },
+        "summary": "string; max UTF-8 bytes=65536"
+      },
+      {
+        "descriptions": ["Canonical nonnegative Unix milliseconds within signed int64."],
+        "json_argument": ["--json-field", "deadline_unix_ms", "JSON"],
+        "name": "deadline_unix_ms",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "9223372036854775807"
+            }
+          ],
+          "description": "Canonical nonnegative Unix milliseconds within signed int64."
+        },
+        "summary": "string; pattern=\"^(0|[1-9][0-9]*)(?![\\\\s\\\\S])\"; decimal 0..\"9223372036854775807\""
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "expected_thread_revision", "JSON"],
+        "name": "expected_thread_revision",
+        "requirement": "optional",
+        "schema": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "summary": "string; pattern=\"^(0|[1-9][0-9]*)(?![\\\\s\\\\S])\"; decimal 0..\"4611686018427387903\""
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "kind", "JSON"],
+        "name": "kind",
+        "requirement": "optional",
+        "schema": {
+          "enum": ["clarification", "review", "help", "blocker_resolution", "handoff"],
+          "type": "string"
+        },
+        "summary": "string; enum=[\"clarification\",\"review\",\"help\",\"blocker_resolution\",\"handoff\"]"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "mutation_id", "JSON"],
+        "name": "mutation_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": ["Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."],
+        "json_argument": ["--json-field", "priority", "JSON"],
+        "name": "priority",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4"
+            }
+          ],
+          "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+        },
+        "summary": "string; pattern=\"^(0|[1-9][0-9]*)(?![\\\\s\\\\S])\"; decimal 0..\"4\""
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "recipients", "JSON"],
+        "name": "recipients",
+        "requirement": "required",
+        "schema": {
+          "items": {
+            "oneOf": [
+              {
+                "allOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Resolved local identity; aliases are not accepted."
+                              },
+                              {
+                                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          {
+                            "maxLength": 97,
+                            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ],
+                        "description": "Literal entity ID or $alias resolved within transaction.apply."
+                      },
+                      "kind": {
+                        "const": "actor",
+                        "type": "string"
+                      }
+                    },
+                    "required": ["kind", "id"],
+                    "type": "object"
+                  }
+                ],
+                "description": "Raw command object preserving explicit references."
+              },
+              {
+                "allOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Resolved local identity; aliases are not accepted."
+                              },
+                              {
+                                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          {
+                            "maxLength": 97,
+                            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ],
+                        "description": "Literal entity ID or $alias resolved within transaction.apply."
+                      },
+                      "kind": {
+                        "const": "run",
+                        "type": "string"
+                      }
+                    },
+                    "required": ["kind", "id"],
+                    "type": "object"
+                  }
+                ],
+                "description": "Raw command object preserving explicit references."
+              }
+            ]
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "summary": "array of object {kind: string; const=\"actor\"; id: string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\"} | object {kind: string; const=\"run\"; id: string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\"}; max items=1000"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "related_request_ids", "JSON"],
+        "name": "related_request_ids",
+        "requirement": "optional",
+        "schema": {
+          "items": {
+            "anyOf": [
+              {
+                "allOf": [
+                  {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Resolved local identity; aliases are not accepted."
+                  },
+                  {
+                    "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "maxLength": 97,
+                "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                "type": "string"
+              }
+            ],
+            "description": "Literal entity ID or $alias resolved within transaction.apply."
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "summary": "array of string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\"; max items=32"
+      },
+      {
+        "descriptions": ["Resolved local identity; aliases are not accepted."],
+        "json_argument": ["--json-field", "request_id", "JSON"],
+        "name": "request_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": ["Resolved local identity; aliases are not accepted."],
+        "json_argument": ["--json-field", "resolver_id", "JSON"],
+        "name": "resolver_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "Resolved local identity; aliases are not accepted."
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "run_id", "JSON"],
+        "name": "run_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "supersedes_request_ids", "JSON"],
+        "name": "supersedes_request_ids",
+        "requirement": "optional",
+        "schema": {
+          "items": {
+            "anyOf": [
+              {
+                "allOf": [
+                  {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Resolved local identity; aliases are not accepted."
+                  },
+                  {
+                    "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "maxLength": 97,
+                "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                "type": "string"
+              }
+            ],
+            "description": "Literal entity ID or $alias resolved within transaction.apply."
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "summary": "array of string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\"; max items=32"
+      },
+      {
+        "descriptions": ["Literal entity ID or $alias resolved within transaction.apply."],
+        "json_argument": ["--json-field", "thread_id", "JSON"],
+        "name": "thread_id",
+        "requirement": "optional",
+        "schema": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Resolved local identity; aliases are not accepted."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "summary": "string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\""
+      },
+      {
+        "descriptions": ["Literal entity ID or $alias resolved within transaction.apply."],
+        "json_argument": ["--json-field", "ticket_id", "JSON"],
+        "name": "ticket_id",
+        "requirement": "optional",
+        "schema": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Resolved local identity; aliases are not accepted."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "summary": "string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\""
+      },
+      {
+        "descriptions": ["Nonblank UTF-8 title, at most 512 bytes."],
+        "json_argument": ["--json-field", "title", "JSON"],
+        "name": "title",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 512
+            }
+          ],
+          "description": "Nonblank UTF-8 title, at most 512 bytes."
+        },
+        "summary": "string; max UTF-8 bytes=512"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "workspace_id", "JSON"],
+        "name": "workspace_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      }
+    ],
+    "validation_schema": {
+      "allOf": [
+        {
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "mutation_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "run_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "workspace_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            }
+          },
+          "required": ["workspace_id", "actor_id", "mutation_id"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "allOf": [
+                {
+                  "properties": {
+                    "board_id": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Resolved local identity; aliases are not accepted."
+                            },
+                            {
+                              "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "maxLength": 97,
+                          "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Literal entity ID or $alias resolved within transaction.apply."
+                    },
+                    "body": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 65536
+                        }
+                      ],
+                      "description": "Nonblank UTF8 text."
+                    },
+                    "deadline_unix_ms": {
+                      "allOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "9223372036854775807"
+                        }
+                      ],
+                      "description": "Canonical nonnegative Unix milliseconds within signed int64."
+                    },
+                    "expected_thread_revision": {
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-maximumDecimal": "4611686018427387903"
+                    },
+                    "kind": {
+                      "enum": ["clarification", "review", "help", "blocker_resolution", "handoff"],
+                      "type": "string"
+                    },
+                    "priority": {
+                      "allOf": [
+                        {
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-maximumDecimal": "4"
+                        }
+                      ],
+                      "description": "Request priority: 0 unspecified, 1 urgent, 2 high, 3 normal, 4 low."
+                    },
+                    "recipients": {
+                      "items": {
+                        "oneOf": [
+                          {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "id": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Resolved local identity; aliases are not accepted."
+                                          },
+                                          {
+                                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "maxLength": 97,
+                                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  },
+                                  "kind": {
+                                    "const": "actor",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["kind", "id"],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Raw command object preserving explicit references."
+                          },
+                          {
+                            "allOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "id": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Resolved local identity; aliases are not accepted."
+                                          },
+                                          {
+                                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "maxLength": 97,
+                                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  },
+                                  "kind": {
+                                    "const": "run",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["kind", "id"],
+                                "type": "object"
+                              }
+                            ],
+                            "description": "Raw command object preserving explicit references."
+                          }
+                        ]
+                      },
+                      "maxItems": 1000,
+                      "type": "array"
+                    },
+                    "related_request_ids": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Resolved local identity; aliases are not accepted."
+                              },
+                              {
+                                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          {
+                            "maxLength": 97,
+                            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ],
+                        "description": "Literal entity ID or $alias resolved within transaction.apply."
+                      },
+                      "maxItems": 32,
+                      "type": "array"
+                    },
+                    "request_id": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Resolved local identity; aliases are not accepted."
+                    },
+                    "resolver_id": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Resolved local identity; aliases are not accepted."
+                    },
+                    "supersedes_request_ids": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Resolved local identity; aliases are not accepted."
+                              },
+                              {
+                                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          {
+                            "maxLength": 97,
+                            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ],
+                        "description": "Literal entity ID or $alias resolved within transaction.apply."
+                      },
+                      "maxItems": 32,
+                      "type": "array"
+                    },
+                    "thread_id": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Resolved local identity; aliases are not accepted."
+                            },
+                            {
+                              "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "maxLength": 97,
+                          "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Literal entity ID or $alias resolved within transaction.apply."
+                    },
+                    "ticket_id": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Resolved local identity; aliases are not accepted."
+                            },
+                            {
+                              "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "maxLength": 97,
+                          "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Literal entity ID or $alias resolved within transaction.apply."
+                    },
+                    "title": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 512
+                        }
+                      ],
+                      "description": "Nonblank UTF-8 title, at most 512 bytes."
+                    }
+                  },
+                  "required": ["request_id", "body", "recipients", "resolver_id"],
+                  "type": "object"
+                }
+              ],
+              "description": "Raw command object preserving explicit references."
+            }
+          ],
+          "description": "Atomically create a question and request. New threads require title and may use board_id/ticket_id. Existing thread_id requires expected_thread_revision and forbids title, board_id and ticket_id."
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  },
+  "review.policy.put": {
+    "fields": [
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "actor_id", "JSON"],
+        "name": "actor_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "enabled", "JSON"],
+        "name": "enabled",
+        "requirement": "required",
+        "schema": {
+          "type": "boolean"
+        },
+        "summary": "boolean"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "expected_revision", "JSON"],
+        "name": "expected_revision",
+        "requirement": "required",
+        "schema": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "summary": "string; pattern=\"^(0|[1-9][0-9]*)(?![\\\\s\\\\S])\"; decimal 0..\"4611686018427387903\""
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "mutation_id", "JSON"],
+        "name": "mutation_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "reviewers", "JSON"],
+        "name": "reviewers",
+        "requirement": "required",
+        "schema": {
+          "items": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "actor_id": {
+                    "anyOf": [
+                      {
+                        "allOf": [
+                          {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Validated entity ID."
+                          },
+                          {
+                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      {
+                        "maxLength": 97,
+                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    ],
+                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                  },
+                  "kind": {
+                    "const": "actor",
+                    "type": "string"
+                  }
+                },
+                "required": ["kind", "actor_id"],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "role",
+                    "type": "string"
+                  },
+                  "member_ids": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              ],
+                              "description": "Validated entity ID."
+                            },
+                            {
+                              "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "maxLength": 97,
+                          "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Literal entity ID or $alias resolved within transaction.apply."
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "name": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Literal ASCII name; aliases are not interpreted."
+                  }
+                },
+                "required": ["kind", "name", "member_ids"],
+                "type": "object"
+              }
+            ]
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "summary": "array of object {kind: string; const=\"actor\"; actor_id: string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\"} | object {kind: string; const=\"role\"; name: string; max UTF-8 bytes=96; member_ids: array; max items=100}; max items=100"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "run_id", "JSON"],
+        "name": "run_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "separate_actor", "JSON"],
+        "name": "separate_actor",
+        "requirement": "required",
+        "schema": {
+          "type": "boolean"
+        },
+        "summary": "boolean"
+      },
+      {
+        "descriptions": ["Literal entity ID or $alias resolved within transaction.apply."],
+        "json_argument": ["--json-field", "ticket_id", "JSON"],
+        "name": "ticket_id",
+        "requirement": "required",
+        "schema": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated ASCII identifier."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "summary": "string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\""
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "validators", "JSON"],
+        "name": "validators",
+        "requirement": "required",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-maxUtf8Bytes": 96
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "summary": "array of string; max UTF-8 bytes=96; max items=100"
+      },
+      {
+        "descriptions": ["Nonblank bounded UTF-8 text."],
+        "json_argument": ["--json-field", "weakening_reason", "JSON"],
+        "name": "weakening_reason",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 4096
+            }
+          ],
+          "description": "Nonblank bounded UTF-8 text."
+        },
+        "summary": "string; max UTF-8 bytes=4096"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "workspace_id", "JSON"],
+        "name": "workspace_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      }
+    ],
+    "validation_schema": {
+      "allOf": [
+        {
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "mutation_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "run_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "workspace_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            }
+          },
+          "required": ["workspace_id", "actor_id", "mutation_id"],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "expected_revision": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            },
+            "reviewers": {
+              "items": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "actor_id": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Validated entity ID."
+                              },
+                              {
+                                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          {
+                            "maxLength": 97,
+                            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ],
+                        "description": "Literal entity ID or $alias resolved within transaction.apply."
+                      },
+                      "kind": {
+                        "const": "actor",
+                        "type": "string"
+                      }
+                    },
+                    "required": ["kind", "actor_id"],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "role",
+                        "type": "string"
+                      },
+                      "member_ids": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Validated entity ID."
+                                },
+                                {
+                                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "maxLength": 97,
+                              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Literal entity ID or $alias resolved within transaction.apply."
+                        },
+                        "maxItems": 100,
+                        "type": "array"
+                      },
+                      "name": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Literal ASCII name; aliases are not interpreted."
+                      }
+                    },
+                    "required": ["kind", "name", "member_ids"],
+                    "type": "object"
+                  }
+                ]
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "separate_actor": {
+              "type": "boolean"
+            },
+            "ticket_id": {
+              "anyOf": [
+                {
+                  "allOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Validated ASCII identifier."
+                    },
+                    {
+                      "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "maxLength": 97,
+                  "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ],
+              "description": "Literal entity ID or $alias resolved within transaction.apply."
+            },
+            "validators": {
+              "items": {
+                "type": "string",
+                "x-maxUtf8Bytes": 96
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            "weakening_reason": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 4096
+                }
+              ],
+              "description": "Nonblank bounded UTF-8 text."
+            }
+          },
+          "required": [
+            "ticket_id",
+            "expected_revision",
+            "enabled",
+            "reviewers",
+            "separate_actor",
+            "validators"
+          ],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  },
+  "template.register": {
+    "fields": [
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "actor_id", "JSON"],
+        "name": "actor_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": ["Lowercase SHA256 canonical Spec digest."],
+        "json_argument": ["--json-field", "digest", "JSON"],
+        "name": "digest",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 64
+            }
+          ],
+          "description": "Lowercase SHA256 canonical Spec digest."
+        },
+        "summary": "string; max UTF-8 bytes=64"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "mutation_id", "JSON"],
+        "name": "mutation_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "run_id", "JSON"],
+        "name": "run_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "spec", "JSON"],
+        "name": "spec",
+        "requirement": "required",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "nodes": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "alias": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Literal ASCII graph or parameter name."
+                  },
+                  "allowed_actor_ids": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "allOf": [
+                                    {
+                                      "type": "string",
+                                      "x-maxUtf8Bytes": 96
+                                    }
+                                  ],
+                                  "description": "Validated entity ID."
+                                },
+                                {
+                                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            {
+                              "maxLength": 97,
+                              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Literal entity ID or $alias resolved within transaction.apply."
+                        },
+                        "maxItems": 100,
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "capabilities": {
+                    "items": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Nonblank bounded UTF-8 text."
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "depends_on": {
+                    "items": {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Literal ASCII graph or parameter name."
+                    },
+                    "maxItems": 127,
+                    "type": "array"
+                  },
+                  "description": {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 65536
+                  },
+                  "parent": {
+                    "anyOf": [
+                      {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Literal ASCII graph or parameter name."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reviewers": {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "actor_id": {
+                              "anyOf": [
+                                {
+                                  "allOf": [
+                                    {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated ASCII identifier."
+                                    },
+                                    {
+                                      "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "maxLength": 97,
+                                  "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              ],
+                              "description": "Literal entity ID or $alias resolved within transaction.apply."
+                            },
+                            "kind": {
+                              "const": "actor",
+                              "type": "string"
+                            }
+                          },
+                          "required": ["kind", "actor_id"],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "role",
+                              "type": "string"
+                            },
+                            "member_ids": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "allOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "type": "string",
+                                            "x-maxUtf8Bytes": 96
+                                          }
+                                        ],
+                                        "description": "Validated ASCII identifier."
+                                      },
+                                      {
+                                        "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "maxLength": 97,
+                                    "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                ],
+                                "description": "Literal entity ID or $alias resolved within transaction.apply."
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "name": {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          },
+                          "required": ["kind", "name", "member_ids"],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "separate_actor": {
+                    "type": "boolean"
+                  },
+                  "title": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 512
+                      }
+                    ],
+                    "description": "Nonblank bounded UTF-8 text."
+                  }
+                },
+                "required": [
+                  "alias",
+                  "title",
+                  "description",
+                  "depends_on",
+                  "parent",
+                  "capabilities",
+                  "allowed_actor_ids",
+                  "reviewers",
+                  "separate_actor"
+                ],
+                "type": "object"
+              },
+              "maxItems": 127,
+              "type": "array"
+            },
+            "parameters": {
+              "items": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "x-maxUtf8Bytes": 96
+                  }
+                ],
+                "description": "Literal ASCII graph or parameter name."
+              },
+              "maxItems": 32,
+              "type": "array"
+            }
+          },
+          "required": ["parameters", "nodes"],
+          "type": "object"
+        },
+        "summary": "object {parameters: array; max items=32; nodes: array; max items=127}"
+      },
+      {
+        "descriptions": ["Literal entity ID or $alias resolved within transaction.apply."],
+        "json_argument": ["--json-field", "template_id", "JSON"],
+        "name": "template_id",
+        "requirement": "required",
+        "schema": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated entity ID."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "summary": "string; max UTF-8 bytes=96 | string; pattern=\"^\\\\$[A-Za-z0-9_-]{1,96}(?![\\\\s\\\\S])\""
+      },
+      {
+        "descriptions": ["Positive version or attempt limit."],
+        "json_argument": ["--json-field", "template_revision", "JSON"],
+        "name": "template_revision",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive version or attempt limit."
+        },
+        "summary": "string; pattern=\"^(0|[1-9][0-9]*)(?![\\\\s\\\\S])\"; decimal 0..\"4611686018427387903\""
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "workspace_id", "JSON"],
+        "name": "workspace_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      }
+    ],
+    "validation_schema": {
+      "allOf": [
+        {
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "mutation_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "run_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "workspace_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            }
+          },
+          "required": ["workspace_id", "actor_id", "mutation_id"],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "digest": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 64
+                }
+              ],
+              "description": "Lowercase SHA256 canonical Spec digest."
+            },
+            "spec": {
+              "additionalProperties": false,
+              "properties": {
+                "nodes": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "alias": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 96
+                          }
+                        ],
+                        "description": "Literal ASCII graph or parameter name."
+                      },
+                      "allowed_actor_ids": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "allOf": [
+                                    {
+                                      "allOf": [
+                                        {
+                                          "type": "string",
+                                          "x-maxUtf8Bytes": 96
+                                        }
+                                      ],
+                                      "description": "Validated entity ID."
+                                    },
+                                    {
+                                      "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "maxLength": 97,
+                                  "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              ],
+                              "description": "Literal entity ID or $alias resolved within transaction.apply."
+                            },
+                            "maxItems": 100,
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "capabilities": {
+                        "items": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Nonblank bounded UTF-8 text."
+                        },
+                        "maxItems": 100,
+                        "type": "array"
+                      },
+                      "depends_on": {
+                        "items": {
+                          "allOf": [
+                            {
+                              "type": "string",
+                              "x-maxUtf8Bytes": 96
+                            }
+                          ],
+                          "description": "Literal ASCII graph or parameter name."
+                        },
+                        "maxItems": 127,
+                        "type": "array"
+                      },
+                      "description": {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 65536
+                      },
+                      "parent": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "type": "string",
+                                "x-maxUtf8Bytes": 96
+                              }
+                            ],
+                            "description": "Literal ASCII graph or parameter name."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "reviewers": {
+                        "items": {
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "actor_id": {
+                                  "anyOf": [
+                                    {
+                                      "allOf": [
+                                        {
+                                          "allOf": [
+                                            {
+                                              "type": "string",
+                                              "x-maxUtf8Bytes": 96
+                                            }
+                                          ],
+                                          "description": "Validated ASCII identifier."
+                                        },
+                                        {
+                                          "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "maxLength": 97,
+                                      "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  ],
+                                  "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                },
+                                "kind": {
+                                  "const": "actor",
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["kind", "actor_id"],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "role",
+                                  "type": "string"
+                                },
+                                "member_ids": {
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "allOf": [
+                                          {
+                                            "allOf": [
+                                              {
+                                                "type": "string",
+                                                "x-maxUtf8Bytes": 96
+                                              }
+                                            ],
+                                            "description": "Validated ASCII identifier."
+                                          },
+                                          {
+                                            "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "maxLength": 97,
+                                        "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    ],
+                                    "description": "Literal entity ID or $alias resolved within transaction.apply."
+                                  },
+                                  "maxItems": 100,
+                                  "type": "array"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "x-maxUtf8Bytes": 96
+                                }
+                              },
+                              "required": ["kind", "name", "member_ids"],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        "maxItems": 100,
+                        "type": "array"
+                      },
+                      "separate_actor": {
+                        "type": "boolean"
+                      },
+                      "title": {
+                        "allOf": [
+                          {
+                            "type": "string",
+                            "x-maxUtf8Bytes": 512
+                          }
+                        ],
+                        "description": "Nonblank bounded UTF-8 text."
+                      }
+                    },
+                    "required": [
+                      "alias",
+                      "title",
+                      "description",
+                      "depends_on",
+                      "parent",
+                      "capabilities",
+                      "allowed_actor_ids",
+                      "reviewers",
+                      "separate_actor"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 127,
+                  "type": "array"
+                },
+                "parameters": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "type": "string",
+                        "x-maxUtf8Bytes": 96
+                      }
+                    ],
+                    "description": "Literal ASCII graph or parameter name."
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                }
+              },
+              "required": ["parameters", "nodes"],
+              "type": "object"
+            },
+            "template_id": {
+              "anyOf": [
+                {
+                  "allOf": [
+                    {
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "x-maxUtf8Bytes": 96
+                        }
+                      ],
+                      "description": "Validated entity ID."
+                    },
+                    {
+                      "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "maxLength": 97,
+                  "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ],
+              "description": "Literal entity ID or $alias resolved within transaction.apply."
+            },
+            "template_revision": {
+              "allOf": [
+                {
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-maximumDecimal": "4611686018427387903"
+                }
+              ],
+              "description": "Positive version or attempt limit."
+            }
+          },
+          "required": ["template_id", "template_revision", "digest", "spec"],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  },
+  "template.instantiate": {
+    "fields": [
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "actor_id", "JSON"],
+        "name": "actor_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "instance_id", "JSON"],
+        "name": "instance_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "milestone_id", "JSON"],
+        "name": "milestone_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "mutation_id", "JSON"],
+        "name": "mutation_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "parameters", "JSON"],
+        "name": "parameters",
+        "requirement": "required",
+        "schema": {
+          "additionalProperties": {
+            "type": "string",
+            "x-maxUtf8Bytes": 16384
+          },
+          "maxProperties": 32,
+          "propertyNames": {
+            "type": "string",
+            "x-maxUtf8Bytes": 96
+          },
+          "type": "object"
+        },
+        "summary": "object"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "parent_ticket_id", "JSON"],
+        "name": "parent_ticket_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "project_id", "JSON"],
+        "name": "project_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "run_id", "JSON"],
+        "name": "run_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "template_id", "JSON"],
+        "name": "template_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "template_revision", "JSON"],
+        "name": "template_revision",
+        "requirement": "required",
+        "schema": {
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-maximumDecimal": "4611686018427387903"
+        },
+        "summary": "string; pattern=\"^(0|[1-9][0-9]*)(?![\\\\s\\\\S])\"; decimal 0..\"4611686018427387903\""
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "workspace_id", "JSON"],
+        "name": "workspace_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      }
+    ],
+    "validation_schema": {
+      "allOf": [
+        {
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "mutation_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "run_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "workspace_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            }
+          },
+          "required": ["workspace_id", "actor_id", "mutation_id"],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "instance_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "milestone_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "parameters": {
+              "additionalProperties": {
+                "type": "string",
+                "x-maxUtf8Bytes": 16384
+              },
+              "maxProperties": 32,
+              "propertyNames": {
+                "type": "string",
+                "x-maxUtf8Bytes": 96
+              },
+              "type": "object"
+            },
+            "parent_ticket_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "project_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "template_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "template_revision": {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          },
+          "required": ["template_id", "template_revision", "instance_id", "parameters"],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  },
+  "ticket.create": {
+    "fields": [
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "actor_id", "JSON"],
+        "name": "actor_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [],
+        "json_argument": ["--json-field", "description", "JSON"],
+        "name": "description",
+        "requirement": "optional",
+        "schema": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536
+        },
+        "summary": "string; max UTF-8 bytes=65536"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "milestone_id", "JSON"],
+        "name": "milestone_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "mutation_id", "JSON"],
+        "name": "mutation_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "parent_ticket_id", "JSON"],
+        "name": "parent_ticket_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "project_id", "JSON"],
+        "name": "project_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "run_id", "JSON"],
+        "name": "run_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      },
+      {
+        "descriptions": [
+          "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        ],
+        "json_argument": ["--json-field", "ticket_id", "JSON"],
+        "name": "ticket_id",
+        "requirement": "optional",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 97
+            }
+          ],
+          "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+        },
+        "summary": "string; max UTF-8 bytes=97"
+      },
+      {
+        "descriptions": ["Nonblank title."],
+        "json_argument": ["--json-field", "title", "JSON"],
+        "name": "title",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 512
+            }
+          ],
+          "description": "Nonblank title."
+        },
+        "summary": "string; max UTF-8 bytes=512"
+      },
+      {
+        "descriptions": ["1..96 ASCII letters, digits, underscores or hyphens"],
+        "json_argument": ["--json-field", "workspace_id", "JSON"],
+        "name": "workspace_id",
+        "requirement": "required",
+        "schema": {
+          "allOf": [
+            {
+              "type": "string",
+              "x-maxUtf8Bytes": 96
+            }
+          ],
+          "description": "1..96 ASCII letters, digits, underscores or hyphens"
+        },
+        "summary": "string; max UTF-8 bytes=96"
+      }
+    ],
+    "validation_schema": {
+      "allOf": [
+        {
+          "properties": {
+            "actor_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "mutation_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "run_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            },
+            "workspace_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 96
+                }
+              ],
+              "description": "1..96 ASCII letters, digits, underscores or hyphens"
+            }
+          },
+          "required": ["workspace_id", "actor_id", "mutation_id"],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "description": {
+              "type": "string",
+              "x-maxUtf8Bytes": 65536
+            },
+            "milestone_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "parent_ticket_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "project_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "ticket_id": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 97
+                }
+              ],
+              "description": "Opaque ID, or $alias within transaction.apply; aliases resolve before command preparation."
+            },
+            "title": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "x-maxUtf8Bytes": 512
+                }
+              ],
+              "description": "Nonblank title."
+            }
+          },
+          "required": ["title"],
+          "type": "object"
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

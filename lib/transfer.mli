@@ -19,6 +19,17 @@ module Upload_plan : sig
       Pure: reads no source and generates no identity. The plan itself and its
       optional later ticket link are not finish-upload commit evidence. *)
   val finish_request : t -> Protocol.Request.t
+
+  (** Pure optional ticket-link request, preserving native exact identity/guard.
+      Validate a complete durable finish publication against this plan's resource,
+      content digest/size, publisher, filename and MIME before deriving the guard.
+      The caller must separately verify the exact saved receipt request hash;
+      this function does not authenticate a response's mutation identity. No
+      source read, network operation or identity generation. *)
+  val link_request
+    :  t
+    -> publication:Api_response.t
+    -> (Protocol.Request.t option, Problem.t) Result.t
 end
 
 (** Abort only the saved plan's actor-owned staging. Guard supplied context scope
@@ -43,6 +54,18 @@ module Upload_result : sig
     -> saved_request:string option
     -> Jsonaf.t
 end
+
+(** Publish only the resource using the exact saved upload/finish identities.
+    Checks the durable finish receipt before touching source bytes, so an exact
+    retry can finish after source removal. Does not execute the optional ticket
+    link. The caller owns that separate explicit mutation and must retain known
+    publication before invoking it. Same source verification, cancellation and
+    expected I/O/uncertain error contracts as [upload]; no implicit retry. *)
+val upload_publication
+  :  Upload_plan.t
+  -> client:Client.t
+  -> fs:_ Eio.Path.t
+  -> (Jsonaf.t, Problem.t) Result.t
 
 (** Optional ticket_id is frozen in the saved upload plan. After durable finish,
     link using a deterministic separate mutation and the finish entity guard.

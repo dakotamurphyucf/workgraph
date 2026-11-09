@@ -1,0 +1,16 @@
+(library
+ (name workgraph_ui)
+ (public_name workgraph-ui)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true))
+ (libraries
+  workgraph
+  core
+  base64
+  eio
+  eio.unix
+  cohttp
+  cohttp-eio
+  workgraph_ui_assets)
+ (preprocess
+  (pps ppx_jane)))

@@ -1,0 +1,668 @@
+/* Saved views shares Overview's readable surfaces. Library, draft and results
+   stay mounted separately so navigation never discards work. */
+.wg-content[data-view="saved"] {
+  padding: 0;
+}
+.wg-custom-editor {
+  --wg-text: #f4f5fa;
+  --wg-secondary: #c8cfdd;
+  --wg-muted: #aeb9cc;
+  --wg-app: #111318;
+  --wg-panel: #1c2028;
+  --wg-raised: #252b35;
+  --wg-border: #3c4554;
+  --wg-accent: #a1a8ff;
+  --wg-success: #7de4aa;
+  --wg-warning: #ffb86e;
+  --sv-blue: #91baff;
+  --sv-purple: #c4a3ff;
+  display: grid;
+  min-width: 0;
+  color: var(--wg-text);
+  background: var(--wg-app);
+  font-size: 15px;
+  line-height: 1.55;
+}
+[data-theme="light"] .wg-custom-editor {
+  --wg-text: #202635;
+  --wg-secondary: #455168;
+  --wg-muted: #5c687b;
+  --wg-app: #f7f8fc;
+  --wg-panel: #fff;
+  --wg-raised: #f1f4f9;
+  --wg-border: #cbd3df;
+  --wg-accent: #5550bd;
+  --wg-success: #187749;
+  --wg-warning: #9a560c;
+  --sv-blue: #2c61b5;
+  --sv-purple: #764ab8;
+}
+.wg-custom-editor p {
+  line-height: 1.65;
+}
+.wg-custom-editor .wg-hint {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--wg-secondary);
+}
+.wg-custom-editor code {
+  overflow-wrap: anywhere;
+}
+.wg-custom-editor .wg-button {
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.wg-custom-editor .wg-button svg {
+  width: 17px;
+  height: 17px;
+}
+.wg-custom-editor .wg-button--primary {
+  background: color-mix(in srgb, var(--wg-accent) 24%, var(--wg-panel));
+  color: var(--wg-text);
+  border-color: var(--wg-accent);
+}
+.wg-custom-editor .wg-field {
+  min-width: 0;
+  font-size: 14px;
+}
+.wg-custom-editor :is(input:not([type="checkbox"]), select, textarea) {
+  font-size: 15px;
+  border-radius: 10px;
+  border-color: var(--wg-border);
+  background: var(--wg-raised);
+  color: var(--wg-text);
+}
+.wg-custom-editor textarea {
+  display: block;
+  width: 100%;
+  min-height: 14rem;
+  resize: vertical;
+  font-family: var(--font-mono, monospace);
+  padding: 16px;
+  border: 1px solid var(--wg-border);
+  margin-top: 8px;
+}
+.wg-custom-editor input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--wg-accent);
+}
+.wg-custom-editor details {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--wg-border);
+  border-radius: 14px;
+  background: var(--wg-panel);
+}
+.wg-custom-editor summary {
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 15px;
+  color: var(--sv-blue);
+}
+.wg-custom-editor details[open] > summary {
+  margin-bottom: 16px;
+}
+.wg-custom-editor :is(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--wg-accent);
+  outline-offset: 3px;
+}
+.sv-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 22px 28px;
+  border-bottom: 1px solid var(--wg-border);
+  background: var(--wg-panel);
+}
+.sv-heading h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 21px;
+  margin: 0;
+}
+.sv-heading h1 svg {
+  width: 24px;
+  height: 24px;
+  color: var(--sv-purple);
+}
+.sv-heading > .wg-toolbar {
+  margin-left: auto;
+  gap: 10px;
+}
+.sv-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 18px 28px 0;
+}
+.sv-tabs .wg-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  padding: 12px 18px;
+  background: var(--wg-panel);
+  color: var(--wg-secondary);
+}
+.sv-tabs .wg-button svg {
+  color: var(--sv-purple);
+}
+.sv-tabs .wg-button:nth-child(2) svg {
+  color: var(--sv-blue);
+}
+.sv-tabs .wg-button:nth-child(3) svg {
+  color: var(--wg-success);
+}
+.sv-tabs .wg-button[aria-pressed="true"] {
+  border-color: var(--wg-accent);
+  background: color-mix(in srgb, var(--wg-accent) 14%, var(--wg-panel));
+  color: var(--wg-text);
+}
+.sv-section-description {
+  padding: 18px 28px 22px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.sv-section-description strong {
+  font-size: 17px;
+}
+.sv-section-description p {
+  color: var(--wg-secondary);
+  font-size: 14px;
+  margin: 5px 0 0;
+  max-width: 950px;
+}
+.sv-section {
+  min-width: 0;
+  padding: 28px;
+  display: grid;
+  gap: 24px;
+}
+.sv-section[hidden] {
+  display: none;
+}
+.wg-custom-editor > [role="status"],
+.wg-custom-editor > section[aria-label="Private save status"] {
+  margin: 16px 28px 0;
+  padding: 14px 18px;
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  background: var(--wg-panel);
+}
+.sv-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+.sv-eyebrow {
+  color: var(--sv-purple);
+  font-size: 13px;
+  font-weight: 650;
+}
+.sv-intro h2 {
+  font-size: 26px;
+  letter-spacing: -0.5px;
+  margin: 6px 0 10px;
+}
+.sv-intro p {
+  font-size: 15px;
+  color: var(--wg-secondary);
+  max-width: 850px;
+  margin: 0;
+}
+.sv-intro > svg {
+  width: 44px;
+  height: 44px;
+  color: var(--sv-purple);
+  flex-shrink: 0;
+}
+.sv-guide {
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  overflow: hidden;
+}
+.sv-guide-heading {
+  display: flex;
+  gap: 14px;
+  padding: 20px 22px;
+  background: color-mix(in srgb, var(--sv-blue) 6%, var(--wg-panel));
+}
+.sv-guide-heading > svg {
+  width: 24px;
+  height: 24px;
+  color: var(--sv-blue);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.sv-guide h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.sv-guide p {
+  margin: 0;
+  color: var(--wg-secondary);
+  font-size: 14px;
+}
+.sv-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 20px 22px;
+  margin: 0;
+  gap: 24px;
+}
+.sv-steps strong {
+  color: var(--sv-purple);
+  display: block;
+  margin-bottom: 8px;
+}
+.sv-steps li:nth-child(2) strong {
+  color: var(--sv-blue);
+}
+.sv-steps li:nth-child(3) strong {
+  color: var(--wg-success);
+}
+.sv-guide > details {
+  border: 0;
+  border-top: 1px solid var(--wg-border);
+  border-radius: 0;
+  padding: 16px 22px;
+}
+.sv-glossary {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+.sv-glossary > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 18px;
+}
+.sv-glossary dt {
+  color: var(--sv-purple);
+  font-weight: 600;
+}
+.sv-glossary dd {
+  margin: 0;
+  color: var(--wg-secondary);
+}
+.sv-library-tools {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.sv-library-tools .wg-field {
+  width: 390px;
+  max-width: 100%;
+  margin: 0;
+}
+.wg-custom-configurations > .wg-panel,
+.sv-builder > .wg-panel,
+.sv-results > div > .wg-panel {
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  overflow: hidden;
+}
+.wg-custom-editor .wg-panel-header {
+  padding: 18px 22px;
+  background: var(--wg-raised);
+  border-bottom: 1px solid var(--wg-border);
+}
+.wg-custom-editor .wg-panel-header h2 {
+  font-size: 18px;
+}
+.wg-custom-editor .wg-panel-body {
+  padding: 22px;
+}
+.wg-custom-saved {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin: 0 0 20px;
+}
+.wg-custom-saved li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--wg-border);
+  border-radius: 14px;
+  background: var(--wg-app);
+}
+.sv-card-heading {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+.sv-card-heading > svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--sv-purple);
+}
+.sv-card-heading > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.sv-card-heading strong {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.sv-card-heading code {
+  font-size: 13px;
+  color: var(--wg-muted);
+}
+.sv-empty {
+  border: 1px dashed var(--wg-border);
+  border-radius: 14px;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--wg-secondary);
+}
+.sv-empty > svg {
+  width: 32px;
+  height: 32px;
+  color: var(--sv-purple);
+}
+.sv-empty h3 {
+  color: var(--wg-text);
+  font-size: 19px;
+}
+.sv-empty p {
+  max-width: 590px;
+  margin: 0 auto;
+}
+.sv-help {
+  display: flex;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, var(--sv-blue) 40%, var(--wg-border));
+  background: color-mix(in srgb, var(--sv-blue) 6%, var(--wg-panel));
+  padding: 18px 20px;
+  border-radius: 14px;
+  margin: 0 0 22px;
+}
+.sv-help > svg {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+  color: var(--sv-blue);
+  margin-top: 3px;
+}
+.sv-help p {
+  color: var(--wg-secondary);
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+.sv-builder .wg-toolbar[aria-label="Configuration editing"] {
+  padding: 0 0 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--wg-border);
+  gap: 10px;
+}
+.sv-builder .sv-advanced-save {
+  margin-bottom: 22px;
+}
+.wg-custom-editor .wg-custom-form {
+  max-width: none;
+  gap: 20px;
+}
+.wg-custom-editor .wg-custom-fields {
+  gap: 22px;
+}
+.wg-custom-editor .wg-custom-grid {
+  gap: 20px 24px;
+  align-items: start;
+}
+.wg-custom-editor .wg-custom-form h3 {
+  font-size: 17px;
+}
+.wg-custom-editor .wg-custom-form .sv-form-basics {
+  border: 1px solid var(--wg-border);
+  padding: 22px;
+  border-radius: 14px;
+  background: var(--wg-app);
+}
+.sv-form-basics > h3 {
+  color: var(--sv-purple);
+}
+.sv-source-help {
+  border-left: 3px solid var(--sv-blue);
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--sv-blue) 5%, var(--wg-panel));
+  color: var(--wg-secondary);
+}
+.wg-custom-editor .wg-custom-form details {
+  padding: 20px 22px;
+  border-radius: 14px;
+}
+.wg-custom-editor .wg-custom-form details > p {
+  color: var(--wg-secondary);
+  font-size: 14px;
+}
+.wg-custom-editor .wg-custom-row {
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--wg-app);
+  gap: 18px;
+}
+.wg-custom-editor .wg-custom-row legend {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--sv-purple);
+}
+.wg-custom-editor .wg-custom-rows {
+  gap: 20px;
+}
+.wg-custom-editor .wg-custom-rows > .wg-button {
+  justify-self: start;
+}
+.wg-custom-editor .wg-custom-optional {
+  gap: 12px;
+  margin: 18px 0;
+}
+.wg-custom-editor .wg-custom-optional > label {
+  color: var(--wg-text);
+}
+.wg-custom-editor .sv-choice > .wg-hint {
+  margin: 6px 0 0;
+}
+.wg-custom-editor .wg-custom-validation {
+  padding: 16px 20px;
+  border-radius: 12px;
+}
+.wg-custom-scope {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 24px;
+  align-items: start;
+  margin: 18px 0;
+}
+.wg-custom-editor .wg-dialog {
+  width: min(960px, calc(100vw - 40px));
+  max-height: calc(100dvh - 48px);
+  border-radius: 20px;
+  background: var(--wg-panel);
+  border-color: var(--wg-border);
+}
+.wg-custom-editor .wg-dialog-header {
+  padding: 20px 24px;
+  background: var(--wg-raised);
+}
+.wg-custom-editor .wg-dialog-header h2 {
+  font-size: 21px;
+}
+.wg-custom-editor .wg-dialog-body {
+  padding: 24px;
+}
+.wg-custom-editor .wg-dialog-body > section {
+  display: grid;
+  gap: 18px;
+}
+.wg-custom-editor .wg-dialog-body p {
+  margin: 0;
+  color: var(--wg-secondary);
+  font-size: 14px;
+}
+.wg-custom-editor .wg-dialog-body ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+.wg-custom-editor .wg-dialog-body li {
+  padding: 18px;
+  border: 1px solid var(--wg-border);
+  border-radius: 14px;
+}
+.wg-custom-editor .wg-dialog-body section > .wg-button {
+  justify-self: start;
+}
+.sv-result-help {
+  margin: 0 0 20px;
+  color: var(--wg-secondary);
+  font-size: 14px;
+}
+.wg-custom-editor .wg-custom-coverage {
+  font-size: 14px;
+  gap: 10px;
+  color: var(--wg-secondary);
+  padding-bottom: 20px;
+}
+.wg-custom-editor .wg-custom-coverage > strong {
+  font-size: 24px;
+  color: var(--wg-text);
+}
+.wg-custom-editor .wg-custom-coverage > span:nth-of-type(1) {
+  color: var(--sv-blue);
+}
+.wg-custom-editor .wg-custom-coverage details {
+  margin-top: 8px;
+}
+.wg-custom-editor .wg-custom-coverage dl > div {
+  padding: 8px 0;
+}
+.wg-custom-editor .wg-custom-coverage dt {
+  min-width: 150px;
+  font-weight: 600;
+}
+.wg-custom-editor .wg-custom-table-scroll {
+  border: 1px solid var(--wg-border);
+  border-radius: 14px;
+}
+.wg-custom-editor .wg-custom-table-scroll :is(th, td) {
+  padding: 14px 16px;
+  font-size: 14px;
+}
+.wg-custom-editor .wg-custom-table-scroll thead {
+  background: var(--wg-raised);
+  color: var(--sv-blue);
+}
+.wg-custom-editor .wg-custom-table-scroll caption {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.wg-custom-editor .wg-custom-card-list article {
+  border-radius: 14px;
+  padding: 18px;
+}
+.wg-custom-editor .wg-custom-group h4 {
+  font-size: 16px;
+  color: var(--sv-purple);
+}
+.wg-custom-editor .wg-custom-card-field dt {
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.wg-custom-editor .wg-custom-render-fields > div {
+  border-bottom: 1px solid var(--wg-border);
+  padding: 12px 0;
+}
+.wg-renderer-options {
+  margin-block: 8px;
+  min-width: 0;
+}
+.wg-renderer-options > summary {
+  cursor: pointer;
+  color: var(--wg-secondary);
+  font-size: 14px;
+  padding-block: 5px;
+}
+@media (max-width: 850px) {
+  .sv-heading,
+  .sv-section-description {
+    padding: 18px;
+  }
+  .sv-heading > .wg-toolbar {
+    width: 100%;
+    margin: 0;
+    flex-wrap: wrap;
+  }
+  .sv-tabs {
+    padding: 16px 18px 0;
+  }
+  .sv-section {
+    padding: 20px 16px;
+  }
+  .sv-intro > svg {
+    display: none;
+  }
+  .sv-steps {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .wg-custom-editor .wg-panel-body {
+    padding: 18px;
+  }
+  .wg-custom-editor .wg-dialog {
+    width: calc(100vw - 24px);
+  }
+  .sv-glossary > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .wg-custom-scope {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Separate advanced tasks from the last builder section without another nested shell. */
+.sv-builder .wg-panel-body > details {
+  margin-top: 22px;
+}
+.sv-source-help > p {
+  margin: 6px 0 12px;
+}
+
+.wg-custom-editor .wg-custom-group h4[data-status="done"] {
+  color: var(--sv-blue);
+}
+.wg-custom-editor .wg-custom-group h4[data-status="todo"] {
+  color: var(--wg-success);
+}
+.wg-custom-editor .wg-custom-group h4[data-status="in_progress"] {
+  color: var(--wg-warning);
+}
+.wg-custom-editor .wg-custom-group h4[data-status="canceled"] {
+  color: var(--wg-muted);
+}
+.wg-custom-editor .wg-custom-group h4[data-status]::before {
+  content: "●";
+  font-size: 11px;
+  margin-right: 8px;
+}

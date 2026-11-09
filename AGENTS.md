@@ -4,6 +4,11 @@ Read `engineering-standards.md` before changing code. Read `skills/workgraph/SKI
 using Workgraph as a tool; it describes the runtime API rather than development
 policy.
 
+Before changing UI pages, dialogs or shared presentation, read
+[`docs/ui/design-continuity.md`](docs/ui/design-continuity.md). It records the
+Overview/Manage Workspace design baseline, interaction rules and recovery checklist.
+Use the current Overview as the visual reference and preserve the user walkthrough gate.
+
 Workgraph is a standalone OCaml/Core/Eio package with its own Dune root. Use
 `./dev` and the existing pinned toolchain; never change unrelated opam switches
 or global defaults. `WORKGRAPH_OPAM_SWITCH` selects an already provisioned matching

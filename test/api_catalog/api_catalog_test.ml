@@ -13,6 +13,59 @@ let report = function
   | Error problem -> print_s [%sexp (problem.Problem.kind : Problem.kind)]
 ;;
 
+let%expect_test "amendment evidence pins validate at raw and resolved boundaries" =
+  List.iter
+    [ {|{"kind":"amendment","amendment_id":"instructions","revision":"1"}|}
+    ; {|{"kind":"amendment","amendment_id":"instructions","revision":"0"}|}
+    ; {|{"kind":"amendment","amendment_id":"invalid id","revision":"1"}|}
+    ; {|{"kind":"amendment","amendment_id":"instructions","revision":1}|}
+    ; {|{"kind":"amendment","amendment_id":"instructions","revision":"1","extra":true}|}
+    ]
+    ~f:(fun bytes ->
+      let value = parse bytes in
+      report (Api_codec.decode Evidence_request.pin value);
+      report (Api_codec.decode Evidence_wire.pin value));
+  [%expect
+    {|
+    ok
+    ok
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    Invalid_argument
+    |}]
+;;
+
+let%expect_test "public decision requests retain amendment pin reference positions" =
+  let params =
+    parse
+      {|{"workspace_id":"w","actor_id":"lead","mutation_id":"m","decision_id":"d","expected_revision":"0","scope":{"kind":"ticket","ticket_id":"task"},"title":"Reviewed instructions","rationale":{"kind":"amendment","amendment_id":"instructions","revision":"1"},"evidence":[],"affected":[],"supersedes":[]}|}
+  in
+  report (Api_catalog.validate_request ~method_:"decision.put" ~params |> Option.value_exn);
+  report
+    (Api_codec.decode
+       Evidence_request.pin
+       (parse {|{"kind":"amendment","amendment_id":"$instructions","revision":"1"}|}));
+  report
+    (Api_codec.decode
+       Evidence_request.pin
+       (parse
+          {|{"kind":"amendment","amendment_id":"instructions","revision":"$revision"}|}));
+  let schema = Api_codec.schema Evidence_request.pin |> Json.canonical in
+  print_s [%sexp (String.is_substring schema ~substring:{|"const":"amendment"|} : bool)];
+  [%expect
+    {|
+    ok
+    ok
+    Invalid_argument
+    true
+    |}]
+;;
+
 let%expect_test "heartbeat contracts separate advisory writes from durable mutations" =
   let request = Api_method.request_codec Heartbeat_api.observe in
   List.iter

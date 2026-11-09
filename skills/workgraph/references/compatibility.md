@@ -1,11 +1,11 @@
 # Match binaries, APIs and stored formats
 
-Workgraph supports one current schema per representation. Package 0.7.0 uses
+Workgraph supports one current schema per representation. The 0.8.0 release retains the representations introduced in package 0.7.0:
 application API 0.7, workspace/export format 6, history batch format 2 and saved
 upload plan 2. Registry and planning transaction/event formats remain 5; planning
 and history heads remain 1. Independent identifiers do not need to match.
 
-This release changes stored history metadata and public read views. Normal daemon
+The 0.7.0 release changed stored history metadata and public read views. Normal daemon
 startup, registration and restore do not convert older formats. The explicit
 [offline migration helper](migration.md) accepts only the released 0.6.2 workspace
 representation and writes a new root while preserving its source. Resolve uncertain

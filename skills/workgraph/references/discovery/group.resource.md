@@ -18,7 +18,7 @@ Resources retain text or binary content with metadata revisions and immutable co
 | [resource.brief](../api/resource.brief.md) | method | You need to triage a document or artifact before fetching its full metadata or content. |
 | [resource.finish_upload](../api/resource.finish_upload.md) | method | All upload chunks are present and must become durable addressable content. |
 | [resource.get](../api/resource.get.md) | method | You need the metadata guard or an exact content pin before reading or updating a resource. |
-| [resource.history](../api/resource.history.md) | method | You need to trace artifact changes while distinguishing metadata revisions from content versions. |
+| [resource.history](../api/resource.history.md) | method | You need publication versions in increasing order; metadata-only edits are not history entries. |
 | [resource.link](../api/resource.link.md) | method | Published evidence or context should be discoverable from the relevant work. |
 | [resource.list](../api/resource.list.md) | method | You need to find documents or artifacts without loading their bytes. |
 | [resource.put_text](../api/resource.put_text.md) | method | A small document or log fits the 65536-byte text limit and needs a versioned resource. |

@@ -1,0 +1,979 @@
+{
+  "reads": [
+    {
+      "request": {
+        "connection_id": "local",
+        "generation": "1",
+        "method": "coordinator.overview",
+        "params": {
+          "workspace_id": "demo",
+          "project_id": "release",
+          "limit": "2",
+          "max_bytes": "65536"
+        },
+        "lane": "visible"
+      },
+      "raw": "{\"data\":{\"pagination\":{\"capture\":{\"captured_now_unix_ms\":\"1794078888509\"},\"complete\":false,\"consistency\":\"opaque_captured_cursor\",\"max_bytes\":\"65536\",\"next_request\":{\"id\":\"ui-read-434f049df217f0098e286f0f88615c19c27343db3c3339997d60af8d5ea58b48\",\"jsonrpc\":\"2.0\",\"method\":\"coordinator.overview\",\"params\":{\"cursor\":\"eyJjaGVja3N1bSI6IjdkNDZjYTAxYzM4NDkyMzNhZWY0YjMyNGE2OTRlYjBkZTczNTI1M2U5YmM1YTRlZTZkOTYzMDIyMjEzMWY4YjUiLCJwYXlsb2FkIjp7ImNsb2NrIjoiMTc5NDA3ODg4ODUwOSIsImZpbHRlcnMiOiJlZjI4YTkzNDBhNDY5MjE0ODVkMGMxNGIwYTEwNGQyYjM3ODI4NjJhYmZhZjlmMWQ4OTBmMzIzYTQxNDNmZTU4IiwiaGVhZCI6ImI3MGQzM2M2MjhiM2NhZWFkMmFkZWVhMzFiYzRjYTMwYWMwMjk3MmFkMDNhMWJiNTM1OTQ5NDY4NzMwNTM0YTQiLCJoZWFydGJlYXRzIjoiNGY1M2NkYTE4YzJiYWEwYzAzNTRiYjVmOWEzZWNiZTVlZDEyYWI0ZDhlMTFiYTg3M2MyZjExMTYxMjAyYjk0NSIsIm9mZnNldCI6IjIiLCJyZXZpc2lvbiI6IjEyIiwidmVyc2lvbiI6IjEiLCJ3b3Jrc3BhY2UiOiJkZW1vIn19\",\"limit\":\"2\",\"max_bytes\":\"65536\",\"project_id\":\"release\",\"workspace_id\":\"demo\"},\"workgraph_api\":\"0.7\"},\"required_bytes\":null,\"retry_request\":null,\"returned_bytes\":\"1026\",\"stop\":\"page_limit\"},\"response\":{\"data\":{\"captured_now_unix_ms\":\"1794078888509\",\"critical_path_duration_ms\":null,\"critical_path_reason\":\"Task duration estimates are unavailable\",\"dependency_path\":null,\"dependency_path_omitted\":\"0\",\"items\":[{\"kind\":\"dependency_bottleneck\",\"metadata\":{\"waiting_count\":\"1\",\"waiting_ticket_ids\":[\"review\"]},\"source\":{\"kind\":\"ticket\",\"ticket_id\":\"build\"}},{\"kind\":\"dependency_bottleneck\",\"metadata\":{\"waiting_count\":\"1\",\"waiting_ticket_ids\":[\"build\"]},\"source\":{\"kind\":\"ticket\",\"ticket_id\":\"design\"}}],\"needs_larger_budget\":false,\"next_cursor\":\"eyJjaGVja3N1bSI6IjdkNDZjYTAxYzM4NDkyMzNhZWY0YjMyNGE2OTRlYjBkZTczNTI1M2U5YmM1YTRlZTZkOTYzMDIyMjEzMWY4YjUiLCJwYXlsb2FkIjp7ImNsb2NrIjoiMTc5NDA3ODg4ODUwOSIsImZpbHRlcnMiOiJlZjI4YTkzNDBhNDY5MjE0ODVkMGMxNGIwYTEwNGQyYjM3ODI4NjJhYmZhZjlmMWQ4OTBmMzIzYTQxNDNmZTU4IiwiaGVhZCI6ImI3MGQzM2M2MjhiM2NhZWFkMmFkZWVhMzFiYzRjYTMwYWMwMjk3MmFkMDNhMWJiNTM1OTQ5NDY4NzMwNTM0YTQiLCJoZWFydGJlYXRzIjoiNGY1M2NkYTE4YzJiYWEwYzAzNTRiYjVmOWEzZWNiZTVlZDEyYWI0ZDhlMTFiYTg3M2MyZjExMTYxMjAyYjk0NSIsIm9mZnNldCI6IjIiLCJyZXZpc2lvbiI6IjEyIiwidmVyc2lvbiI6IjEiLCJ3b3Jrc3BhY2UiOiJkZW1vIn19\",\"next_item_source\":null,\"omitted\":\"1\",\"required_bytes\":null,\"workspace_id\":\"demo\"},\"meta\":{\"workspace_revision\":\"12\"}}},\"ok\":true}",
+      "response": {
+        "data": {
+          "pagination": {
+            "capture": {
+              "captured_now_unix_ms": "1794078888509"
+            },
+            "complete": false,
+            "consistency": "opaque_captured_cursor",
+            "max_bytes": "65536",
+            "next_request": {
+              "id": "ui-read-434f049df217f0098e286f0f88615c19c27343db3c3339997d60af8d5ea58b48",
+              "jsonrpc": "2.0",
+              "method": "coordinator.overview",
+              "params": {
+                "cursor": "eyJjaGVja3N1bSI6IjdkNDZjYTAxYzM4NDkyMzNhZWY0YjMyNGE2OTRlYjBkZTczNTI1M2U5YmM1YTRlZTZkOTYzMDIyMjEzMWY4YjUiLCJwYXlsb2FkIjp7ImNsb2NrIjoiMTc5NDA3ODg4ODUwOSIsImZpbHRlcnMiOiJlZjI4YTkzNDBhNDY5MjE0ODVkMGMxNGIwYTEwNGQyYjM3ODI4NjJhYmZhZjlmMWQ4OTBmMzIzYTQxNDNmZTU4IiwiaGVhZCI6ImI3MGQzM2M2MjhiM2NhZWFkMmFkZWVhMzFiYzRjYTMwYWMwMjk3MmFkMDNhMWJiNTM1OTQ5NDY4NzMwNTM0YTQiLCJoZWFydGJlYXRzIjoiNGY1M2NkYTE4YzJiYWEwYzAzNTRiYjVmOWEzZWNiZTVlZDEyYWI0ZDhlMTFiYTg3M2MyZjExMTYxMjAyYjk0NSIsIm9mZnNldCI6IjIiLCJyZXZpc2lvbiI6IjEyIiwidmVyc2lvbiI6IjEiLCJ3b3Jrc3BhY2UiOiJkZW1vIn19",
+                "limit": "2",
+                "max_bytes": "65536",
+                "project_id": "release",
+                "workspace_id": "demo"
+              },
+              "workgraph_api": "0.7"
+            },
+            "required_bytes": null,
+            "retry_request": null,
+            "returned_bytes": "1026",
+            "stop": "page_limit"
+          },
+          "response": {
+            "data": {
+              "captured_now_unix_ms": "1794078888509",
+              "critical_path_duration_ms": null,
+              "critical_path_reason": "Task duration estimates are unavailable",
+              "dependency_path": null,
+              "dependency_path_omitted": "0",
+              "items": [
+                {
+                  "kind": "dependency_bottleneck",
+                  "metadata": {
+                    "waiting_count": "1",
+                    "waiting_ticket_ids": ["review"]
+                  },
+                  "source": {
+                    "kind": "ticket",
+                    "ticket_id": "build"
+                  }
+                },
+                {
+                  "kind": "dependency_bottleneck",
+                  "metadata": {
+                    "waiting_count": "1",
+                    "waiting_ticket_ids": ["build"]
+                  },
+                  "source": {
+                    "kind": "ticket",
+                    "ticket_id": "design"
+                  }
+                }
+              ],
+              "needs_larger_budget": false,
+              "next_cursor": "eyJjaGVja3N1bSI6IjdkNDZjYTAxYzM4NDkyMzNhZWY0YjMyNGE2OTRlYjBkZTczNTI1M2U5YmM1YTRlZTZkOTYzMDIyMjEzMWY4YjUiLCJwYXlsb2FkIjp7ImNsb2NrIjoiMTc5NDA3ODg4ODUwOSIsImZpbHRlcnMiOiJlZjI4YTkzNDBhNDY5MjE0ODVkMGMxNGIwYTEwNGQyYjM3ODI4NjJhYmZhZjlmMWQ4OTBmMzIzYTQxNDNmZTU4IiwiaGVhZCI6ImI3MGQzM2M2MjhiM2NhZWFkMmFkZWVhMzFiYzRjYTMwYWMwMjk3MmFkMDNhMWJiNTM1OTQ5NDY4NzMwNTM0YTQiLCJoZWFydGJlYXRzIjoiNGY1M2NkYTE4YzJiYWEwYzAzNTRiYjVmOWEzZWNiZTVlZDEyYWI0ZDhlMTFiYTg3M2MyZjExMTYxMjAyYjk0NSIsIm9mZnNldCI6IjIiLCJyZXZpc2lvbiI6IjEyIiwidmVyc2lvbiI6IjEiLCJ3b3Jrc3BhY2UiOiJkZW1vIn19",
+              "next_item_source": null,
+              "omitted": "1",
+              "required_bytes": null,
+              "workspace_id": "demo"
+            },
+            "meta": {
+              "workspace_revision": "12"
+            }
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "request": {
+        "connection_id": "local",
+        "generation": "1",
+        "method": "coordinator.overview",
+        "params": {
+          "cursor": "eyJjaGVja3N1bSI6IjdkNDZjYTAxYzM4NDkyMzNhZWY0YjMyNGE2OTRlYjBkZTczNTI1M2U5YmM1YTRlZTZkOTYzMDIyMjEzMWY4YjUiLCJwYXlsb2FkIjp7ImNsb2NrIjoiMTc5NDA3ODg4ODUwOSIsImZpbHRlcnMiOiJlZjI4YTkzNDBhNDY5MjE0ODVkMGMxNGIwYTEwNGQyYjM3ODI4NjJhYmZhZjlmMWQ4OTBmMzIzYTQxNDNmZTU4IiwiaGVhZCI6ImI3MGQzM2M2MjhiM2NhZWFkMmFkZWVhMzFiYzRjYTMwYWMwMjk3MmFkMDNhMWJiNTM1OTQ5NDY4NzMwNTM0YTQiLCJoZWFydGJlYXRzIjoiNGY1M2NkYTE4YzJiYWEwYzAzNTRiYjVmOWEzZWNiZTVlZDEyYWI0ZDhlMTFiYTg3M2MyZjExMTYxMjAyYjk0NSIsIm9mZnNldCI6IjIiLCJyZXZpc2lvbiI6IjEyIiwidmVyc2lvbiI6IjEiLCJ3b3Jrc3BhY2UiOiJkZW1vIn19",
+          "limit": "2",
+          "max_bytes": "65536",
+          "project_id": "release",
+          "workspace_id": "demo"
+        },
+        "lane": "visible"
+      },
+      "raw": "{\"data\":{\"pagination\":{\"capture\":{\"captured_now_unix_ms\":\"1794078888509\"},\"complete\":true,\"consistency\":\"opaque_captured_cursor\",\"max_bytes\":\"65536\",\"next_request\":null,\"required_bytes\":null,\"retry_request\":null,\"returned_bytes\":\"231\",\"stop\":\"complete\"},\"response\":{\"data\":{\"captured_now_unix_ms\":\"1794078888509\",\"critical_path_duration_ms\":null,\"critical_path_reason\":\"Task duration estimates are unavailable\",\"dependency_path\":null,\"dependency_path_omitted\":\"0\",\"items\":[{\"kind\":\"ready_work\",\"metadata\":{\"allocation_reasons\":[],\"blockers\":{\"assessment\":{\"scope\":\"graph\",\"unknown_checks\":[]},\"completion\":{\"blocked_prerequisite_count\":\"0\",\"blocked_prerequisite_ids\":[],\"can_complete\":true,\"checks\":[{\"kind\":\"hold\",\"passed\":true},{\"kind\":\"prerequisites\",\"passed\":true},{\"kind\":\"children\",\"passed\":true},{\"kind\":\"amendment_acknowledgements\",\"passed\":true},{\"kind\":\"configured_policy\",\"passed\":true}],\"policy\":{\"applied_override\":null,\"criteria\":[],\"digest\":\"e75699c4e308c2feafb8a0c9f6465b1770a4a88ca8172e78a5b4e4b774cdbc2c\",\"membership_revision\":\"1\",\"minimum_reopening_token\":null,\"ownership_token\":null,\"project_id\":\"release\",\"reviewers\":[],\"separate_actor\":false,\"sources\":[],\"stale_override\":null,\"ticket_id\":\"design\",\"validators\":[]},\"problem\":null,\"unfinished_child_count\":\"0\",\"unfinished_child_ids\":[]},\"ready\":true,\"reason_count\":\"0\",\"reasons\":[],\"reassessments\":[]},\"eligibility_scope\":\"graph\",\"title\":\"Clarify the workflow and ownership rules\"},\"source\":{\"kind\":\"ticket\",\"ticket_id\":\"design\"}}],\"needs_larger_budget\":false,\"next_cursor\":null,\"next_item_source\":null,\"omitted\":\"0\",\"required_bytes\":null,\"workspace_id\":\"demo\"},\"meta\":{\"workspace_revision\":\"12\"}}},\"ok\":true}",
+      "response": {
+        "data": {
+          "pagination": {
+            "capture": {
+              "captured_now_unix_ms": "1794078888509"
+            },
+            "complete": true,
+            "consistency": "opaque_captured_cursor",
+            "max_bytes": "65536",
+            "next_request": null,
+            "required_bytes": null,
+            "retry_request": null,
+            "returned_bytes": "231",
+            "stop": "complete"
+          },
+          "response": {
+            "data": {
+              "captured_now_unix_ms": "1794078888509",
+              "critical_path_duration_ms": null,
+              "critical_path_reason": "Task duration estimates are unavailable",
+              "dependency_path": null,
+              "dependency_path_omitted": "0",
+              "items": [
+                {
+                  "kind": "ready_work",
+                  "metadata": {
+                    "allocation_reasons": [],
+                    "blockers": {
+                      "assessment": {
+                        "scope": "graph",
+                        "unknown_checks": []
+                      },
+                      "completion": {
+                        "blocked_prerequisite_count": "0",
+                        "blocked_prerequisite_ids": [],
+                        "can_complete": true,
+                        "checks": [
+                          {
+                            "kind": "hold",
+                            "passed": true
+                          },
+                          {
+                            "kind": "prerequisites",
+                            "passed": true
+                          },
+                          {
+                            "kind": "children",
+                            "passed": true
+                          },
+                          {
+                            "kind": "amendment_acknowledgements",
+                            "passed": true
+                          },
+                          {
+                            "kind": "configured_policy",
+                            "passed": true
+                          }
+                        ],
+                        "policy": {
+                          "applied_override": null,
+                          "criteria": [],
+                          "digest": "e75699c4e308c2feafb8a0c9f6465b1770a4a88ca8172e78a5b4e4b774cdbc2c",
+                          "membership_revision": "1",
+                          "minimum_reopening_token": null,
+                          "ownership_token": null,
+                          "project_id": "release",
+                          "reviewers": [],
+                          "separate_actor": false,
+                          "sources": [],
+                          "stale_override": null,
+                          "ticket_id": "design",
+                          "validators": []
+                        },
+                        "problem": null,
+                        "unfinished_child_count": "0",
+                        "unfinished_child_ids": []
+                      },
+                      "ready": true,
+                      "reason_count": "0",
+                      "reasons": [],
+                      "reassessments": []
+                    },
+                    "eligibility_scope": "graph",
+                    "title": "Clarify the workflow and ownership rules"
+                  },
+                  "source": {
+                    "kind": "ticket",
+                    "ticket_id": "design"
+                  }
+                }
+              ],
+              "needs_larger_budget": false,
+              "next_cursor": null,
+              "next_item_source": null,
+              "omitted": "0",
+              "required_bytes": null,
+              "workspace_id": "demo"
+            },
+            "meta": {
+              "workspace_revision": "12"
+            }
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "request": {
+        "connection_id": "local",
+        "generation": "1",
+        "method": "activity.digest",
+        "params": {
+          "workspace_id": "demo",
+          "scope": {
+            "kind": "project",
+            "project_id": "release"
+          },
+          "after": "0",
+          "limit": "2",
+          "max_bytes": "65536"
+        },
+        "lane": "history"
+      },
+      "raw": "{\"data\":{\"pagination\":{\"capture\":{\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"complete\":false,\"consistency\":\"opaque_captured_cursor\",\"max_bytes\":\"65536\",\"next_request\":{\"id\":\"ui-read-63f80b8ec56c1598e6c606c9d91f5b2f4bdb48c287acb4b302a6a7f6f5ad5208\",\"jsonrpc\":\"2.0\",\"method\":\"activity.digest\",\"params\":{\"cursor\":\"eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjMifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==\",\"limit\":\"2\",\"max_bytes\":\"65536\",\"scope\":{\"kind\":\"project\",\"project_id\":\"release\"},\"workspace_id\":\"demo\"},\"workgraph_api\":\"0.7\"},\"required_bytes\":null,\"retry_request\":null,\"returned_bytes\":\"920\",\"stop\":\"page_limit\"},\"response\":{\"data\":{\"capture\":{\"after\":\"0\",\"after_change_index\":null,\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"counts\":[{\"omitted\":\"6\",\"returned\":\"2\",\"section\":\"entries\",\"total\":\"8\"},{\"omitted\":\"0\",\"returned\":\"0\",\"section\":\"outstanding_requests\",\"total\":\"0\"},{\"omitted\":\"4\",\"returned\":\"0\",\"section\":\"other_resolved_changes\",\"total\":\"4\"}],\"cursor\":\"eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjMifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==\",\"entries\":[{\"category\":\"task_changed\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"task\",\"record\":{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"display_key\":\"WG-1\",\"excluded_arrays\":{\"labels\":\"0\",\"prerequisites\":\"0\",\"reassessments\":\"0\",\"related\":\"0\",\"waivers\":\"0\"},\"hold\":null,\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"objective\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"parent_ticket_id\":null,\"priority\":\"0\",\"project_id\":\"release\",\"reopened_token\":null,\"revision\":\"1\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"design\",\"title\":\"Clarify the workflow and ownership rules\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"2\"},{\"kind\":\"ticket\",\"revision\":\"1\",\"ticket_id\":\"design\"}],\"summary\":\"task_changed: Clarify the workflow and ownership rules\"},\"workspace_revision\":\"2\"},{\"category\":\"task_changed\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"task\",\"record\":{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"display_key\":\"WG-2\",\"excluded_arrays\":{\"labels\":\"0\",\"prerequisites\":\"0\",\"reassessments\":\"0\",\"related\":\"0\",\"waivers\":\"0\"},\"hold\":null,\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"objective\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"parent_ticket_id\":null,\"priority\":\"0\",\"project_id\":\"release\",\"reopened_token\":null,\"revision\":\"1\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"build\",\"title\":\"Implement the interface — Unicode title with clear scope\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"3\"},{\"kind\":\"ticket\",\"revision\":\"1\",\"ticket_id\":\"build\"}],\"summary\":\"task_changed: Implement the interface — Unicode title with clear scope\"},\"workspace_revision\":\"3\"}],\"has_more\":true,\"outstanding_requests\":[]},\"meta\":{\"workspace_revision\":\"12\"}}},\"ok\":true}",
+      "response": {
+        "data": {
+          "pagination": {
+            "capture": {
+              "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+              "through": "12"
+            },
+            "complete": false,
+            "consistency": "opaque_captured_cursor",
+            "max_bytes": "65536",
+            "next_request": {
+              "id": "ui-read-63f80b8ec56c1598e6c606c9d91f5b2f4bdb48c287acb4b302a6a7f6f5ad5208",
+              "jsonrpc": "2.0",
+              "method": "activity.digest",
+              "params": {
+                "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjMifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+                "limit": "2",
+                "max_bytes": "65536",
+                "scope": {
+                  "kind": "project",
+                  "project_id": "release"
+                },
+                "workspace_id": "demo"
+              },
+              "workgraph_api": "0.7"
+            },
+            "required_bytes": null,
+            "retry_request": null,
+            "returned_bytes": "920",
+            "stop": "page_limit"
+          },
+          "response": {
+            "data": {
+              "capture": {
+                "after": "0",
+                "after_change_index": null,
+                "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+                "through": "12"
+              },
+              "counts": [
+                {
+                  "omitted": "6",
+                  "returned": "2",
+                  "section": "entries",
+                  "total": "8"
+                },
+                {
+                  "omitted": "0",
+                  "returned": "0",
+                  "section": "outstanding_requests",
+                  "total": "0"
+                },
+                {
+                  "omitted": "4",
+                  "returned": "0",
+                  "section": "other_resolved_changes",
+                  "total": "4"
+                }
+              ],
+              "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjMifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+              "entries": [
+                {
+                  "category": "task_changed",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "task",
+                    "record": {
+                      "acceptance_criteria": "",
+                      "archived": false,
+                      "assignee_id": null,
+                      "claim": null,
+                      "display_key": "WG-1",
+                      "excluded_arrays": {
+                        "labels": "0",
+                        "prerequisites": "0",
+                        "reassessments": "0",
+                        "related": "0",
+                        "waivers": "0"
+                      },
+                      "hold": null,
+                      "membership_revision": "1",
+                      "milestone_id": null,
+                      "next_token": "1",
+                      "objective": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                      "parent_ticket_id": null,
+                      "priority": "0",
+                      "project_id": "release",
+                      "reopened_token": null,
+                      "revision": "1",
+                      "status": "todo",
+                      "status_id": null,
+                      "ticket_id": "design",
+                      "title": "Clarify the workflow and ownership rules"
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "2"
+                      },
+                      {
+                        "kind": "ticket",
+                        "revision": "1",
+                        "ticket_id": "design"
+                      }
+                    ],
+                    "summary": "task_changed: Clarify the workflow and ownership rules"
+                  },
+                  "workspace_revision": "2"
+                },
+                {
+                  "category": "task_changed",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "task",
+                    "record": {
+                      "acceptance_criteria": "",
+                      "archived": false,
+                      "assignee_id": null,
+                      "claim": null,
+                      "display_key": "WG-2",
+                      "excluded_arrays": {
+                        "labels": "0",
+                        "prerequisites": "0",
+                        "reassessments": "0",
+                        "related": "0",
+                        "waivers": "0"
+                      },
+                      "hold": null,
+                      "membership_revision": "1",
+                      "milestone_id": null,
+                      "next_token": "1",
+                      "objective": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                      "parent_ticket_id": null,
+                      "priority": "0",
+                      "project_id": "release",
+                      "reopened_token": null,
+                      "revision": "1",
+                      "status": "todo",
+                      "status_id": null,
+                      "ticket_id": "build",
+                      "title": "Implement the interface — Unicode title with clear scope"
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "3"
+                      },
+                      {
+                        "kind": "ticket",
+                        "revision": "1",
+                        "ticket_id": "build"
+                      }
+                    ],
+                    "summary": "task_changed: Implement the interface — Unicode title with clear scope"
+                  },
+                  "workspace_revision": "3"
+                }
+              ],
+              "has_more": true,
+              "outstanding_requests": []
+            },
+            "meta": {
+              "workspace_revision": "12"
+            }
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "request": {
+        "connection_id": "local",
+        "generation": "1",
+        "method": "activity.digest",
+        "params": {
+          "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjMifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+          "limit": "2",
+          "max_bytes": "65536",
+          "scope": {
+            "kind": "project",
+            "project_id": "release"
+          },
+          "workspace_id": "demo"
+        },
+        "lane": "history"
+      },
+      "raw": "{\"data\":{\"pagination\":{\"capture\":{\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"complete\":false,\"consistency\":\"opaque_captured_cursor\",\"max_bytes\":\"65536\",\"next_request\":{\"id\":\"ui-read-55bc2a765b1aa6c3cc65af357800374bb721071a305a1b16c16fde711000fe46\",\"jsonrpc\":\"2.0\",\"method\":\"activity.digest\",\"params\":{\"cursor\":\"eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjUifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==\",\"limit\":\"2\",\"max_bytes\":\"65536\",\"scope\":{\"kind\":\"project\",\"project_id\":\"release\"},\"workspace_id\":\"demo\"},\"workgraph_api\":\"0.7\"},\"required_bytes\":null,\"retry_request\":null,\"returned_bytes\":\"920\",\"stop\":\"page_limit\"},\"response\":{\"data\":{\"capture\":{\"after\":\"3\",\"after_change_index\":\"0\",\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"counts\":[{\"omitted\":\"4\",\"returned\":\"2\",\"section\":\"entries\",\"total\":\"6\"},{\"omitted\":\"0\",\"returned\":\"0\",\"section\":\"outstanding_requests\",\"total\":\"0\"},{\"omitted\":\"3\",\"returned\":\"0\",\"section\":\"other_resolved_changes\",\"total\":\"3\"}],\"cursor\":\"eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjUifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==\",\"entries\":[{\"category\":\"task_changed\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"task\",\"record\":{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"display_key\":\"WG-3\",\"excluded_arrays\":{\"labels\":\"0\",\"prerequisites\":\"0\",\"reassessments\":\"0\",\"related\":\"0\",\"waivers\":\"0\"},\"hold\":null,\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"objective\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"parent_ticket_id\":null,\"priority\":\"0\",\"project_id\":\"release\",\"reopened_token\":null,\"revision\":\"1\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"review\",\"title\":\"Review the exact implementation and browser evidence\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"4\"},{\"kind\":\"ticket\",\"revision\":\"1\",\"ticket_id\":\"review\"}],\"summary\":\"task_changed: Review the exact implementation and browser evidence\"},\"workspace_revision\":\"4\"},{\"category\":\"task_changed\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"task\",\"record\":{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"display_key\":\"WG-2\",\"excluded_arrays\":{\"labels\":\"0\",\"prerequisites\":\"1\",\"reassessments\":\"0\",\"related\":\"0\",\"waivers\":\"0\"},\"hold\":null,\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"objective\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"parent_ticket_id\":null,\"priority\":\"0\",\"project_id\":\"release\",\"reopened_token\":null,\"revision\":\"2\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"build\",\"title\":\"Implement the interface — Unicode title with clear scope\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"5\"},{\"kind\":\"ticket\",\"revision\":\"2\",\"ticket_id\":\"build\"}],\"summary\":\"task_changed: Implement the interface — Unicode title with clear scope\"},\"workspace_revision\":\"5\"}],\"has_more\":true,\"outstanding_requests\":[]},\"meta\":{\"workspace_revision\":\"12\"}}},\"ok\":true}",
+      "response": {
+        "data": {
+          "pagination": {
+            "capture": {
+              "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+              "through": "12"
+            },
+            "complete": false,
+            "consistency": "opaque_captured_cursor",
+            "max_bytes": "65536",
+            "next_request": {
+              "id": "ui-read-55bc2a765b1aa6c3cc65af357800374bb721071a305a1b16c16fde711000fe46",
+              "jsonrpc": "2.0",
+              "method": "activity.digest",
+              "params": {
+                "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjUifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+                "limit": "2",
+                "max_bytes": "65536",
+                "scope": {
+                  "kind": "project",
+                  "project_id": "release"
+                },
+                "workspace_id": "demo"
+              },
+              "workgraph_api": "0.7"
+            },
+            "required_bytes": null,
+            "retry_request": null,
+            "returned_bytes": "920",
+            "stop": "page_limit"
+          },
+          "response": {
+            "data": {
+              "capture": {
+                "after": "3",
+                "after_change_index": "0",
+                "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+                "through": "12"
+              },
+              "counts": [
+                {
+                  "omitted": "4",
+                  "returned": "2",
+                  "section": "entries",
+                  "total": "6"
+                },
+                {
+                  "omitted": "0",
+                  "returned": "0",
+                  "section": "outstanding_requests",
+                  "total": "0"
+                },
+                {
+                  "omitted": "3",
+                  "returned": "0",
+                  "section": "other_resolved_changes",
+                  "total": "3"
+                }
+              ],
+              "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjUifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+              "entries": [
+                {
+                  "category": "task_changed",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "task",
+                    "record": {
+                      "acceptance_criteria": "",
+                      "archived": false,
+                      "assignee_id": null,
+                      "claim": null,
+                      "display_key": "WG-3",
+                      "excluded_arrays": {
+                        "labels": "0",
+                        "prerequisites": "0",
+                        "reassessments": "0",
+                        "related": "0",
+                        "waivers": "0"
+                      },
+                      "hold": null,
+                      "membership_revision": "1",
+                      "milestone_id": null,
+                      "next_token": "1",
+                      "objective": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                      "parent_ticket_id": null,
+                      "priority": "0",
+                      "project_id": "release",
+                      "reopened_token": null,
+                      "revision": "1",
+                      "status": "todo",
+                      "status_id": null,
+                      "ticket_id": "review",
+                      "title": "Review the exact implementation and browser evidence"
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "4"
+                      },
+                      {
+                        "kind": "ticket",
+                        "revision": "1",
+                        "ticket_id": "review"
+                      }
+                    ],
+                    "summary": "task_changed: Review the exact implementation and browser evidence"
+                  },
+                  "workspace_revision": "4"
+                },
+                {
+                  "category": "task_changed",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "task",
+                    "record": {
+                      "acceptance_criteria": "",
+                      "archived": false,
+                      "assignee_id": null,
+                      "claim": null,
+                      "display_key": "WG-2",
+                      "excluded_arrays": {
+                        "labels": "0",
+                        "prerequisites": "1",
+                        "reassessments": "0",
+                        "related": "0",
+                        "waivers": "0"
+                      },
+                      "hold": null,
+                      "membership_revision": "1",
+                      "milestone_id": null,
+                      "next_token": "1",
+                      "objective": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                      "parent_ticket_id": null,
+                      "priority": "0",
+                      "project_id": "release",
+                      "reopened_token": null,
+                      "revision": "2",
+                      "status": "todo",
+                      "status_id": null,
+                      "ticket_id": "build",
+                      "title": "Implement the interface — Unicode title with clear scope"
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "5"
+                      },
+                      {
+                        "kind": "ticket",
+                        "revision": "2",
+                        "ticket_id": "build"
+                      }
+                    ],
+                    "summary": "task_changed: Implement the interface — Unicode title with clear scope"
+                  },
+                  "workspace_revision": "5"
+                }
+              ],
+              "has_more": true,
+              "outstanding_requests": []
+            },
+            "meta": {
+              "workspace_revision": "12"
+            }
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "request": {
+        "connection_id": "local",
+        "generation": "1",
+        "method": "activity.digest",
+        "params": {
+          "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjUifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+          "limit": "2",
+          "max_bytes": "65536",
+          "scope": {
+            "kind": "project",
+            "project_id": "release"
+          },
+          "workspace_id": "demo"
+        },
+        "lane": "history"
+      },
+      "raw": "{\"data\":{\"pagination\":{\"capture\":{\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"complete\":false,\"consistency\":\"opaque_captured_cursor\",\"max_bytes\":\"65536\",\"next_request\":{\"id\":\"ui-read-8557995fd0638cc9892c7dc93e48289ced7d855e95d0a1b561bf53ac7948c5f1\",\"jsonrpc\":\"2.0\",\"method\":\"activity.digest\",\"params\":{\"cursor\":\"eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjcifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==\",\"limit\":\"2\",\"max_bytes\":\"65536\",\"scope\":{\"kind\":\"project\",\"project_id\":\"release\"},\"workspace_id\":\"demo\"},\"workgraph_api\":\"0.7\"},\"required_bytes\":null,\"retry_request\":null,\"returned_bytes\":\"920\",\"stop\":\"page_limit\"},\"response\":{\"data\":{\"capture\":{\"after\":\"5\",\"after_change_index\":\"0\",\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"counts\":[{\"omitted\":\"2\",\"returned\":\"2\",\"section\":\"entries\",\"total\":\"4\"},{\"omitted\":\"0\",\"returned\":\"0\",\"section\":\"outstanding_requests\",\"total\":\"0\"},{\"omitted\":\"3\",\"returned\":\"0\",\"section\":\"other_resolved_changes\",\"total\":\"3\"}],\"cursor\":\"eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjcifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==\",\"entries\":[{\"category\":\"task_changed\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"task\",\"record\":{\"acceptance_criteria\":\"\",\"archived\":false,\"assignee_id\":null,\"claim\":null,\"display_key\":\"WG-3\",\"excluded_arrays\":{\"labels\":\"0\",\"prerequisites\":\"1\",\"reassessments\":\"0\",\"related\":\"0\",\"waivers\":\"0\"},\"hold\":null,\"membership_revision\":\"1\",\"milestone_id\":null,\"next_token\":\"1\",\"objective\":\"## Acceptance\\n\\n- Preserve exact inputs\\n- Record verifiable evidence\\n\\n```ocaml\\nlet value = 42\\n```\",\"parent_ticket_id\":null,\"priority\":\"0\",\"project_id\":\"release\",\"reopened_token\":null,\"revision\":\"2\",\"status\":\"todo\",\"status_id\":null,\"ticket_id\":\"review\",\"title\":\"Review the exact implementation and browser evidence\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"6\"},{\"kind\":\"ticket\",\"revision\":\"2\",\"ticket_id\":\"review\"}],\"summary\":\"task_changed: Review the exact implementation and browser evidence\"},\"workspace_revision\":\"6\"},{\"category\":\"fact\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"fact\",\"record\":{\"actor_id\":\"fixture-author\",\"changed_at_revision\":\"7\",\"deleted\":false,\"key\":\"fixture.settings\",\"references\":[],\"revision\":\"1\",\"scope\":{\"id\":\"release\",\"kind\":\"project\"},\"timestamp\":\"2026-11-07 19:14:48.223220224Z\",\"value\":{\"exact\":9007199254740993,\"exponent\":1e99,\"negative_zero\":-0,\"nullable\":null,\"unicode\":\"雪\"},\"value_type\":\"object\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"7\"},{\"changed_at_revision\":\"7\",\"key\":\"fixture.settings\",\"kind\":\"fact\",\"revision\":\"1\",\"scope\":{\"id\":\"release\",\"kind\":\"project\"}}],\"summary\":\"Fact changed: fixture.settings\"},\"workspace_revision\":\"7\"}],\"has_more\":true,\"outstanding_requests\":[]},\"meta\":{\"workspace_revision\":\"12\"}}},\"ok\":true}",
+      "response": {
+        "data": {
+          "pagination": {
+            "capture": {
+              "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+              "through": "12"
+            },
+            "complete": false,
+            "consistency": "opaque_captured_cursor",
+            "max_bytes": "65536",
+            "next_request": {
+              "id": "ui-read-8557995fd0638cc9892c7dc93e48289ced7d855e95d0a1b561bf53ac7948c5f1",
+              "jsonrpc": "2.0",
+              "method": "activity.digest",
+              "params": {
+                "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjcifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+                "limit": "2",
+                "max_bytes": "65536",
+                "scope": {
+                  "kind": "project",
+                  "project_id": "release"
+                },
+                "workspace_id": "demo"
+              },
+              "workgraph_api": "0.7"
+            },
+            "required_bytes": null,
+            "retry_request": null,
+            "returned_bytes": "920",
+            "stop": "page_limit"
+          },
+          "response": {
+            "data": {
+              "capture": {
+                "after": "5",
+                "after_change_index": "0",
+                "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+                "through": "12"
+              },
+              "counts": [
+                {
+                  "omitted": "2",
+                  "returned": "2",
+                  "section": "entries",
+                  "total": "4"
+                },
+                {
+                  "omitted": "0",
+                  "returned": "0",
+                  "section": "outstanding_requests",
+                  "total": "0"
+                },
+                {
+                  "omitted": "3",
+                  "returned": "0",
+                  "section": "other_resolved_changes",
+                  "total": "3"
+                }
+              ],
+              "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjcifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+              "entries": [
+                {
+                  "category": "task_changed",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "task",
+                    "record": {
+                      "acceptance_criteria": "",
+                      "archived": false,
+                      "assignee_id": null,
+                      "claim": null,
+                      "display_key": "WG-3",
+                      "excluded_arrays": {
+                        "labels": "0",
+                        "prerequisites": "1",
+                        "reassessments": "0",
+                        "related": "0",
+                        "waivers": "0"
+                      },
+                      "hold": null,
+                      "membership_revision": "1",
+                      "milestone_id": null,
+                      "next_token": "1",
+                      "objective": "## Acceptance\n\n- Preserve exact inputs\n- Record verifiable evidence\n\n```ocaml\nlet value = 42\n```",
+                      "parent_ticket_id": null,
+                      "priority": "0",
+                      "project_id": "release",
+                      "reopened_token": null,
+                      "revision": "2",
+                      "status": "todo",
+                      "status_id": null,
+                      "ticket_id": "review",
+                      "title": "Review the exact implementation and browser evidence"
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "6"
+                      },
+                      {
+                        "kind": "ticket",
+                        "revision": "2",
+                        "ticket_id": "review"
+                      }
+                    ],
+                    "summary": "task_changed: Review the exact implementation and browser evidence"
+                  },
+                  "workspace_revision": "6"
+                },
+                {
+                  "category": "fact",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "fact",
+                    "record": {
+                      "actor_id": "fixture-author",
+                      "changed_at_revision": "7",
+                      "deleted": false,
+                      "key": "fixture.settings",
+                      "references": [],
+                      "revision": "1",
+                      "scope": {
+                        "id": "release",
+                        "kind": "project"
+                      },
+                      "timestamp": "2026-11-07 19:14:48.223220224Z",
+                      "value": {
+                        "exact": 9007199254740992,
+                        "exponent": 1e99,
+                        "negative_zero": 0,
+                        "nullable": null,
+                        "unicode": "雪"
+                      },
+                      "value_type": "object"
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "7"
+                      },
+                      {
+                        "changed_at_revision": "7",
+                        "key": "fixture.settings",
+                        "kind": "fact",
+                        "revision": "1",
+                        "scope": {
+                          "id": "release",
+                          "kind": "project"
+                        }
+                      }
+                    ],
+                    "summary": "Fact changed: fixture.settings"
+                  },
+                  "workspace_revision": "7"
+                }
+              ],
+              "has_more": true,
+              "outstanding_requests": []
+            },
+            "meta": {
+              "workspace_revision": "12"
+            }
+          }
+        },
+        "ok": true
+      }
+    },
+    {
+      "request": {
+        "connection_id": "local",
+        "generation": "1",
+        "method": "activity.digest",
+        "params": {
+          "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsiY2hhbmdlX2luZGV4IjoiMCIsImtpbmQiOiJjaGFuZ2UiLCJyZXZpc2lvbiI6IjcifSwic2NvcGVfaGFzaCI6ImU3N2RkOTQxNGIxMmQ4YWJmMzYxMDM5Nzk3Nzg3ZTRiODI2YjQzYWNiYjFjZTg4YmRiN2NkYzc4MjYyMmE4NTgiLCJ0aHJvdWdoIjoiMTIiLCJ2ZXJzaW9uIjoiMSIsIndvcmtzcGFjZV9pZCI6ImRlbW8ifQ==",
+          "limit": "2",
+          "max_bytes": "65536",
+          "scope": {
+            "kind": "project",
+            "project_id": "release"
+          },
+          "workspace_id": "demo"
+        },
+        "lane": "history"
+      },
+      "raw": "{\"data\":{\"pagination\":{\"capture\":{\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"complete\":true,\"consistency\":\"opaque_captured_cursor\",\"max_bytes\":\"65536\",\"next_request\":null,\"required_bytes\":null,\"retry_request\":null,\"returned_bytes\":\"284\",\"stop\":\"complete\"},\"response\":{\"data\":{\"capture\":{\"after\":\"7\",\"after_change_index\":\"0\",\"lineage\":\"1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562\",\"through\":\"12\"},\"counts\":[{\"omitted\":\"0\",\"returned\":\"2\",\"section\":\"entries\",\"total\":\"2\"},{\"omitted\":\"0\",\"returned\":\"0\",\"section\":\"outstanding_requests\",\"total\":\"0\"},{\"omitted\":\"3\",\"returned\":\"0\",\"section\":\"other_resolved_changes\",\"total\":\"3\"}],\"cursor\":\"eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsia2luZCI6InJldmlzaW9uIiwicmV2aXNpb24iOiIxMiJ9LCJzY29wZV9oYXNoIjoiZTc3ZGQ5NDE0YjEyZDhhYmYzNjEwMzk3OTc3ODdlNGI4MjZiNDNhY2JiMWNlODhiZGI3Y2RjNzgyNjIyYTg1OCIsInRocm91Z2giOiIxMiIsInZlcnNpb24iOiIxIiwid29ya3NwYWNlX2lkIjoiZGVtbyJ9\",\"entries\":[{\"category\":\"resource\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"resource\",\"record\":{\"current_version\":{\"actor_id\":\"fixture-author\",\"digest\":\"0ecdf29f132437190d1348eb432989d377d7c8e1a081e606645e07a0d4a0e0e5\",\"filename\":\"notes.md\",\"mime_type\":\"text/markdown\",\"revision\":\"1\",\"size_bytes\":\"81\",\"timestamp\":\"2026-11-07 19:14:48.249375232Z\"},\"metadata\":{\"archived\":false,\"description\":\"\",\"filename\":\"notes.md\",\"mime_type\":\"text/markdown\",\"targets\":[{\"id\":\"release\",\"kind\":\"project\"}],\"title\":\"Implementation notes\"},\"resource_id\":\"notes\",\"revision\":\"2\",\"version_count\":\"1\"},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"9\"},{\"kind\":\"resource_version\",\"resource\":{\"digest\":\"0ecdf29f132437190d1348eb432989d377d7c8e1a081e606645e07a0d4a0e0e5\",\"resource_id\":\"notes\",\"revision\":\"1\"}}],\"summary\":\"Resource changed: Implementation notes\"},\"workspace_revision\":\"9\"},{\"category\":\"progress\",\"change_index\":\"0\",\"item\":{\"clipped_fields\":[],\"kind\":\"comment\",\"record\":{\"actor_id\":\"fixture-author\",\"author_id\":\"fixture-author\",\"body\":\"Synthetic discussion content for browser qualification.\",\"comment_id\":\"comment_12_1\",\"created_at\":\"2026-11-07 19:14:48.350074112Z\",\"kind\":\"comment\",\"origin\":\"authored\",\"reply_to_comment_id\":null,\"revision\":\"1\",\"sequence\":\"12\",\"serial\":\"1\",\"target\":{\"id\":\"release\",\"kind\":\"project\"},\"timestamp\":\"2026-11-07 19:14:48.350074112Z\",\"tombstone\":false},\"sources\":[{\"change_index\":\"0\",\"kind\":\"planning_change\",\"workspace_revision\":\"12\"},{\"comment_id\":\"comment_12_1\",\"kind\":\"comment\",\"revision\":\"1\",\"sequence\":\"12\"}],\"summary\":\"progress comment comment_12_1\"},\"workspace_revision\":\"12\"}],\"has_more\":false,\"outstanding_requests\":[]},\"meta\":{\"workspace_revision\":\"12\"}}},\"ok\":true}",
+      "response": {
+        "data": {
+          "pagination": {
+            "capture": {
+              "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+              "through": "12"
+            },
+            "complete": true,
+            "consistency": "opaque_captured_cursor",
+            "max_bytes": "65536",
+            "next_request": null,
+            "required_bytes": null,
+            "retry_request": null,
+            "returned_bytes": "284",
+            "stop": "complete"
+          },
+          "response": {
+            "data": {
+              "capture": {
+                "after": "7",
+                "after_change_index": "0",
+                "lineage": "1d103d93da70959612f1e55d699fa67038252539f60dc363d39e2c134dddc562",
+                "through": "12"
+              },
+              "counts": [
+                {
+                  "omitted": "0",
+                  "returned": "2",
+                  "section": "entries",
+                  "total": "2"
+                },
+                {
+                  "omitted": "0",
+                  "returned": "0",
+                  "section": "outstanding_requests",
+                  "total": "0"
+                },
+                {
+                  "omitted": "3",
+                  "returned": "0",
+                  "section": "other_resolved_changes",
+                  "total": "3"
+                }
+              ],
+              "cursor": "eyJhbmNob3IiOiIxZDEwM2Q5M2RhNzA5NTk2MTJmMWU1NWQ2OTlmYTY3MDM4MjUyNTM5ZjYwZGMzNjNkMzllMmMxMzRkZGRjNTYyIiwicG9zaXRpb24iOnsia2luZCI6InJldmlzaW9uIiwicmV2aXNpb24iOiIxMiJ9LCJzY29wZV9oYXNoIjoiZTc3ZGQ5NDE0YjEyZDhhYmYzNjEwMzk3OTc3ODdlNGI4MjZiNDNhY2JiMWNlODhiZGI3Y2RjNzgyNjIyYTg1OCIsInRocm91Z2giOiIxMiIsInZlcnNpb24iOiIxIiwid29ya3NwYWNlX2lkIjoiZGVtbyJ9",
+              "entries": [
+                {
+                  "category": "resource",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "resource",
+                    "record": {
+                      "current_version": {
+                        "actor_id": "fixture-author",
+                        "digest": "0ecdf29f132437190d1348eb432989d377d7c8e1a081e606645e07a0d4a0e0e5",
+                        "filename": "notes.md",
+                        "mime_type": "text/markdown",
+                        "revision": "1",
+                        "size_bytes": "81",
+                        "timestamp": "2026-11-07 19:14:48.249375232Z"
+                      },
+                      "metadata": {
+                        "archived": false,
+                        "description": "",
+                        "filename": "notes.md",
+                        "mime_type": "text/markdown",
+                        "targets": [
+                          {
+                            "id": "release",
+                            "kind": "project"
+                          }
+                        ],
+                        "title": "Implementation notes"
+                      },
+                      "resource_id": "notes",
+                      "revision": "2",
+                      "version_count": "1"
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "9"
+                      },
+                      {
+                        "kind": "resource_version",
+                        "resource": {
+                          "digest": "0ecdf29f132437190d1348eb432989d377d7c8e1a081e606645e07a0d4a0e0e5",
+                          "resource_id": "notes",
+                          "revision": "1"
+                        }
+                      }
+                    ],
+                    "summary": "Resource changed: Implementation notes"
+                  },
+                  "workspace_revision": "9"
+                },
+                {
+                  "category": "progress",
+                  "change_index": "0",
+                  "item": {
+                    "clipped_fields": [],
+                    "kind": "comment",
+                    "record": {
+                      "actor_id": "fixture-author",
+                      "author_id": "fixture-author",
+                      "body": "Synthetic discussion content for browser qualification.",
+                      "comment_id": "comment_12_1",
+                      "created_at": "2026-11-07 19:14:48.350074112Z",
+                      "kind": "comment",
+                      "origin": "authored",
+                      "reply_to_comment_id": null,
+                      "revision": "1",
+                      "sequence": "12",
+                      "serial": "1",
+                      "target": {
+                        "id": "release",
+                        "kind": "project"
+                      },
+                      "timestamp": "2026-11-07 19:14:48.350074112Z",
+                      "tombstone": false
+                    },
+                    "sources": [
+                      {
+                        "change_index": "0",
+                        "kind": "planning_change",
+                        "workspace_revision": "12"
+                      },
+                      {
+                        "comment_id": "comment_12_1",
+                        "kind": "comment",
+                        "revision": "1",
+                        "sequence": "12"
+                      }
+                    ],
+                    "summary": "progress comment comment_12_1"
+                  },
+                  "workspace_revision": "12"
+                }
+              ],
+              "has_more": false,
+              "outstanding_requests": []
+            },
+            "meta": {
+              "workspace_revision": "12"
+            }
+          }
+        },
+        "ok": true
+      }
+    }
+  ],
+  "cleanup": {
+    "companion": {
+      "capturedAt": "2026-11-07T19:14:48.563Z",
+      "startedAt": "2026-11-07T19:14:48.422Z",
+      "disposeStartedAt": "2026-11-07T19:14:48.531Z",
+      "exit": {
+        "at": "2026-11-07T19:14:48.532Z",
+        "code": null,
+        "signal": "SIGTERM"
+      },
+      "stdoutTail": "{\"api_prefix\":\"/ui-api/v1\",\"asset_manifest_sha256\":\"0f1fdf7225366da8b59c9a71e505100ff91a2f7f63d425732939e88c7d0d378b\",\"event\":\"ready\",\"format\":\"workgraph-ui-ready-1\",\"host\":\"127.0.0.1\",\"port\":\"57999\",\"state_root\":\"/private/tmp/wgui-ui-d8zz1i\",\"url\":\"http://127.0.0.1:57999/\"}\n",
+      "stderrTail": ""
+    },
+    "daemon": {
+      "capturedAt": "2026-11-07T19:14:48.563Z",
+      "startedAt": "2026-11-07T19:14:47.894Z",
+      "disposeStartedAt": "2026-11-07T19:14:48.533Z",
+      "exit": {
+        "at": "2026-11-07T19:14:48.560Z",
+        "code": 0,
+        "signal": null
+      },
+      "stdoutTail": "",
+      "stderrTail": "workgraph daemon starting registry=\"/tmp/wgui-reQ8Hs/registry\" socket=\"/tmp/wgui-reQ8Hs/s\"\nworkgraph daemon ready registry=\"/tmp/wgui-reQ8Hs/registry\" socket=\"/tmp/wgui-reQ8Hs/s\"\nworkgraph daemon shutdown complete registry=\"/tmp/wgui-reQ8Hs/registry\" socket=\"/tmp/wgui-reQ8Hs/s\"\n"
+    }
+  }
+}

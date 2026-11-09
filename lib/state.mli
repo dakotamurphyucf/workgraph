@@ -97,6 +97,11 @@ val prepare_submission
   -> timestamp:string
   -> (Submission.t, Problem.t) Result.t
 
+(** Exact native expanded count from preparation's limit-enforcement accumulator.
+    This is not the source-command or emitted-event count. Existing template
+    instances count one; fresh instances include their staged native expansion. *)
+val expanded_operation_count : prepared -> int
+
 val candidate : prepared -> t
 val events : prepared -> Jsonaf.t
 val result : prepared -> Jsonaf.t

@@ -1,0 +1,51 @@
+(library
+ (name workgraph_ui_tests)
+ (modules
+  state_tests
+  view_settings_test
+  rpc_tests
+  rpc_socket_test
+  http_tests
+  http_socket_test
+  daemon_launcher_test
+  admin_jobs_test
+  template_helper_test
+  wait_helper_tests
+  transfer_helper_tests
+  execution_helper_test
+  request_observer_tests)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true))
+ (libraries workgraph-ui core eio_main expect_test_helpers_core)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_expect)))
+
+(test
+ (name state_process_test)
+ (modules state_process_test)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true))
+ (libraries workgraph-ui workgraph core eio_main)
+ (preprocess
+  (pps ppx_jane)))
+
+(rule
+ (alias runtest)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true))
+ (deps ../../../test/bootstrap/daemon_launch.py)
+ (action
+  (run
+   python3
+   %{dep:../../../test/bootstrap/daemon_launch.py}
+   %{exe:../bin/main.exe}
+   %{exe:../../../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (enabled_if
+  (= %{env:WORKGRAPH_UI_BUILD=false} true))
+ (deps port_restart.py)
+ (action
+  (run python3 %{dep:port_restart.py} %{exe:../bin/main.exe})))

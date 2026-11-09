@@ -1,0 +1,171 @@
+.wg-rich-viewer,
+.wg-resource-rich {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.wg-rich-viewer details,
+.wg-resource-comparison {
+  border-top: 1px solid var(--wg-border);
+  padding-top: 12px;
+}
+.wg-json-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 30px;
+  border-bottom: 1px solid var(--wg-border);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.wg-json-row .wg-button {
+  padding: 2px 6px;
+  min-height: 24px;
+}
+.wg-json-spacer {
+  width: 25px;
+  flex-shrink: 0;
+}
+.wg-json-name {
+  color: var(--wg-text);
+  max-width: 45%;
+  flex: 0 1 auto;
+}
+.wg-json-value {
+  flex: 1 1 0;
+  min-width: 0;
+  font-family: var(--font-mono, monospace);
+  white-space: pre-wrap;
+}
+.wg-json-value--number,
+.wg-json-value--boolean {
+  color: var(--wg-accent);
+}
+.wg-json-type {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--wg-muted);
+  font-size: 11px;
+  padding-right: 8px;
+}
+.wg-comparison-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.wg-comparison-pin {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  background: var(--wg-raised);
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wg-comparison-pin span {
+  font-size: 12px;
+  color: var(--wg-muted);
+}
+.wg-comparison-pin code {
+  font-size: 11px;
+}
+.wg-text-diff {
+  font-size: 12px;
+  overflow: auto;
+  max-height: 600px;
+}
+.wg-diff-row {
+  display: grid;
+  grid-template-columns: 40px 40px 20px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 22px;
+  padding: 2px 8px;
+}
+.wg-diff-row > span {
+  color: var(--wg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.wg-diff-row code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wg-diff-row--added {
+  background: color-mix(in srgb, #36b981 14%, transparent);
+}
+.wg-diff-row--removed {
+  background: color-mix(in srgb, #ed6e78 14%, transparent);
+}
+.wg-json-change {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--wg-border);
+  overflow-wrap: anywhere;
+}
+.wg-json-change span {
+  grid-column: 1/-1;
+  font-family: var(--font-mono, monospace);
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+.wg-raster {
+  min-width: 0;
+}
+.wg-raster-viewport {
+  overflow: auto;
+  max-height: 480px;
+  min-height: 120px;
+  padding: 16px;
+  background-color: #ddd;
+  background-image:
+    linear-gradient(45deg, #bbb 25%, transparent 25%),
+    linear-gradient(-45deg, #bbb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #bbb 75%),
+    linear-gradient(-45deg, transparent 75%, #bbb 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+.wg-raster-viewport:focus-visible {
+  outline: 2px solid var(--wg-accent);
+  outline-offset: 2px;
+}
+.wg-raster-stage {
+  position: relative;
+  flex-shrink: 0;
+}
+.wg-raster-stage canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  display: block;
+}
+.wg-raster output {
+  min-width: 42px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.wg-raster input[type="range"] {
+  max-width: 150px;
+}
+@media (max-width: 900px) {
+  .wg-comparison-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wg-json-type {
+    flex: 0 0 auto;
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wg-raster * {
+    animation: none;
+    transition: none;
+  }
+}

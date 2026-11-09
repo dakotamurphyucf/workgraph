@@ -176,7 +176,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [resource.brief](resource.brief.md) | advanced | read | Read a bounded resource summary with exact expansion references and omission counts. |
 | [resource.finish_upload](resource.finish_upload.md) | advanced | mutation | Publish verified staged bytes as an immutable resource version under its metadata guard. |
 | [resource.get](resource.get.md) | core | read | Read resource metadata, links and immutable content-version descriptors. |
-| [resource.history](resource.history.md) | advanced | read | Read retained resource metadata and publication history. |
+| [resource.history](resource.history.md) | advanced | read | Read retained immutable resource content-version descriptors. |
 | [resource.link](resource.link.md) | advanced | mutation | Attach an existing resource to a supported planning entity under guarded metadata. |
 | [resource.list](resource.list.md) | core | read | List resource metadata under explicit scope, link and archive filters. |
 | [resource.put_text](resource.put_text.md) | core | mutation | Publish immutable UTF-8 content with required creation title and retained metadata. |
@@ -279,7 +279,7 @@ Regenerate with `python3 tools/generate_api_reference.py --binary /absolute/work
 | [ticket.start](ticket.start.md) | core | mutation | Claim a ready ticket and optionally start an attempt atomically. |
 | [ticket.update](ticket.update.md) | core | mutation | Update guarded title, description or status; use ticket.metadata for priority. |
 | [transaction.apply](transaction.apply.md) | core | mutation | Commit 1..128 ordered planning operations atomically with typed creation aliases. |
-| [transaction.preflight](transaction.preflight.md) | advanced | read | Validate an atomic plan using actual domain preparation without committing it. |
+| [transaction.preflight](transaction.preflight.md) | advanced | read | Validate an atomic plan and its exact native expanded operation count without committing it. |
 | [upload.abort](upload.abort.md) | advanced | write | Discard actor-owned private upload staging and free its admission. |
 | [upload.begin](upload.begin.md) | advanced | write | Begin or resume actor-owned ephemeral byte staging with declared content metadata. |
 | [upload.chunk](upload.chunk.md) | advanced | write | Stage a contiguous opaque byte chunk or retry an identical byte range. |

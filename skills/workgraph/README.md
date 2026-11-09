@@ -25,13 +25,13 @@ model credentials or MCP server is needed. Workgraph is [MIT licensed](LICENSE.t
 The harness owns agents, prompts, model calls, filesystem edits and external side
 effects; Workgraph records and coordinates their work.
 
-**Version 0.7.0 preview** uses application API **0.7**, workspace/export format
+**Version 0.8.0 preview** uses application API **0.7**, workspace/export format
 **6**, history batch format **2** and saved upload plan **2**. Registry and planning
-transaction/event format **5** remain independent. Upgrade supported 0.6.2-format
+transaction/event format **5** remain independent. Existing 0.7.0 workspace data needs no conversion. Upgrade supported 0.6.2-format
 workspaces with the offline [migration helper](references/migration.md): it writes a new
 root and preserves the source. Resolve uncertain old writes with the old executable
 first, then use a fresh registry, socket, contexts and request journals. See the
-[release notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.7.0.md) for changes and exact qualification limits.
+[release notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.8.0.md) for changes and exact qualification limits.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
 Install the self-contained [Workgraph skill](SKILL.md), then give
@@ -40,10 +40,28 @@ and links to focused instructions, API schemas and runnable helpers. The bundled
 [orchestrator overview](README.md) retains this complete team
 guide, including worker prompts and independent review workflows.
 See [skill installation](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/agent-skill.md) for copying the full folder into a
-harness. Version 0.7.0 packaging includes the full skill folder; the standalone
+harness. Version 0.8.0 packaging includes the full skill folder; the standalone
 skill archive is described in the release notes. [Guide coverage](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
+
+## Optional local UI
+
+Workgraph **0.8.0** adds a local browser interface for people working alongside
+agents. Follow a project on a board, trace dependencies, discuss work, answer
+questions, read session history, and manage shared files and facts. Changes use
+the same ownership and review rules as the CLI.
+
+Download the optional UI for **macOS ARM64** or **AlmaLinux 10 x86_64** from the
+[v0.8.0 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.8.0).
+The paired archive includes both `workgraph` and `workgraph-ui`; AlmaLinux also
+has a separate UI RPM that depends on the matching core RPM. Neither installed
+option needs Node.js or opam. Core-only installation remains available.
+
+Start with [UI installation](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/ui/installation.md#install-a-release), then the
+[UI guide](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/ui/README.md). The [agent reference](references/ui.md)
+explains how agents can work alongside a human in the UI. Windows-browser access
+through WSL remains unqualified; the user configures any required forwarding.
 
 ## What lives here
 
@@ -227,7 +245,7 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following commands install **v0.7.0 preview** with its matching bundled docs.
+The following commands install **v0.8.0 preview** with its matching bundled docs.
 Check the release qualification evidence for the exact artifacts and platform scope.
 For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
 before replacing its executable or RPM.
@@ -239,10 +257,10 @@ under your own machine policy.
 # AlmaLinux 10 x86_64, including AlmaLinux under WSL
 set -euo pipefail
 sudo dnf install -y jq python3 curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.7.0"
-cd "$HOME/Downloads/workgraph-0.7.0"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.7.0
-FILE=workgraph-0.7.0-1.el10.x86_64.rpm
+mkdir -p "$HOME/Downloads/workgraph-0.8.0"
+cd "$HOME/Downloads/workgraph-0.8.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.0
+FILE=workgraph-0.8.0-1.el10.x86_64.rpm
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
@@ -257,18 +275,18 @@ shell examples and helper; install it through your usual package manager.
 
 ```bash
 set -euo pipefail
-mkdir -p "$HOME/Downloads/workgraph-0.7.0"
-cd "$HOME/Downloads/workgraph-0.7.0"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.7.0
-FILE=workgraph-0.7.0-macos-arm64.tar.gz
+mkdir -p "$HOME/Downloads/workgraph-0.8.0"
+cd "$HOME/Downloads/workgraph-0.8.0"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.0
+FILE=workgraph-0.8.0-macos-arm64.tar.gz
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
 shasum -a 256 --check selected.sha256
-mkdir -p "$HOME/.local/opt/workgraph-0.7.0"
-tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.7.0"
+mkdir -p "$HOME/.local/opt/workgraph-0.8.0"
+tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.8.0"
 # Keep the versioned archive and docs together; select its executable explicitly.
-export PATH="$HOME/.local/opt/workgraph-0.7.0/workgraph-0.7.0-macos-arm64/bin:$PATH"
+export PATH="$HOME/.local/opt/workgraph-0.8.0/workgraph-0.8.0-macos-arm64/bin:$PATH"
 hash -r
 workgraph --version
 ```
@@ -1282,7 +1300,7 @@ rollover, not silent pruning or an automatic migration.
 - [macOS](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/macos-install.md), [AlmaLinux/WSL](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/wsl-quickstart.md), [gated review](references/gated-review-workflow.md)
 - [Coordination runner](scripts/coordination-runner.py), [coordination shell](scripts/coordination-workflow.sh), [notifications](scripts/notification-watcher.py), [history adapter](scripts/history-adapter.py), [Codex hooks](scripts/codex-hooks)
 - [Generated API reference](references/api/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
-- [v0.7.0 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.7.0.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
+- [v0.8.0 release and upgrade notes](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/releases/v0.8.0.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/guide-coverage.md)
 
 ## Complete maintained scripts
 

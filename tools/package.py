@@ -3,6 +3,7 @@
 
 Usage: python3 tools/package.py NEW_ABSOLUTE_DIRECTORY
        [--binary ABS_EXECUTABLE --platform PLATFORM --notices DIRECTORY]
+       [--ui-binary ABS_EXECUTABLE --ui-manifest FILE --ui-notices FILE]
 Only explicit source directories are included, never _build, local data or notes.
 """
 import argparse
@@ -11,12 +12,14 @@ import hashlib
 import io
 import json
 from pathlib import Path
-import re
 import tarfile
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "packaging"))
-from verify import NATIVE_SOURCE_FILES, validate_notices
+from verify import NATIVE_SOURCE_FILES, decode, validate_notices
+from source_inputs import collect
+from source_version import source_version
+from ui_bundle import UI_SOURCE_FILES, UiInputs, ui_files
 
 
 def sha(data):
@@ -52,7 +55,16 @@ def main():
                         help="dependency license texts and inventory for this binary's toolchain")
     parser.add_argument("--qualification", type=Path,
                         help="JSON native inspection record embedded in the archive")
+    parser.add_argument("--ui-binary", type=Path)
+    parser.add_argument("--ui-manifest", type=Path)
+    parser.add_argument("--ui-notices", type=Path)
+    parser.add_argument("--ui-qualification", type=Path)
     args = parser.parse_args()
+    ui_group = [args.ui_binary, args.ui_manifest, args.ui_notices]
+    if any(ui_group) and (not all(ui_group) or not args.binary):
+        parser.error("optional UI packaging requires --ui-binary, --ui-manifest, --ui-notices and paired core arguments")
+    if args.ui_qualification and not args.ui_binary:
+        parser.error("--ui-qualification requires --ui-binary")
     if args.qualification and not args.binary:
         parser.error("--qualification requires --binary")
     if bool(args.binary) != bool(args.platform):
@@ -62,25 +74,8 @@ def main():
     if not args.destination.is_absolute():
         parser.error("destination must be absolute and fresh")
     root = Path(__file__).resolve().parent.parent
-    version = re.search(r'\(version ([0-9.]+)\)', (root / "dune-project").read_text())[1]
-    if (root / "lib/version.ml").read_text().strip() != f'let value = "{version}"':
-        raise SystemExit("CLI and package versions disagree")
-    names = ["README.md", "AGENTS.md", "engineering-standards.md", "LICENSE", ".gitignore", ".gitattributes", ".dockerignore", ".ocamlformat", "dune", "dune-project", "dev", "workgraph.opam"]
-    for directory in ["bin", "lib", "test", "skills", "bench", "docs", "tools", "packaging", ".github"]:
-        for path in sorted((root / directory).rglob("*")):
-            if ("__pycache__" in path.parts or path.name.startswith("._")
-                    or path.name.endswith((".corrected", ".pyc"))):
-                continue
-            if path.is_symlink() or not (path.is_file() or path.is_dir()):
-                raise SystemExit("source links and special files are not permitted: " + str(path))
-            if path.is_file():
-                names.append(path.relative_to(root).as_posix())
-    files = {}
-    for name in names:
-        path = root / name
-        if path.is_symlink():
-            raise SystemExit("source symlinks are not permitted: " + name)
-        files[name] = (path.read_bytes(), 0o755 if name == "dev" or name.endswith(".sh") else 0o644)
+    version = source_version(root)
+    files = collect(root)
     source_identity = sha(encode({name: sha(data) for name, (data, _) in sorted(files.items())}))
     binary = args.binary.resolve(strict=True).read_bytes() if args.binary else None
     notices = {}
@@ -98,6 +93,16 @@ def main():
         if not notices:
             parser.error("--notices must contain dependency license texts and inventory")
         validate_notices({name: data for name, (data, _) in notices.items()})
+    ui_additions = None
+    if args.ui_binary:
+        inspection = decode(args.ui_qualification.read_bytes()) if args.ui_qualification else {}
+        if not isinstance(inspection, dict):
+            parser.error("--ui-qualification must be a JSON object")
+        ui_additions = ui_files(UiInputs(args.ui_binary.read_bytes(), args.ui_manifest.read_bytes(),
+                                        args.ui_notices.read_bytes()),
+                                source={name: data for name, (data, _) in files.items()},
+                                version=version, source_identity=source_identity,
+                                core_binary=binary, inspection=inspection)
     args.destination.mkdir(mode=0o700)
     checksums = {}
     stem = "workgraph-" + version
@@ -111,7 +116,7 @@ def main():
                         or name.startswith(("docs/", "skills/"))}
         native_files["bin/workgraph"] = (binary, 0o755)
         native_files.update(notices)
-        inspection = json.loads(args.qualification.read_text()) if args.qualification else {}
+        inspection = decode(args.qualification.read_bytes()) if args.qualification else {}
         if not isinstance(inspection, dict):
             parser.error("--qualification inspection record must be a JSON object")
         record = {"schema": 1, "status": "inspection-only", "platform": args.platform,
@@ -122,8 +127,17 @@ def main():
         checksums[name] = archive(args.destination / name, stem + "-" + args.platform, native_files,
                                   {"version": version, "kind": "native", "platform": args.platform,
                                    "source_identity": source_identity})
+        if ui_additions is not None:
+            ui_native = dict(native_files)
+            ui_native.update({name: value for name, value in files.items() if name in UI_SOURCE_FILES})
+            ui_native.update(ui_additions)
+            ui_stem = "workgraph-ui-" + version + "-" + args.platform
+            checksums[ui_stem + ".tar.gz"] = archive(
+                args.destination / (ui_stem + ".tar.gz"), ui_stem, ui_native,
+                {"version": version, "kind": "ui-native", "platform": args.platform,
+                 "source_identity": source_identity})
     (args.destination / "SHA256SUMS").write_text("".join(f"{digest}  {name}\n" for name, digest in sorted(checksums.items())))
-    print(json.dumps({"directory": str(args.destination), "source_identity": source_identity, "archives": checksums}, sort_keys=True))
+    print(json.dumps({"directory": str(args.destination), "version": version, "source_identity": source_identity, "archives": checksums}, sort_keys=True))
 
 
 if __name__ == "__main__":

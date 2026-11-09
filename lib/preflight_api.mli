@@ -34,7 +34,11 @@ module Response : sig
     ; staged_blob_bytes : int64
     }
 
-  (** A successful domain preparation, never a durable receipt. Blob totals
+  (** [operation_count] is the exact expanded count accumulated by native domain
+      preparation at this staged capture, including fresh template expansion and
+      earlier same-batch publication. An existing-instance operation counts one.
+      It is not the source-array length or emitted-event count.
+      A successful domain preparation, never a durable receipt. Blob totals
       describe staged entries, not incremental disk usage. This does not check
       filesystem health, Store commit admission or future eligibility. *)
   val codec : t Api_codec.t

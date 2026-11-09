@@ -149,59 +149,7 @@ For preconditions and a small example, run `workgraph help condition.signal`. Us
       ],
       "type": "object"
     },
-    "artifact_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe": {
-      "additionalProperties": false,
-      "properties": {
-        "decision_id": {
-          "anyOf": [
-            {
-              "allOf": [
-                {
-                  "allOf": [
-                    {
-                      "type": "string",
-                      "x-maxUtf8Bytes": 96
-                    }
-                  ],
-                  "description": "Validated entity ID."
-                },
-                {
-                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-                  "type": "string"
-                }
-              ]
-            },
-            {
-              "maxLength": 97,
-              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
-              "type": "string"
-            }
-          ],
-          "description": "Literal entity ID or $alias resolved within transaction.apply."
-        },
-        "kind": {
-          "const": "decision",
-          "type": "string"
-        },
-        "revision": {
-          "allOf": [
-            {
-              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
-              "type": "string",
-              "x-maximumDecimal": "4611686018427387903"
-            }
-          ],
-          "description": "Positive exact revision."
-        }
-      },
-      "required": [
-        "kind",
-        "decision_id",
-        "revision"
-      ],
-      "type": "object"
-    },
-    "artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42": {
+    "artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3": {
       "oneOf": [
         {
           "$ref": "#/$defs/artifact_154506404482744fcb20227a71bb5ca8d0de71d9a38f2debb89c793e8eb1fd71"
@@ -279,12 +227,119 @@ For preconditions and a small example, run `workgraph help condition.signal`. Us
           "$ref": "#/$defs/artifact_be514d44142925cb19bef7e26dc491d5b3aefa3ea0b7ac8752b8078198f545bf"
         },
         {
+          "$ref": "#/$defs/artifact_94f1e67acf21c74b40eb18efc252adc7c824e2d3bfc1ba6cb383797aad8986cb"
+        },
+        {
           "$ref": "#/$defs/artifact_0e6b53bc9960fab6b6225a46d62d9d0bf46492d823c74ac25de732e6c36c2517"
         },
         {
           "$ref": "#/$defs/artifact_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe"
         }
       ]
+    },
+    "artifact_6d1d25a4a473c4c4fdda7dd9599e220bdb371c3de9b258b7c6072b70cce711fe": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated entity ID."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "decision",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive exact revision."
+        }
+      },
+      "required": [
+        "kind",
+        "decision_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "artifact_94f1e67acf21c74b40eb18efc252adc7c824e2d3bfc1ba6cb383797aad8986cb": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_id": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "allOf": [
+                    {
+                      "type": "string",
+                      "x-maxUtf8Bytes": 96
+                    }
+                  ],
+                  "description": "Validated entity ID."
+                },
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "maxLength": 97,
+              "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+              "type": "string"
+            }
+          ],
+          "description": "Literal entity ID or $alias resolved within transaction.apply."
+        },
+        "kind": {
+          "const": "amendment",
+          "type": "string"
+        },
+        "revision": {
+          "allOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-maximumDecimal": "4611686018427387903"
+            }
+          ],
+          "description": "Positive exact revision."
+        }
+      },
+      "required": [
+        "kind",
+        "amendment_id",
+        "revision"
+      ],
+      "type": "object"
     },
     "artifact_b141ac31589d8ec990a9e71c5829a98b200b57958ece4425d4ae371245bb4c5d": {
       "additionalProperties": false,
@@ -441,7 +496,7 @@ For preconditions and a small example, run `workgraph help condition.signal`. Us
     {
       "properties": {
         "artifact": {
-          "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+          "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
         },
         "condition_id": {
           "allOf": [
@@ -456,7 +511,7 @@ For preconditions and a small example, run `workgraph help condition.signal`. Us
           "allOf": [
             {
               "items": {
-                "$ref": "#/$defs/artifact_6df72b9453cb8beab59ffb4d87e15b92ee6b299602c1997dc3ca23dcbe337a42"
+                "$ref": "#/$defs/artifact_59ee8a4ca14fd52a9aebb87ab5fdaa4650d1aa1d387701fa271a6a5082013fd3"
               },
               "maxItems": 100,
               "type": "array"

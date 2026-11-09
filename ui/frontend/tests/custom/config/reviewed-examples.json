@@ -1,0 +1,94 @@
+[
+  {
+    "config_version": 1,
+    "kind": "view",
+    "id": "release-facts",
+    "title": "Release readiness",
+    "source": "facts",
+    "scope": {
+      "kind": "project",
+      "id": "runtime-reliability"
+    },
+    "filter_mode": "server",
+    "filters": [
+      {
+        "field": "key",
+        "op": "literal_prefix",
+        "value": "release.check."
+      }
+    ],
+    "sort": [
+      {
+        "field": "key",
+        "direction": "asc",
+        "nulls": "last"
+      }
+    ],
+    "group_by": null,
+    "presentation": "table",
+    "columns": [
+      {
+        "id": "key",
+        "selector": {
+          "kind": "field",
+          "field": "key"
+        },
+        "label": "Check",
+        "format": {
+          "type": "text"
+        },
+        "width": 260
+      },
+      {
+        "id": "state",
+        "selector": {
+          "kind": "pointer",
+          "pointer": "/state"
+        },
+        "label": "State",
+        "format": {
+          "type": "text"
+        }
+      }
+    ]
+  },
+  {
+    "config_version": 1,
+    "kind": "renderer",
+    "id": "release-check",
+    "title": "Release check",
+    "match": {
+      "entity": "fact",
+      "key_prefix": "release.check.",
+      "root_type": "object"
+    },
+    "presentation": {
+      "type": "fields",
+      "fields": [
+        {
+          "pointer": "/state",
+          "label": "State",
+          "format": {
+            "type": "enum",
+            "values": [
+              {
+                "value": "passed",
+                "label": "Passed",
+                "tone": "success"
+              }
+            ]
+          }
+        },
+        {
+          "pointer": "/elapsed_ms",
+          "label": "Elapsed",
+          "format": {
+            "type": "duration",
+            "unit": "ms"
+          }
+        }
+      ]
+    },
+    "fallback": "generic"
+  }
+]

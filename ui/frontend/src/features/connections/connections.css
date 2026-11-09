@@ -1,0 +1,294 @@
+.wg-connections-manager,
+.wg-lifecycle {
+  display: grid;
+  gap: var(--wg-space-4, 1.25rem);
+  min-width: 0;
+}
+.wg-lifecycle-heading,
+.wg-connection-profile header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.wg-lifecycle-heading h2 {
+  margin-top: 0;
+}
+.wg-lifecycle-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.wg-lifecycle-fields textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  color: inherit;
+  background: var(--wg-panel);
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  padding: 0.65rem;
+  line-height: 1.5;
+}
+.wg-lifecycle-fields label:has(textarea) {
+  grid-column: 1/-1;
+}
+.wg-lifecycle-table-scroll {
+  max-width: 100%;
+  overflow: auto;
+}
+.wg-lifecycle-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+}
+.wg-lifecycle-table caption {
+  text-align: left;
+  color: var(--wg-muted);
+  padding-bottom: 0.75rem;
+}
+.wg-lifecycle-table th,
+.wg-lifecycle-table td {
+  padding: 0.8rem 0.6rem;
+  border-bottom: 1px solid var(--wg-border);
+  vertical-align: top;
+  text-align: left;
+}
+.wg-lifecycle-table code,
+.wg-connection-profile code {
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.wg-lifecycle-table th {
+  font-weight: 500;
+}
+.wg-lifecycle-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.wg-lifecycle-recent {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.wg-lifecycle-recent li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.wg-connection-profiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.wg-connection-profile {
+  padding: 1rem;
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.wg-connection-profile--selected {
+  border-color: var(--wg-accent);
+  box-shadow: inset 3px 0 var(--wg-accent);
+}
+.wg-connections-notice {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--wg-border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.wg-connections-manager h3 {
+  font-size: 1rem;
+  margin-top: 1.5rem;
+}
+.wg-connections-manager .wg-toolbar {
+  flex-wrap: wrap;
+}
+.wg-lifecycle details {
+  margin-top: 1rem;
+}
+.wg-lifecycle details > summary,
+.wg-connections-manager details > summary {
+  cursor: pointer;
+  font-weight: 500;
+  padding-block: 0.5rem;
+}
+@media (max-width: 700px) {
+  .wg-lifecycle-heading {
+    display: block;
+  }
+  .wg-lifecycle-fields {
+    grid-template-columns: 1fr;
+  }
+  .wg-lifecycle-table th,
+  .wg-lifecycle-table td {
+    padding: 0.65rem 0.4rem;
+  }
+}
+.cm-section[hidden] {
+  display: none;
+}
+.cm-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.cm-tabs .wg-button {
+  font-size: 11px;
+  padding: 7px 9px;
+  background: transparent;
+  border: 0;
+  color: var(--wg-muted);
+}
+.cm-tabs .wg-button[aria-pressed="true"] {
+  background: var(--wg-raised);
+  color: var(--wg-text);
+}
+.cm-tabs .wg-button svg {
+  width: 13px;
+  height: 13px;
+  color: var(--wg-accent);
+}
+.cm-section > .wg-panel {
+  border: 0;
+  background: transparent;
+}
+.cm-section > .wg-panel > .wg-panel-header {
+  padding: 0 0 16px;
+}
+.cm-section > .wg-panel > .wg-panel-body {
+  padding: 16px 0 0;
+}
+.cm-section .wg-panel-header h2 {
+  font-size: 13px;
+}
+.cm-section p {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.wg-connection-profiles {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.wg-connection-profile {
+  padding: 14px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--wg-app);
+  gap: 8px;
+}
+.wg-connection-profile--selected {
+  background: var(--wg-raised);
+  box-shadow: none;
+}
+.wg-connection-profile header {
+  align-items: center;
+  gap: 12px;
+}
+.wg-connection-profile header strong {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.7;
+}
+.wg-connection-profile header strong svg {
+  width: 16px;
+  height: 16px;
+  color: var(--wg-accent);
+  flex-shrink: 0;
+}
+.wg-connection-profile > code {
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--wg-muted);
+  padding-left: 25px;
+}
+.wg-connection-profile > p {
+  margin: 0;
+  font-size: 10px;
+  padding-left: 25px;
+}
+.wg-connection-profile .wg-toolbar {
+  margin: 6px 0 0;
+  padding-left: 25px;
+  gap: 6px;
+}
+.cm-section .wg-button {
+  font-size: 11px;
+  padding: 6px 9px;
+}
+.cm-section .wg-button svg {
+  width: 13px;
+  height: 13px;
+}
+.cm-host-help {
+  border-top: 1px solid var(--wg-border);
+  padding-top: 12px;
+  margin-top: 18px;
+  color: var(--wg-muted);
+  font-size: 10px;
+}
+.cm-host-help summary {
+  font-size: 10px;
+}
+.cm-profile-editor h3 {
+  font-size: 16px;
+  margin: 20px 0;
+}
+.cm-profile-editor .wg-lifecycle-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.cm-profile-editor .wg-field {
+  margin: 0;
+  font-size: 11px;
+}
+.cm-profile-editor .wg-field:last-child {
+  grid-column: 1/-1;
+}
+.cm-startup {
+  margin-top: 24px;
+  border-top: 1px solid var(--wg-border);
+  padding-top: 12px;
+}
+.cm-startup > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--wg-accent);
+}
+.cm-startup > summary > svg {
+  width: 14px;
+  height: 14px;
+}
+.cm-startup .wg-field {
+  margin: 0;
+  font-size: 11px;
+}
+.cm-startup .wg-lifecycle-fields {
+  gap: 16px;
+}
+.cm-review-link {
+  font-size: 11px;
+  color: var(--wg-accent);
+}
+@media (max-width: 600px) {
+  .cm-profile-editor .wg-lifecycle-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

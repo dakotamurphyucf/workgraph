@@ -1,0 +1,516 @@
+/* A readable navigation/search surface; no effect on result capture or routing. */
+.wg-dialog:has(.wg-command-menu) {
+  --wg-bg: #111318;
+  --wg-panel: #1c2028;
+  --wg-raised: #252b35;
+  --wg-hover: #252b35;
+  --wg-border: #3c4554;
+  --wg-text: #f4f5fa;
+  --wg-secondary: #c8cfdd;
+  --wg-muted: #aeb9cc;
+  --wg-accent: #a1a8ff;
+  --cmd-blue: #91baff;
+  --cmd-purple: #c4a3ff;
+  --cmd-green: #7de4aa;
+  --cmd-orange: #ffb86e;
+  --cmd-pink: #f6a6d4;
+  width: min(1000px, calc(100vw - 48px));
+  height: min(900px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  border-radius: 20px;
+  background: var(--wg-bg);
+  color: var(--wg-text);
+  border: 1px solid var(--wg-border);
+  padding: 0;
+  overflow: hidden;
+}
+[data-theme="light"] .wg-dialog:has(.wg-command-menu) {
+  --wg-bg: #f6f7fb;
+  --wg-panel: #fff;
+  --wg-raised: #eff2f8;
+  --wg-hover: #eff2f8;
+  --wg-border: #c6cedd;
+  --wg-text: #202638;
+  --wg-secondary: #47536b;
+  --wg-muted: #58657d;
+  --wg-accent: #5751b7;
+  --cmd-blue: #285fa3;
+  --cmd-purple: #7450ad;
+  --cmd-green: #237348;
+  --cmd-orange: #9b5b16;
+  --cmd-pink: #9a4273;
+}
+.wg-dialog:has(.wg-command-menu) .wg-dialog-header {
+  padding: 20px 24px;
+  flex-shrink: 0;
+  background: var(--wg-panel);
+}
+.wg-dialog:has(.wg-command-menu) .wg-dialog-header h2 {
+  font-size: 23px;
+}
+.wg-dialog:has(.wg-command-menu) .wg-dialog-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 20px 24px 0;
+}
+.wg-command-menu {
+  --cmd-tone: var(--cmd-blue);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  font-size: 15px;
+}
+.wg-command-menu[data-section="search"] {
+  --cmd-tone: var(--cmd-green);
+}
+.wg-command-menu[data-section="actions"] {
+  --cmd-tone: var(--cmd-purple);
+}
+.wg-command-menu svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.wg-command-menu .wg-command-tabs {
+  gap: 10px;
+  padding: 0 0 17px;
+  margin: 0;
+  flex-shrink: 0;
+}
+.wg-command-menu .wg-command-tabs [role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 20px;
+  border-radius: 11px;
+  border: 1px solid var(--wg-border);
+  background: var(--wg-panel);
+  font-size: 15px;
+}
+.wg-command-menu .wg-command-tabs [role="tab"]:nth-child(1) svg {
+  color: var(--cmd-blue);
+}
+.wg-command-menu .wg-command-tabs [role="tab"]:nth-child(2) svg {
+  color: var(--cmd-green);
+}
+.wg-command-menu .wg-command-tabs [role="tab"]:nth-child(3) svg {
+  color: var(--cmd-purple);
+}
+.wg-command-menu .wg-command-tabs [aria-selected="true"] {
+  border-color: var(--cmd-tone);
+  color: var(--wg-text);
+  background: color-mix(in srgb, var(--cmd-tone) 12%, var(--wg-panel));
+}
+.wg-command-intro {
+  display: flex;
+  gap: 14px;
+  padding: 20px 0;
+  flex-shrink: 0;
+}
+.wg-command-intro > span {
+  display: flex;
+  padding: 11px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cmd-tone) 14%, var(--wg-panel));
+  color: var(--cmd-tone);
+  align-self: flex-start;
+}
+.wg-command-intro h3 {
+  margin: 0 0 6px;
+  font-size: 19px;
+}
+.wg-command-intro p {
+  margin: 0;
+  color: var(--wg-secondary);
+  line-height: 1.6;
+}
+.wg-command-panel {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding: 0 6px 22px 0;
+}
+.wg-command-menu .wg-command-search {
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  background: var(--wg-panel);
+  padding: 12px 15px;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.wg-command-menu .wg-command-search > svg {
+  color: var(--cmd-purple);
+}
+.wg-command-menu .wg-command-search input {
+  font-size: 16px;
+  padding: 4px;
+  min-width: 0;
+}
+.wg-command-menu .wg-command-search:focus-within {
+  border-color: var(--cmd-purple);
+}
+.wg-command-menu .wg-command-results {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+}
+.wg-command-group {
+  border: 1px solid var(--wg-border);
+  border-radius: 15px;
+  background: var(--wg-panel);
+  margin-bottom: 16px;
+  overflow: clip;
+}
+.wg-command-group h3 {
+  margin: 0;
+  padding: 13px 17px;
+  font-size: 14px;
+  color: var(--cmd-purple);
+  background: var(--wg-raised);
+  border-bottom: 1px solid var(--wg-border);
+}
+.wg-command-menu .wg-command {
+  gap: 13px;
+  padding: 13px 16px;
+  border-radius: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--wg-border) 60%, transparent);
+}
+.wg-command-menu .wg-command:last-child {
+  border-bottom: 0;
+}
+.wg-command-menu .wg-command strong {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.wg-command-menu .wg-command small {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--wg-secondary);
+}
+.wg-command-menu .wg-command-icon {
+  flex: 0 0 auto;
+  padding: 9px;
+  border-radius: 10px;
+  display: flex;
+  color: var(--cmd-blue);
+  background: color-mix(in srgb, var(--cmd-blue) 10%, var(--wg-panel));
+}
+.wg-command-group[aria-label="Your setup"] .wg-command-icon {
+  color: var(--cmd-purple);
+  background: color-mix(in srgb, var(--cmd-purple) 10%, var(--wg-panel));
+}
+.wg-command-menu .wg-command > svg:last-child {
+  color: var(--wg-muted);
+}
+.wg-command-menu .wg-command:focus-visible,
+.wg-command-menu button:focus-visible,
+.wg-command-menu summary:focus-visible {
+  outline: 2px solid var(--cmd-tone);
+  outline-offset: -2px;
+}
+.wg-command-menu .wg-command-footer {
+  margin: 0;
+  border-top: 1px solid var(--wg-border);
+  padding: 14px 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  color: var(--wg-secondary);
+  font-size: 13px;
+}
+.wg-command-menu kbd {
+  border: 1px solid var(--wg-border);
+  border-radius: 5px;
+  background: var(--wg-panel);
+  padding: 3px 6px;
+  color: var(--wg-text);
+}
+.wg-command-menu .wg-button {
+  min-height: 36px;
+  padding: 9px 13px;
+  font-size: 14px;
+  border-radius: 9px;
+}
+.wg-command-menu .wg-search-feature {
+  font-size: 15px;
+  gap: 20px;
+}
+.wg-command-menu .wg-search-feature h3 {
+  font-size: 17px;
+}
+.wg-command-menu .wg-search-section-title {
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.wg-command-menu .wg-search-section-title h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.wg-command-menu .wg-search-section-title svg {
+  color: var(--cmd-blue);
+}
+.wg-command-menu .wg-search-query {
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  padding: 20px;
+  gap: 18px;
+}
+.wg-command-menu .wg-search-scope {
+  font-size: 14px;
+  gap: 8px;
+  padding-bottom: 15px;
+  line-height: 1.6;
+}
+.wg-command-menu .wg-search-scope svg {
+  color: var(--cmd-tone);
+  margin-top: 2px;
+}
+.wg-command-menu .wg-search-scope span {
+  flex-basis: 100%;
+}
+.wg-command-menu .wg-field {
+  gap: 8px;
+  margin: 0;
+}
+.wg-command-menu .wg-field label {
+  font-size: 15px;
+}
+.wg-command-menu .wg-field input,
+.wg-command-menu .wg-field select {
+  padding: 11px 13px;
+  font-size: 15px;
+  line-height: 1.5;
+  border-radius: 10px;
+  border-color: var(--wg-border);
+  background: var(--wg-raised);
+}
+.wg-command-menu .wg-search-input-row .wg-button {
+  min-height: 46px;
+}
+.wg-command-menu .wg-hint {
+  font-size: 14px;
+  color: var(--wg-secondary);
+  line-height: 1.65;
+}
+.wg-command-menu details {
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  padding: 12px 15px;
+  background: var(--wg-panel);
+  color: var(--wg-secondary);
+  font-size: 14px;
+}
+.wg-command-menu details > summary {
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wg-text);
+  padding: 3px 0;
+}
+.wg-command-menu details > summary svg {
+  vertical-align: middle;
+  margin-right: 6px;
+  color: var(--cmd-blue);
+}
+.wg-command-menu details p {
+  line-height: 1.65;
+}
+.wg-command-menu .wg-search-filter-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 15px 0 4px;
+}
+.wg-command-menu .wg-search-kind-grid {
+  gap: 10px;
+  padding: 16px 0;
+}
+.wg-command-menu .wg-search-feature label:has(input[type="checkbox"]) {
+  font-size: 14px;
+  gap: 9px;
+  min-height: 32px;
+}
+.wg-command-menu input[type="checkbox"] {
+  accent-color: var(--cmd-green);
+  width: 16px;
+  height: 16px;
+}
+.wg-command-menu .wg-search-jump-links {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.wg-command-menu .wg-search-recents {
+  max-height: 250px;
+  gap: 10px;
+}
+.wg-command-menu .wg-search-recents .wg-button {
+  border: 1px solid var(--wg-border);
+  background: var(--wg-panel);
+  border-radius: 12px;
+  padding: 12px 15px;
+  gap: 7px;
+}
+.wg-command-menu .wg-search-recents small {
+  font-size: 13px;
+  color: var(--wg-secondary);
+}
+.wg-command-menu .wg-search-result-list {
+  border: 1px solid var(--wg-border);
+  border-radius: 15px;
+  background: var(--wg-panel);
+  overflow: clip;
+  margin-bottom: 14px;
+}
+.wg-command-menu .wg-search-result {
+  --result-tone: var(--cmd-blue);
+  padding: 14px 18px;
+  border-top: 0;
+  border-bottom: 1px solid var(--wg-border);
+}
+.wg-command-menu .wg-search-result:last-child {
+  border-bottom: 0;
+}
+.wg-command-menu .wg-search-result[data-kind="comment"],
+.wg-command-menu .wg-search-result[data-kind="history"] {
+  --result-tone: var(--cmd-pink);
+}
+.wg-command-menu .wg-search-result[data-kind="resource"],
+.wg-command-menu .wg-search-result[data-kind="resource_text"] {
+  --result-tone: var(--cmd-purple);
+}
+.wg-command-menu .wg-search-result[data-kind="fact"] {
+  --result-tone: var(--cmd-green);
+}
+.wg-command-menu .wg-search-result[data-kind="handoff"] {
+  --result-tone: var(--cmd-orange);
+}
+.wg-command-menu .wg-search-result-title {
+  border-radius: 9px;
+  padding: 4px;
+}
+.wg-search-result-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.wg-command-menu .wg-search-result-title svg {
+  color: var(--result-tone);
+}
+.wg-command-menu .wg-search-result .wg-badge {
+  color: var(--result-tone);
+  border-color: color-mix(in srgb, var(--result-tone) 30%, var(--wg-border));
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.wg-command-menu .wg-search-snippets p {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.wg-command-menu .wg-search-snippets p > span,
+.wg-command-menu .wg-search-result small {
+  font-size: 13px;
+  color: var(--wg-secondary);
+}
+.wg-command-menu .wg-search-snippets mark {
+  background: color-mix(in srgb, var(--result-tone) 22%, var(--wg-panel));
+  border-radius: 3px;
+  color: var(--wg-text);
+}
+.wg-command-menu .wg-command-empty,
+.wg-command-menu .wg-search-no-results {
+  padding: 25px;
+  text-align: center;
+  border: 1px solid var(--wg-border);
+  border-radius: 15px;
+  background: var(--wg-panel);
+}
+.wg-command-menu .wg-command-empty > svg,
+.wg-command-menu .wg-search-no-results > svg {
+  width: 26px;
+  height: 26px;
+  color: var(--cmd-tone);
+}
+.wg-command-menu .wg-command-empty p,
+.wg-command-menu .wg-search-no-results p {
+  color: var(--wg-secondary);
+  font-size: 15px;
+  line-height: 1.6;
+}
+@media (max-width: 680px) {
+  .wg-dialog:has(.wg-command-menu) {
+    width: calc(100vw - 20px);
+    height: calc(100dvh - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 16px;
+  }
+  .wg-dialog:has(.wg-command-menu) .wg-dialog-body {
+    padding: 15px 16px 0;
+  }
+  .wg-dialog:has(.wg-command-menu) .wg-dialog-header {
+    padding: 16px;
+  }
+  .wg-command-menu .wg-command-tabs {
+    gap: 7px;
+  }
+  .wg-command-menu .wg-command-tabs [role="tab"] {
+    padding: 10px 13px;
+  }
+  .wg-command-menu .wg-search-kind-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .wg-command-menu .wg-search-input-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wg-command-menu .wg-search-result-title {
+    flex-wrap: wrap;
+  }
+  .wg-command-menu .wg-search-recents {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-height: 650px) {
+  .wg-dialog:has(.wg-command-menu) .wg-dialog-body {
+    overflow: auto;
+  }
+  .wg-command-menu {
+    min-height: auto;
+  }
+  .wg-command-panel {
+    overflow: visible;
+  }
+}
+
+.wg-command-menu .wg-command {
+  width: 100%;
+}
+/* Keep common search controls compact enough to leave room for actual results. */
+.wg-command-menu .wg-search-query {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.wg-command-menu .wg-search-scope,
+.wg-command-menu .wg-search-input-row,
+.wg-command-menu .wg-search-query > p {
+  grid-column: 1 / -1;
+}
+.wg-command-menu .wg-search-filters {
+  align-self: end;
+}
+.wg-command-menu .wg-search-filters[open] {
+  grid-column: 1 / -1;
+}
+@media (max-width: 680px) {
+  .wg-command-menu .wg-search-query {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

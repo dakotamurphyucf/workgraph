@@ -1,0 +1,129 @@
+.ev-feature {
+  display: grid;
+  gap: 1.1rem;
+  min-width: 0;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-block: 0.3rem 3rem;
+}
+.ev-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+}
+.ev-header h2 {
+  font-size: 1.8rem;
+  letter-spacing: -0.035em;
+  margin: 0.2rem 0 0.55rem;
+}
+.ev-eyebrow {
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wg-muted);
+}
+.ev-feature p {
+  line-height: 1.6;
+}
+.ev-callout,
+.ev-capture {
+  padding: 0.8rem 1rem;
+  border-left: 3px solid var(--wg-accent);
+  background: var(--wg-accent-bg);
+  overflow-wrap: anywhere;
+}
+.ev-summary-list {
+  display: grid;
+  gap: 0.9rem;
+  padding-left: 1.2rem;
+}
+.ev-summary-list li > span {
+  display: block;
+  font-size: 0.86rem;
+  color: var(--wg-muted);
+  margin-top: 0.25rem;
+}
+.ev-form-field {
+  margin-block: 1.1rem;
+}
+.ev-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.8rem;
+  align-items: start;
+}
+.ev-rows {
+  display: grid;
+  gap: 0.8rem;
+  margin-block: 0.8rem;
+}
+.ev-item,
+.ev-structured {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--wg-border);
+  border-radius: 0.55rem;
+}
+.ev-item legend,
+.ev-structured legend {
+  font-weight: 600;
+  padding-inline: 0.4rem;
+}
+.ev-item > .wg-button {
+  margin-top: 0.7rem;
+}
+.ev-pin {
+  display: grid;
+  gap: 0.65rem;
+}
+.ev-source-label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  font-weight: 550;
+  margin-block: 0.7rem;
+}
+.ev-source-label textarea {
+  width: 100%;
+  min-height: 7rem;
+  resize: vertical;
+  box-sizing: border-box;
+  color: inherit;
+  background: var(--wg-panel);
+  border: 1px solid var(--wg-border);
+  border-radius: 0.4rem;
+  padding: 0.7rem;
+  font: inherit;
+  line-height: 1.55;
+}
+.ev-structured details textarea {
+  font-family: var(--wg-font-mono, monospace);
+  font-weight: 400;
+}
+.ev-enable {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-block: 0.5rem;
+}
+.ev-feature code {
+  overflow-wrap: anywhere;
+}
+.ev-feature details > summary {
+  cursor: pointer;
+  padding-block: 0.55rem;
+}
+@media (max-width: 48rem) {
+  .ev-header {
+    display: grid;
+  }
+  .ev-feature {
+    gap: 0.8rem;
+  }
+  .ev-structured,
+  .ev-item {
+    padding: 0.7rem;
+  }
+}

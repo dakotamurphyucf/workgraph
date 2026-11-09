@@ -121,6 +121,40 @@ class AmendmentTest(unittest.TestCase):
         retained=self.read('ticket.amendment.get',amendment_id='instruction',revision='1',max_bytes='1048576')['data']['item']
         self.assertEqual(retained['content']['publication']['source']['body'],body)
         self.assertEqual(len(self.read('ticket.amendment.acknowledgements',amendment_id='instruction',revision='1')['data']['items']),1)
+    def test_amendment_evidence_pins_public_requests_retry_and_restart(self):
+        self.write('ticket.amendment.publish', **self.publication('instruction-pin', 'Exact instruction'))
+        pin = {'kind': 'amendment', 'amendment_id': 'instruction-pin', 'revision': '1'}
+        decision = dict(decision_id='instruction-decision', expected_revision='0',
+                        scope={'kind': 'ticket', 'ticket_id': 'task'},
+                        title='Decision from exact instructions', rationale=pin,
+                        evidence=[pin], affected=[{'kind': 'ticket', 'ticket_id': 'task'}],
+                        supersedes=[])
+        operations = [{'method': 'decision.put', 'params': decision}]
+        committed = self.write('transaction.apply', identity='amendment-decision', operations=operations)
+        self.assertTrue(committed['meta']['durable'])
+        recorded = self.read('decision.get', decision_id='instruction-decision')['data']
+        self.assertEqual(recorded['rationale'], pin)
+        self.assertEqual(recorded['evidence'], [pin])
+        condition = dict(condition_id='instruction-condition', expected_revision='0',
+                         ticket_id='task', label='Exact instruction approval',
+                         operation_id='instruction-review', artifact=pin, required=False)
+        declared = self.write('condition.put', identity='amendment-condition', **condition)
+        self.assertEqual(declared['data']['condition']['artifact'], pin)
+        self.write('ticket.amendment.withdraw', amendment_id='instruction-pin',
+                   expected_revision='1', reason='Newer instructions will follow')
+        self.stop(); self.start()
+        self.assertEqual(self.write('transaction.apply', identity='amendment-decision',
+                                    operations=operations), committed)
+        self.assertEqual(self.write('condition.put', identity='amendment-condition', **condition), declared)
+        self.assertEqual(self.read('decision.get', decision_id='instruction-decision')['data'], recorded)
+        historical = self.read('ticket.amendment.get', amendment_id='instruction-pin', revision='1')['data']
+        self.assertEqual(historical['item']['content']['publication']['source']['body'], 'Exact instruction')
+        for method in ['acceptance.assert', 'manifest.publish', 'decision.put', 'input.changed',
+                       'condition.put', 'condition.signal', 'ticket.recover',
+                       'reservation.recover', 'reservation.path.recover']:
+            schema = json.loads(subprocess.check_output([str(EXE), 'schema', method]))
+            self.assertIn('amendment_id', json.dumps(schema['methods'][0]['params']), method)
+
     def test_supersede_withdraw_resource_pin_and_new_owner(self):
         source=self.write('resource.put_text',resource_id='source',expected_revision='0',title='Source',text='original')['data']
         params=self.publication('old','temporary')

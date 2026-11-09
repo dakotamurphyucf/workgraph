@@ -1,0 +1,65 @@
+/* Shared navigation for workspace sections: Work, Workflow and Discussions. */
+header.wg-section-navigation {
+  --section-accent: #c4a3ff;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--wg-border);
+  background: var(--wg-panel);
+}
+:root[data-theme="light"] header.wg-section-navigation {
+  --section-accent: #7952b5;
+}
+header.wg-section-navigation h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 23px;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+header.wg-section-navigation h1 svg {
+  width: 24px;
+  height: 24px;
+  color: var(--section-accent);
+}
+header.wg-section-navigation > .wg-toolbar {
+  margin: 0;
+  gap: 5px;
+}
+header.wg-section-navigation > .wg-toolbar .wg-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 11px;
+  font-size: 14px;
+  padding: 10px 13px;
+  color: var(--wg-secondary);
+}
+header.wg-section-navigation > .wg-toolbar .wg-button svg {
+  width: 17px;
+  height: 17px;
+}
+header.wg-section-navigation > .wg-toolbar .wg-button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--section-accent) 15%, transparent);
+  color: var(--section-accent);
+  border-color: color-mix(in srgb, var(--section-accent) 40%, transparent);
+}
+@media (max-width: 900px) {
+  header.wg-section-navigation {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  header.wg-section-navigation > .wg-toolbar {
+    order: 3;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+  }
+  header.wg-section-navigation > .wg-toolbar .wg-button {
+    flex: none;
+  }
+}

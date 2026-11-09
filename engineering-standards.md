@@ -236,3 +236,62 @@ Before accepting new first-party OCaml code, review:
 Enforcement should target actual violations, not blanket token bans or checks that merely mirror implementation. Formatting is automated; semantic API/type/I/O choices also require review. This covers the project's initial engineering baseline, not every topic in OCaml or an assertion that a hidden internal style guide has been exhaustively reproduced.
 
 These conventions draw on [Real World OCaml, second edition](<https://dev.realworldocaml.org/>), co-authored by Yaron Minsky and Anil Madhavapeddy. It is the public learning/reference source; the explicit project policies above determine Workgraph's choices where examples in the book differ.
+
+## Optional browser UI engineering
+
+The frontend under `ui/frontend/` uses strict TypeScript and React. These additional
+rules apply to browser code and build tools; all first-party OCaml still follows
+the Core/Eio, interface, formatting and test requirements above.
+
+* Draft exported domain types and module boundaries before implementation. Give
+  coherent features small modules with pure adapters/reducers and explicit effect
+  owners. Use tagged unions and exhaustive handling for lifecycle alternatives.
+  Network/storage input starts as `unknown`; validate it before admitting a domain
+  value. Do not cast a response into a trusted DTO or use unchecked `any`.
+* Arbitrary JSON enters the bounded lossless decoder before feature adapters.
+  Preserve numeric lexemes, decoded-name duplicate rejection, scalar UTF-8 and
+  missing/null/delete distinctions. `JSON.parse` and `response.json()` are not
+  arbitrary Workgraph value decoders. Protocol counters and revisions remain
+  validated decimal strings; conversion to a JS number requires an exact checked
+  small-integer domain. Unknown fields survive structured editing.
+* Every cache, continuation, cancellation and stale-result key includes the actual
+  connection endpoint generation and relevant workspace/capture/selection scope.
+  React effects own their cancellation/disposal. Drafts retain their captured
+  writer/scope; frozen operations retain exact preparation context and identity.
+  Components use the central read/operation controller rather than inventing
+  retry, daemon lifecycle, filesystem or acknowledgement policy inside JSX.
+* Await or explicitly handle promises and cleanup; no floating rejected work.
+  Keep transport failure, rejection, conflict and uncertain write distinct. An
+  aborted browser waiter does not imply a daemon mutation was canceled. Preserve
+  visible drafts, raw sources and recovery actions on failures.
+* Use semantic HTML, accessible names, keyboard/focus behavior and shared design
+  primitives. Loading/empty/partial/error/unsupported states are real states, not
+  interchangeable placeholders. Respect reduced motion, text zoom and both themes.
+  Content/renderers remain passive; no executable plugin, expression/eval runtime,
+  active untrusted markup or automatic external resource fetch.
+* Keep exact direct pins and the npm integrity lock together. Dependencies need a
+  concrete purpose, compatible peers and retained license text; review additions
+  deliberately. Ajv is build-only, not a runtime schema compiler. No CDN or network
+  installation is reachable from the installed companion. Build-time Node/npm
+  versions are in `ui/tools/toolchain.json`; use a private matching builder rather
+  than changing global defaults.
+* `./dev-ui check` runs pinned ESLint, strict TypeScript, Vitest, formatting and
+  asset-tool checks. Use meaningful decoder/reducer/fault fixtures rather than
+  tests that duplicate styling or implementation. `./dev-ui verify` adds frontend
+  production build/embedding, enabled native gates and Playwright workflows;
+  browser tests use isolated real-daemon fixtures and synthetic public data.
+  Browser availability and platform qualification must be reported accurately.
+* Every UI-only Dune stanza is guarded by `WORKGRAPH_UI_BUILD=true`; no npm target
+  is reachable from the disabled core build. `./dev build @fmt @runtest @install`
+  remains independent. An explicit UI build asserts the real native executable
+  and nonempty optional install manifest, not an empty disabled package. Opam UI
+  builds use the active environment directly and never select a developer switch.
+* Generated assets use exact allowlisted paths, deterministic source/lock/hash
+  inventory and complete runtime/helper notices. `--check` rejects stale embedded
+  outputs. The immutable asset library performs no runtime filesystem reads;
+  the HTTP router owns route validation, bootstrap substitution and headers.
+
+In the optional UI source tree, `ui/frontend/README.md` documents commands, the
+asset interface and incremental foundation constraints. ESLint/TypeScript/Prettier are
+automated checks; semantic policy, rendered quality and exact target evidence still
+require root and independent review.

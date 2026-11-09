@@ -27,6 +27,7 @@ let validate_run_actor = Planning_state.validate_run_actor
 let prepare = Planning_prepare.prepare
 let prepare_submission = Planning_prepare.prepare_submission
 let candidate = Planning_prepare.candidate
+let expanded_operation_count = Planning_prepare.expanded_operation_count
 let events = Planning_prepare.events
 let result = Planning_prepare.result
 let blobs = Planning_prepare.blobs

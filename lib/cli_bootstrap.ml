@@ -203,16 +203,52 @@ let startup_log file ~after =
   | Error problem -> "[cannot read startup log: " ^ problem.message ^ "]", None
 ;;
 
-let probe_listing client request =
-  Result.bind (Client.execute client request) ~f:(function
-    | Protocol.Failure _ as response -> Ok response
-    | Success value ->
-      Result.map
-        (Api_codec.decode (Api_response.codec Administration_wire.Health.codec) value)
-        ~f:(fun _ -> Protocol.Success value))
+let probe_listing ?before_probe client request =
+  let qualification : (unit, Problem.t) Result.t =
+    match before_probe with
+    | None -> Ok ()
+    | Some qualify -> qualify client
+  in
+  match qualification with
+  | Error problem when not (Problem.equal_kind problem.kind Storage_unavailable) ->
+    (* A reached endpoint's typed incompatibility/domain rejection is terminal.
+       It must not become the absent-socket branch that spawns another child. *)
+    Ok (Protocol.Failure problem)
+  | Error problem -> Error problem
+  | Ok () ->
+    Result.bind (Client.execute client request) ~f:(function
+      | Protocol.Failure _ as response -> Ok response
+      | Success value ->
+        Result.map
+          (Api_codec.decode (Api_response.codec Administration_wire.Health.codec) value)
+          ~f:(fun _ -> Protocol.Success value))
 ;;
 
-let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
+module Daemon_start = struct
+  type observation =
+    | Existing
+    | Startup_attempt_observed_ready
+    | Competing
+  [@@deriving equal, sexp]
+
+  type t =
+    { observation : observation
+    ; listing : Jsonaf.t
+    }
+end
+
+let start_daemon_after_probe
+      ~before_probe
+      ~env
+      ~socket
+      ~timeout_seconds
+      ~executable
+      ~client
+      ~list_request
+      ~initial_problem
+      ~registry
+      ~log
+  =
   Eio.Switch.run (fun sw ->
     let fs = Eio.Stdenv.fs env in
     (* Eio.Path.open_out opens for reading and writing on both POSIX and Linux;
@@ -234,14 +270,14 @@ let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
         ; "-c"
         ; {|trap 'exit 0' USR1; umask 077; nohup "$1" serve "$2" "$3" </dev/null & wait "$!"|}
         ; "workgraph-bootstrap"
-        ; Stdlib.Sys.executable_name
+        ; executable
         ; registry
-        ; Cli_context.socket t.context
+        ; socket
         ]
     in
     let last_problem = ref initial_problem in
     let rec ready () =
-      match probe_listing client list_request with
+      match probe_listing ?before_probe client list_request with
       | Ok (Protocol.Success value) -> value
       | Ok (Failure problem) -> raise (Json.Decode_error problem)
       | Error problem ->
@@ -267,7 +303,7 @@ let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
     in
     try
       Eio.Time.Timeout.run_exn
-        (Eio.Time.Timeout.seconds (Eio.Stdenv.mono_clock env) t.timeout_seconds)
+        (Eio.Time.Timeout.seconds (Eio.Stdenv.mono_clock env) timeout_seconds)
         (fun () ->
            match
              Eio.Fiber.first
@@ -277,7 +313,9 @@ let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
            | `Ready value ->
              Eio.Process.signal supervisor Stdlib.Sys.sigusr1;
              ignore (Eio.Process.await supervisor : Eio.Process.exit_status);
-             value
+             { Daemon_start.observation = Startup_attempt_observed_ready
+             ; listing = value
+             }
            | `Exited status ->
              (* A competing bootstrap may own this exact socket and still be
                recovering its registry. Its valid handshake is the only success
@@ -287,7 +325,7 @@ let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
                Option.exists problem ~f:(function
                  | { Problem.kind = Conflict; details = Some (Socket_owner _); _ } -> true
                  | _ -> false)
-             then ready ()
+             then { Daemon_start.observation = Competing; listing = ready () }
              else
                raise
                  (Json.Decode_error (failure (Fmt.str "%a" Eio.Process.pp_status status))))
@@ -299,8 +337,103 @@ let start_daemon t ~env ~client ~list_request ~initial_problem ~registry ~log =
       raise (Json.Decode_error problem))
 ;;
 
-let run t ~env ~on_saved_request =
+let start_daemon ?before_probe ~env ~executable ~socket ~registry ~log ~timeout_seconds ()
+  =
+  let run () =
+    Disk.protect (fun () ->
+      Disk.absolute executable;
+      Platform.validate_socket_path socket |> Disk.unwrap;
+      Disk.absolute registry;
+      Disk.absolute log;
+      if
+        (not (Float.is_finite timeout_seconds))
+        || Float.(timeout_seconds <= 0. || timeout_seconds > 3600.)
+      then
+        Json.fail
+          Invalid_argument
+          "startup timeout must be positive and at most 3600 seconds";
+      let fs = Eio.Stdenv.fs env in
+      (match Eio.Path.kind ~follow:false Eio.Path.(fs / registry) with
+       | `Directory -> ()
+       | `Not_found ->
+         Local_file.require_directory
+           Eio.Path.(fs / Filename.dirname registry)
+           ~operation:"initialize daemon registry"
+       | _ ->
+         Json.fail
+           Invalid_argument
+           "daemon registry requires a real directory or fresh path");
+      Local_file.require_directory
+        Eio.Path.(fs / Filename.dirname log)
+        ~operation:"initialize daemon log";
+      (match Eio.Path.kind ~follow:false Eio.Path.(fs / log) with
+       | `Not_found | `Regular_file -> ()
+       | _ ->
+         Json.fail Invalid_argument "daemon log requires a regular file or fresh path");
+      let client =
+        Client.create
+          ~net:(Eio.Stdenv.net env)
+          ~clock:(Eio.Stdenv.mono_clock env)
+          ~socket
+          ~timeout_seconds
+        |> Disk.unwrap
+      in
+      let list_request =
+        Protocol.Request.create
+          ~id:"local-daemon-start"
+          ~method_:"workspace.list"
+          ~params:(Json.obj [])
+        |> Disk.unwrap
+      in
+      match probe_listing ?before_probe client list_request with
+      | Ok (Protocol.Success listing) -> { Daemon_start.observation = Existing; listing }
+      | Ok (Failure problem) -> raise (Json.Decode_error problem)
+      | Error initial_problem ->
+        start_daemon_after_probe
+          ~before_probe
+          ~env
+          ~socket
+          ~timeout_seconds
+          ~executable
+          ~client
+          ~list_request
+          ~initial_problem
+          ~registry
+          ~log)
+  in
+  if
+    (not (Float.is_finite timeout_seconds))
+    || Float.(timeout_seconds <= 0. || timeout_seconds > 3600.)
+  then
+    Error
+      (Problem.create
+         Invalid_argument
+         "startup timeout must be positive and at most 3600 seconds")
+  else (
+    match before_probe with
+    | None -> run ()
+    | Some _ ->
+      (* Qualification is included in the caller's full budget, including the
+       initial existing-endpoint probe. Its own cap cannot extend this deadline. *)
+      (try
+         Eio.Time.Timeout.run_exn
+           (Eio.Time.Timeout.seconds (Eio.Stdenv.mono_clock env) timeout_seconds)
+           run
+       with
+       | Eio.Time.Timeout ->
+         Error
+           (Problem.create
+              Storage_unavailable
+              "daemon startup deadline exceeded during qualification/readiness; a \
+               detached startup, if already admitted, may still finish")))
+;;
+
+let run ?daemon_executable t ~env ~on_saved_request =
   Disk.protect (fun () ->
+    Option.iter daemon_executable ~f:Disk.absolute;
+    let daemon_executable =
+      Option.value daemon_executable ~default:Stdlib.Sys.executable_name
+    in
     let fs = (Eio.Stdenv.fs env :> Eio.Fs.dir_ty Eio.Path.t) in
     let directory = Filename.dirname t.context_file in
     Local_file.require_directory Eio.Path.(fs / directory) ~operation:"initialize context";
@@ -370,14 +503,18 @@ let run t ~env ~on_saved_request =
         (match t.startup with
          | Existing -> raise (Json.Decode_error problem)
          | Start { registry; log } ->
-           start_daemon
-             t
-             ~env
-             ~client
-             ~list_request
-             ~initial_problem:problem
-             ~registry
-             ~log)
+           (start_daemon_after_probe
+              ~before_probe:None
+              ~env
+              ~socket:(Cli_context.socket t.context)
+              ~timeout_seconds:t.timeout_seconds
+              ~executable:daemon_executable
+              ~client
+              ~list_request
+              ~initial_problem:problem
+              ~registry
+              ~log)
+             .listing)
     in
     let find listing =
       Json.field (Json.field listing "data") "workspaces"

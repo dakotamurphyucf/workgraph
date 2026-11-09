@@ -12,7 +12,13 @@ val inherited_override : Jsonaf.t Api_codec.t
 val manifest_ref : Jsonaf.t Api_codec.t
 val contract_ref : Jsonaf.t Api_codec.t
 val resource_pin : Jsonaf.t Api_codec.t
+
+(** Accepts every current immutable evidence-pin alternative, including an
+    amendment ID and positive revision. Entity IDs admit transaction references;
+    revision counters and opaque values do not. Literal resolved pins must also
+    satisfy [Evidence_wire.pin] before command preparation. *)
 val pin : Jsonaf.t Api_codec.t
+
 val artifact : Jsonaf.t Api_codec.t
 val entity_ref : Jsonaf.t Api_codec.t
 val disposition : Jsonaf.t Api_codec.t

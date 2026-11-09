@@ -1,0 +1,642 @@
+/* Developer tools share the readable Overview palette, with explicit API data. */
+.adv-root {
+  --wg-bg: #111318;
+  --wg-panel: #1c2028;
+  --wg-hover: #252b35;
+  --wg-raised: #252b35;
+  --wg-border: #3c4554;
+  --wg-text: #f4f5fa;
+  --wg-secondary: #c8cfdd;
+  --wg-muted: #aeb9cc;
+  --wg-accent: #a1a8ff;
+  --adv-blue: #91baff;
+  --adv-purple: #c4a3ff;
+  --adv-green: #7de4aa;
+  --adv-orange: #ffb86e;
+  color: var(--wg-text);
+  background: var(--wg-bg);
+  font-size: 15px;
+  padding: 30px 32px 48px;
+}
+[data-theme="light"] .adv-root {
+  --wg-bg: #f6f7fb;
+  --wg-panel: #fff;
+  --wg-hover: #eff2f8;
+  --wg-raised: #eff2f8;
+  --wg-border: #c6cedd;
+  --wg-text: #202638;
+  --wg-secondary: #47536b;
+  --wg-muted: #58657d;
+  --wg-accent: #5751b7;
+  --adv-blue: #285fa3;
+  --adv-purple: #7450ad;
+  --adv-green: #237348;
+  --adv-orange: #9b5b16;
+}
+.adv-root [data-tone="blue"] {
+  --adv-tone: var(--adv-blue);
+}
+.adv-root [data-tone="purple"] {
+  --adv-tone: var(--adv-purple);
+}
+.adv-root [data-tone="green"] {
+  --adv-tone: var(--adv-green);
+}
+.adv-root [data-tone="orange"] {
+  --adv-tone: var(--adv-orange);
+}
+.adv-root svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.adv-root .adv-top {
+  margin-bottom: 22px;
+}
+.adv-root .adv-top h1 {
+  font-size: 30px;
+  margin: 6px 0 10px;
+}
+.adv-root .adv-top p {
+  font-size: 15px;
+  color: var(--wg-secondary);
+}
+.adv-root .adv-top .adv-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--adv-purple);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.adv-root .adv-top > div:last-child {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 460px;
+}
+.adv-root .wg-button {
+  font-size: 14px;
+  min-height: 36px;
+  border-radius: 9px;
+}
+.adv-root .wg-button[aria-pressed="true"] {
+  color: var(--wg-text);
+  background: color-mix(in srgb, var(--wg-accent) 15%, var(--wg-panel));
+  border-color: var(--wg-accent);
+}
+.adv-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  border-bottom: 1px solid var(--wg-border);
+  padding-bottom: 18px;
+}
+.adv-root .adv-section-nav .wg-button {
+  padding: 10px 17px;
+  gap: 8px;
+  border-radius: 11px;
+  background: var(--wg-panel);
+}
+.adv-section-nav .wg-button svg {
+  color: var(--adv-tone);
+}
+.adv-root .adv-section-nav .wg-button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--adv-tone) 12%, var(--wg-panel));
+  border-color: color-mix(in srgb, var(--adv-tone) 70%, var(--wg-border));
+}
+.adv-section-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin: 22px 0;
+}
+.adv-section-intro > svg {
+  color: var(--adv-tone);
+  padding: 10px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--adv-tone) 10%, var(--wg-panel));
+  box-sizing: content-box;
+}
+.adv-section-intro h2 {
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+.adv-section-intro p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 850px;
+  color: var(--wg-secondary);
+}
+.adv-root .adv-layout,
+.adv-root .adv-layout.adv-landing {
+  grid-template-columns: minmax(290px, 0.85fr) minmax(0, 1.6fr);
+  gap: 24px;
+}
+.adv-root .adv-sidebar,
+.adv-root .adv-landing .adv-sidebar {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 110px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+  background: var(--wg-panel);
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  padding: 20px 16px;
+}
+.adv-root .adv-module-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 650;
+  margin: 0 0 16px;
+}
+.adv-module-heading > svg {
+  color: var(--adv-blue);
+}
+.adv-root .adv-sidebar > .wg-field {
+  margin-bottom: 16px;
+}
+.adv-root .wg-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.adv-root .wg-field label {
+  font-size: 14px;
+  color: var(--wg-text);
+}
+.adv-root .wg-field input,
+.adv-root .wg-field select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 41px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+.adv-root .adv-group h3 {
+  color: var(--adv-purple);
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  padding: 17px 8px 8px;
+}
+.adv-root .adv-item {
+  border-radius: 10px;
+  padding: 12px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--wg-border) 50%, transparent);
+}
+.adv-root .adv-item code {
+  font-size: 13px;
+}
+.adv-root .adv-item p {
+  color: var(--wg-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+  margin-top: 6px;
+}
+.adv-root .adv-item small {
+  font-size: 12px;
+}
+.adv-root .adv-item.is-active {
+  border-color: var(--wg-accent);
+  background: color-mix(in srgb, var(--wg-accent) 12%, var(--wg-panel));
+  color: var(--wg-text);
+}
+.adv-root .adv-mode-badge {
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.adv-root [data-effect="read"] {
+  --adv-effect: var(--adv-green);
+}
+.adv-root [data-effect="write"] {
+  --adv-effect: var(--adv-orange);
+}
+.adv-root .adv-mode-badge {
+  color: var(--adv-effect);
+  background: color-mix(in srgb, var(--adv-effect) 10%, transparent);
+}
+.adv-root .adv-capabilities {
+  margin-top: 22px;
+  border-top: 1px solid var(--wg-border);
+  padding-top: 14px;
+}
+.adv-root .adv-capabilities > div {
+  padding: 14px 0;
+}
+.adv-root .adv-capabilities code {
+  font-size: 12px;
+  color: var(--wg-muted);
+  overflow-wrap: anywhere;
+}
+.adv-root summary {
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--wg-secondary);
+}
+.adv-root summary:hover {
+  color: var(--wg-text);
+}
+.adv-root .adv-main > details,
+.adv-root .wg-panel-body > details {
+  border: 1px solid var(--wg-border);
+  padding: 13px 16px;
+  border-radius: 12px;
+  background: var(--wg-panel);
+  margin: 12px 0;
+}
+.adv-root details[open] > summary {
+  margin-bottom: 14px;
+  color: var(--wg-text);
+}
+.adv-root .adv-drafts {
+  padding: 0 0 16px;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.adv-root .adv-drafts .wg-button {
+  font-size: 13px;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+.adv-root .adv-shortid {
+  font-size: 12px;
+}
+.adv-start {
+  background: var(--wg-panel);
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 24px;
+}
+.adv-section-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--adv-purple);
+  font-size: 13px;
+  font-weight: 600;
+}
+.adv-start h2 {
+  font-size: 23px;
+  letter-spacing: -0.4px;
+  margin: 12px 0;
+}
+.adv-start p {
+  color: var(--wg-secondary);
+  line-height: 1.7;
+  font-size: 14px;
+  margin: 10px 0 20px;
+}
+.adv-start ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  counter-reset: step;
+}
+.adv-start li {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--wg-secondary);
+}
+.adv-start li b {
+  color: var(--adv-blue);
+  font-size: 15px;
+}
+.adv-start li b::before {
+  counter-increment: step;
+  content: counter(step) " · ";
+}
+.adv-root .adv-hub-links {
+  border-radius: 16px;
+  padding: 7px 12px;
+}
+.adv-root .adv-hub-links > .wg-button {
+  padding: 18px 12px;
+}
+.adv-root .adv-hub-links strong {
+  font-size: 15px;
+}
+.adv-root .adv-hub-links small {
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.adv-root .adv-hub-links > .wg-button > svg:first-child {
+  width: 22px;
+  height: 22px;
+  color: var(--adv-blue);
+}
+.adv-root .adv-hub-links > .wg-button:first-child > svg:first-child {
+  color: var(--adv-orange);
+}
+.adv-root .adv-hub-links > .wg-button:last-child > svg:first-child {
+  color: var(--adv-purple);
+}
+.adv-root .adv-hub-note {
+  font-size: 14px;
+  color: var(--wg-secondary);
+}
+.adv-root .adv-heading {
+  margin: 20px 0 12px;
+}
+.adv-root .adv-heading h2 {
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+.adv-root .adv-heading p {
+  font-size: 15px;
+  color: var(--wg-secondary);
+}
+.adv-effect {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--adv-effect) 40%, var(--wg-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--adv-effect) 6%, var(--wg-panel));
+  color: var(--wg-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.adv-effect > svg {
+  color: var(--adv-effect);
+  margin-top: 3px;
+}
+.adv-root .wg-panel {
+  border-radius: 16px;
+  border-color: var(--wg-border);
+  overflow: visible;
+}
+.adv-root .wg-panel-header {
+  padding: 17px 20px;
+  background: var(--wg-raised);
+  border-radius: 16px 16px 0 0;
+}
+.adv-root .wg-panel h2 {
+  font-size: 17px;
+}
+.adv-root .wg-panel-body {
+  padding: 20px;
+}
+.adv-root .wg-hint,
+.adv-root .adv-saved > .wg-hint {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--wg-secondary);
+}
+.adv-root .adv-context {
+  gap: 20px;
+  padding: 8px 0 14px;
+}
+.adv-root .adv-context small {
+  font-size: 12px;
+  text-transform: none;
+  color: var(--wg-muted);
+}
+.adv-root .adv-context strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 14px;
+}
+.adv-root .adv-context code {
+  font-size: 12px;
+}
+.adv-root .adv-field {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--wg-border);
+}
+.adv-root .adv-field-title {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.adv-field-title > strong {
+  font-size: 15px;
+  text-transform: capitalize;
+}
+.adv-root .adv-field-title code {
+  font-size: 12px;
+  color: var(--wg-muted);
+}
+.adv-root .adv-field-title .wg-badge {
+  font-size: 11px;
+}
+.adv-root .adv-field-controls {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.5fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 14px 20px;
+}
+.adv-root .adv-field-controls > .wg-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.adv-root .adv-field-controls > .dc-reference-picker,
+.adv-root .adv-field-controls > .dc-actor-picker {
+  min-width: 0;
+}
+.adv-root .adv-field-controls .dc-input-mode {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.adv-root .adv-json-field {
+  min-width: 0;
+  font-size: 14px;
+}
+.adv-root .adv-json-field textarea,
+.adv-root .adv-raw {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px;
+  line-height: 1.6;
+  border-radius: 10px;
+  padding: 12px;
+  resize: vertical;
+}
+.adv-root .adv-raw {
+  min-height: 250px;
+}
+.adv-root .adv-raw-label {
+  font-size: 14px;
+  display: grid;
+  gap: 9px;
+}
+.adv-fields-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 0 4px;
+}
+.adv-fields-heading > svg {
+  color: var(--adv-blue);
+  margin-top: 3px;
+}
+.adv-fields-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.adv-fields-heading p {
+  color: var(--wg-secondary);
+  font-size: 14px;
+  margin: 6px 0;
+}
+.adv-staged-hint {
+  color: var(--adv-orange);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.adv-root .adv-notice {
+  font-size: 14px;
+  border-radius: 12px;
+  color: var(--wg-text);
+}
+.adv-root .adv-saved h3 {
+  font-size: 16px;
+}
+.adv-root .adv-command {
+  padding: 16px;
+  gap: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--wg-border);
+  background: var(--wg-bg);
+}
+.adv-root .adv-command code {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.adv-root .adv-steps {
+  padding-left: 24px;
+}
+.adv-root .adv-steps li {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 12px 0;
+  color: var(--wg-secondary);
+}
+.adv-root .wg-dialog {
+  width: min(820px, calc(100vw - 48px));
+  border-radius: 20px;
+  border-color: var(--wg-border);
+  color: var(--wg-text);
+  background: var(--wg-panel);
+}
+.adv-root .wg-dialog h2 {
+  font-size: 24px;
+}
+.adv-guide {
+  display: grid;
+  gap: 22px;
+  padding-top: 12px;
+}
+.adv-guide section {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+.adv-guide section > svg {
+  color: var(--adv-purple);
+  margin-top: 3px;
+}
+.adv-guide h3 {
+  font-size: 16px;
+  margin: 0 0 7px;
+}
+.adv-guide p,
+.adv-root .wg-dialog-description {
+  margin: 0;
+  color: var(--wg-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.adv-root :focus-visible {
+  outline: 2px solid var(--wg-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 1050px) {
+  .adv-root {
+    padding: 24px 18px;
+  }
+  .adv-root .adv-layout,
+  .adv-root .adv-layout.adv-landing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adv-root .adv-sidebar,
+  .adv-root .adv-landing .adv-sidebar {
+    position: static;
+    max-height: 420px;
+  }
+  .adv-root .adv-top > div:last-child {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 650px) {
+  .adv-root {
+    padding: 20px 12px;
+  }
+  .adv-root .adv-field-controls,
+  .adv-root .adv-context,
+  .adv-start ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adv-root .adv-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .adv-root .adv-top > div:last-child {
+    max-width: 100%;
+  }
+  .adv-root .wg-badge {
+    white-space: normal;
+  }
+  .adv-root .wg-panel-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .adv-root .wg-panel-body {
+    padding: 16px;
+  }
+  .adv-root .wg-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+.adv-root fieldset.adv-field {
+  border: 0;
+  border-bottom: 1px solid var(--wg-border);
+  margin: 0;
+  min-width: 0;
+}
+
+.adv-json-result h3 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.adv-root .adv-json-result > details {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--wg-border);
+}
+.adv-root .adv-json-result .wg-rich-json {
+  overflow: auto;
+  max-height: 600px;
+}
+.adv-root .adv-json-result .wg-json-name,
+.adv-root .adv-json-result .wg-json-value {
+  font-size: 13px;
+}

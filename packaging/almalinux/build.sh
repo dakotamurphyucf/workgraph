@@ -23,6 +23,12 @@ python3 "$source_directory/tools/package.py" "$build_directory/input-package" \
 tar -xzf "$build_directory"/input-package/workgraph-*-source.tar.gz -C "$build_directory"
 project_directory=$(find "$build_directory" -mindepth 1 -maxdepth 1 -type d -name 'workgraph-*' -print)
 cd "$project_directory"
+source "$project_directory/packaging/clean-ocaml-env.sh"
+version=$(python3 packaging/source_version.py "$project_directory")
+optional_ui=${WORKGRAPH_PACKAGE_UI:-false}
+case "$optional_ui" in true|false) ;; *) echo 'WORKGRAPH_PACKAGE_UI must be true or false' >&2; exit 2 ;; esac
+notice_options=()
+ui_options=()
 
 {
   cat /etc/os-release
@@ -39,29 +45,60 @@ cat /proc/cpuinfo > "$output_directory/logs/cpuinfo.txt"
 rpm -qa --queryformat '%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' | sort \
   > "$output_directory/logs/build-rpms.txt"
 opam list --installed --columns=name,version > "$output_directory/logs/opam-packages.txt"
-opam switch export --full --freeze "$output_directory/toolchain.export"
+if [ "$optional_ui" = true ]; then
+  opam switch export --full "$output_directory/toolchain.export"
+else
+  opam switch export --full --freeze "$output_directory/toolchain.export"
+fi
 
 ./dev build @fmt @runtest @install --display=short -j "${WORKGRAPH_JOBS:-2}" \
   2>&1 | tee "$output_directory/logs/build-test-install.log"
-test "$(./dev run --version)" = 0.7.0
+test "$(./dev run --version)" = "$version"
+if [ "$optional_ui" = true ]; then
+  test -n "${WORKGRAPH_UI_INPUTS:-}"
+  test "$(node --version)" = v22.14.0
+  test "$(npm --version)" = 10.9.2
+  ./dev-ui install 2>&1 | tee "$output_directory/logs/ui-install.log"
+  ./dev-ui frontend 2>&1 | tee "$output_directory/logs/ui-frontend.log"
+  ./dev-ui native 2>&1 | tee "$output_directory/logs/ui-native.log"
+  WORKGRAPH_UI_BUILD=true ./dev build @fmt @runtest @install --display=short -j "${WORKGRAPH_JOBS:-2}" \
+    2>&1 | tee "$output_directory/logs/ui-enabled-gate.log"
+  ldd _build/default/ui/companion/bin/main.exe > "$output_directory/logs/ui-linked-libraries.txt"
+  if grep -q 'not found' "$output_directory/logs/ui-linked-libraries.txt"; then exit 1; fi
+  file _build/default/ui/companion/bin/main.exe > "$output_directory/logs/ui-executable-format.txt"
+  readelf -h _build/default/ui/companion/bin/main.exe > "$output_directory/logs/ui-elf-header.txt"
+  notice_options=(--ui --cohttp-source "$WORKGRAPH_UI_INPUTS/cohttp")
+  ui_options=(--ui-binary "$project_directory/_build/default/ui/companion/bin/main.exe"
+              --ui-manifest "$project_directory/ui/tools/embedded/manifest.json"
+              --ui-notices "$project_directory/ui/tools/embedded/frontend-notices.txt")
+  cp "$WORKGRAPH_UI_INPUTS/provision.json" "$WORKGRAPH_UI_INPUTS/cohttp/upstream.json" "$output_directory/logs/"
+fi
 ldd _build/default/bin/main.exe > "$output_directory/logs/linked-libraries.txt"
 file _build/default/bin/main.exe > "$output_directory/logs/executable-format.txt"
 readelf -h _build/default/bin/main.exe > "$output_directory/logs/elf-header.txt"
-python3 packaging/almalinux/collect_notices.py "$output_directory/notices" \
+python3 packaging/almalinux/collect_notices.py "$output_directory/notices" ${notice_options[@]+"${notice_options[@]}"} \
   2>&1 | tee "$output_directory/logs/dependency-notices.log"
 python3 tools/package.py "$output_directory/archives" \
   --binary "$project_directory/_build/default/bin/main.exe" \
   --notices "$output_directory/notices" \
   --platform almalinux-10-x86_64 \
+  ${ui_options[@]+"${ui_options[@]}"} \
   | tee "$output_directory/logs/native-package.json"
 
 mkdir -p "$build_directory/rpmbuild"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-cp "$output_directory/archives/workgraph-0.7.0-almalinux-10-x86_64.tar.gz" \
+cp "$output_directory/archives/workgraph-$version-almalinux-10-x86_64.tar.gz" \
   "$build_directory/rpmbuild/SOURCES/"
 cp /opt/workgraph.spec "$build_directory/rpmbuild/SPECS/workgraph.spec"
 rpmbuild -bb --define "_topdir $build_directory/rpmbuild" \
+  --define "workgraph_version $version" \
   "$build_directory/rpmbuild/SPECS/workgraph.spec" \
   2>&1 | tee "$output_directory/logs/rpm-build.log"
+if [ "$optional_ui" = true ]; then
+  cp "$output_directory/archives/workgraph-ui-$version-almalinux-10-x86_64.tar.gz" "$build_directory/rpmbuild/SOURCES/"
+  cp /opt/workgraph-ui.spec "$build_directory/rpmbuild/SPECS/"
+  rpmbuild -bb --define "_topdir $build_directory/rpmbuild" --define "workgraph_version $version" \
+    "$build_directory/rpmbuild/SPECS/workgraph-ui.spec" 2>&1 | tee "$output_directory/logs/ui-rpm-build.log"
+fi
 mkdir "$output_directory/rpm"
 cp "$build_directory/rpmbuild/RPMS/x86_64/"*.rpm "$output_directory/rpm/"
 rpm -qp --requires "$output_directory/rpm/"*.rpm > "$output_directory/logs/rpm-requires.txt"
@@ -80,7 +117,7 @@ artifacts = {p.relative_to(out).as_posix(): hashlib.sha256(p.read_bytes()).hexdi
              for directory in ['archives', 'rpm'] for p in (out / directory).iterdir() if p.is_file()}
 metadata = {
     'schema': 1, 'status': 'build-tests-passed-runtime-pending',
-    'target': 'almalinux-10-x86_64', 'version': '0.7.0',
+    'target': 'almalinux-10-x86_64', 'version': json.loads((out / 'logs/source-package.json').read_text())['version'],
     'base_image': 'docker.io/library/almalinux@sha256:ba31c3299856068f77bc10574cad51b0a4f6a3dafb882668656e1639bee63db6',
     'opam_repository_commit': 'e4cd7ede2d55a46570977c0ffaa7e96845190817',
     'opam_version': '2.3.0', 'ocaml_version': '5.3.0', 'dune_version': '3.21.1',

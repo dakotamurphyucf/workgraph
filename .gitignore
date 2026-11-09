@@ -10,3 +10,15 @@ __pycache__/
 /._*
 /.env
 /.env.*
+/node_modules/
+/ui/frontend/node_modules/
+/ui/frontend/dist/
+/ui/frontend/playwright-report/
+/ui/frontend/test-results/
+/ui/tools/embedded/generated/
+/ui/tools/embedded/manifest.json
+/ui/tools/embedded/frontend-notices.txt
+
+# Qualification runs retain reports in scratch, never package local browser output.
+/ui/tests/qualification/**/playwright-report/
+/ui/tests/qualification/**/test-results/

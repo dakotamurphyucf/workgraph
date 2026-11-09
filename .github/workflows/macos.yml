@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      optional_ui:
+        description: Build and qualify the optional paired UI archive in an isolated toolchain
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -16,9 +21,11 @@ jobs:
     env:
       OPAMROOT: ${{ github.workspace }}/scratch/macos-opam
       WORKGRAPH_OPAM_SWITCH: workgraph-ci
+      WORKGRAPH_PACKAGE_UI: ${{ github.event_name == 'workflow_dispatch' && inputs.optional_ui && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Provision isolated pinned toolchain
+        if: env.WORKGRAPH_PACKAGE_UI != 'true'
         run: |
           test "$(uname -m)" = arm64
           brew install opam
@@ -37,8 +44,20 @@ jobs:
           test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- ocamlc -version)" = 5.3.0
           test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- dune --version)" = 3.21.1
           test "$(opam exec --switch="$WORKGRAPH_OPAM_SWITCH" -- ocamlformat --version)" = 0.28.1
+      - name: Provision isolated optional UI toolchain
+        if: env.WORKGRAPH_PACKAGE_UI == 'true'
+        run: |
+          test "$(uname -m)" = arm64
+          brew install opam
+          mkdir -p scratch
+          packaging/provision-ui.sh "$PWD/scratch/ui-provision" macos-arm64
       - name: Build, package and qualify installed executable
-        run: packaging/macos/build.sh "$PWD/dist/macos-arm64"
+        run: |
+          if [ "$WORKGRAPH_PACKAGE_UI" = true ]; then
+            source "$PWD/scratch/ui-provision/environment.sh"
+            export WORKGRAPH_UI_INPUTS="$PWD/scratch/ui-provision"
+          fi
+          packaging/macos/build.sh "$PWD/dist/macos-arm64"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

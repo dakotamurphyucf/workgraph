@@ -36,6 +36,12 @@ assert ((out / 'runtime/tar/executable.sha256').read_text().split()[0]
 metadata['status'] = 'passed'
 metadata['runtime_checks'] = runtime
 metadata['executable_sha256'] = (out / 'runtime/tar/executable.sha256').read_text().split()[0]
+ui = out / 'runtime/tar/ui-runtime/result.json'
+if ui.is_file():
+    optional = {kind: json.loads((out / 'runtime' / kind / 'ui-runtime/result.json').read_text()) for kind in ['tar', 'rpm']}
+    assert all(item['status'] == 'passed' for item in optional.values())
+    assert optional['tar']['ui_sha256'] == optional['rpm']['ui_sha256']
+    metadata['optional_ui'] = optional
 (out / 'qualification.json').write_text(json.dumps(metadata, indent=2, sort_keys=True) + '\n')
 print(json.dumps({'status': 'passed', 'qualification': str(out / 'qualification.json')}))
 PY

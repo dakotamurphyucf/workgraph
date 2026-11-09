@@ -1,0 +1,337 @@
+/* Scope changes navigation only; keep its choices distinct from workspace editing. */
+.wg-dialog:has(.sc-scope) {
+  --wg-bg: #111318;
+  --wg-panel: #1c2028;
+  --wg-raised: #252b35;
+  --wg-border: #3c4554;
+  --wg-text: #f4f5fa;
+  --wg-secondary: #c8cfdd;
+  --wg-muted: #aeb9cc;
+  --sc-blue: #91baff;
+  --sc-purple: #c4a3ff;
+  --sc-green: #7de4aa;
+  width: min(1120px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  border-radius: 20px;
+  background: var(--wg-bg);
+  color: var(--wg-text);
+  border: 1px solid var(--wg-border);
+  padding: 0;
+  overflow: hidden;
+}
+[data-theme="light"] .wg-dialog:has(.sc-scope) {
+  --wg-bg: #f6f7fb;
+  --wg-panel: #fff;
+  --wg-raised: #eff2f8;
+  --wg-border: #c6cedd;
+  --wg-text: #202638;
+  --wg-secondary: #47536b;
+  --wg-muted: #58657d;
+  --sc-blue: #285fa3;
+  --sc-purple: #7450ad;
+  --sc-green: #237348;
+}
+.wg-dialog:has(.sc-scope) .wg-dialog-header {
+  padding: 20px 26px;
+  background: var(--wg-panel);
+  flex-shrink: 0;
+}
+.wg-dialog:has(.sc-scope) .wg-dialog-header h2 {
+  font-size: 23px;
+}
+.wg-dialog:has(.sc-scope) .wg-dialog-body {
+  padding: 0;
+  overflow: auto;
+}
+.sc-scope {
+  padding: 24px 26px;
+  font-size: 15px;
+}
+.sc-scope svg {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+}
+.sc-intro {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+.sc-intro > span {
+  display: flex;
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sc-blue) 14%, var(--wg-panel));
+  color: var(--sc-blue);
+}
+.sc-intro h3 {
+  margin: 0 0 7px;
+  font-size: 20px;
+}
+.sc-intro p {
+  margin: 0;
+  line-height: 1.65;
+  color: var(--wg-secondary);
+}
+.sc-connection {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--wg-secondary);
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+.sc-connection svg {
+  color: var(--sc-green);
+}
+.sc-connection strong {
+  color: var(--wg-text);
+}
+.sc-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 20px;
+}
+.sc-section {
+  --sc-tone: var(--sc-blue);
+  border: 1px solid var(--wg-border);
+  border-radius: 17px;
+  background: var(--wg-panel);
+  overflow: clip;
+  min-width: 0;
+}
+.sc-section[data-kind="project"] {
+  --sc-tone: var(--sc-purple);
+}
+.sc-section > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--wg-raised);
+  padding: 19px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.sc-section > header > span {
+  display: flex;
+  padding: 9px;
+  border-radius: 10px;
+  color: var(--sc-tone);
+  background: color-mix(in srgb, var(--sc-tone) 13%, var(--wg-panel));
+}
+.sc-section h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.sc-section header p {
+  margin: 0;
+  color: var(--wg-secondary);
+  line-height: 1.55;
+  font-size: 14px;
+}
+.sc-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+.sc-scope .wg-field {
+  margin: 0;
+  gap: 8px;
+}
+.sc-scope .wg-field label {
+  font-size: 14px;
+}
+.sc-scope .wg-field input {
+  background: var(--wg-bg);
+  border-color: var(--wg-border);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 15px;
+}
+.sc-choices {
+  max-height: 280px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px;
+}
+.sc-choice {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  text-align: left;
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+  background: var(--wg-bg);
+  padding: 13px;
+  color: var(--wg-text);
+  cursor: pointer;
+  width: 100%;
+}
+.sc-choice > svg {
+  color: var(--sc-tone);
+  margin-top: 2px;
+}
+.sc-choice > span {
+  flex: 1;
+  min-width: 0;
+}
+.sc-choice strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.sc-choice small {
+  display: block;
+  color: var(--wg-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.sc-choice:hover {
+  background: var(--wg-raised);
+}
+.sc-choice[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--sc-tone) 10%, var(--wg-bg));
+  border-color: var(--sc-tone);
+}
+.sc-scope button:focus-visible,
+.sc-scope summary:focus-visible {
+  outline: 2px solid var(--sc-blue);
+  outline-offset: 2px;
+}
+.sc-scope .wg-button {
+  border-radius: 9px;
+  font-size: 14px;
+  min-height: 36px;
+  padding: 9px 13px;
+}
+.sc-section-body > .wg-button {
+  align-self: flex-start;
+}
+.sc-scope .wg-button--primary {
+  background: #7279db;
+  color: #fff;
+  border-color: #8c93ed;
+}
+.sc-manual {
+  border-top: 1px solid var(--wg-border);
+  padding-top: 14px;
+}
+.sc-manual summary {
+  cursor: pointer;
+  color: var(--sc-tone);
+  font-size: 14px;
+  font-weight: 600;
+}
+.sc-manual p,
+.sc-empty p {
+  font-size: 14px;
+  color: var(--wg-secondary);
+  line-height: 1.65;
+}
+.sc-empty {
+  margin: 0;
+  padding: 18px 10px;
+  color: var(--wg-secondary);
+  line-height: 1.65;
+}
+.sc-empty > svg {
+  color: var(--sc-purple);
+}
+.sc-empty h4 {
+  color: var(--wg-text);
+  margin: 10px 0 6px;
+  font-size: 16px;
+}
+.sc-empty p {
+  margin: 0;
+}
+.sc-notice {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--wg-secondary);
+  padding: 13px;
+  border: 1px solid var(--wg-border);
+  border-radius: 11px;
+  background: var(--wg-raised);
+  margin: 0;
+}
+.sc-footer {
+  margin-top: 24px;
+  border-top: 1px solid var(--wg-border);
+  padding-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+}
+.sc-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  flex: 1;
+  min-width: min(100%, 270px);
+}
+.sc-summary > svg {
+  color: var(--sc-green);
+  margin-top: 3px;
+}
+.sc-summary strong,
+.sc-summary span,
+.sc-summary small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.sc-summary strong {
+  font-size: 16px;
+}
+.sc-summary span {
+  color: var(--sc-purple);
+  margin: 6px 0;
+  font-size: 14px;
+}
+.sc-summary small {
+  color: var(--wg-secondary);
+  line-height: 1.55;
+  font-size: 13px;
+}
+.sc-footer .wg-form-actions {
+  margin: 0;
+}
+@media (max-width: 780px) {
+  .sc-columns {
+    grid-template-columns: 1fr;
+  }
+  .wg-dialog:has(.sc-scope) {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+  .sc-scope {
+    padding: 20px 16px;
+  }
+  .wg-dialog:has(.sc-scope) .wg-dialog-header {
+    padding: 18px;
+  }
+  .sc-choices {
+    max-height: 220px;
+  }
+}
+.sc-footer .wg-form-actions {
+  position: static;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.sc-manual p {
+  margin: 10px 0 12px;
+}

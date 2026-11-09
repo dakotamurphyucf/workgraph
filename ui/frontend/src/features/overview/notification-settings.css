@@ -1,0 +1,326 @@
+/* Shared Overview modal tokens and header styles live in overview-settings.css. */
+.ov-notification-settings {
+  --notification-accent: #c4a3ff;
+  --notification-green: #7de4aa;
+  --notification-blue: #91baff;
+  --notification-gold: #f4d76d;
+  --notification-pink: #f6a6d4;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  gap: 22px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+:root[data-theme="light"] .ov-notification-settings {
+  --notification-accent: #7253b4;
+  --notification-green: #28775f;
+  --notification-blue: #3263a8;
+  --notification-gold: #866314;
+  --notification-pink: #a34280;
+}
+.ov-notification-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--wg-secondary);
+  font-size: 13px;
+}
+.ov-notification-scope > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ov-notification-scope svg {
+  width: 17px;
+  height: 17px;
+  color: var(--notification-blue);
+  flex-shrink: 0;
+}
+.ov-notification-card {
+  border: 1px solid var(--wg-border);
+  border-radius: 16px;
+  background: var(--wg-panel);
+  flex-shrink: 0;
+  overflow: clip;
+}
+.ov-notification-card > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px;
+  background: var(--wg-raised);
+  border-bottom: 1px solid var(--wg-border);
+}
+.ov-notification-card h3 {
+  margin: 0 0 5px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.ov-notification-card header p {
+  margin: 0;
+  color: var(--wg-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ov-notification-section-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--notification-accent);
+  background: color-mix(in srgb, var(--notification-accent) 12%, transparent);
+  flex-shrink: 0;
+}
+.ov-notification-section-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.ov-notification-section-icon--green {
+  color: var(--notification-green);
+  background: color-mix(in srgb, var(--notification-green) 12%, transparent);
+}
+.ov-notification-card-body {
+  padding: 20px;
+}
+.ov-notification-options {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.ov-notification-legend {
+  font-size: 14px;
+  font-weight: 550;
+  margin-bottom: 12px;
+}
+.ov-notification-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--wg-border);
+  border-radius: 14px;
+  cursor: pointer;
+  min-width: 0;
+}
+.ov-notification-option input {
+  position: absolute;
+  right: 16px;
+  top: 18px;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--notification-accent);
+}
+.ov-notification-option:has(input:focus-visible) {
+  outline: 2px solid var(--notification-accent);
+  outline-offset: 3px;
+}
+.ov-notification-option[data-selected="true"] {
+  background: color-mix(in srgb, var(--notification-accent) 8%, var(--wg-panel));
+  border-color: var(--notification-accent);
+  box-shadow: inset 0 0 0 1px var(--notification-accent);
+}
+.ov-notification-option[data-disabled="true"] {
+  cursor: default;
+  background: var(--wg-panel);
+  border-style: dashed;
+}
+.ov-notification-option-icon {
+  color: var(--notification-accent);
+}
+.ov-notification-option-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.ov-notification-option strong {
+  font-size: 15px;
+}
+.ov-notification-option > span:not(.ov-notification-option-icon) {
+  font-size: 14px;
+  color: var(--wg-secondary);
+  line-height: 1.55;
+}
+.ov-notification-option small {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--notification-blue);
+  overflow-wrap: anywhere;
+}
+.ov-notification-apply,
+.ov-notification-listening,
+.ov-notification-continuation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ov-notification-apply {
+  margin: 18px 0;
+}
+.ov-notification-apply p,
+.ov-notification-listening p,
+.ov-notification-continuation p {
+  color: var(--wg-secondary);
+  font-size: 14px;
+  margin: 0;
+  flex: 1;
+  min-width: min(100%, 260px);
+}
+.ov-notification-settings .wg-button {
+  font-size: 14px;
+  padding: 9px 13px;
+  border-radius: 9px;
+}
+.ov-notification-help {
+  border-top: 1px solid var(--wg-border);
+  padding-top: 14px;
+  font-size: 14px;
+}
+.ov-notification-help summary {
+  cursor: pointer;
+  color: var(--notification-accent);
+  font-weight: 550;
+}
+.ov-notification-help p {
+  color: var(--wg-secondary);
+  line-height: 1.65;
+  margin: 12px 0 0;
+}
+.ov-notification-status {
+  color: var(--notification-green);
+  margin-left: auto;
+  font-size: 12px;
+  border: 1px solid currentColor;
+  padding: 4px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.ov-notification-status[data-paused="true"] {
+  color: var(--wg-secondary);
+}
+.ov-notification-status[data-warning="true"] {
+  color: var(--notification-gold);
+}
+.ov-notification-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 30px 16px 14px;
+}
+.ov-notification-empty svg {
+  color: var(--notification-green);
+  width: 26px;
+  height: 26px;
+}
+.ov-notification-empty p {
+  color: var(--wg-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+.ov-notification-events {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid var(--wg-border);
+  border-radius: 12px;
+}
+.ov-notification-events li {
+  --event-color: var(--notification-blue);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--wg-border);
+}
+.ov-notification-events li:last-child {
+  border-bottom: 0;
+}
+.ov-notification-events li[data-tone="purple"] {
+  --event-color: var(--notification-accent);
+}
+.ov-notification-events li[data-tone="gold"] {
+  --event-color: var(--notification-gold);
+}
+.ov-notification-events li[data-tone="pink"] {
+  --event-color: var(--notification-pink);
+}
+.ov-notification-event-icon {
+  color: var(--event-color);
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.ov-notification-event-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.ov-notification-events li > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ov-notification-events strong {
+  font-size: 14px;
+  font-weight: 550;
+}
+.ov-notification-event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--wg-secondary);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.ov-notification-event-meta span:first-child {
+  color: var(--event-color);
+}
+.ov-notification-continuation {
+  margin-top: 16px;
+}
+.ov-notification-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.ov-notification-footer p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--wg-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+.ov-notification-footer svg {
+  width: 18px;
+  height: 18px;
+  color: var(--notification-pink);
+}
+@media (max-width: 760px) {
+  .ov-notification-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ov-notification-card > header {
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+  .ov-notification-card-body {
+    padding: 16px;
+  }
+  .ov-notification-status {
+    margin-left: 46px;
+  }
+}

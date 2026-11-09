@@ -1,0 +1,131 @@
+#!/bin/sh
+set -eu
+workgraph_ui_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+workgraph_ui_command=${1:-help}
+if [ "$#" -gt 0 ]; then shift; fi
+cd "$workgraph_ui_root"
+
+# Artifact checks intentionally use Dune's default build tree. Reject alternate
+# trees before running any build, rather than checking an unrelated old binary.
+if [ "${DUNE_BUILD_DIR-_build}" != _build ]; then
+  echo 'UI build requires the default _build directory; custom DUNE_BUILD_DIR is unsupported.' >&2
+  exit 2
+fi
+for workgraph_ui_argument in "$@"; do
+  workgraph_ui_option=${workgraph_ui_argument%%=*}
+  case "$workgraph_ui_option" in
+    --?*)
+      # Cmdliner also accepts unambiguous long-option prefixes.
+      case --build-dir in
+        "$workgraph_ui_option"*)
+          echo 'UI build requires the default _build directory; --build-dir is unsupported.' >&2
+          exit 2
+          ;;
+      esac
+      ;;
+  esac
+done
+
+frontend_toolchain() {
+  node ui/tools/check-toolchain.mjs
+}
+frontend_install() {
+  frontend_toolchain
+  npm --prefix ui/frontend ci --ignore-scripts --no-audit --no-fund
+}
+frontend_build() {
+  frontend_toolchain
+  npm --prefix ui/frontend run check
+  npm --prefix ui/frontend run build
+  node --test ui/tools/*.test.mjs
+  node ui/tools/embed-assets.mjs
+  node ui/tools/embed-assets.mjs --check
+}
+fixture_tests() {
+  node --test ui/test-support/*.test.mjs
+}
+assert_artifact() {
+  test -s ui/tools/embedded/manifest.json || {
+    echo 'UI build failed: embedded manifest missing.' >&2; exit 1;
+  }
+  test -x _build/default/ui/companion/bin/main.exe || {
+    echo 'UI build failed: real companion executable missing.' >&2; exit 1;
+  }
+  test -s _build/default/workgraph-ui.install || {
+    echo 'UI build failed: nonempty optional package install manifest missing.' >&2; exit 1;
+  }
+}
+
+case "$workgraph_ui_command" in
+  install) frontend_install ;;
+  check) frontend_toolchain; npm --prefix ui/frontend run check; node --test ui/tools/*.test.mjs ;;
+  frontend) frontend_build ;;
+  native)
+    node ui/tools/embed-assets.mjs --check
+    WORKGRAPH_UI_BUILD=true ./dev build ui/companion/bin/main.exe workgraph-ui.install "$@"
+    assert_artifact
+    ;;
+  build)
+    frontend_build
+    WORKGRAPH_UI_BUILD=true ./dev build ui/companion/bin/main.exe workgraph-ui.install "$@"
+    assert_artifact
+    ;;
+  package)
+    # Invoked by opam in its own provisioned build environment. Do not call ./dev
+    # or opam exec here: both could select a different switch.
+    test "$(ocamlc -version)" = 5.3.0 || {
+      echo 'UI package requires OCaml5.3.0 in the active build environment.' >&2; exit 1;
+    }
+    frontend_install
+    frontend_build
+    WORKGRAPH_UI_BUILD=true dune build -p workgraph-ui @install "$@"
+    assert_artifact
+    ;;
+  package-test)
+    node ui/tools/embed-assets.mjs --check
+    WORKGRAPH_UI_BUILD=true dune build -p workgraph-ui @runtest "$@"
+    assert_artifact
+    ;;
+  test)
+    frontend_toolchain
+    npm --prefix ui/frontend run check
+    node --test ui/tools/*.test.mjs
+    WORKGRAPH_UI_BUILD=true ./dev build @runtest bin/main.exe ui/companion/bin/main.exe "$@"
+    fixture_tests
+    ;;
+  browser)
+    frontend_toolchain
+    node ui/tools/embed-assets.mjs --check
+    WORKGRAPH_UI_BUILD=true ./dev build bin/main.exe ui/companion/bin/main.exe workgraph-ui.install
+    assert_artifact
+    fixture_tests
+    npm --prefix ui/frontend run test:browser -- "$@"
+    ;;
+  verify)
+    frontend_install
+    frontend_build
+    WORKGRAPH_UI_BUILD=true ./dev build @fmt @runtest @install bin/main.exe ui/companion/bin/main.exe "$@"
+    assert_artifact
+    fixture_tests
+    npm --prefix ui/frontend run test:browser
+    ;;
+  help|--help|-h)
+    cat <<'HELP'
+Usage: ./dev-ui COMMAND [DUNE_ARGS except --build-dir]
+  install       Install the exact frontend lock in this checkout only
+  check         Lint, strict typecheck, unit/format checks and asset-tool tests
+  frontend      Check/build frontend and deterministically embed static assets
+  native        Check existing embedded assets and build real companion/package
+  build         frontend + native
+  test          Frontend and enabled native tests
+  browser       Owned daemon/companion fixtures + Playwright (browser options allowed)
+  verify        Install, all frontend/native gates, real artifact and browser tests
+  package       opam build entrypoint; current environment, no switch selection
+  package-test  opam test entrypoint; current environment, no switch selection
+Core-only builds remain: ./dev build @fmt @runtest @install
+UI artifact checks require the default _build directory; custom build directories
+and DUNE_BUILD_DIR are rejected before running the build.
+HELP
+    ;;
+  *) echo "Unknown UI command: $workgraph_ui_command; use ./dev-ui help" >&2; exit 2 ;;
+esac

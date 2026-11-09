@@ -477,6 +477,58 @@ For preconditions and a small example, run `workgraph help acceptance.assert`. U
                   {
                     "additionalProperties": false,
                     "properties": {
+                      "amendment_id": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "allOf": [
+                                  {
+                                    "type": "string",
+                                    "x-maxUtf8Bytes": 96
+                                  }
+                                ],
+                                "description": "Validated entity ID."
+                              },
+                              {
+                                "pattern": "^[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          {
+                            "maxLength": 97,
+                            "pattern": "^\\$[A-Za-z0-9_-]{1,96}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        ],
+                        "description": "Literal entity ID or $alias resolved within transaction.apply."
+                      },
+                      "kind": {
+                        "const": "amendment",
+                        "type": "string"
+                      },
+                      "revision": {
+                        "allOf": [
+                          {
+                            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                            "type": "string",
+                            "x-maximumDecimal": "4611686018427387903"
+                          }
+                        ],
+                        "description": "Positive exact revision."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "amendment_id",
+                      "revision"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
                       "contract_id": {
                         "anyOf": [
                           {

@@ -678,3 +678,96 @@ let%expect_test "template node and expanded policy bounds share the transaction 
     {"expected":"expected at most 127 items","path":["nodes"],"suggestion":null,"type":"field"}
     |}]
 ;;
+
+let%expect_test
+    "preflight reports the exact staged expansion accumulator, not source or event count"
+  =
+  let empty () =
+    State.empty ~workspace:(Id.Workspace.of_string "w" |> unwrap) ~name:"Work" |> unwrap
+  in
+  let publication spec =
+    let template =
+      Workflow_template.create ~resource ~resource_revision:1 ~spec |> unwrap
+    in
+    [ Domain_command.Resource_put
+        { id = resource
+        ; expected_revision = 0
+        ; title = Some "Plan"
+        ; text = Json.canonical (Workflow_template.Spec.to_json spec)
+        ; filename = None
+        ; mime_type = None
+        }
+    ; Policy (Template_register template)
+    ]
+  in
+  let ticket = command "ticket.create" (json {|{"ticket_id":"extra","title":"Extra"}|}) in
+  let request commands =
+    let _, params = Wire_command.encode (Domain_command.Batch commands) |> unwrap in
+    Api_codec.decode
+      Preflight_api.Request.codec
+      (replace params "actor_id" (Id.Actor.jsonaf_of_t actor))
+    |> unwrap
+  in
+  let preview state commands =
+    Transaction_preflight.run
+      state
+      (request commands)
+      ~now_unix_ms:1L
+      ~timestamp:"2026-11-05"
+      ~fresh:(fun _ -> failwith "All fixture IDs are explicit")
+  in
+  let check label state commands =
+    let before = Json.canonical (State.to_json state) in
+    let summary = preview state commands |> unwrap in
+    let actual = prepared state (Batch commands) in
+    printf
+      "%s source=%d preflight=%d prepared=%d unchanged=%b\n"
+      label
+      (List.length commands)
+      summary.operation_count
+      (State.expanded_operation_count actual)
+      (String.equal before (Json.canonical (State.to_json state)));
+    State.candidate actual
+  in
+  let state, _ = initial () in
+  let after = check "fresh" state [ instance "fresh" ] in
+  ignore (check "existing" after [ instance "fresh" ] : State.t);
+  ignore (check "mixed" state [ ticket; instance "mixed" ] : State.t);
+  ignore (check "staged-existing" state [ instance "same"; instance "same" ] : State.t);
+  ignore
+    (check "same-batch-publication" (empty ()) (publication spec @ [ instance "inline" ])
+     : State.t);
+  let bulk =
+    { spec with
+      nodes =
+        List.init 127 ~f:(fun index ->
+          { node with
+            alias = "bulk-" ^ Int.to_string index
+          ; allowed_actor_ids = Actor_eligibility.unrestricted
+          })
+    }
+  in
+  let full = apply (empty ()) (Batch (publication bulk)) in
+  let bulk_after = check "limit" full [ instance "bulk" ] in
+  ignore (check "existing-at-limit" bulk_after [ instance "bulk"; ticket ] : State.t);
+  let before = Json.canonical (State.to_json full) in
+  report (preview full [ instance "over"; ticket ]);
+  report
+    (State.prepare full (Batch [ instance "over"; ticket ]) ~actor ~timestamp:"fixture");
+  printf
+    "limit-rejection-unchanged=%b\n"
+    (String.equal before (Json.canonical (State.to_json full)));
+  [%expect
+    {|
+    fresh source=1 preflight=3 prepared=3 unchanged=true
+    existing source=1 preflight=1 prepared=1 unchanged=true
+    mixed source=2 preflight=4 prepared=4 unchanged=true
+    staged-existing source=2 preflight=4 prepared=4 unchanged=true
+    same-batch-publication source=3 preflight=5 prepared=5 unchanged=true
+    limit source=1 preflight=128 prepared=128 unchanged=true
+    existing-at-limit source=2 preflight=2 prepared=2 unchanged=true
+    Invalid_argument
+    Invalid_argument
+    limit-rejection-unchanged=true
+    |}]
+;;
