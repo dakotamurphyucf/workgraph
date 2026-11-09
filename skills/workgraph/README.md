@@ -63,6 +63,12 @@ Start with [UI installation](https://github.com/dakotamurphyucf/workgraph/blob/m
 explains how agents can work alongside a human in the UI. Windows-browser access
 through WSL remains unqualified; the user configures any required forwarding.
 
+![Workgraph Overview showing project progress, active work, questions and recent activity](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/ui/screenshots/overview.png)
+
+*The optional UI, shown with a fictional demo workspace.*
+[Explore the screenshot gallery](https://github.com/dakotamurphyucf/workgraph/blob/main/docs/ui/screenshots/README.md) for the board,
+dependency graph, discussions, resources and activity feed.
+
 ## What lives here
 
 | Record | Use |

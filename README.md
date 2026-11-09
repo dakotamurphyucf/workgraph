@@ -50,6 +50,12 @@ Start with [UI installation](docs/ui/installation.md#install-a-release), then th
 explains how agents can work alongside a human in the UI. Windows-browser access
 through WSL remains unqualified; the user configures any required forwarding.
 
+![Workgraph Overview showing project progress, active work, questions and recent activity](docs/ui/screenshots/overview.png)
+
+*The optional UI, shown with a fictional demo workspace.*
+[Explore the screenshot gallery](docs/ui/screenshots/README.md) for the board,
+dependency graph, discussions, resources and activity feed.
+
 ## What lives here
 
 | Record | Use |

@@ -398,6 +398,7 @@
 }
 @media (min-width: 1800px) {
   .wg-content > * {
+    width: 100%;
     max-width: 130rem;
     margin-inline: auto;
   }

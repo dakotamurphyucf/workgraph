@@ -13,7 +13,7 @@ await mkdir(output, { recursive: false });
 const server = await chromium.launchServer({ executablePath: executable, headless: true });
 let browser;
 let result;
-const failures = [], requests = [], active = new Set(), closingReads = new Set();
+const failures = [], requests = [], active = new Set(), canceledReads = [];
 const owned = server.process();
 const shutdown = () => {
   process.exitCode = 143;
@@ -38,13 +38,20 @@ try {
   page.on("requestfinished", request => active.delete(request));
   page.on("requestfailed", request => {
     active.delete(request);
-    if (!(closingReads.delete(request) && request.failure()?.errorText === "net::ERR_ABORTED"))
+    const target = new URL(request.url());
+    // Scope changes, committed writes and closing the page cancel obsolete reads.
+    // Retain those cancellations as evidence; never forgive an aborted mutation.
+    if (request.failure()?.errorText === "net::ERR_ABORTED" && target.origin === origin &&
+        ((request.method() === "POST" && target.pathname === "/ui-api/v1/read") ||
+         (request.method() === "GET" && target.pathname === "/ui-api/v1/connections")))
+      canceledReads.push({ method: request.method(), url: request.url() });
+    else
       failures.push(`requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}`);
   });
   try {
     const route = phase === "create" ? "&project=release" : "&entity=installed-browser-ticket&planning_kind=ticket&planning_generation=1";
     await page.goto(new URL(`/#/work?connection=installed&workspace=demo${route}`, url).href);
-    await page.waitForLoadState("networkidle");
+    await expect(page.locator(".wg-actor-trigger")).toBeVisible();
     if (phase === "create") {
       await page.locator(".wg-actor-trigger").click();
       await page.getByLabel("Acting actor ID", { exact: true }).fill("installed-author");
@@ -73,21 +80,18 @@ try {
       await expect(created).toBeVisible();
       await created.click();
     }
-    await expect(page.getByRole("article", { name: "Recorded ticket target", exact: true })).toBeVisible();
+    await expect(phase === "create"
+      ? page.getByRole("group", { name: "Ticket inspector sections", exact: true })
+      : page.getByRole("article", { name: "Recorded ticket target", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Installed browser publication", exact: true })).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    await expect(page.locator(".wg-actor-trigger")).toBeVisible();
     await page.screenshot({ path: path.join(output, `${phase}-installed.png`) });
     result = { browserVersion: browser.version(), phase, observedTicketId: "installed-browser-ticket", failures, requests };
   } finally {
     const beforeClose = [...active].map(request => ({ method: request.method(), url: request.url() }));
-    for (const request of active) {
-      const target = new URL(request.url());
-      if (target.origin === origin && ((request.method() === "POST" && target.pathname === "/ui-api/v1/read") ||
-          (request.method() === "GET" && target.pathname === "/ui-api/v1/connections"))) closingReads.add(request);
-    }
     await page.close();
     await context.close();
-    await writeFile(path.join(output, "diagnostics.json"), JSON.stringify({ failures, requests, beforeClose }, null, 2));
+    await writeFile(path.join(output, "diagnostics.json"), JSON.stringify({ failures, requests, canceledReads, beforeClose }, null, 2));
   }
 } finally {
   try { if (browser) await browser.close(); } finally { await server.close(); }
