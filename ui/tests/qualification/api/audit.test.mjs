@@ -36,7 +36,7 @@ const entry = {
 const manifest = () =>
   structuredClone({
     format: "workgraph-ui-api-qualification-1",
-    sourceVersion: "0.8.0",
+    sourceVersion: "0.8.1",
     apiVersion: "0.7",
     baseline: pin,
     candidate: [{ path: "candidate/workgraph-ui", sha256: "b".repeat(64), bytes: 10 }],

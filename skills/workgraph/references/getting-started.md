@@ -30,7 +30,7 @@ setup and `"$WG" help ticket.start` for offline method help.
 ## Set up a fresh local example
 
 Skip this section when you already have a working context. Use the matching
-supplied 0.8.0 executable for this source skill. Its application
+supplied 0.8.1 executable for this source skill. Its application
 API is still 0.7; this is distinct from the executable package version and does
 not announce a published download. Normal startup/restore accept current formats. Existing supported
 0.6.2-format workspaces need [offline migration](migration.md) into a new root,

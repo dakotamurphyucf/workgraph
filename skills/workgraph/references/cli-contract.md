@@ -8,8 +8,7 @@ messages used by direct clients; ordinary CLI users can skip the transport secti
 Return to [the capability guide](../SKILL.md) to choose another reference.
 Unless a result is explicitly shown as a complete envelope, it describes `result.data`;
 receipt, query and capture metadata are in `result.meta`. These are the current preview
-contracts for the 0.8.0 package candidate/application API 0.7. This source guide
-does not announce a published 0.8.0 download. Normal daemon reads accept current formats;
+contracts for the 0.8.1 package candidate/application API 0.7. See the release notes for available downloads and qualification scope. Normal daemon reads accept current formats;
 [offline migration](migration.md) converts only the supported 0.6.2 workspace
 representation into a new root. Resolve uncertain requests with the old executable
 first; use a fresh registry, socket, context and request journals after conversion.

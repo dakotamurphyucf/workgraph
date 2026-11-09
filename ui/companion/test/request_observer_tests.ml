@@ -296,14 +296,52 @@ let%expect_test
        in
        assert (String.is_prefix response ~prefix:"HTTP/1.1 200");
        assert (String.is_substring response ~substring:{|"stop":"resolved"|});
-       assert (
-         List.exists !scheduled ~f:(fun seconds ->
-           Float.(seconds > 419. && seconds <= 420.)));
+       assert (List.for_all !scheduled ~f:(fun seconds -> Float.(seconds <= 310.)));
        assert (
          List.exists !scheduled ~f:(fun seconds ->
            Float.(seconds > 309. && seconds <= 310.)));
        print_s [%sexp (!calls : int), (counts scheduler : int * int)]);
   [%expect {|(5 (0 0))|}]
+;;
+
+let%expect_test
+    "persistent waits renew header deadlines beyond the old connection lifetime then \
+     idle closes"
+  =
+  let calls = ref 0 in
+  with_http
+    ~rate:50.
+    (fun _ ->
+       incr calls;
+       Protocol.Success
+         (if !calls mod 5 = 0 then terminal (fixture ()) "resolved" else fixture ()))
+    (fun env sw host port scheduler _ ->
+       let flow = Http_socket_test.connect env ~sw port in
+       let input = Eio.Buf_read.of_flow ~max_size:(17 * 1024 * 1024) flow in
+       (* Each wait spans at least100 simulated seconds. Reusing this socket for
+          five waits exceeds both the original header and connection deadlines. *)
+       for _ = 1 to 5 do
+         Eio.Flow.copy_string
+           (Http_socket_test.post
+              ~keep_alive:true
+              host
+              "/ui-api/v1/request-waits"
+              (body ()))
+           flow;
+         let status, headers, response = Http_socket_test.framed_response input in
+         assert (String.is_prefix status ~prefix:"HTTP/1.1 200");
+         assert (String.is_substring response ~substring:{|"stop":"resolved"|});
+         assert (
+           String.equal
+             (List.Assoc.find_exn headers ~equal:String.equal "connection")
+             "keep-alive")
+       done;
+       print_s [%sexp (!calls : int), (counts scheduler : int * int)];
+       (* No next request: the fresh idle/header deadline releases the socket. *)
+       print_s [%sexp (String.is_empty (Eio.Buf_read.take_all input) : bool)]);
+  [%expect
+    {|(25 (0 0))
+true|}]
 ;;
 
 let%expect_test
@@ -423,7 +461,7 @@ let%expect_test
            in
            assert (not (String.is_prefix response ~prefix:"HTTP/1.1 200")));
        print_s [%sexp (!calls : int), (counts scheduler : int * int)];
-       assert (List.for_all !scheduled ~f:(fun seconds -> Float.(seconds <= 420.))));
+       assert (List.for_all !scheduled ~f:(fun seconds -> Float.(seconds <= 310.))));
   [%expect {|(0 (0 0))|}]
 ;;
 

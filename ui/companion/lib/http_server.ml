@@ -6,9 +6,14 @@ exception Body_limit
 exception Peer_closed
 
 let bounded_header_source ~clock flow =
-  let origin = Eio.Time.Mono.now clock in
+  let origin = ref (Eio.Time.Mono.now clock) in
   let count = ref 0 in
   let delimiter = ref 0 in
+  let next_request () =
+    origin := Eio.Time.Mono.now clock;
+    count := 0;
+    delimiter := 0
+  in
   let module Source = struct
     type t = unit
 
@@ -20,7 +25,7 @@ let bounded_header_source ~clock flow =
         then Eio.Flow.single_read flow destination
         else (
           let elapsed =
-            Mtime.span origin (Eio.Time.Mono.now clock)
+            Mtime.span !origin (Eio.Time.Mono.now clock)
             |> Mtime.Span.to_float_ns
             |> fun ns -> ns /. 1e9
           in
@@ -47,7 +52,7 @@ let bounded_header_source ~clock flow =
     ;;
   end
   in
-  Eio.Resource.T ((), Eio.Flow.Pi.source (module Source))
+  Eio.Resource.T ((), Eio.Flow.Pi.source (module Source)), next_request
 ;;
 
 let read_body body =
@@ -78,10 +83,15 @@ let failure ?(kind = Problem.Invalid_argument) status message : Http_router.resp
 let serve ~sw:_ ~clock ~listener ~router =
   let handle flow peer =
     Eio.Switch.run (fun connection_sw ->
-      let input =
-        Eio.Buf_read.of_flow ~max_size:(64 * 1024) (bounded_header_source ~clock flow)
-      in
+      let source, next_request = bounded_header_source ~clock flow in
+      let input = Eio.Buf_read.of_flow ~max_size:(64 * 1024) source in
       let callback _ request body =
+        let keep_alive =
+          ref
+            (match Cohttp.Request.version request with
+             | `HTTP_1_1 -> Cohttp.Request.is_keep_alive request
+             | _ -> false)
+        in
         let request : Http_router.request =
           { method_ = Cohttp.Code.string_of_method (Cohttp.Request.meth request)
           ; target = Cohttp.Request.resource request
@@ -91,7 +101,10 @@ let serve ~sw:_ ~clock ~listener ~router =
         in
         let response =
           match Http_router.authorize router request with
-          | Some rejection -> rejection
+          | Some rejection ->
+            (* The body has not been consumed; it cannot become another request. *)
+            keep_alive := false;
+            rejection
           | None ->
             (try
                let body =
@@ -131,10 +144,10 @@ let serve ~sw:_ ~clock ~listener ~router =
                       Eio.Fiber.first
                         (fun () -> Http_router.dispatch router { request with body })
                         (fun () ->
-                           (* Browser abort must release a queued/active read promptly.
-                   The companion serves one duplex request per connection;
-                   receive EOF or further pipelined bytes end that observation.
-                   Admitted writes are children of the service switch. *)
+                           (* Only this dispatch owns the disconnect observer. It is
+                              canceled before writing the response, so it cannot
+                              consume the next sequential request. Admitted writes
+                              remain children of the service switch. *)
                            if Eio.Buf_read.buffered_bytes input > 0 then raise Peer_closed;
                            let byte = Cstruct.create 1 in
                            match Eio.Flow.single_read flow byte with
@@ -147,14 +160,23 @@ let serve ~sw:_ ~clock ~listener ~router =
                    408
                    "HTTP observation deadline exceeded"
              with
-             | Body_limit -> failure 413 "API body exceeds 4MiB"
-             | Json.Decode_error problem -> failure 400 problem.message
-             | Eio.Time.Timeout -> failure 400 "HTTP body deadline exceeded")
+             | Body_limit ->
+               keep_alive := false;
+               failure 413 "API body exceeds 4MiB"
+             | Json.Decode_error problem ->
+               keep_alive := false;
+               failure 400 problem.message
+             | Eio.Time.Timeout ->
+               keep_alive := false;
+               failure 400 "HTTP body deadline exceeded")
         in
         let send =
           Cohttp_eio.Server.respond_string
             ~status:(Cohttp.Code.status_of_code response.status)
-            ~headers:(Cohttp.Header.of_list (("connection", "close") :: response.headers))
+            ~headers:
+              (Cohttp.Header.of_list
+                 (("connection", if !keep_alive then "keep-alive" else "close")
+                  :: response.headers))
             ~body:response.body
             ()
         in
@@ -162,16 +184,18 @@ let serve ~sw:_ ~clock ~listener ~router =
           Eio.Time.Timeout.run_exn (Eio.Time.Timeout.seconds clock 10.) (fun () ->
             (* Pinned Cohttp-eio respond_string writes and flushes its output. *)
             send writer);
-          (* One request per connection: discard any buffered pipeline before
-           shutting down receive, so Cohttp cannot dispatch a second request. *)
-          Eio.Buf_read.consume input (Eio.Buf_read.buffered_bytes input);
-          Eio.Flow.shutdown flow `Receive
+          if !keep_alive
+          then next_request ()
+          else (
+            (* Cohttp loops according to the request headers, not the response.
+               Stop its reader even when our rejection overrides client reuse. *)
+            Eio.Buf_read.consume input (Eio.Buf_read.buffered_bytes input);
+            Eio.Flow.shutdown flow `Receive)
       in
       let server = Cohttp_eio.Server.make ~callback () in
       try
-        Eio.Time.Timeout.run_exn (Eio.Time.Timeout.seconds clock 420.) (fun () ->
-          Eio.Buf_write.with_flow flow (fun output ->
-            Cohttp_eio.Server.callback server (connection_sw, peer) input output))
+        Eio.Buf_write.with_flow flow (fun output ->
+          Cohttp_eio.Server.callback server (connection_sw, peer) input output)
       with
       | Header_limit
       | Body_limit

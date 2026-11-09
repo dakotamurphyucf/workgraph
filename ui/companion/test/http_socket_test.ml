@@ -62,17 +62,21 @@ let exchange env port bytes =
     response flow)
 ;;
 
-let get host target =
+let connection_header keep_alive = if keep_alive then "" else "Connection: close\r\n"
+
+let get ?(keep_alive = false) host target =
   "GET "
   ^ target
   ^ " HTTP/1.1\r\nHost: "
   ^ host
   ^ "\r\nX-Workgraph-UI-Capability: "
   ^ capability
-  ^ "\r\n\r\n"
+  ^ "\r\n"
+  ^ connection_header keep_alive
+  ^ "\r\n"
 ;;
 
-let post host target body =
+let post ?(keep_alive = false) host target body =
   "POST "
   ^ target
   ^ " HTTP/1.1\r\nHost: "
@@ -83,8 +87,156 @@ let post host target body =
   ^ capability
   ^ "\r\nContent-Type: application/json\r\nContent-Length: "
   ^ Int.to_string (String.length body)
-  ^ "\r\n\r\n"
+  ^ "\r\n"
+  ^ connection_header keep_alive
+  ^ "\r\n"
   ^ body
+;;
+
+(* Independent fixed-length response reader: retaining the buffered reader across
+   requests detects missing framing or response bytes leaking into the next reply. *)
+let framed_response input =
+  let status = Eio.Buf_read.line input in
+  let rec headers acc =
+    match Eio.Buf_read.line input with
+    | "" -> List.rev acc
+    | line ->
+      let name, value = String.lsplit2_exn line ~on:':' in
+      headers ((String.lowercase name, String.strip value) :: acc)
+  in
+  let headers = headers [] in
+  assert (not (List.Assoc.mem headers ~equal:String.equal "transfer-encoding"));
+  let length = List.Assoc.find_exn headers ~equal:String.equal "content-length" in
+  status, headers, Eio.Buf_read.take (Int.of_string length) input
+;;
+
+let prime_connection flow host =
+  Eio.Flow.copy_string (get ~keep_alive:true host "/ui-api/v1/connections") flow;
+  let input = Eio.Buf_read.of_flow ~max_size:(17 * 1024 * 1024) flow in
+  let status, _, _ = framed_response input in
+  assert (String.is_prefix status ~prefix:"HTTP/1.1 200");
+  assert (Eio.Buf_read.buffered_bytes input = 0)
+;;
+
+let%expect_test "assets and API reads and writes reuse one HTTP/1.1 socket" =
+  with_http (fun env _ sw host port profiles _ _ ->
+    let flow = connect env ~sw port in
+    let input = Eio.Buf_read.of_flow ~max_size:(17 * 1024 * 1024) flow in
+    let round_trip bytes =
+      Eio.Flow.copy_string bytes flow;
+      let status, headers, body = framed_response input in
+      assert (String.is_prefix status ~prefix:"HTTP/1.1 200");
+      assert (
+        String.equal
+          (List.Assoc.find_exn headers ~equal:String.equal "connection")
+          "keep-alive");
+      body
+    in
+    let index = round_trip (get ~keep_alive:true host "/") in
+    print_s [%sexp (String.is_substring index ~substring:"<!doctype html>" : bool)];
+    for index = 1 to 24 do
+      let body =
+        Json.canonical
+          (Json.obj
+             [ "id", Json.string ("profile-" ^ Int.to_string index)
+             ; "label", Json.string "Kept alive λ"
+             ; "socket", Json.string "/tmp/keepalive-test.sock"
+             ])
+      in
+      ignore
+        (round_trip (post ~keep_alive:true host "/ui-api/v1/connections" body) : string);
+      let listed =
+        round_trip (get ~keep_alive:true host "/ui-api/v1/connections")
+        |> Json.parse
+        |> Disk.unwrap
+      in
+      assert (
+        List.length (Json.field (Json.field listed "data") "items" |> Json.list) = index)
+    done;
+    print_s [%sexp (List.length (Connection_profile.Store.list profiles) : int)];
+    Eio.Flow.copy_string (get host "/ui-api/v1/connections") flow;
+    let status, headers, _ = framed_response input in
+    print_s
+      [%sexp
+        ((status, List.Assoc.find_exn headers ~equal:String.equal "connection")
+         : string * string)];
+    print_s [%sexp (String.is_empty (Eio.Buf_read.take_all input) : bool)]);
+  [%expect
+    {|true
+24
+("HTTP/1.1 200 OK" close)
+true|}]
+;;
+
+let%expect_test "header accounting resets and authorization is checked on reused sockets" =
+  with_http (fun env _ sw host port profiles _ _ ->
+    let flow = connect env ~sw port in
+    let input = Eio.Buf_read.of_flow ~max_size:(17 * 1024 * 1024) flow in
+    (* Together these exceed the header budget; separately both are valid. *)
+    for _ = 1 to 2 do
+      Eio.Flow.copy_string
+        ("GET / HTTP/1.1\r\nHost: "
+         ^ host
+         ^ "\r\nX-Padding: "
+         ^ String.make (20 * 1024) 'x'
+         ^ "\r\n\r\n")
+        flow;
+      let status, _, _ = framed_response input in
+      print_s [%sexp (String.is_prefix status ~prefix:"HTTP/1.1 200" : bool)]
+    done;
+    (* A prior authorized request never supplies authority for the next one. *)
+    Eio.Flow.copy_string
+      ("POST /ui-api/v1/connections HTTP/1.1\r\nHost: "
+       ^ host
+       ^ "\r\nContent-Length: 2\r\n\r\n{}")
+      flow;
+    let status, headers, _ = framed_response input in
+    print_s
+      [%sexp
+        (( String.is_prefix status ~prefix:"HTTP/1.1 403"
+         , List.Assoc.find_exn headers ~equal:String.equal "connection"
+         , List.length (Connection_profile.Store.list profiles) )
+         : bool * string * int)];
+    print_s [%sexp (String.is_empty (Eio.Buf_read.take_all input) : bool)]);
+  [%expect
+    {|true
+true
+(true close 0)
+true|}]
+;;
+
+let%expect_test "oversized second headers and HTTP/1.0 do not keep a socket alive" =
+  with_http (fun env _ sw host port _ _ _ ->
+    let flow = connect env ~sw port in
+    let input = Eio.Buf_read.of_flow ~max_size:(17 * 1024 * 1024) flow in
+    Eio.Flow.copy_string (get ~keep_alive:true host "/") flow;
+    ignore (framed_response input : string * (string * string) list * string);
+    Eio.Flow.copy_string
+      ("GET / HTTP/1.1\r\nHost: "
+       ^ host
+       ^ "\r\nX-Large: "
+       ^ String.make (33 * 1024) 'x'
+       ^ "\r\n\r\n")
+      flow;
+    print_s
+      [%sexp
+        ((try String.is_empty (Eio.Buf_read.take_all input) with
+          | Eio.Io _ -> true)
+         : bool)];
+    let legacy =
+      exchange
+        env
+        port
+        ("GET / HTTP/1.0\r\nHost: " ^ host ^ "\r\nConnection: keep-alive\r\n\r\n")
+    in
+    print_s
+      [%sexp
+        (( String.is_prefix legacy ~prefix:"HTTP/1.1 200"
+         , String.is_substring legacy ~substring:"connection: close" )
+         : bool * bool)]);
+  [%expect
+    {|true
+(true true)|}]
 ;;
 
 let%expect_test
@@ -217,9 +369,11 @@ let%expect_test
           {|{"connection_id":"local","generation":"1","method":"workspace.receipt","params":{"workspace_id":"demo","actor_id":"author","mutation_id":"saved"},"lane":"search"}|}
         in
         let active = connect env ~sw port in
+        prime_connection active host;
         Eio.Flow.copy_string (post host "/ui-api/v1/read" body) active;
         Rpc_socket_test.until env (fun () -> !calls = 1);
         let queued = connect env ~sw port in
+        prime_connection queued host;
         Eio.Flow.copy_string (post host "/ui-api/v1/read" body) queued;
         Rpc_socket_test.until env (fun () ->
           let _, queued = search_counts scheduler in
@@ -277,6 +431,7 @@ let%expect_test
         let id = Json.field prepared "operation_id" |> Json.text in
         let operation_id = Operation.Id.of_string id |> Disk.unwrap in
         let flow = connect env ~sw port in
+        prime_connection flow host;
         Eio.Flow.copy_string
           (post host ("/ui-api/v1/operations/" ^ id ^ "/execute") "{}")
           flow;
@@ -336,14 +491,17 @@ let%expect_test
       ^ "\r\n"
     in
     let rejected bytes code =
+      let flow = connect env ~sw port in
+      prime_connection flow host;
+      Eio.Flow.copy_string bytes flow;
       print_s
-        [%sexp
-          (String.is_prefix (exchange env port bytes) ~prefix:("HTTP/1.1 " ^ code) : bool)]
+        [%sexp (String.is_prefix (response flow) ~prefix:("HTTP/1.1 " ^ code) : bool)]
     in
     rejected (headers "" ^ body) "403";
     rejected (headers "Content-Length: 2\r\nContent-Length: 2\r\n" ^ body) "403";
     rejected (headers "Content-Length: 4194305\r\n") "413";
     let incomplete = connect env ~sw port in
+    prime_connection incomplete host;
     Eio.Flow.copy_string
       (headers ("Content-Length: " ^ Int.to_string (String.length body + 1) ^ "\r\n")
        ^ body)
