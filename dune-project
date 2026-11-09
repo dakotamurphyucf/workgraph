@@ -1,6 +1,6 @@
 (lang dune 3.21)
 (name workgraph)
-(version 0.8.1)
+(version 0.8.2)
 (source (github dakotamurphyucf/workgraph))
 (authors "Dakota Murphy")
 (license MIT)

@@ -43,13 +43,13 @@ context management, and code execution. Workgraph provides the durable records
 and coordination rules those workflows use. It is built with OCaml/Core/Eio and
 is [MIT licensed](LICENSE).
 
-**Version 0.8.1 preview** uses application API **0.7**, workspace/export format
+**Version 0.8.2 preview** uses application API **0.7**, workspace/export format
 **6**, history batch format **2** and saved upload plan **2**. Registry and planning
-transaction/event format **5** remain independent. Existing 0.7.0 and 0.8.0 workspace data needs no conversion. Upgrade supported 0.6.2-format
+transaction/event format **5** remain independent. Existing 0.7.0, 0.8.0 and 0.8.1 workspace data needs no conversion. Upgrade supported 0.6.2-format
 workspaces with the offline [migration helper](docs/migration.md): it writes a new
 root and preserves the source. Resolve uncertain old writes with the old executable
 first, then use a fresh registry, socket, contexts and request journals. See the
-[release notes](docs/releases/v0.8.1.md) for changes and exact qualification limits.
+[release notes](docs/releases/v0.8.2.md) for changes and exact qualification limits.
 
 Start with [installation](#install-and-set-up), then the [eight workflows](#eight-workflows).
 Install the self-contained [Workgraph skill](skills/workgraph/SKILL.md), then give
@@ -58,7 +58,7 @@ and links to focused instructions, API schemas and runnable helpers. The bundled
 [orchestrator overview](skills/workgraph/README.md) retains this complete team
 guide, including worker prompts and independent review workflows.
 See [skill installation](docs/agent-skill.md) for copying the full folder into a
-harness. Version 0.8.1 packaging includes the full skill folder; the standalone
+harness. Version 0.8.2 packaging includes the full skill folder; the standalone
 skill archive is described in the release notes. [Guide coverage](docs/guide-coverage.md) maps the
 complete supplied team guide to this README, including corrected examples and
 all maintained script sources [inline below](#complete-maintained-scripts).
@@ -71,7 +71,7 @@ questions, read session history, and manage shared files and facts. Changes use
 the same ownership and review rules as the CLI.
 
 Download the optional UI for **macOS ARM64** or **AlmaLinux 10 x86_64** from the
-[v0.8.1 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.8.1).
+[v0.8.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.8.2).
 The paired archive includes both `workgraph` and `workgraph-ui`; AlmaLinux also
 has a separate UI RPM that depends on the matching core RPM. Neither installed
 option needs Node.js or opam. Core-only installation remains available.
@@ -269,7 +269,7 @@ gain permission to act as another worker.
 
 ### Published packages and matching documentation
 
-The following commands install **v0.8.1 preview** with its matching bundled docs.
+The following commands install **v0.8.2 preview** with its matching bundled docs.
 Check the release qualification evidence for the exact artifacts and platform scope.
 For an existing installation, complete the [upgrade steps](#upgrade-from-an-older-preview)
 before replacing its executable or RPM.
@@ -281,10 +281,10 @@ under your own machine policy.
 # AlmaLinux 10 x86_64, including AlmaLinux under WSL
 set -euo pipefail
 sudo dnf install -y jq python3 curl-minimal
-mkdir -p "$HOME/Downloads/workgraph-0.8.1"
-cd "$HOME/Downloads/workgraph-0.8.1"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.1
-FILE=workgraph-0.8.1-1.el10.x86_64.rpm
+mkdir -p "$HOME/Downloads/workgraph-0.8.2"
+cd "$HOME/Downloads/workgraph-0.8.2"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.2
+FILE=workgraph-0.8.2-1.el10.x86_64.rpm
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
@@ -299,18 +299,18 @@ shell examples and helper; install it through your usual package manager.
 
 ```bash
 set -euo pipefail
-mkdir -p "$HOME/Downloads/workgraph-0.8.1"
-cd "$HOME/Downloads/workgraph-0.8.1"
-RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.1
-FILE=workgraph-0.8.1-macos-arm64.tar.gz
+mkdir -p "$HOME/Downloads/workgraph-0.8.2"
+cd "$HOME/Downloads/workgraph-0.8.2"
+RELEASE=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.2
+FILE=workgraph-0.8.2-macos-arm64.tar.gz
 curl -fLO "$RELEASE/$FILE"
 curl -fLO "$RELEASE/SHA256SUMS"
 awk -v name="$FILE" '$2 == name {print; count++} END {if (count != 1) exit 1}' SHA256SUMS > selected.sha256
 shasum -a 256 --check selected.sha256
-mkdir -p "$HOME/.local/opt/workgraph-0.8.1"
-tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.8.1"
+mkdir -p "$HOME/.local/opt/workgraph-0.8.2"
+tar -xzf "$FILE" -C "$HOME/.local/opt/workgraph-0.8.2"
 # Keep the versioned archive and docs together; select its executable explicitly.
-export PATH="$HOME/.local/opt/workgraph-0.8.1/workgraph-0.8.1-macos-arm64/bin:$PATH"
+export PATH="$HOME/.local/opt/workgraph-0.8.2/workgraph-0.8.2-macos-arm64/bin:$PATH"
 hash -r
 workgraph --version
 ```
@@ -1324,7 +1324,7 @@ rollover, not silent pruning or an automatic migration.
 - [macOS](docs/macos-install.md), [AlmaLinux/WSL](docs/wsl-quickstart.md), [gated review](skills/workgraph/references/gated-review-workflow.md)
 - [Coordination runner](skills/workgraph/scripts/coordination-runner.py), [coordination shell](skills/workgraph/scripts/coordination-workflow.sh), [notifications](skills/workgraph/scripts/notification-watcher.py), [history adapter](skills/workgraph/scripts/history-adapter.py), [Codex hooks](skills/workgraph/scripts/codex-hooks)
 - [Generated API reference](skills/workgraph/references/api/index.md), offline `workgraph help METHOD`, `workgraph help METHOD --full`
-- [v0.8.1 release and upgrade notes](docs/releases/v0.8.1.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](docs/guide-coverage.md)
+- [v0.8.2 release and upgrade notes](docs/releases/v0.8.2.md), [repository](https://github.com/dakotamurphyucf/workgraph), [published releases](https://github.com/dakotamurphyucf/workgraph/releases), [coverage audit](docs/guide-coverage.md)
 
 ## Complete maintained scripts
 

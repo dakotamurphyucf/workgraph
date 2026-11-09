@@ -1,6 +1,6 @@
 # Optional installation and connections
 
-Install the optional **0.8.1** browser UI alongside the matching Workgraph daemon.
+Install the optional **0.8.2** browser UI alongside the matching Workgraph daemon.
 The [core installation guide](../../README.md#install-and-set-up) remains available
 for CLI-only use.
 
@@ -13,8 +13,8 @@ guides. In a new download directory:
 
 ```sh
 platform=macos-arm64  # On AlmaLinux: almalinux-10-x86_64
-release=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.1
-archive="workgraph-ui-0.8.1-$platform.tar.gz"
+release=https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.2
+archive="workgraph-ui-0.8.2-$platform.tar.gz"
 curl -fLO "$release/$archive"
 curl -fLO "$release/SHA256SUMS"
 awk -v name="$archive" '$2 == name { print; found++ } END { if (found != 1) exit 1 }' \
@@ -23,7 +23,7 @@ awk -v name="$archive" '$2 == name { print; found++ } END { if (found != 1) exit
 shasum -a 256 -c selected.sha256
 mkdir -p "$HOME/.local/opt"
 tar -xzf "$archive" -C "$HOME/.local/opt"
-installation="$HOME/.local/opt/workgraph-ui-0.8.1-$platform"
+installation="$HOME/.local/opt/workgraph-ui-0.8.2-$platform"
 "$installation/bin/workgraph-ui" --state-root "$HOME/.local/state/workgraph-ui"
 ```
 
@@ -37,8 +37,8 @@ On AlmaLinux, you can instead download the matching core and UI RPMs, verify
 both against `SHA256SUMS`, then install them together:
 
 ```sh
-sudo dnf install ./workgraph-0.8.1-1.el10.x86_64.rpm \
-  ./workgraph-ui-0.8.1-1.el10.x86_64.rpm
+sudo dnf install ./workgraph-0.8.2-1.el10.x86_64.rpm \
+  ./workgraph-ui-0.8.2-1.el10.x86_64.rpm
 workgraph-ui --state-root "$HOME/.local/state/workgraph-ui" --no-open
 ```
 
@@ -52,7 +52,7 @@ not Developer ID signed or notarized; Gatekeeper may require explicit approval.
 Stop the old companion and deliberately stop or hand off the daemon you manage.
 Keep workspace roots, registry, context files and request journals outside the
 installation directory. Resolve uncertain operations with their original version
-before switching. Install both 0.8.1 executables together and restart with the same
+before switching. Install both 0.8.2 executables together and restart with the same
 private data locations. Existing 0.7.0 and 0.8.0 workspace formats are unchanged; no reset or
 migration is needed. For older 0.6.2 data, use the separate [migration guide](../migration.md).
 Removing the UI removes package files, not workspace data. See [package removal](packages.md).
@@ -68,7 +68,7 @@ requires neither Node.js nor opam. Source-build instructions are also provided b
 
 Do not infer that a core-only install contains a UI or that an empty optional
 install manifest is a successful UI build. Do not mix companion and daemon
-versions. Install core and UI from the same **0.8.1** release. Application API
+versions. Install core and UI from the same **0.8.2** release. Application API
 **0.7** alone is insufficient to establish matching package semantics.
 
 ## Connect deliberately

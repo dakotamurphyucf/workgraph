@@ -1,7 +1,7 @@
 # Working alongside the optional UI
 
 Workgraph UI is an optional local browser interface to the same daemon, not a
-replacement agent runtime or a new authority over workspace records. The 0.8.1
+replacement agent runtime or a new authority over workspace records. The 0.8.2
 release provides a native `workgraph-ui` companion with embedded browser
 assets, paired with the same package version of `workgraph`; application API 0.7
 alone does not establish that match. Installed operation requires neither Node.js
