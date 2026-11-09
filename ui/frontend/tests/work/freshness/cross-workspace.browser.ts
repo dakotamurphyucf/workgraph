@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import { test, expect } from "../../e2e/support/fixtures";
 
 test.use({ colorScheme: "dark", viewport: { width: 1440, height: 1000 } });
@@ -63,11 +64,11 @@ test("Advanced write invalidates only its actual workspace, preserving the selec
   await expect(
     page.getByText("Clarify the workflow and ownership rules", { exact: true }),
   ).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill("fixture-author");
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const selectedReads: string[] = [];
   page.on("request", (request) => {
     if (!request.url().endsWith("/read")) return;
@@ -116,7 +117,7 @@ test("Advanced write invalidates only its actual workspace, preserving the selec
     page.getByText("Clarify the workflow and ownership rules", { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("status", { name: "Captured work freshness" })).toHaveCount(0);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(selectedReads).toEqual([]);
   const screenshot = info.outputPath("selected-workspace-capture-unchanged.png");
   await page.screenshot({ path: screenshot, fullPage: true });
@@ -131,7 +132,7 @@ test("Advanced write invalidates only its actual workspace, preserving the selec
     page.getByText("Written only to actual workspace — 雪", { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("status", { name: "Captured work freshness" })).toHaveCount(0);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await info.attach("native-cross-workspace-readback", {
     contentType: "application/json",
     body: JSON.stringify({

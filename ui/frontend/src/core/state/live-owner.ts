@@ -1,16 +1,18 @@
+import { jsonField } from "../json";
+import type { HttpFailure } from "../protocol/http";
 import type {
   LiveAdapter,
   LiveChangeReader,
+  LiveCursor,
   LiveReadOwner,
   LiveScope,
   LiveStatus,
 } from "./live-types";
-
 interface OwnerOptions {
   readonly reader: LiveChangeReader;
   readonly now?: () => number;
-  readonly pollMs?: number;
-  readonly safetyMs?: number;
+  readonly fallbackMs?: number;
+  readonly debounceMs?: number;
 }
 const initial: LiveStatus = {
   kind: "paused",
@@ -18,25 +20,37 @@ const initial: LiveStatus = {
   failures: 0,
   retainedCapture: false,
 };
-/** Browser-independent scheduler. One mount owns its abort tree, timers and
- * coalesced refresh flight. Every callback is passive and explicitly supplied. */
+const capacityUnavailable = (failure: HttpFailure) => {
+  if (failure.kind !== "remote" || failure.problem.details === undefined) return false;
+  const meter = jsonField(failure.problem.details, "meter");
+  return meter?.kind === "string" && meter.value === "ui-live-observations";
+};
+const invalidCursor = (failure: HttpFailure) =>
+  failure.kind === "remote" &&
+  ["Conflict", "Invalid_argument", "Unsupported_version"].includes(failure.problem.kind) &&
+  failure.problem.message.includes("feed cursor");
+/** One observation flight, one serial projection refresh, and a bounded debounce.
+ * Transient transport failures retain both cursors and already rendered content.
+ * Healthy idle waits never trigger projected reads. */
 export function createLiveReadOwner({
   reader,
   now = Date.now,
-  pollMs = 3000,
-  safetyMs = 15000,
+  fallbackMs = 15000,
+  debounceMs = 250,
 }: OwnerOptions): LiveReadOwner {
-  let state = initial;
-  let disposed = false,
+  let state = initial,
+    disposed = false,
     visible = true,
     epoch = 0;
   let selected: { scope: LiveScope; adapter: LiveAdapter; identity: object } | null = null;
   let abort = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let debounce: ReturnType<typeof setTimeout> | undefined;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  let projectionFailed = false;
   let flight: Promise<void> | null = null,
-    dirty = false;
+    dirty = false,
+    observationFailed = false;
   const listeners = new Set<() => void>();
-  const failedFeeds = new Set<string>();
   const publish = (patch: Partial<LiveStatus>) => {
     if (disposed) return;
     state = Object.freeze({ ...state, ...patch });
@@ -44,27 +58,27 @@ export function createLiveReadOwner({
   };
   const active = (owner: number, signal: AbortSignal) =>
     !disposed && visible && epoch === owner && !signal.aborted;
-  const delayMs = () =>
-    state.failures === 0 ? 0 : Math.min(30000, 1000 * 2 ** Math.min(state.failures - 1, 5));
+  const delayMs = () => Math.min(30000, 1000 * 2 ** Math.min(Math.max(0, state.failures - 1), 5));
   const failed = () =>
     publish({
       kind: state.failures >= 2 ? "offline" : "reconnecting",
       failures: state.failures + 1,
     });
-  const success = (retainedCapture = state.retainedCapture) =>
-    publish(
-      failedFeeds.size > 0
-        ? { kind: "reconnecting", retainedCapture }
-        : { kind: "live", failures: 0, lastSuccessMs: now(), retainedCapture },
-    );
+  const success = (retainedCapture = state.retainedCapture) => {
+    if (!observationFailed && !projectionFailed)
+      publish({ kind: "live", failures: 0, lastSuccessMs: now(), retainedCapture });
+  };
   const stop = () => {
     epoch++;
     abort.abort();
-    if (timer !== undefined) clearTimeout(timer);
-    timer = undefined;
+    if (debounce !== undefined) clearTimeout(debounce);
+    if (retry !== undefined) clearTimeout(retry);
+    retry = undefined;
+    projectionFailed = false;
+    debounce = undefined;
     dirty = false;
     flight = null;
-    failedFeeds.clear();
+    observationFailed = false;
   };
   const pauseFor = (ms: number, signal: AbortSignal) =>
     new Promise<void>((resolve) => {
@@ -93,58 +107,92 @@ export function createLiveReadOwner({
         try {
           const result = await captured.adapter.refresh(signal);
           if (!active(owner, signal)) return;
+          projectionFailed = !result.ok;
           if (result.ok) success(result.retainedCapture === true);
           else {
             failed();
             dirty = false;
           }
         } catch {
-          // Slots retain the actual exception with their exact read identity.
+          // The passive slots retain errors with their exact read identity.
           if (active(owner, signal)) {
+            projectionFailed = true;
             failed();
             dirty = false;
           }
         }
       }
     })().finally(() => {
-      if (flight === task) flight = null;
+      if (flight !== task) return;
+      flight = null;
+      if (retry !== undefined) clearTimeout(retry);
+      retry = undefined;
+      if (projectionFailed && active(owner, signal))
+        retry = setTimeout(() => {
+          retry = undefined;
+          if (active(owner, signal)) void refresh();
+        }, delayMs());
     });
     flight = task;
     return task;
   }
-  async function watch(source: "planning" | "history", owner: number, signal: AbortSignal) {
+  function schedule(owner: number, signal: AbortSignal) {
+    if (debounce !== undefined) return;
+    debounce = setTimeout(() => {
+      debounce = undefined;
+      if (active(owner, signal)) void refresh();
+    }, debounceMs);
+  }
+  async function watch(owner: number, signal: AbortSignal) {
     const captured = selected;
     if (captured === null) return;
-    let cursor: string | null = null,
-      waiting = false;
+    let cursor: LiveCursor | null = null,
+      waiting = false,
+      fallbackAt = -Infinity;
     while (active(owner, signal)) {
+      const started = now();
       try {
-        const result = await reader.read(captured.scope, source, cursor, waiting, signal);
+        const result = await reader.read(
+          captured.scope,
+          captured.adapter.sources,
+          cursor,
+          waiting,
+          signal,
+        );
         if (!active(owner, signal)) return;
         if (!result.ok || result.data.needsLargerBudget) {
-          failedFeeds.add(source);
+          observationFailed = true;
           failed();
-          // A restored/reconnected root may invalidate a cursor. Re-establish
-          // a native cursor and refresh current projections after backoff.
-          cursor = null;
-          waiting = false;
+          if (!result.ok && invalidCursor(result.failure)) {
+            cursor = null;
+            waiting = false;
+          }
+          if (
+            !result.ok &&
+            capacityUnavailable(result.failure) &&
+            now() - fallbackAt >= fallbackMs
+          ) {
+            fallbackAt = now();
+            await refresh();
+          }
           await pauseFor(delayMs(), signal);
           continue;
         }
-        failedFeeds.delete(source);
+        observationFailed = false;
         const first = cursor === null;
         cursor = result.data.cursor;
         waiting = !result.data.hasMore;
-        if (first || result.data.changed) await refresh();
-        // A conforming wait blocks; a fast timeout or empty-page implementation
-        // cannot turn this observer into a tight request loop.
-        if (!result.data.changed && !result.data.hasMore) await pauseFor(250, signal);
+        if (first) await refresh();
+        else if (result.data.changed) schedule(owner, signal);
+        else success();
+        // Defensive floor only for unexpectedly fast empty responses, not an
+        // additional page polling timer. Normal waits already take 25 seconds.
+        if (!result.data.changed && !result.data.hasMore && now() - started < 250)
+          await pauseFor(250, signal);
       } catch {
         if (!active(owner, signal)) return;
-        failedFeeds.add(source);
+        observationFailed = true;
         failed();
-        cursor = null;
-        waiting = false;
         await pauseFor(delayMs(), signal);
       }
     }
@@ -152,26 +200,10 @@ export function createLiveReadOwner({
   function start() {
     if (disposed || !visible || selected === null) return;
     abort = new AbortController();
-    const owner = epoch,
-      signal = abort.signal,
-      captured = selected;
     publish({ kind: "connecting" });
-    // Watchers establish observation before the first projected refresh.
-    const sources =
-      captured.scope.workspaceId === null ? [] : [...new Set(captured.adapter.sources)];
-    for (const source of sources) void watch(source, owner, signal);
-    if (sources.length === 0) void refresh();
-    const tick = () => {
-      const interval = Math.max(captured.adapter.poll ? pollMs : safetyMs, delayMs());
-      timer = setTimeout(() => {
-        timer = undefined;
-        if (!active(owner, signal)) return;
-        void refresh().finally(() => {
-          if (active(owner, signal)) tick();
-        });
-      }, interval);
-    };
-    tick();
+    if (selected.scope.workspaceId === null || selected.adapter.sources.length === 0)
+      void refresh();
+    else void watch(epoch, abort.signal);
   }
   return {
     get: () => state,
@@ -201,10 +233,7 @@ export function createLiveReadOwner({
     },
     refresh,
     setVisible(next) {
-      if (next === visible) {
-        if (next) void refresh();
-        return;
-      }
+      if (next === visible) return;
       visible = next;
       stop();
       if (next) start();

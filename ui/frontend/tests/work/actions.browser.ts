@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createConnection, createServer, type Socket } from "node:net";
@@ -47,7 +48,7 @@ async function mount(page: Page, companion: CompanionFixture, socket: string, en
     ).href,
   );
   await expect(page.getByRole("heading", { name: "Tickets", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await actor(page, "fixture-author");
 }
 async function actor(page: Page, id: string, run = "") {
@@ -55,7 +56,7 @@ async function actor(page: Page, id: string, run = "") {
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run);
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 function writer(daemon: DaemonFixture) {
   let serial = 0;
@@ -103,7 +104,7 @@ async function read(daemon: DaemonFixture, ticket_id: string): Promise<TicketRec
   ).result.data.ticket;
 }
 async function refresh(page: Page) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.getByRole("button", { name: "Refresh tickets", exact: true }).click();
   // Worker-backed decode may schedule detail reads after an idle HTTP interval.
   // Wait for actual captured selection, rather than ending the test while its daemon is still needed.
@@ -113,7 +114,7 @@ async function refresh(page: Page) {
     ).toBeVisible();
     await expect(page.getByRole("status").filter({ hasText: /^Loading ticket/u })).toHaveCount(0);
   }
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function open(page: Page, method: WorkCommand): Promise<Locator> {
   const definition = commandDefinition(method);
@@ -413,7 +414,7 @@ test("native ticket creation, exact metadata replacement, reusable records, hold
   await screenshot(page, info, "ticket-reopened-light.png");
   await close(page, dialog);
   expect((await read(daemon, "created")).status).toBe("todo");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -498,7 +499,7 @@ test("native claim, timed renewal, release, start attempt, reassign and explicit
   await screenshot(page, info, "ticket-expired-recovery-dark.png");
   await close(page, dialog);
   expect((await read(daemon, "design")).claim).toBeNull();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -570,7 +571,7 @@ test("native typed hierarchy, logical paths, immutable amendment publish, exact 
   await set(dialog, "Require current claimant acknowledgement", "false", false, true);
   await commit(dialog);
   await close(page, dialog);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -643,7 +644,7 @@ test("cross-project relationship navigation captures actual target and stale req
       .locator(".wg-inspector-header")
       .getByRole("heading", { name: "Clarify the workflow and ownership rules", exact: true }),
   ).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   dialog = await open(page, "related.remove");
   await set(dialog, "Related ticket ID", "remote-target");
   await load(dialog);
@@ -659,10 +660,10 @@ test("cross-project relationship navigation captures actual target and stale req
   await set(dialog, "Acceptance criteria", "Unsent draft survives remount and actor changes", true);
   await dialog.getByRole("button", { name: "Hide editor; keep draft", exact: true }).click();
   await page.getByRole("link", { name: "Advanced", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await actor(page, "human");
   await page.getByRole("link", { name: "Work", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const retained = await page
     .getByLabel("Open editor", { exact: true })
     .locator("option")
@@ -675,7 +676,7 @@ test("cross-project relationship navigation captures actual target and stale req
     "Unsent draft survives remount and actor changes",
   );
   await expect(dialog.locator(".work-action-provenance")).toContainText("fixture-author");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -733,7 +734,7 @@ test("Ready board intent reviews computed checks and only offers an explicit exi
   await screenshot(page, info, "ticket-ready-explicit-hold-dark.png");
   expect((await read(daemon, "build")).claim).toBeNull();
   expect((await read(daemon, "build")).hold).toBeNull();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -872,7 +873,7 @@ test("native lost reply retains exact saved intention; explicit receipt recovery
       contentType: "application/json",
     });
     expect(proxy.failures).toEqual([]);
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     expect(browserFailures).toEqual([]);
   } finally {
     await proxy.dispose();

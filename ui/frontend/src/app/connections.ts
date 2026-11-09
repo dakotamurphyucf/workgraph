@@ -26,8 +26,8 @@ function retainedItems(captured: CapturedDirectory | null, client: HttpClient) {
     ? captured.value.items
     : null;
 }
-/** Poll the host registry quietly. Explicit refresh may show loading; passive
- * checks retain current profiles and never switch the chosen default. */
+/** Refresh the host registry on opening, visibility, connectivity and explicit
+ * changes. Idle tabs do not poll it. Failed checks retry with bounded backoff. */
 export function useConnections(client: HttpClient): {
   readonly directory: ConnectionDirectory;
   readonly defaultConnectionId: string | null;
@@ -102,12 +102,12 @@ export function useConnections(client: HttpClient): {
           });
       } finally {
         if (flight === abort) flight = null;
-        if (active && !abort.signal.aborted && visible())
+        if (active && !abort.signal.aborted && visible() && failures > 0)
           timer = setTimeout(
             () => {
               void read();
             },
-            failures === 0 ? 10000 : Math.min(30000, 1000 * 2 ** Math.min(failures - 1, 5)),
+            Math.min(30000, 1000 * 2 ** Math.min(failures - 1, 5)),
           );
       }
     };

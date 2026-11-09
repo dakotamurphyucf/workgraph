@@ -121,7 +121,7 @@ its port, changes the HTTP authority and browser origin. The companion checks
 those values; an equivalent-looking address is not automatically accepted.
 
 The browser can reuse HTTP/1.1 connections for successive asset requests, API
-calls, and live polling. This reduces the number of new connections needed during
+calls, and live observation. This reduces the number of new connections needed during
 page loading and live updates. Browsers may still open several
 connections for parallel requests; keep-alive does not force all traffic onto one
 socket. An idle connection closes after 90 seconds without complete request
@@ -224,3 +224,18 @@ For this release, actual Windows-browser/WSL testing is explicitly deferred to
 post-release testing on Windows and WSL and is not a release blocker. It remains untested,
 not a passed qualification. Native macOS and native AlmaLinux package/runtime
 checks are still required before claiming those artifacts are qualified.
+
+
+### Live updates and multiple tabs
+
+A visible workspace tab keeps one change-observation long poll open for up to
+25 seconds. When nothing changes, it renews that request without rereading the
+page. Changes trigger a batched refresh; connection interruptions retry quietly
+with backoff and retain the displayed content. The UI does not reload the page
+or retry writes because an observation failed.
+
+The companion admits up to 16 simultaneous observations independently of ordinary
+reads and writes. Hiding, reloading or closing a tab cancels its old observation.
+If all observation slots are occupied, affected tabs temporarily use bounded
+fallback refreshes while retrying. Browser connection limits can still constrain
+many simultaneously visible windows sharing the same origin.

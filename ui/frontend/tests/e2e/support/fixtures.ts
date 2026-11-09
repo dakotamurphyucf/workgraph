@@ -1,3 +1,4 @@
+import { trackPageReads } from "./readiness";
 import { test as base, type Request, type TestInfo } from "@playwright/test";
 import {
   fixtureBinary,
@@ -96,6 +97,8 @@ export const test = base.extend<
   },
   browserDiagnostics: [
     async ({ daemon, page, companion, browser }, runTest, info) => {
+      trackPageReads(page);
+      page.context().on("page", trackPageReads);
       const failures: string[] = [];
       const consoleMessages: { type: string; text: string; url: string }[] = [];
       const cancellations: {
@@ -165,7 +168,9 @@ export const test = base.extend<
           for (const request of active)
             if (
               request.method() === "POST" &&
-              request.url() === new URL("/ui-api/v1/read", origin).href
+              ["/ui-api/v1/read", "/ui-api/v1/live-observations"].some(
+                (path) => request.url() === new URL(path, origin).href,
+              )
             )
               allowedCancellations.add(request);
         },
@@ -192,11 +197,13 @@ export const test = base.extend<
         const url = new URL(request.url());
         if (
           url.origin === origin &&
-          ((request.method() === "POST" && url.pathname === "/ui-api/v1/read") ||
+          ((request.method() === "POST" &&
+            ["/ui-api/v1/read", "/ui-api/v1/live-observations"].includes(url.pathname)) ||
             (request.method() === "GET" && url.pathname === "/ui-api/v1/connections"))
         )
           teardownReads.add(request);
       }
+      page.context().off("page", trackPageReads);
       if (!page.isClosed()) await page.close();
       await info.attach("browser-diagnostics", {
         contentType: "application/json",

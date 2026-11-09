@@ -56,8 +56,12 @@ function adapter(
   }
   return {
     key: view,
-    sources: view === "history" ? ["planning", "history"] : ["planning"],
-    poll: view === "participants" || view === "overview" || view === "saved",
+    sources:
+      view === "history"
+        ? ["planning", "history"]
+        : ["overview", "participants", "saved"].includes(view)
+          ? ["planning", "runtime"]
+          : ["planning"],
     async refresh(signal) {
       let ok = true,
         retainedCapture = false;

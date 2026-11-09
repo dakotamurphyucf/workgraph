@@ -13,7 +13,8 @@
   wait_helper_tests
   transfer_helper_tests
   execution_helper_test
-  request_observer_tests)
+  request_observer_tests
+  live_observer_tests)
  (enabled_if
   (= %{env:WORKGRAPH_UI_BUILD=false} true))
  (libraries workgraph-ui core eio_main expect_test_helpers_core)

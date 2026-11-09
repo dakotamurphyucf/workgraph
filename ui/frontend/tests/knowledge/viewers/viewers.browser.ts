@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { Page, TestInfo } from "@playwright/test";
@@ -106,7 +107,7 @@ async function open(
   bytes: string | Uint8Array,
   version = "1",
 ) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const target = new URL(
     `/#/resources?connection=local&workspace=demo&entity=${id}&resource_generation=1&content_version=${version}&content_digest=${sha(bytes)}`,
     companion.url,
@@ -127,7 +128,7 @@ async function open(
   return viewer;
 }
 async function capture(page: Page, info: TestInfo, name: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const path = info.outputPath(name);
   await page.screenshot({ path, fullPage: false });
   await info.attach(name, { path, contentType: "image/png" });
@@ -380,7 +381,7 @@ test("actual viewer Worker admission failure and deadline keep source downloadab
     await expect(viewer).not.toContainText("malformed");
     await download(other, info, "worker-timeout-source.png", bytes);
     expect(other.workers().filter((w) => w.url().includes("viewer.worker"))).toHaveLength(0);
-    await other.waitForLoadState("networkidle");
+    await waitForPageReads(other);
     expect(errors).toEqual([]);
   } finally {
     await other.close();

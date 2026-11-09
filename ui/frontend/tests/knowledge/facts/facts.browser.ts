@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import { test, expect } from "../../e2e/support/fixtures";
 import type { DaemonFixture } from "../../../../test-support/daemon-fixture.mjs";
@@ -50,12 +51,12 @@ async function configure(page: Page, companion: CompanionFixture, daemon: Daemon
   }
 }
 async function actor(page: Page, id = "fixture-author") {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill("");
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function mount(page: Page, companion: CompanionFixture, daemon: DaemonFixture) {
   await configure(page, companion, daemon);
@@ -63,7 +64,7 @@ async function mount(page: Page, companion: CompanionFixture, daemon: DaemonFixt
     new URL("/#/facts?connection=local&workspace=demo&project=release", companion.url).href,
   );
   await expect(page.getByRole("heading", { name: "Facts", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await actor(page);
 }
 function panel(page: Page, title: string) {
@@ -110,7 +111,7 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
   await expect(page.getByRole("heading", { name: "Preparing content", exact: true })).toHaveCount(
     0,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.evaluate(() => {
     for (const e of document.querySelectorAll<HTMLElement>(".wg-content")) e.scrollTop = 0;
     window.scrollTo(0, 0);

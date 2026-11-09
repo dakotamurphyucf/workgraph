@@ -1,3 +1,4 @@
+import { waitForPageReads } from "./support/readiness";
 import { createHash } from "node:crypto";
 import type { Page, TestInfo } from "@playwright/test";
 import type { CompanionFixture } from "../../../test-support/companion-fixture.mjs";
@@ -156,7 +157,7 @@ for (const destination of ["run", "resource"] as const) {
           exact: true,
         }),
       ).toBeVisible();
-      await page.waitForLoadState("networkidle");
+      await waitForPageReads(page);
       // The actual rendered callback owns its observed generation1 before retarget.
       await metadata(page, companion, "/connections/local", {
         expected_generation: "1",
@@ -216,7 +217,7 @@ for (const destination of ["run", "resource"] as const) {
           page.getByRole("heading", { name: "Replacement recorded resource", exact: true }),
         ).toHaveCount(0);
       }
-      await page.waitForLoadState("networkidle");
+      await waitForPageReads(page);
       await refreshProfiles(page);
       await page.reload();
       await expect(
@@ -230,7 +231,7 @@ for (const destination of ["run", "resource"] as const) {
               .getByText("Original recorded invocation", { exact: true })
           : page.getByText("Immutable first publication 雪.", { exact: true }),
       ).toBeVisible();
-      await page.waitForLoadState("networkidle");
+      await waitForPageReads(page);
       const relevant = () =>
         reads.filter((request) =>
           destination === "run"
@@ -286,7 +287,7 @@ for (const destination of ["run", "resource"] as const) {
       await expect(
         page.getByRole("heading", { name: "Replacement recorded resource", exact: true }),
       ).toHaveCount(0);
-      await page.waitForLoadState("networkidle");
+      await waitForPageReads(page);
       if (destination === "run") expect(relevant()).toEqual([]);
       else {
         expect(relevant().length).toBeGreaterThan(0);

@@ -2467,3 +2467,51 @@ recipients. Refreshing the directory must retain the selected recipient. Reader
 selection remains separate from the acting writer, and directory requests stay
 scoped to the captured connection generation and workspace, independent of the
 selected project. A failed or partial directory read is not an empty workspace.
+
+
+## Change-driven refresh and multi-tab observation (0.8.2)
+
+A healthy idle page must not reread its projections on a timer. The visible
+feature owns one authenticated `/ui-api/v1/live-observations` long poll combining
+planning and, for History, history-feed cursors. The companion waits for either
+feed for up to 25 seconds; native HTTP keep-alive permits connection reuse. This
+is deliberately a fixed-length JSON response using the existing capability
+header, not an unauthenticated EventSource endpoint.
+
+Establish cursors before refreshing current data, retain them across transient
+network failures, and use a 250 ms batching window for changes. Never reset a
+cursor merely because a connection dropped: that used to cause a full refresh
+on every reconnect. Invalid native cursors may explicitly bootstrap again and
+refresh current projections. Keep refreshes serial, retain prior rendered data,
+and preserve fixed historical captures and all write guards. Quiet retries must
+never reload the whole application or replay writes. Hidden, closed, reloaded or
+superseded scopes cancel their foreground reads. Repeated focus events while
+already visible are not a reason to reread everything.
+
+Observation has its own 16-slot admission counter, owned by the companion's Eio
+domain. It is separate from the generic two-slot Wait lane. Each observation
+uses at most two simultaneous daemon connections; immediate capacity rejection
+lets the browser back off and use bounded fallback refreshes. A queued long poll
+must not occupy ordinary read or write capacity. Test multiple simultaneous
+observers, cancellation and reopening, not just one tab's happy path.
+
+Overview, Participants and Saved views also opt into a companion-side comparison
+of default stale-run, stale-ownership and expired-ownership warning states at
+observation boundaries. Fetch complete native warning pages; discard only their
+age counter from the comparison, not the actual state or observed timestamp.
+This preserves clock-only warning transitions without restoring unconditional
+browser page polling. The check uses the daemon's default five-minute stale-run
+threshold. A clock-only transition can take up to one 25-second wait interval.
+It is not a general live execution engine for arbitrary custom time predicates.
+
+The connection directory no longer polls every ten seconds while healthy. Read
+it on opening, explicit profile changes, visibility restoration and online
+recovery. Retry failed checks with bounded backoff while retaining selected
+profile generations. Explicit per-operation monitoring (for example, an upload
+in progress or a user-requested request wait) still has its own lifecycle.
+
+Browser acceptance must count actual API requests across a complete idle wait
+interval, then perform a native write and verify that the visible page updates.
+Do not mistake an empty timeout for a change. Test transports and cleanup must
+identify cancellation of the new read-only observation route as precisely as
+ordinary read cancellation; do not broadly suppress network failures.

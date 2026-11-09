@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -52,12 +53,12 @@ async function call(daemon: DaemonFixture, method: string, params: Record<string
   return value.result.data;
 }
 async function actor(page: Page, id: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill("");
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function mount(page: Page, companion: CompanionFixture, socket: string) {
   const root = await page.request.get(companion.url),
@@ -101,7 +102,7 @@ async function settled(page: Page) {
       }),
   ).toHaveCount(0);
   await expect(editor(page).getByText("Saved on this origin", { exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function source(page: Page, document: unknown) {
   await page.getByRole("button", { name: "New workflow draft", exact: true }).click();
@@ -136,7 +137,7 @@ async function execute(review: Locator, outcome = "committed") {
   ).toBeVisible();
 }
 async function screenshot(page: Page, info: TestInfo, name: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const path = info.outputPath(name);
   await page.screenshot({ path, fullPage: false });
   await info.attach(name, { path, contentType: "image/png" });
@@ -644,7 +645,7 @@ test("W11 lost apply reply restores same journal after reload and explicit recei
     browserDiagnostics.markPendingReads();
     browserDiagnostics.markPendingDirectoryReads();
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     await page.getByRole("button", { name: "Drafts", exact: true }).click();
     await expect(editor(page)).toBeVisible();
     await editor(page).getByRole("button", { name: "Close editor", exact: true }).click();

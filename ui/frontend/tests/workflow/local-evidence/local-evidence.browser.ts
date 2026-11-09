@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -69,12 +70,12 @@ async function stage(root: string, name: string, finished = true) {
   return { directory, bytes };
 }
 async function actor(page: Page, id: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill("");
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const tool = page.getByRole("button", { name: "Local execution evidence", exact: true });
   if (await tool.isVisible()) await tool.click();
 }
@@ -98,7 +99,7 @@ async function mount(page: Page, companion: CompanionFixture, daemon: DaemonFixt
     new URL("/#/workflow?connection=local&workspace=demo&project=release", companion.url).href,
   );
   await expect(page.getByRole("heading", { name: "Graph", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await actor(page, "fixture-author");
   const tool = page.getByRole("button", { name: "Local execution evidence", exact: true });
   if (await tool.isVisible()) await tool.click();
@@ -202,9 +203,9 @@ test("LE02 publication captures original writer and separates rejected ticket li
   await expect(
     manager.getByRole("heading", { name: "Manage Different current endpoint", exact: true }),
   ).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await manager.getByRole("button", { name: "Use this connection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const localTool = page.getByRole("button", { name: "Local execution evidence", exact: true });
   if (await localTool.isVisible()) await localTool.click();
   await expect(job(page)).toContainText("Local evidence fixture · original generation 1");

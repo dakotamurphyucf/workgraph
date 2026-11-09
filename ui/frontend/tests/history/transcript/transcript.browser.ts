@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import path from "node:path";
 import { writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -71,7 +72,7 @@ async function mount(
       companion.url,
     ).href,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   return page.locator(".ht-root");
 }
 async function actor(page: Page, value: string) {
@@ -92,7 +93,7 @@ async function capture(page: Page, info: TestInfo, name: string) {
   await expect(page.getByRole("heading", { name: "Preparing content", exact: true })).toHaveCount(
     0,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.evaluate(() => {
     window.scrollTo(0, 0);
@@ -172,7 +173,7 @@ test("Generic exact bytes, partial UTF-8, immutable event links and explicit cap
   await expect(root.getByText(/event bound/u)).toContainText("3");
   await expect(card(root, 4)).toHaveCount(0);
   await expect(card(root, 3)).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   browserDiagnostics.markPendingReads();
   await root.getByRole("button", { name: "Refresh current capture", exact: true }).click();
   await expect(card(root, 4)).toBeVisible();
@@ -327,7 +328,7 @@ test("Create, reviewed import, archive and saved writer survive navigation and a
     await daemon.call("session.get", '{"workspace_id":"demo","session_id":"from-ui"}'),
   ).toContain('"through":"2"');
   await root.getByRole("button", { name: "Discard local editor", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   browserDiagnostics.markPendingReads();
   await root.getByRole("button", { name: "Refresh current capture", exact: true }).click();
   await expect(card(root, 2)).toBeVisible();
@@ -336,7 +337,7 @@ test("Create, reviewed import, archive and saved writer survive navigation and a
   await root
     .getByRole("button", { name: "Validate & prepare history action", exact: true })
     .click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   browserDiagnostics.markPendingReads();
   await actor(page, "different-current-writer");
   const captured = root
@@ -405,7 +406,7 @@ test("Retained generation links keep the original same-ID session and never reta
     );
     expect(attached.status()).toBe(200);
     expect(await attached.text()).toContain('"generation":"2"');
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     browserDiagnostics.markPendingReads();
     const capturedHead = new URLSearchParams(link.split("?")[1]).get("head");
     if (!capturedHead) throw new Error("Missing captured history head");
@@ -459,7 +460,7 @@ test("Retained generation links keep the original same-ID session and never reta
       .click();
     await expect(root.getByText(/connection local generation\s*2/u)).toBeVisible();
     await root.getByRole("button", { name: "Discard local editor", exact: true }).click();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     browserDiagnostics.markPendingReads();
     const readURL = new URL("/ui-api/v1/read", companion.url).href;
     const rejected: Response[] = [];
@@ -480,7 +481,7 @@ test("Retained generation links keep the original same-ID session and never reta
       expect(
         await second.call("session.get", '{"workspace_id":"demo","session_id":"same-id"}'),
       ).toContain('"archived":false');
-      await page.waitForLoadState("networkidle");
+      await waitForPageReads(page);
       expect(rejected.length).toBeGreaterThan(0);
       // Inspect every matching409: /read is shared by methods, so URL-only matching is insufficient.
       for (const response of rejected) {

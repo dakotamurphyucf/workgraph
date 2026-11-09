@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import type { CompanionFixture } from "../../../test-support/companion-fixture.mjs";
 import type { DaemonFixture } from "../../../test-support/daemon-fixture.mjs";
@@ -43,7 +44,7 @@ async function actor(page: Page, id: string, run = "") {
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run);
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function retained(page: Page, label: RegExp) {
   const picker = page.getByLabel("Retained participation editor", { exact: true });
@@ -83,7 +84,7 @@ async function mount(page: Page, companion: CompanionFixture, daemon: DaemonFixt
       .href,
   );
   await expect(page.getByRole("heading", { name: "Tickets", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await actor(page, "fixture-author", run);
   await activity(page);
 }
@@ -92,7 +93,7 @@ async function activity(page: Page) {
   await expect(
     page.getByRole("heading", { name: "Progress and handoff", exact: true }),
   ).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function open(page: Page, method: string, label: string) {
   await page.getByLabel("Participation action", { exact: true }).selectOption(method);
@@ -116,7 +117,7 @@ async function close(dialog: Locator) {
 async function refresh(page: Page) {
   await page.getByRole("button", { name: "Refresh tickets", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Loading ticket/u })).toHaveCount(0);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await activity(page);
 }
 async function screenshot(page: Page, info: TestInfo, name: string) {
@@ -244,7 +245,7 @@ test("native owner progress and ticket comment revisions retain original author 
   await history.getByRole("button", { name: "Load comment revision history", exact: true }).click();
   await expect(history.getByText("Exact edited human comment", { exact: true })).toBeVisible();
   await expect(history.getByText(/Exact human comment <script>/u)).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -299,7 +300,7 @@ test("native handoff replacement preserves immutable history and explicit empty-
   });
   await current.scrollIntoViewIfNeeded();
   await screenshot(page, info, "handoff-replacement-and-history.png");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -363,7 +364,7 @@ test("native recorded attempts checkpoint and outcome remain distinct from claim
   await release.getByRole("button", { name: "Apply action", exact: true }).click();
   await expect(release.getByRole("status").filter({ hasText: /^committed$/u })).toBeVisible();
   expect(await ticket(daemon)).toMatchObject({ status: "todo", claim: null });
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -433,7 +434,7 @@ test("native ticket finish, completion evidence and guarded reopen preserve earl
   await apply(dialog);
   expect(await ticket(daemon)).toMatchObject({ status: "done", claim: null });
   await close(dialog);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 
@@ -495,6 +496,6 @@ test("native current review gate rejects a stale finish and explicit refreshed c
   expect(await ticket(daemon)).toMatchObject({ status: "done", claim: null });
   await screenshot(page, info, "finish-refreshed-copy-original-author.png");
   await close(dialog);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });

@@ -254,7 +254,14 @@ let serve env options =
         Http_router.with_transfer_helper router transfer_helper
         |> fun router ->
         Http_router.with_execution_helper router execution_helper
-        |> fun router -> Http_router.with_request_observer router request_observer
+        |> fun router ->
+        Http_router.with_request_observer router request_observer
+        |> fun router ->
+        Http_router.with_live_observer
+          router
+          (Live_observer.create
+             ~net:(Eio.Stdenv.net env)
+             ~clock:(Eio.Stdenv.mono_clock env))
       in
       Eio.Fiber.fork ~sw (fun () ->
         Http_server.serve ~sw ~clock:(Eio.Stdenv.mono_clock env) ~listener ~router);

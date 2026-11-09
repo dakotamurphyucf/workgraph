@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -122,7 +123,7 @@ async function mount(
       .click();
     await expect(root.getByRole("button", { name: "Create project", exact: true })).toBeVisible();
   }
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   return { root, post };
 }
 async function drain(page: Page) {
@@ -134,7 +135,7 @@ async function drain(page: Page) {
     i++
   ) {
     await root.getByRole("button", { name: "Next captured changes", exact: true }).click();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
   }
   await expect(root.getByRole("button", { name: "Wait for changes", exact: true })).toBeEnabled();
 }
@@ -341,7 +342,7 @@ test("Overview distinguishes complete native counts, active status totals and bo
   await expect(root).toContainText("more in this captured collection");
   await expect(root.getByRole("button", { name: "More ready work", exact: true })).toBeEnabled();
   await root.getByRole("button", { name: "More ready work", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await expect(root.getByRole("button", { name: "More ready work", exact: true })).toBeDisabled();
   await expect(
     root.getByRole("button", { name: "Next captured changes", exact: true }),
@@ -350,7 +351,7 @@ test("Overview distinguishes complete native counts, active status totals and bo
   await page.evaluate(() => {
     location.hash = "#/overview?connection=local&workspace=demo";
   });
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await expect(root.getByRole("heading", { name: "Claimed work", exact: true })).toBeVisible();
   await root.getByText("Active ticket status totals", { exact: true }).click();
   await expect(root).toContainText("do not sum to the all-record ticket counter");
@@ -430,7 +431,7 @@ test("Activity follows native captured pages with exact attribution, preserved w
   const { root } = await mount(page, companion, daemon, "activity");
   await root.getByLabel("Activity page size", { exact: true }).fill("2");
   await root.getByRole("button", { name: "Apply activity filters", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const firstText = await root.locator(".ov-timeline").innerText();
   const through = object(native.capture).through;
   await expect(root).toContainText(`through ${text(through)}`);
@@ -461,10 +462,10 @@ test("Activity follows native captured pages with exact attribution, preserved w
   expect(new Set(seen).size).toBe(seen.length);
   expect(firstText.length).toBeGreaterThan(0);
   await root.getByRole("button", { name: "Load activity", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await root.getByLabel("Activity page size", { exact: true }).fill("100");
   await root.getByRole("button", { name: "Apply activity filters", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const link = root
     .locator(`a[href*="entity=${text(comment.comment_id)}&"]`)
     .filter({ hasText: "Open comment revision" });
@@ -558,13 +559,13 @@ test("Overview same-ID endpoint generation and project transitions retain no mis
     await manager.getByRole("button", { name: "Refresh profiles", exact: true }).click();
     await expect(manager.getByText(/local · generation 2/u)).toBeVisible();
     await manager.getByRole("button", { name: "Close Daemon connections", exact: true }).click();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     await expect(root).toContainText("Second endpoint project");
     await expect(root).not.toContainText("Synthetic delivery workflow");
     await page.evaluate(() => {
       location.hash = "#/overview?connection=local&workspace=demo";
     });
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     await expect(root.getByRole("heading", { name: "Claimed work", exact: true })).toBeVisible();
     await page.goBack();
     await expect(root).toContainText("Second endpoint project");

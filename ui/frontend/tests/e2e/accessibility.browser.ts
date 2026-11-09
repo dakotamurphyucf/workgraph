@@ -1,3 +1,4 @@
+import { waitForPageReads } from "./support/readiness";
 import type { Page, TestInfo } from "@playwright/test";
 import type { CompanionFixture } from "../../../test-support/companion-fixture.mjs";
 import { test, expect } from "./support/fixtures";
@@ -37,7 +38,7 @@ async function mount(
       companion.url,
     ).href,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   if (!(await page.locator(".wg-actor-trigger").isVisible()))
     await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   await page.locator(".wg-actor-trigger").click();
@@ -47,7 +48,7 @@ async function mount(
     .getByRole("dialog", { name: "Workspace navigation", exact: true })
     .getByRole("button", { name: "Close navigation", exact: true });
   if (await closeNavigation.isVisible()) await closeNavigation.click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function shot(page: Page, info: TestInfo, name: string) {
   await page.evaluate(

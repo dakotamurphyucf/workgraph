@@ -35,8 +35,6 @@ function owner(adapter: LiveAdapter) {
         throw new Error("Host-only test must not wait on a workspace");
       },
     },
-    pollMs: 100,
-    safetyMs: 100,
   });
   owners.push(o);
   o.open(scope, adapter);
@@ -99,7 +97,6 @@ describe("passive read ownership", () => {
     const o = owner({
       key: "work",
       sources: [],
-      poll: true,
       refresh: async () => {
         calls++;
         active++;
@@ -123,7 +120,6 @@ describe("passive read ownership", () => {
     const o = owner({
       key: "work",
       sources: [],
-      poll: true,
       refresh: (signal) => {
         signals.push(signal);
         return Promise.resolve({ ok: true });
@@ -139,7 +135,7 @@ describe("passive read ownership", () => {
     expect(signals).toHaveLength(2);
     o.open(
       { ...scope, connection: { ...scope.connection, generation: decimal("2") } },
-      { key: "other", sources: [], poll: true, refresh: () => Promise.resolve({ ok: true }) },
+      { key: "other", sources: [], refresh: () => Promise.resolve({ ok: true }) },
     );
     expect(signals[1]?.aborted).toBe(true);
   });
@@ -149,17 +145,134 @@ describe("passive read ownership", () => {
     owner({
       key: "work",
       sources: [],
-      poll: true,
       refresh: () => {
         calls++;
         return Promise.resolve({ ok: false });
       },
     });
-    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(calls).toBe(2);
     await vi.advanceTimersByTimeAsync(1999);
     expect(calls).toBe(2);
     await vi.advanceTimersByTimeAsync(1);
     expect(calls).toBe(3);
+  });
+});
+
+describe("change-driven observation", () => {
+  const workspace = { ...scope, workspaceId: id("workspace") };
+  const page = (changed = false, planning = "p1", history: string | null = null) =>
+    ok({
+      cursor: { planning, history, runtime: null },
+      changed,
+      hasMore: false,
+      needsLargerBudget: false,
+    });
+  function setup(read: import("../../src/core/state/live-types").LiveChangeReader["read"]) {
+    const refresh = vi.fn(() => Promise.resolve({ ok: true }));
+    const o = createLiveReadOwner({ reader: { read } });
+    owners.push(o);
+    o.open(workspace, { key: "history", sources: ["planning", "history"], refresh });
+    return { o, refresh };
+  }
+  it("keeps one combined wait and makes no projected reads during idle time", async () => {
+    vi.useFakeTimers();
+    const read = vi.fn<import("../../src/core/state/live-types").LiveChangeReader["read"]>(
+      async (_scope, _sources, cursor, _wait, signal) => {
+        if (cursor === null) return page(false, "p1", "h1");
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, 25000);
+          signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+        return page(false, "p1", "h1");
+      },
+    );
+    const { refresh, o } = setup(read);
+    await vi.advanceTimersByTimeAsync(125000);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledTimes(6);
+    o.setVisible(true);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(o.get().kind).toBe("live");
+  });
+  it("retains cursors across transport errors and refreshes once for a burst", async () => {
+    vi.useFakeTimers();
+    const read = vi
+      .fn<import("../../src/core/state/live-types").LiveChangeReader["read"]>()
+      .mockResolvedValueOnce(page(false, "p1", "h1"))
+      .mockResolvedValueOnce({ ok: false, failure: { kind: "network", message: "dropped" } })
+      .mockResolvedValueOnce(page(true, "p2", "h1"))
+      .mockResolvedValueOnce(page(true, "p2", "h2"))
+      .mockImplementation(() => new Promise(() => {}));
+    const { refresh } = setup(read);
+    await vi.advanceTimersByTimeAsync(1250);
+    expect(read.mock.calls[2]?.[2]).toEqual({ planning: "p1", history: "h1", runtime: null });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
+  it("polls projections only on explicit capacity rejection and stops once observation recovers", async () => {
+    vi.useFakeTimers();
+    let available = false;
+    const read = vi.fn<import("../../src/core/state/live-types").LiveChangeReader["read"]>(
+      async (_scope, _sources, cursor) => {
+        if (!available)
+          return {
+            ok: false,
+            failure: {
+              kind: "remote",
+              httpStatus: 409,
+              problem: {
+                kind: "Blocked",
+                message: "full",
+                details: d.jsonObject([["meter", d.jsonString("ui-live-observations")]]),
+              },
+            },
+          };
+        if (cursor === null) return page();
+        return new Promise(() => {});
+      },
+    );
+    const { refresh } = setup(read);
+    await vi.advanceTimersByTimeAsync(14999);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    available = true;
+    await vi.advanceTimersByTimeAsync(16000);
+    expect(refresh).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(120000);
+    expect(refresh).toHaveBeenCalledTimes(3);
+  });
+  it("reestablishes invalid cursors and refreshes current projections", async () => {
+    vi.useFakeTimers();
+    const read = vi
+      .fn<import("../../src/core/state/live-types").LiveChangeReader["read"]>()
+      .mockResolvedValueOnce(page())
+      .mockResolvedValueOnce({
+        ok: false,
+        failure: {
+          kind: "remote",
+          httpStatus: 409,
+          problem: {
+            kind: "Conflict",
+            message: "feed cursor history changed; start a new scan",
+            details: undefined,
+          },
+        },
+      })
+      .mockResolvedValueOnce(page(false, "new-root"))
+      .mockImplementation(() => new Promise(() => {}));
+    const { refresh } = setup(read);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(read.mock.calls[2]?.[2]).toBeNull();
+    expect(refresh).toHaveBeenCalledTimes(2);
   });
 });

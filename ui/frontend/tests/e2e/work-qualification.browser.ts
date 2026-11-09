@@ -1,3 +1,4 @@
+import { waitForPageReads } from "./support/readiness";
 import { createHash } from "node:crypto";
 import { createConnection, createServer, type Socket } from "node:net";
 import { join } from "node:path";
@@ -64,14 +65,14 @@ async function connect(page: Page, companion: CompanionFixture, socket: string) 
 }
 async function navigate(page: Page, companion: CompanionFixture, hash: string) {
   await page.goto(new URL("/" + hash, companion.url).href);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function actor(page: Page, id: string, run = "") {
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run);
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function screenshot(page: Page, info: TestInfo, name: string) {
   const path = info.outputPath(name + ".png");
@@ -184,7 +185,7 @@ async function settled(page: Page) {
       }),
   ).toHaveCount(0);
   await expect(planEditor(page).getByText("Saved on this origin", { exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function review(page: Page, number: number) {
   await planEditor(page)
@@ -400,7 +401,7 @@ test("W18 three batches retain prior commits, block after lost batch2, and delib
     });
     await rejected.finished();
     await expect(planEditor(page).getByRole("alert")).toContainText(/Conflict|revision/u);
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     browserDiagnostics.expectedHTTP.delete(readURL);
     await info.attach("deliberate-stale-preflight-typed-conflict", {
       body: JSON.stringify({ request: rejectedRequest, response: staleBody }, null, 2),
@@ -787,7 +788,7 @@ async function actionApply(dialog: Locator) {
 async function refreshTicket(page: Page) {
   await page.getByRole("button", { name: "Refresh tickets", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Loading ticket/u })).toHaveCount(0);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 
 test("W05/W06 claimed instructions refuse edits while metadata works; exact native admission distinguishes missing capability, full pool and changed policy", async ({
@@ -980,7 +981,7 @@ test("W05/W06 claimed instructions refuse edits while metadata works; exact nati
     contentType: "application/json",
   });
   await screenshot(page, info, "claimed-instructions-refused-metadata-committed");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(browserFailures).toEqual([]);
 });
 

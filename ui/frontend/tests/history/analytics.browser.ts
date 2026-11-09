@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -105,7 +106,7 @@ async function mount(
       companion.url,
     ).href,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page
     .locator("summary")
     .filter({ hasText: /^Search and reported usage$/u })
@@ -117,10 +118,10 @@ async function selectActor(page: Page, actor: string, run?: string) {
   await page.getByLabel("Acting actor ID", { exact: true }).fill(actor);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run ?? "");
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function screenshot(page: Page, info: TestInfo, name: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const file = info.outputPath(`${name}.png`);
   await page.screenshot({ path: file, fullPage: true });
   await info.attach(name, { path: file, contentType: "image/png" });
@@ -427,7 +428,7 @@ test("A01 native search continuation pins head, reports coverage and opens exact
     href = await target.getAttribute("href");
   if (href === null) throw new Error("hit");
   await target.click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   expect(page.url()).toContain("generation=1");
   expect(page.url()).toContain("head=");
   const seq = new URLSearchParams(new URL(href, companion.url).hash.split("?")[1]).get("event");
@@ -539,7 +540,7 @@ test("A03 usage report retains original writer and literal samples through expli
     await dialog.locator(".wg-dialog-body").evaluate((element) => {
       element.scrollTop = 0;
     });
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     const file = info.outputPath(`analytics-saved-top-${colorScheme}-${width}.png`);
     await page.screenshot({ path: file, fullPage: false });
     await info.attach(`analytics-saved-top-${colorScheme}-${width}`, {

@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import type { CompanionFixture } from "../../../test-support/companion-fixture.mjs";
 import {
@@ -93,7 +94,7 @@ async function mount(
 }
 async function navigate(page: Page, companion: CompanionFixture, hash: string) {
   await page.goto(new URL(`/${hash}`, companion.url).href);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 function panel(page: Page, title: string) {
   return page
@@ -134,7 +135,7 @@ async function refresh(page: Page, title: string) {
   await panel(page, title)
     .getByRole("button", { name: "Refresh current capture", exact: true })
     .click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function commentList(daemon: DaemonFixture, id = "design") {
   return rows(

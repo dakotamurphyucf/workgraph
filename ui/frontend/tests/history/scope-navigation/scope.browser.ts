@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import type { Page, TestInfo } from "@playwright/test";
 import { test, expect } from "../../e2e/support/fixtures";
 import {
@@ -46,7 +47,7 @@ const sessionHash = "#/history?connection=local&workspace=demo&entity=scopes";
 async function history(page: Page, companion: CompanionFixture) {
   await page.goto(new URL(`/${sessionHash}`, companion.url).href);
   await expect(page.getByRole("button", { name: "project:release", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function screenshot(page: Page, info: TestInfo, name: string) {
   await expect(page.getByRole("heading", { name: "Preparing content", exact: true })).toHaveCount(
@@ -130,7 +131,7 @@ test("History all four planning associations open useful exact read-only details
     expect(page.url()).toContain("planning_generation=1");
     await page.getByRole("button", { name: "Refresh target", exact: true }).click();
     await expect(target.getByRole("heading", { name: title, exact: true })).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     await expect(target.getByText(body, { exact: true })).toBeVisible();
     if (kind === "ticket") await screenshot(page, info, "recorded-ticket-detail");
     await page.goBack();
@@ -175,7 +176,7 @@ test("retargeted profile retains original endpoint despite same IDs; missing rec
       throw new Error("Actual created-session capture head missing");
     await page.goto(new URL(`/${sessionHash}&generation=1&head=${head}`, companion.url).href);
     await expect(page.getByRole("button", { name: "project:release", exact: true })).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     const changed = await page.request.put(
       new URL("/ui-api/v1/connections/local", companion.url).href,
       {
@@ -189,7 +190,7 @@ test("retargeted profile retains original endpoint despite same IDs; missing rec
     await expect(
       page.getByText("Replacement endpoint · generation 2", { exact: true }),
     ).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     const observed: { method: string; generation: string }[] = [];
     page.on("request", (request) => {
       if (request.url().endsWith("/ui-api/v1/read")) {
@@ -207,7 +208,7 @@ test("retargeted profile retains original endpoint despite same IDs; missing rec
       target.getByText(/Recorded endpoint generation 1; the profile now selects generation 2/u),
     ).toBeVisible();
     await expect(target.getByText("Project replacement", { exact: true })).toHaveCount(0);
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     expect(observed.filter((value) => value.method === "project.get")).toEqual([
       { method: "project.get", generation: "1" },
     ]);
@@ -250,7 +251,7 @@ test("retargeted profile retains original endpoint despite same IDs; missing rec
       page.getByRole("heading", { name: "Recorded target unavailable", exact: true }),
     ).toBeVisible();
     await screenshot(page, info, "missing-retained-profile");
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     expect(observed).toHaveLength(priorReads);
     expect(browserFailures).toEqual([]);
   } finally {
@@ -306,7 +307,7 @@ test("actual originating-run and immutable resource-version History navigation r
   await page.getByRole("button", { name: "recorded-run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run recorded-run", exact: true })).toBeVisible();
   expect(page.url()).toContain("participant=run");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.goBack();
   const event = page.locator("#history-event-1");
   await event.getByRole("link", { name: "Exact event link", exact: true }).click();

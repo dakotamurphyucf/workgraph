@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
@@ -117,7 +118,7 @@ test("Knowledge combines current Fact references, verified rich comparisons and 
     has: page.getByRole("heading", { name: "Fact knowledge.references", exact: true }),
   });
   await expect(fact).toContainText("Current references and immutable History are distinct");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await fact.getByRole("button", { name: "Open referenced resource", exact: true }).click();
   await expect(page).toHaveURL(/resource_generation=1/u);
   expect(new URL(page.url()).hash).not.toContain("content_version=");
@@ -146,19 +147,19 @@ test("Knowledge combines current Fact references, verified rich comparisons and 
     path: file,
     contentType: "application/json",
   });
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.goBack();
   await expect(fact).toBeVisible();
   await fact.getByRole("button", { name: "Open referenced ticket", exact: true }).click();
   await expect(page).toHaveURL(/entity=build/u);
   await expect(page.getByRole("heading", { name: "Tickets", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.evaluate(() => {
     location.hash = "#/history?connection=local&workspace=demo&entity=knowledge-history";
   });
   const event = page.locator("#history-event-1");
   await event.getByRole("link", { name: "Exact event link", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await event
     .getByRole("button", {
       name: "Resource knowledge-proof · immutable content version 1",

@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import { test, expect } from "../../e2e/support/fixtures";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import type { CompanionFixture } from "../../../../test-support/companion-fixture.mjs";
@@ -39,7 +40,7 @@ async function configure(
     ).href,
   );
   await expect(page.getByRole("heading", { name: "Tickets", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await actor(page, "fixture-author");
   return headers;
 }
@@ -114,7 +115,7 @@ async function actor(page: Page, id: string, run = "") {
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run);
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function reveal(field: Locator) {
   await expect(field).toBeAttached();
@@ -214,7 +215,7 @@ test("newly created ticket opens the original actionable inspector; Start and ne
     .poll(() => new URLSearchParams(new URL(page.url()).hash.split("?")[1]).get("work_generation"))
     .toBe("1");
   expect(new URL(page.url()).hash).toContain("/workflow?");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await shot(page, info, "created-actionable-workflow.png");
   expect(browserFailures).toEqual([]);
 });
@@ -267,7 +268,7 @@ test("own create and dependency commits mark old captures until explicit refresh
   ).not.toHaveCount(0);
   await page.getByRole("button", { name: "Links", exact: true }).click();
   await expect(page.locator(".work-ticket-inspector")).toContainText("build");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await shot(page, info, "explicitly-refreshed-dependency.png");
   expect(browserFailures).toEqual([]);
 });
@@ -310,7 +311,7 @@ test("saved post-create link survives profile retarget and reload without readin
     await expect(
       page.getByText("Replacement endpoint · generation 2", { exact: true }),
     ).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     const reads: string[] = [];
     page.on("request", (request) => {
       if (request.url().endsWith("/ui-api/v1/read")) reads.push(request.postData() ?? "");
@@ -324,7 +325,7 @@ test("saved post-create link survives profile retarget and reload without readin
     await expect(page.getByRole("button", { name: "Start work", exact: true })).toHaveCount(0);
     await page.reload();
     await expect(blocked).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     expect(
       reads.filter((value) => value.includes("ticket.") || value.includes("transaction.")),
     ).toEqual([]);
@@ -335,7 +336,7 @@ test("saved post-create link survives profile retarget and reload without readin
     await expect(page.getByText("Replacement repeated ticket", { exact: true })).toHaveCount(0);
     expect(await read(daemon, "fresh-repeat")).toEqual(beforeOriginal);
     expect(await read(second, "fresh-repeat")).toEqual(beforeReplacement);
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     await shot(page, info, "retarget-original-read-only.png");
     expect(browserFailures).toEqual([]);
   } finally {

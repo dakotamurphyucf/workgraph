@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import { createHash } from "node:crypto";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import type { DaemonFixture } from "../../../../test-support/daemon-fixture.mjs";
@@ -76,7 +77,7 @@ async function acting(page: Page, id = "worker", run = "worker-run") {
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run);
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function mount(page: Page, companion: CompanionFixture, daemon: DaemonFixture) {
   const response = await page.request.get(companion.url),
@@ -107,7 +108,7 @@ async function mount(page: Page, companion: CompanionFixture, daemon: DaemonFixt
   );
   await expect(page.getByRole("heading", { name: "Graph", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Review & evidence", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await acting(page);
 }
 function evidence(page: Page) {
@@ -122,7 +123,7 @@ async function refresh(page: Page) {
       .getByRole("status")
       .filter({ hasText: /^Reading /u }),
   ).toHaveCount(0);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function open(page: Page, method: EvidenceMethod) {
   const area = evidence(page);

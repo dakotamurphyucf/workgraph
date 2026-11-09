@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import { test, expect } from "../../e2e/support/fixtures";
 import {
@@ -46,12 +47,12 @@ async function configure(page: Page, companion: CompanionFixture, daemon: Daemon
   return headers;
 }
 async function actor(page: Page, id = "fixture-author", run = "") {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run);
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function mount(
   page: Page,
@@ -62,7 +63,7 @@ async function mount(
   await configure(page, companion, daemon);
   await page.goto(new URL(route, companion.url).href);
   await expect(page.getByRole("heading", { name: "Participants", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await actor(page);
   return page.getByRole("region", { name: "Participants", exact: true });
 }
@@ -93,7 +94,7 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
   await expect(page.getByRole("heading", { name: "Preparing content", exact: true })).toHaveCount(
     0,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.evaluate(() => {
     window.scrollTo(0, 0);
     for (const element of document.querySelectorAll<HTMLElement>(".wg-content"))
@@ -291,7 +292,7 @@ test("Participants P03 runner requests and reported attention limits stay distin
   await expect(
     root.getByText("Overview filtered to project release.", { exact: true }),
   ).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await expect(root.getByText(/Overview is missing its byte-budget status/u)).toHaveCount(0);
   const coordination = await read(daemon, "coordinator.overview", { project_id: "release" });
   await info.attach("native-project-coordinator", {
@@ -426,7 +427,7 @@ test("Participants P04 complete session paging and History originating-run links
     );
     expect(attached.status()).toBe(200);
     await attached.text();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     browserDiagnostics.markPendingReads();
     await page.reload();
     await expect(

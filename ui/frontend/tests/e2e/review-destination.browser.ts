@@ -1,3 +1,4 @@
+import { waitForPageReads } from "./support/readiness";
 import path from "node:path";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
@@ -54,7 +55,7 @@ async function mount(page: Page, companion: CompanionFixture, socket: string, vi
   await expect(
     page.locator("#root").getByText("Companion reachable", { exact: true }),
   ).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   return page.locator("#root");
 }
 async function management(root: Locator) {
@@ -75,7 +76,7 @@ async function writer(root: Locator, actor: string, mark: () => void) {
   await root.getByLabel("Acting actor ID", { exact: true }).fill(actor);
   mark();
   await root.getByRole("button", { name: "Use selection", exact: true }).click();
-  await root.page().waitForLoadState("networkidle");
+  await waitForPageReads(root.page());
 }
 async function saved(review: Locator, button = "Execute saved request") {
   await review.getByRole("button", { name: button, exact: true }).click();
@@ -89,7 +90,7 @@ async function saved(review: Locator, button = "Execute saved request") {
     .toBe("committed");
 }
 async function shot(page: Page, info: TestInfo, name: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const p = info.outputPath(name);
   await page.screenshot({ path: p, fullPage: false });
   await info.attach(name, { path: p, contentType: "image/png" });
@@ -130,7 +131,7 @@ test("F01 registry row destination differs from selection and survives scope swi
     window.location.hash = "/overview?connection=local&workspace=other";
   });
   await expect(page).toHaveURL(/workspace=other/u);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await management(root);
   await expect(review.getByText("Destination:", { exact: false })).toHaveText(
     "Destination: Workspace other.",
@@ -158,7 +159,7 @@ test("F01 registry row destination differs from selection and survives scope swi
   await page.evaluate(() => {
     window.location.hash = "/overview?connection=local&workspace=demo&project=release";
   });
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await management(root);
   await root.getByRole("button", { name: "Close draft", exact: true }).click();
   await root.getByRole("button", { name: "Refresh registry", exact: true }).click();
@@ -230,7 +231,7 @@ test("F01 Advanced edited workspace is the displayed and native committed target
   await page.evaluate(() => {
     window.location.hash = "/advanced?connection=local&workspace=demo";
   });
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await writer(root, "changed-shell-writer", browserDiagnostics.markPendingReads);
   await expect(review.getByText("Destination:", { exact: false })).toHaveText(
     "Destination: Workspace other.",

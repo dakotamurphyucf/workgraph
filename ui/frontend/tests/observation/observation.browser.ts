@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import path from "node:path";
 import { test, expect } from "../e2e/support/fixtures";
 import type { Page, Locator, TestInfo } from "@playwright/test";
@@ -23,7 +24,7 @@ async function mount(page: Page, companion: CompanionFixture, socket: string, vi
   await page.goto(
     new URL(`/#/${view}?connection=local&workspace=demo&project=release`, companion.url).href,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   if (view === "overview")
     await page
       .locator("summary")
@@ -51,7 +52,7 @@ async function capture(
   await expect(page.getByRole("heading", { name: "Preparing content", exact: true })).toHaveCount(
     0,
   );
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.evaluate(() => {
     window.scrollTo(0, 0);
@@ -119,7 +120,7 @@ test("Advanced explicit send reaches committed without Inspect and keeps the cap
     );
   await root.getByRole("button", { name: "Validate & prepare", exact: true }).click();
   await expect(root.locator(".wg-badge").filter({ hasText: /^prepared_unsent$/u })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   browserDiagnostics.markPendingReads();
   await actor(root, "different-current-actor");
   await root.getByRole("button", { name: "Execute saved request", exact: true }).click();
@@ -176,7 +177,7 @@ test("explicit saved startup is observed after dialog remount without Inspect or
   await expect(
     dialog.getByRole("heading", { name: "Manage Observation daemon", exact: true }),
   ).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await dialog
     .getByLabel("Registry directory on companion host", { exact: true })
     .fill(path.join(daemon.root, "unused-startup-registry"));

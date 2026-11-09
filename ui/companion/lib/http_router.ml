@@ -23,6 +23,7 @@ type t =
   ; rpc : Rpc_bridge.t
   ; launcher : Daemon_launcher.t option
   ; admin_jobs : Admin_jobs.t option
+  ; live_observer : Live_observer.t option
   ; request_observer : Request_observer.t option
   ; execution_helper : Execution_helper.t option
   ; transfer_helper : Transfer_helper.t option
@@ -98,6 +99,7 @@ let create ~host ~origin ~capability ~profiles ~operations ~rpc ~random =
   ; rpc
   ; launcher = None
   ; admin_jobs = None
+  ; live_observer = None
   ; request_observer = None
   ; execution_helper = None
   ; transfer_helper = None
@@ -111,6 +113,7 @@ let with_view_settings t settings = { t with view_settings = Some settings }
 let with_launcher t launcher = { t with launcher = Some launcher }
 let with_admin_jobs t jobs = { t with admin_jobs = Some jobs }
 let with_wait_helper t service = { t with wait_helper = Some service }
+let with_live_observer t service = { t with live_observer = Some service }
 let with_request_observer t service = { t with request_observer = Some service }
 let with_transfer_helper t service = { t with transfer_helper = Some service }
 let with_execution_helper t service = { t with execution_helper = Some service }
@@ -755,6 +758,24 @@ let route t (request : request) =
       json_response
         ~max_bytes:(16 * 1024 * 1024)
         (Wire.success (result |> Disk.unwrap |> Wait_helper.Job.to_json))
+    | "POST", [ "ui-api"; "v1"; "live-observations" ] ->
+      let service =
+        match t.live_observer with
+        | Some service -> service
+        | None -> Json.fail Not_found "live observation is unavailable"
+      in
+      let value = fields request [ "connection_id"; "generation"; "observation" ] in
+      let connection =
+        profile
+          t
+          (Connection_profile.Id.t_of_jsonaf (Json.field value "connection_id"))
+          (generation value)
+      in
+      let plan =
+        Live_observer.Plan.of_json (Json.field value "observation") |> Disk.unwrap
+      in
+      json_response
+        (Wire.success (Live_observer.observe service ~connection plan |> Disk.unwrap))
     | "POST", [ "ui-api"; "v1"; "request-waits" ] ->
       let service =
         match t.request_observer with

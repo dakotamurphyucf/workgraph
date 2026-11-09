@@ -1,3 +1,4 @@
+import { waitForPageReads } from "./support/readiness";
 import type { Page, TestInfo } from "@playwright/test";
 import type { CompanionFixture } from "../../../test-support/companion-fixture.mjs";
 import type { DaemonFixture } from "../../../test-support/daemon-fixture.mjs";
@@ -46,14 +47,14 @@ async function setup(
     expect(response.status(), await response.text()).toBe(200);
   }
   await page.goto(new URL(`/#/${query}`, companion.url).href);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill("fixture-author");
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function shot(page: Page, info: TestInfo, name: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.evaluate(
     () =>
       new Promise<void>((resolve) =>
@@ -288,7 +289,7 @@ test("visual remaining Overview Facts and retained lifecycle scope are captured 
     expect(r.status(), await r.text()).toBe(200);
   }
   await page.getByRole("button", { name: "Refresh connection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   browserDiagnostics.markPendingReads();
   await page.evaluate(() => {
     location.hash = "#/overview?connection=mirror&workspace=demo&project=release";

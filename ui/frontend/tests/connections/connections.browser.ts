@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import path from "node:path";
 import { test as base, expect } from "../e2e/support/fixtures";
 import { mkdtemp, symlink, rm } from "node:fs/promises";
@@ -78,7 +79,7 @@ async function mount(page: Page, companion: CompanionFixture, socket?: string) {
   );
   const root = page.locator("#root");
   await expect(root.getByText("Companion reachable", { exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   if (socket !== undefined) await openManagement(root);
   return root;
 }
@@ -101,7 +102,7 @@ async function openManagement(root: Locator) {
   if ((await summary.locator("..").getAttribute("open")) === null) await summary.click();
 }
 async function readyForNavigation(page: Page) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function connect(
   root: Locator,

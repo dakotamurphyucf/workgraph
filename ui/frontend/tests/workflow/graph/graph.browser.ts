@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import type { CompanionFixture } from "../../../../test-support/companion-fixture.mjs";
 import type { DaemonFixture } from "../../../../test-support/daemon-fixture.mjs";
@@ -47,7 +48,7 @@ async function actor(page: Page, id: string) {
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill("");
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function settle(page: Page) {
   await expect(
@@ -55,7 +56,7 @@ async function settle(page: Page) {
       .getByRole("status")
       .filter({ hasText: /^Loading (ticket|graph|hierarchy|expanded|display)/u }),
   ).toHaveCount(0);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function refresh(page: Page) {
   await settle(page);

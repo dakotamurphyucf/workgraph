@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../e2e/support/readiness";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
@@ -98,7 +99,7 @@ async function mount(
     .filter({ hasText: /^Workspace and project management$/u })
     .click();
   await expect(page.getByRole("heading", { name: "Administration", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   return page.getByRole("region", { name: "Administration", exact: true });
 }
 async function writer(page: Page, beforeChange: () => void) {
@@ -106,7 +107,7 @@ async function writer(page: Page, beforeChange: () => void) {
   await page.getByLabel("Acting actor ID", { exact: true }).fill("admin-browser");
   beforeChange();
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 function panel(root: Locator, title: string) {
   return root
@@ -119,7 +120,7 @@ async function apply(admin: Locator, state = "committed") {
   await expect(review.locator(".wg-badge")).toHaveText("prepared_unsent");
   await review.getByRole("button", { name: "Execute saved request", exact: true }).click();
   await expect(review.locator(".wg-badge")).toHaveText(state, { timeout: 15_000 });
-  await admin.page().waitForLoadState("networkidle");
+  await waitForPageReads(admin.page());
   return review;
 }
 async function closeEditor(admin: Locator) {
@@ -191,7 +192,7 @@ test("tailored export, verify, durable operation reload and receipt recovery use
   await expect(reload).toHaveCount(1);
   const label = await reload.textContent();
   if (!label) throw new Error("Missing operation ID label");
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await page.reload();
   await page
     .locator("summary")
@@ -240,7 +241,7 @@ test("export all and explicit restore-all register complete captured workspaces 
     const initial = jobs.find((job) => job.destination === canonicalDestination);
     if (!initial) throw new Error("all-export absent");
     expect((await waitExport(daemon, initial)).status).toBe("completed");
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     browserDiagnostics.markPendingReads();
     await page.goto(`${companion.url}#/overview?connection=fresh`);
     await page

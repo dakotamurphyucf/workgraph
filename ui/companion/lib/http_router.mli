@@ -73,3 +73,6 @@ val dispatch : t -> request -> response
 (** Header-only boundary check before accepting a body. [Some] is the complete
     rejection response. [dispatch] repeats this check for direct callers. *)
 val authorize : t -> request -> response option
+
+(** Install the foreground combined planning/history long-poll observer. *)
+val with_live_observer : t -> Live_observer.t -> t

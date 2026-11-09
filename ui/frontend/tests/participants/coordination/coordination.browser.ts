@@ -1,3 +1,4 @@
+import { waitForPageReads } from "../../e2e/support/readiness";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import { test, expect } from "../../e2e/support/fixtures";
 import type { DaemonFixture } from "../../../../test-support/daemon-fixture.mjs";
@@ -88,7 +89,7 @@ async function commit(draft: Locator) {
   await execute(draft);
 }
 async function screenshot(page: Page, info: TestInfo, name: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   await expect(page.locator(".wg-content-status")).toHaveCount(0);
   await page.evaluate(() => {
     window.scrollTo(0, 0);
@@ -330,7 +331,7 @@ test("Coordination C03 saved bounded waits cancel unsent, survive reload, and ac
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ colorScheme });
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     for (const [label, target] of [
       ["paging", savedPages],
       ["completed-card", card],

@@ -1,9 +1,7 @@
-import { jsonField, type JsonValue } from "../json";
 import * as c from "../protocol/codec";
 import * as d from "../protocol/decoders";
-import { createCompanion } from "../protocol/client";
-import type { HttpClient, HttpResult } from "../protocol/http";
-import type { LiveChangePage, LiveChangeReader } from "./live-types";
+import type { HttpClient } from "../protocol/http";
+import type { LiveChangeReader } from "./live-types";
 
 const page = c.record({
   source: c.refine(c.text, (value) => value === "planning" || value === "history", "feed source"),
@@ -13,84 +11,105 @@ const page = c.record({
   has_more: c.boolean,
   needs_larger_budget: c.boolean,
 });
-/** Workspace-wide invalidation is deliberate: project-only filters miss global
- * facts, resources and communication that contribute to a project projection. */
+const observation = c.record({
+  workspace_id: d.identifier,
+  planning: page,
+  history: c.nullable(page),
+  runtime_signature: c.nullable(d.digest),
+  runtime_changed: c.boolean,
+});
+/** One authenticated HTTP request per tab, including pages observing both feeds.
+ * Project filters belong to projections, not workspace-wide invalidation. */
 export function createLiveChangeReader(http: HttpClient): LiveChangeReader {
-  const companion = createCompanion(http);
   return {
-    async read(scope, source, cursor, wait, signal) {
-      if (scope.workspaceId === null)
+    async read(scope, sources, cursor, wait, signal) {
+      const workspaceId = scope.workspaceId;
+      if (workspaceId === null)
         return {
           ok: false,
           failure: { kind: "input", message: "Live feed requires a workspace." },
         };
-      const request = async (
-        position: readonly (readonly [string, JsonValue])[],
-        waiting: boolean,
-      ): Promise<HttpResult<LiveChangePage>> => {
-        const response = await companion.read(
-          {
-            connection_id: scope.connection.id,
-            generation: scope.connection.generation,
-            method: waiting ? "changes.wait" : "changes.read",
-            lane: waiting ? "wait" : "visible",
-            params: d.jsonObject([
-              ["workspace_id", d.jsonString(scope.workspaceId!)],
-              ["source", d.jsonString(source)],
-              ["limit", d.jsonString(cursor === null ? "1" : "100")],
-              ["max_bytes", d.jsonString("65536")],
-              ...position,
-              ...(waiting ? [["timeout_ms", d.jsonString("25000")] as const] : []),
+      const history = sources.includes("history");
+      // A silently dropped connection must not leave the observer stuck forever.
+      const deadline = new AbortController();
+      const timer = setTimeout(() => deadline.abort(), 45000);
+      const response = await (async () => {
+        try {
+          return await http.request({
+            path: "/live-observations",
+            method: "POST",
+            signal: AbortSignal.any([signal, deadline.signal]),
+            codec: observation,
+            body: d.jsonObject([
+              ["connection_id", d.jsonString(scope.connection.id)],
+              ["generation", d.jsonString(scope.connection.generation)],
+              [
+                "observation",
+                d.jsonObject([
+                  ["workspace_id", d.jsonString(workspaceId)],
+                  [
+                    "planning_cursor",
+                    cursor === null ? { kind: "null" } : d.jsonString(cursor.planning),
+                  ],
+                  ["history", { kind: "boolean", value: history }],
+                  ["runtime", { kind: "boolean", value: sources.includes("runtime") }],
+                  [
+                    "runtime_signature",
+                    cursor?.runtime == null ? { kind: "null" } : d.jsonString(cursor.runtime),
+                  ],
+                  [
+                    "history_cursor",
+                    cursor?.history == null ? { kind: "null" } : d.jsonString(cursor.history),
+                  ],
+                  ["wait", { kind: "boolean", value: wait }],
+                ]),
+              ],
             ]),
-          },
-          signal,
-        );
-        if (!response.ok) return response;
-        const result = page.decode(
-          d.jsonObject(
-            ["source", "through", "items", "cursor", "has_more", "needs_larger_budget"].flatMap(
-              (name) => {
-                const value = jsonField(response.data.response.data, name);
-                return value === undefined ? [] : [[name, value] as const];
-              },
-            ),
-          ),
-        );
-        const workspace = jsonField(response.data.response.data, "workspace_id");
-        if (
-          !result.ok ||
-          result.value.source !== source ||
-          (workspace !== undefined &&
-            (workspace.kind !== "string" || workspace.value !== scope.workspaceId))
-        )
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      })();
+      if (!response.ok) {
+        if (deadline.signal.aborted && !signal.aborted)
           return {
             ok: false,
-            failure: {
-              kind: "protocol",
-              message: "Invalid live change feed scope or page.",
-              issue: result.ok ? undefined : result.issue,
-            },
+            failure: { kind: "network", message: "Live observation timed out; reconnecting." },
           };
+        return response;
+      }
+      const result = response.data;
+      if (
+        result.workspace_id !== scope.workspaceId ||
+        result.planning.source !== "planning" ||
+        (history ? result.history?.source !== "history" : result.history !== null) ||
+        (sources.includes("runtime")
+          ? result.runtime_signature === null
+          : result.runtime_signature !== null || result.runtime_changed)
+      )
         return {
-          ok: true,
-          httpStatus: response.httpStatus,
-          data: {
-            source,
-            through: result.value.through,
-            cursor: result.value.cursor,
-            hasMore: result.value.has_more,
-            needsLargerBudget: result.value.needs_larger_budget,
-            changed: result.value.items.length > 0,
+          ok: false,
+          failure: {
+            kind: "protocol",
+            message: "Invalid live observation scope or source.",
+            issue: undefined,
           },
         };
+      const pages = result.history === null ? [result.planning] : [result.planning, result.history];
+      return {
+        ok: true,
+        httpStatus: response.httpStatus,
+        data: {
+          cursor: {
+            planning: result.planning.cursor,
+            history: result.history?.cursor ?? null,
+            runtime: result.runtime_signature,
+          },
+          hasMore: pages.some((page) => page.has_more),
+          needsLargerBudget: pages.some((page) => page.needs_larger_budget),
+          changed: result.runtime_changed || pages.some((page) => page.items.length > 0),
+        },
       };
-      if (cursor !== null) return request([["cursor", d.jsonString(cursor)]], wait);
-      // Obtain the head in a one-item bounded read, then establish a real native
-      // cursor at that head BEFORE refreshing projections. No fabricated cursor
-      // and no unbounded replay of the existing journal.
-      const head = await request([], false);
-      if (!head.ok || signal.aborted) return head;
-      return request([["after", d.jsonString(head.data.through)]], false);
     },
   };
 }

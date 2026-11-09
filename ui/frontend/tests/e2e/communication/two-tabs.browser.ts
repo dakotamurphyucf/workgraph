@@ -1,3 +1,4 @@
+import { trackPageReads, waitForPageReads } from "../support/readiness";
 import type { Browser, Page, Request, TestInfo, Locator } from "@playwright/test";
 import { test, expect } from "../support/fixtures";
 import type { DaemonFixture } from "../../../../test-support/daemon-fixture.mjs";
@@ -63,14 +64,14 @@ async function connect(page: Page, companion: CompanionFixture, daemon: DaemonFi
 }
 async function navigate(page: Page, companion: CompanionFixture, route: string) {
   await page.goto(new URL(`/#/${route}`, companion.url).href);
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function actor(page: Page, id: string, run = "") {
   await page.locator(".wg-actor-trigger").click();
   await page.getByLabel("Acting actor ID", { exact: true }).fill(id);
   await page.getByLabel("Run ID (optional)", { exact: true }).fill(run);
   await page.getByRole("button", { name: "Use selection", exact: true }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
 }
 async function questionAction(page: Page, name: string) {
   await page.getByRole("button", { name, exact: true }).click();
@@ -87,7 +88,7 @@ async function commitQuestion(dialog: Locator) {
   await dialog.getByRole("button", { name: "Keep draft and close", exact: true }).click();
 }
 async function shot(page: Page, info: TestInfo, name: string) {
-  await page.waitForLoadState("networkidle");
+  await waitForPageReads(page);
   const path = info.outputPath(`${name}.png`);
   await page.screenshot({ path });
   await info.attach(name, { path, contentType: "image/png" });
@@ -109,6 +110,7 @@ async function withPeer(
       active = new Set<Request>();
     const teardownReads = new Set<Request>(),
       requests: { method: string; url: string; body: string | null }[] = [];
+    trackPageReads(page);
     const origin = new URL(companion.url).origin;
     page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
@@ -136,7 +138,8 @@ async function withPeer(
         const url = new URL(request.url());
         if (
           url.origin === origin &&
-          ((request.method() === "POST" && url.pathname === "/ui-api/v1/read") ||
+          ((request.method() === "POST" &&
+            ["/ui-api/v1/read", "/ui-api/v1/live-observations"].includes(url.pathname)) ||
             (request.method() === "GET" && url.pathname === "/ui-api/v1/connections"))
         )
           teardownReads.add(request);
@@ -204,7 +207,7 @@ test("Communication T01 independent tabs separate delivery acknowledgement, resp
       .locator('section[aria-label="request results"]')
       .getByRole("button", { name: "Refresh current capture", exact: true })
       .click();
-    await page.waitForLoadState("networkidle");
+    await waitForPageReads(page);
     const answer = await questionAction(page, "Answer and resolve");
     await answer
       .getByLabel("Answer", { exact: true })

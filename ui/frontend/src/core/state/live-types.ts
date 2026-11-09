@@ -1,8 +1,8 @@
-import type { ConnectionProfile, Decimal, Identifier } from "../protocol/types";
+import type { ConnectionProfile, Identifier } from "../protocol/types";
 import type { HttpResult } from "../protocol/http";
 
 export type LiveFollowMode = "follow_latest" | "reading_older" | "historical";
-export type LiveSource = "planning" | "history";
+export type LiveSource = "planning" | "history" | "runtime";
 /** Exact endpoint identity; project filtering belongs to the projection read,
  * not the workspace observer, so workspace-scoped changes still invalidate it. */
 export interface LiveScope {
@@ -19,8 +19,6 @@ export type LiveRefresh = (signal: AbortSignal) => Promise<LiveRefreshResult>;
 export interface LiveAdapter {
   readonly key: string;
   readonly sources: readonly LiveSource[];
-  /** Ephemeral observations/host registries need bounded fallback polling. */
-  readonly poll: boolean;
   readonly refresh: LiveRefresh;
 }
 export interface LiveStatus {
@@ -29,10 +27,14 @@ export interface LiveStatus {
   readonly failures: number;
   readonly retainedCapture: boolean;
 }
+/** Both positions travel together; the untouched feed retains its exact cursor. */
+export interface LiveCursor {
+  readonly planning: string;
+  readonly runtime: string | null;
+  readonly history: string | null;
+}
 export interface LiveChangePage {
-  readonly source: LiveSource;
-  readonly through: Decimal;
-  readonly cursor: string;
+  readonly cursor: LiveCursor;
   readonly hasMore: boolean;
   readonly needsLargerBudget: boolean;
   readonly changed: boolean;
@@ -40,8 +42,8 @@ export interface LiveChangePage {
 export interface LiveChangeReader {
   readonly read: (
     scope: LiveScope,
-    source: LiveSource,
-    cursor: string | null,
+    sources: readonly LiveSource[],
+    cursor: LiveCursor | null,
     wait: boolean,
     signal: AbortSignal,
   ) => Promise<HttpResult<LiveChangePage>>;
