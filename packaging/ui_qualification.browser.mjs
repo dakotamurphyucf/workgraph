@@ -42,7 +42,8 @@ try {
     // Scope changes, committed writes and closing the page cancel obsolete reads.
     // Retain those cancellations as evidence; never forgive an aborted mutation.
     if (request.failure()?.errorText === "net::ERR_ABORTED" && target.origin === origin &&
-        ((request.method() === "POST" && target.pathname === "/ui-api/v1/read") ||
+        ((request.method() === "POST" &&
+          ["/ui-api/v1/read", "/ui-api/v1/live-observations"].includes(target.pathname)) ||
          (request.method() === "GET" && target.pathname === "/ui-api/v1/connections")))
       canceledReads.push({ method: request.method(), url: request.url() });
     else
