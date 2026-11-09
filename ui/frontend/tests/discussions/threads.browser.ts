@@ -826,3 +826,66 @@ test("opening neighboring threads preserves sidebar scroll, selection and latest
   await page.getByRole("button", { name: "← All discussions", exact: true }).click();
   await expect(list.locator(".dc-thread-row")).toHaveCount(13);
 });
+
+test("received-message choices include actors observed through runs without directory registration", async ({
+  page,
+  daemon,
+  companion,
+  browserFailures,
+}) => {
+  const write = writer(daemon);
+  await write("run.register", {
+    actor_id: "observed-worker",
+    target_run_id: "observed-worker-run",
+    objective: "Participant without an actor catalog entry",
+  });
+  await write("message.send", {
+    message_id: "observed-worker-message",
+    recipients: [{ kind: "actor", id: "observed-worker" }],
+    body: "Delivery to an actor known through workspace activity",
+  });
+  await mount(page, companion, daemon);
+  await page.getByRole("button", { name: "Received messages", exact: true }).click();
+  const recipient = page.getByLabel("Recipient ID", { exact: true });
+  await expect(recipient.locator('option[value="observed-worker"]')).toHaveCount(1, {
+    timeout: 5000,
+  });
+  await recipient.selectOption("observed-worker");
+  await expect(recipient).toHaveValue("observed-worker");
+  await page.getByRole("button", { name: "Read received messages", exact: true }).click();
+  await page
+    .getByRole("article", { name: "Received message observed-worker-message", exact: true })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByText("Delivery to an actor known through workspace activity", { exact: true }),
+  ).toBeVisible();
+
+  await write("actor.put", {
+    target_actor_id: "registered-person",
+    expected_revision: "0",
+    name: "Registered Reviewer",
+    kind: "person",
+  });
+  await write("actor.put", {
+    target_actor_id: "archived-worker",
+    expected_revision: "0",
+    name: "Archived Worker",
+    kind: "agent",
+    archived: true,
+  });
+  await page.getByRole("button", { name: "Choose actor", exact: true }).click();
+  await expect(recipient.locator('option[value="registered-person"]')).toHaveText(
+    "Registered Reviewer · registered-person",
+  );
+  await expect(recipient.locator('option[value="observed-worker"]')).toHaveCount(1);
+  await expect(recipient.locator('option[value="archived-worker"]')).toHaveCount(0);
+  await expect(recipient).toHaveValue("observed-worker");
+  await recipient.selectOption("registered-person");
+  await expect(recipient).toHaveValue("registered-person");
+  await page.getByRole("button", { name: "Enter ID", exact: true }).click();
+  await expect(page.getByLabel("Recipient ID", { exact: true })).toHaveValue("registered-person");
+  await page.getByLabel("Recipient ID", { exact: true }).fill("external-recipient");
+  await page.getByRole("button", { name: "Choose actor", exact: true }).click();
+  await expect(page.getByLabel("Recipient ID", { exact: true })).toHaveValue("external-recipient");
+  expect(browserFailures).toEqual([]);
+});

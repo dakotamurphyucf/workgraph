@@ -9,7 +9,9 @@ import { workScopeKey } from "../work/read-model";
 import type { WorkScope } from "../work/read-model.types";
 import type { Endpoint } from "./threads/types";
 
-/** Read-only workspace directory. Switching input modes never replaces the
+/** Read-only known participants, including actors observed without catalog registration.
+ * Explicitly archived registrations are omitted from suggestions; manual IDs remain available.
+ * Switching input modes never replaces the
  * selected recipient, changes the writer, or broadens a retained endpoint. */
 export function RecipientPicker({
   context,
@@ -61,9 +63,7 @@ export function RecipientPicker({
         ? state.value
         : state.previous
       : undefined;
-  const actors = (rows ?? []).filter(
-    (actor) => actor.registration !== null && !actor.registration.archived,
-  );
+  const actors = (rows ?? []).filter((actor) => actor.registration?.archived !== true);
   return (
     <div className="dc-actor-picker">
       <div className="dc-input-mode" role="group" aria-label={`${label} input mode`}>
@@ -105,7 +105,7 @@ export function RecipientPicker({
           onFocus={load}
           onChange={(event) => onChange(event.target.value)}
         >
-          <option value="">Choose a registered actor…</option>
+          <option value="">Choose a known actor…</option>
           {value !== "" && !actors.some((actor) => actor.actor_id === value) && (
             <option value={value}>{value} (entered ID)</option>
           )}
@@ -115,6 +115,7 @@ export function RecipientPicker({
               {actor.registration?.name && actor.registration.name !== actor.actor_id
                 ? ` · ${actor.actor_id}`
                 : ""}
+              {actor.registration === null ? " · seen in activity" : ""}
             </option>
           ))}
         </Select>
@@ -137,8 +138,8 @@ export function RecipientPicker({
           {disabled
             ? "This recipient is fixed for this saved view or action."
             : rows === undefined
-              ? "Loading registered actors… You can enter an ID now."
-              : `${actors.length} registered ${actors.length === 1 ? "actor" : "actors"} in this workspace. Enter an ID for someone not listed.`}
+              ? "Loading workspace actors… You can enter an ID now."
+              : `${actors.length} known ${actors.length === 1 ? "actor" : "actors"} in this workspace, from the actor directory and recorded activity. Enter an ID for someone not listed.`}
         </p>
       )}
     </div>

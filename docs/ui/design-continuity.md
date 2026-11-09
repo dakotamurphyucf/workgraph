@@ -1078,7 +1078,7 @@ ticket, project, resource or discussion IDs, or make them close a dialog to copy
 an ID from another page. This is a general design rule for new work and future
 page-by-page revisions, not a claim that every existing field has been migrated.
 
-- Use a dropdown for manageable sets such as registered actors and discussion
+- Use a dropdown for manageable sets such as known workspace actors and discussion
   boards. Show human-readable names alongside stable IDs; names alone can collide.
 - For tickets and other larger collections, offer search as the user types, with
   initial choices before searching. Match titles/names, IDs and display keys where
@@ -1954,7 +1954,7 @@ Use the same bright text, rounded panels and colored identity cues as Overview.
   app’s selected actor as a read filter; it never changes the acting identity.
 - The spacious Filter activity dialog separates **Follow a ticket** from
   **Focus on a contributor**, with icons, colored section headers and an
-  explanation of each. Search known tickets by title/ID, select registered actors,
+  explanation of each. Search known tickets by title/ID, select known workspace actors,
   and keep manual IDs for records outside the directory. Selecting an option
   closes the picker and visibly sets the field.
 - Both filters apply together. An actor means the contributor who performed the
@@ -2450,3 +2450,20 @@ styles so the refined spacing and scroll behavior actually win. Verify both them
 a short desktop viewport, navigation selection and the mobile drawer/identity
 chooser. This pass changes presentation and scrolling, not scope, pinning, actor
 persistence, write permissions or captured draft behavior.
+
+## Recipient choices include observed actors
+
+An actor can participate in a workspace without having a separate actor-directory
+registration. Registering a run or authoring a comment does not require `actor.put`.
+Recipient suggestions must therefore use the full `participant.list` directory,
+including identities observed through activity, rather than filtering to catalog
+registrations. Call these **known actors**, not registered actors. Show the
+registered display name when available and mark activity-only choices with
+“seen in activity”; this does not claim that a process is currently running.
+
+The shared recipient picker excludes explicitly archived registrations from its
+suggestions. Keep manual ID entry available for archived or otherwise unlisted
+recipients. Refreshing the directory must retain the selected recipient. Reader
+selection remains separate from the acting writer, and directory requests stay
+scoped to the captured connection generation and workspace, independent of the
+selected project. A failed or partial directory read is not an empty workspace.
