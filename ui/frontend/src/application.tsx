@@ -1,3 +1,6 @@
+import { createLiveReadOwner } from "./core/state/live-owner";
+import { createLiveChangeReader } from "./core/state/live-client";
+import type { LiveReadOwner } from "./core/state/live-types";
 import { askAboutTicket } from "./features/work/actions/ask-ticket";
 import { LiveReads } from "./app/LiveReads";
 import {
@@ -141,6 +144,7 @@ import "./features/history/transcript/history-continuity.css";
 export interface ApplicationServices {
   readonly custom: CustomController;
   readonly http: HttpClient;
+  readonly liveReads: LiveReadOwner;
   readonly companion: Companion;
   readonly operations: OperationController;
   readonly advanced: AdvancedController;
@@ -180,6 +184,7 @@ export interface ApplicationProps {
 /** Called outside React StrictMode. Disposal belongs to the launch, never a route component. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function createApplicationServices(http: HttpClient): ApplicationServices {
+  const liveReads = createLiveReadOwner({ reader: createLiveChangeReader(http) });
   const companion = createCompanion(http);
   const operations = createOperationController(companion, http.processing);
   const custom = createCustomController({ http, operations });
@@ -209,6 +214,7 @@ export function createApplicationServices(http: HttpClient): ApplicationServices
     overview = createOverviewController({ http });
   return Object.freeze({
     http,
+    liveReads,
     custom,
     companion,
     operations,
@@ -237,6 +243,7 @@ export function createApplicationServices(http: HttpClient): ApplicationServices
     comments,
     overview,
     dispose: () => {
+      liveReads.dispose();
       custom.dispose();
       search.dispose();
       comments.dispose();
@@ -334,7 +341,10 @@ export function Application({ services, renderFeature, renderConnections }: Appl
                       socket: content.pin.connection.socket,
                       workspaceId: content.pin.workspaceId,
                     }}
-                    subject={{ entity: "resource", mimeType: content.pin.mimeType }}
+                    subject={{
+                      entity: "resource",
+                      mimeType: content.source.hints.mime ?? content.pin.mimeType,
+                    }}
                     content={{
                       kind: "bytes",
                       bytes: content.source.bytes,

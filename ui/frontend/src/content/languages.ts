@@ -95,14 +95,11 @@ export function resolveFormat(hints: ContentHints, override: RenderOverride): Fo
     (mime.startsWith("image/") ||
       mime.startsWith("audio/") ||
       mime.startsWith("video/") ||
-      [
-        "application/octet-stream",
-        "application/pdf",
-        "application/zip",
-        "application/gzip",
-      ].includes(mime))
+      ["application/pdf", "application/zip", "application/gzip"].includes(mime))
   )
     return { kind: "binary", language: null, via: "mime" };
+  // Generic octet-stream is an unknown type, not evidence of binary bytes.
+  // The worker still rejects invalid UTF-8 and binary controls before rendering.
   const filename = hints.filename?.split(/[\\/]/u).pop();
   const language = filename?.includes(".") ? languageHint(filename.split(".").pop()) : null;
   if (language)

@@ -22,7 +22,7 @@ export interface LiveAdapter {
   readonly refresh: LiveRefresh;
 }
 export interface LiveStatus {
-  readonly kind: "connecting" | "live" | "reconnecting" | "offline" | "paused";
+  readonly kind: "connecting" | "live" | "reconnecting" | "offline" | "paused" | "refresh_failed";
   readonly lastSuccessMs: number | null;
   readonly failures: number;
   readonly retainedCapture: boolean;
@@ -48,14 +48,16 @@ export interface LiveChangeReader {
     signal: AbortSignal,
   ) => Promise<HttpResult<LiveChangePage>>;
 }
-/** One owner per mounted visible feature. Opening a new scope cancels old waits
- * and passive reads; stopping observation has no mutation/lifecycle meaning. */
+/** One owner per application launch. Pages attach projections; equal endpoint,
+ * workspace and feed sets retain observation across attachment replacement.
+ * Background visibility does not stop observation or projection refresh.
+ * Projection reads cancel separately. Ending observation requests server-side
+ * cancellation and drains the response; it has no write/lifecycle meaning. */
 export interface LiveReadOwner {
   readonly get: () => LiveStatus;
   readonly subscribe: (listener: () => void) => () => void;
   readonly open: (scope: LiveScope, adapter: LiveAdapter) => () => void;
   readonly refresh: () => Promise<void>;
-  readonly setVisible: (visible: boolean) => void;
   readonly dispose: () => void;
 }
 /** Controller implementation opts current projections into passive refresh.

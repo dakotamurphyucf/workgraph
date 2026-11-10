@@ -387,8 +387,13 @@ export function ResourcesFeature({
                               {item.metadata.title || item.resource_id}
                             </strong>
                             <span className="rs-row-tags">
-                              <span data-kind={resourceKind(item.metadata.mime_type)}>
-                                {resourceKind(item.metadata.mime_type)}
+                              <span
+                                data-kind={resourceKind(
+                                  item.metadata.mime_type,
+                                  item.metadata.filename,
+                                )}
+                              >
+                                {resourceKind(item.metadata.mime_type, item.metadata.filename)}
                               </span>
                               <small>
                                 v{item.current_version.revision} ·{" "}
@@ -479,7 +484,7 @@ export function ResourcesFeature({
                       <span className="rs-document-kind">
                         <Icon name="resources" />
                         {content.kind === "verified"
-                          ? content.pin.mimeType
+                          ? (content.source.hints.mime ?? content.pin.mimeType)
                           : selected.value.metadata.mime_type}
                       </span>
                       <h2>{selected.value.metadata.title || selected.value.resource_id}</h2>

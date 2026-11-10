@@ -128,3 +128,15 @@ negate the committed publication. Saved plans and deduplication identities remai
 These native records live in the companion's private data root. Browser editor
 state belongs to the current application launch. Keep the same companion root and
 saved identities when restarting; replacing them is not recovery.
+
+### Uploaded file types
+
+An upload without an explicit MIME type is stored as `application/octet-stream`,
+which means the type is unspecified. The reader uses filenames such as `.md`,
+`.json` and `.py` to select a suitable preview. Other readable UTF-8 text defaults
+to Markdown; invalid UTF-8 and binary control bytes keep the binary view.
+
+Changing a resource's filename or MIME type updates the current publication's
+preview without uploading its content again. The verified bytes, content version
+and downloads stay unchanged. Opening an older version uses that publication's
+recorded type; edits to the current document do not rewrite historical versions.

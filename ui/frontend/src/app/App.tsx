@@ -794,8 +794,8 @@ function ConnectionSurface({
       >
         <p>{failureMessage(directory.failure)}</p>
         <p>
-          Keep this window open and check that the local companion is running. No request was
-          retried automatically.
+          Check that the local companion is running. Try again reloads its saved connection
+          profiles.
         </p>
       </StatePanel>
     );

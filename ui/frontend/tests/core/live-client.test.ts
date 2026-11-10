@@ -138,3 +138,47 @@ it("abandons a silently stalled observation after 45 seconds for cursor-preservi
     vi.useRealTimers();
   }
 });
+
+it("cancels on the server and consumes the normal response without aborting its HTTP request", async () => {
+  const processing = createTestProcessor();
+  processors.push(processing);
+  let reply!: (value: Response) => void;
+  let transportSignal: AbortSignal | null | undefined;
+  let original: { observation?: { observation_id?: string } } | undefined;
+  const makeResponse = () => {
+    const body = JSON.stringify({ ok: true, data: { cancelled: true } });
+    return new Response(body, {
+      headers: { "content-type": "application/json", "content-length": String(body.length) },
+    });
+  };
+  const send = vi.fn<typeof fetch>((url, init) => {
+    if (!(url instanceof URL) || typeof init?.body !== "string")
+      throw new Error("Expected URL and exact request body");
+    if (url.pathname.endsWith("/cancel")) {
+      const body = JSON.parse(init.body) as { cancellation: { observation_id: string } };
+      expect(body.cancellation.observation_id).toBe(original?.observation?.observation_id);
+      reply(makeResponse());
+      return Promise.resolve(makeResponse());
+    }
+    transportSignal = init?.signal;
+    original = JSON.parse(init.body) as typeof original;
+    return new Promise<Response>((resolve) => {
+      reply = resolve;
+    });
+  });
+  const reader = createLiveChangeReader(
+    createHttpClient({
+      origin: "http://127.0.0.1:8787",
+      capability: "a".repeat(64),
+      processing,
+      fetch: send,
+    }),
+  );
+  const logical = new AbortController();
+  const pending = reader.read(scope, ["planning"], null, false, logical.signal);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  logical.abort();
+  expect(await pending).toMatchObject({ ok: false, failure: { kind: "aborted" } });
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(transportSignal?.aborted).toBe(false);
+});

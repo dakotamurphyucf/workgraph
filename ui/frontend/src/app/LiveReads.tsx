@@ -5,8 +5,6 @@ import * as d from "../core/protocol/decoders";
 import { createPortal } from "react-dom";
 import type { FeatureContext } from "./types";
 import type { ApplicationServices } from "../application";
-import { createLiveReadOwner } from "../core/state/live-owner";
-import { createLiveChangeReader } from "../core/state/live-client";
 import type { LiveAdapter, LiveReadable } from "../core/state/live-types";
 
 /** One observer for the visible feature, never one poller per card. Controllers
@@ -88,10 +86,7 @@ export function LiveReads({
   readonly services: ApplicationServices;
   readonly children: ReactNode;
 }) {
-  const owner = useMemo(
-    () => createLiveReadOwner({ reader: createLiveChangeReader(services.http) }),
-    [services],
-  );
+  const owner = services.liveReads;
   const slots = useMemo<LiveSlots>(() => new Set(), []);
   const view = context.route.view,
     pinned = context.route.planning !== undefined,
@@ -105,14 +100,6 @@ export function LiveReads({
     projectId = context.route.projectId;
   const status = useSyncExternalStore(owner.subscribe, owner.get, owner.get);
   useEffect(() => {
-    const visible = () => owner.setVisible(document.visibilityState !== "hidden");
-    const wake = () => {
-      if (document.visibilityState !== "hidden") owner.setVisible(true);
-    };
-    visible();
-    document.addEventListener("visibilitychange", visible);
-    window.addEventListener("focus", wake);
-    window.addEventListener("online", wake);
     const workspace = workspaceId === null ? null : d.identifier.decode(d.jsonString(workspaceId));
     const project = projectId === null ? null : d.identifier.decode(d.jsonString(projectId));
     const close =
@@ -128,9 +115,6 @@ export function LiveReads({
           );
     return () => {
       close();
-      document.removeEventListener("visibilitychange", visible);
-      window.removeEventListener("focus", wake);
-      window.removeEventListener("online", wake);
     };
   }, [owner, selected, connection, workspaceId, projectId]);
   const host = document.getElementById("wg-live-status");
@@ -141,9 +125,11 @@ export function LiveReads({
         ? "Connecting"
         : status.kind === "reconnecting"
           ? "Reconnecting"
-          : status.kind === "offline"
-            ? "Updates offline"
-            : "Paused";
+          : status.kind === "refresh_failed"
+            ? "Refresh delayed"
+            : status.kind === "offline"
+              ? "Updates offline"
+              : "Paused";
   return (
     <>
       <LiveSlotsContext.Provider value={slots}>{children}</LiveSlotsContext.Provider>
@@ -154,7 +140,7 @@ export function LiveReads({
             title={
               status.retainedCapture
                 ? "Current views update automatically. Previously captured pages and historical records remain fixed."
-                : "Changes appear automatically while this window is visible. Drafts and saved actions stay unchanged."
+                : "Changes appear automatically, including while this tab is in the background. Drafts and saved actions stay unchanged."
             }
           >
             <span aria-hidden="true" />

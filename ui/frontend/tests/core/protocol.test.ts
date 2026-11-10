@@ -303,6 +303,92 @@ describe("bounded same-origin HTTP", () => {
     expect(result.ok && jsonField(result.data, "n")).toEqual({ kind: "number", lexeme: "1e1000" });
     expect(calls).toBe(1);
   });
+  it("retries a reset read once immediately, with identical bytes, but not domain failures", async () => {
+    const send = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new TypeError("connection reset"))
+      .mockResolvedValueOnce(jsonResponse('{"ok":true,"data":{}}'));
+    const client = createHttpClient({ origin, capability, fetch: send });
+    expect(
+      (
+        await client.request({
+          path: "/read",
+          method: "POST",
+          body: value('{"n":9007199254740993}'),
+          codec: c.raw,
+        })
+      ).ok,
+    ).toBe(true);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[0]![1]?.body).toBe(send.mock.calls[1]![1]?.body);
+    const failed = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("reset"));
+    const lost = createHttpClient({ origin, capability, fetch: failed });
+    expect(await lost.request({ path: "/connections", method: "GET", codec: c.raw })).toMatchObject(
+      { ok: false, failure: { kind: "network" } },
+    );
+    expect(failed).toHaveBeenCalledTimes(2);
+    const domain = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        jsonResponse('{"ok":false,"error":{"kind":"Blocked","message":"busy"}}', 409),
+      ),
+    );
+    expect(
+      (
+        await createHttpClient({ origin, capability, fetch: domain }).request({
+          path: "/read",
+          method: "POST",
+          body: value("{}"),
+          codec: c.raw,
+        })
+      ).ok,
+    ).toBe(false);
+    expect(domain).toHaveBeenCalledTimes(1);
+  });
+  it("retries a read when the connection fails during body transfer", async () => {
+    const interrupted = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"ok":'));
+          controller.error(new TypeError("connection reset during response"));
+        },
+      }),
+      { headers: { "content-type": "application/json", "content-length": "21" } },
+    );
+    const send = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(interrupted)
+      .mockResolvedValueOnce(jsonResponse('{"ok":true,"data":{}}'));
+    const client = createHttpClient({ origin, capability, fetch: send });
+    expect((await client.request({ path: "/connections", method: "GET", codec: c.raw })).ok).toBe(
+      true,
+    );
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+  it("bounds a silently stalled saved-connection read without retrying a timeout immediately", async () => {
+    vi.useFakeTimers();
+    try {
+      const send = vi.fn<typeof fetch>(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("aborted", "AbortError")),
+              { once: true },
+            );
+          }),
+      );
+      const client = createHttpClient({ origin, capability, fetch: send });
+      const pending = client.request({ path: "/connections", method: "GET", codec: c.raw });
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(await pending).toMatchObject({
+        ok: false,
+        failure: { kind: "network", message: "Companion read timed out." },
+      });
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("does not retry or call network loss a rejected mutation", async () => {
     let calls = 0;
     const client = createHttpClient({

@@ -26,8 +26,8 @@ function retainedItems(captured: CapturedDirectory | null, client: HttpClient) {
     ? captured.value.items
     : null;
 }
-/** Refresh the host registry on opening, visibility, connectivity and explicit
- * changes. Idle tabs do not poll it. Failed checks retry with bounded backoff. */
+/** Refresh the host registry on opening, connectivity and explicit
+ * changes. Idle tabs do not poll it. Failed checks retry one second apart. */
 export function useConnections(client: HttpClient): {
   readonly directory: ConnectionDirectory;
   readonly defaultConnectionId: string | null;
@@ -40,7 +40,6 @@ export function useConnections(client: HttpClient): {
       flight: AbortController | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let failures = 0;
-    const visible = () => document.visibilityState !== "hidden";
     const stop = () => {
       if (timer !== undefined) clearTimeout(timer);
       timer = undefined;
@@ -48,7 +47,7 @@ export function useConnections(client: HttpClient): {
       flight = null;
     };
     const read = async () => {
-      if (!active || !visible() || flight !== null) return;
+      if (!active || flight !== null) return;
       const abort = new AbortController();
       flight = abort;
       try {
@@ -102,26 +101,22 @@ export function useConnections(client: HttpClient): {
           });
       } finally {
         if (flight === abort) flight = null;
-        if (active && !abort.signal.aborted && visible() && failures > 0)
-          timer = setTimeout(
-            () => {
-              void read();
-            },
-            Math.min(30000, 1000 * 2 ** Math.min(failures - 1, 5)),
-          );
+        if (active && !abort.signal.aborted && failures > 0)
+          timer = setTimeout(() => {
+            void read();
+          }, 1000);
       }
     };
     const wake = () => {
-      stop();
-      if (visible()) void read();
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+      void read();
     };
     void read();
-    document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wake);
     return () => {
       active = false;
       stop();
-      document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("online", wake);
     };
   }, [client, epoch]);

@@ -758,6 +758,26 @@ let route t (request : request) =
       json_response
         ~max_bytes:(16 * 1024 * 1024)
         (Wire.success (result |> Disk.unwrap |> Wait_helper.Job.to_json))
+    | "POST", [ "ui-api"; "v1"; "live-observations"; "cancel" ] ->
+      let service =
+        match t.live_observer with
+        | Some service -> service
+        | None -> Json.fail Not_found "live observation is unavailable"
+      in
+      let value = fields request [ "connection_id"; "generation"; "cancellation" ] in
+      let connection =
+        profile
+          t
+          (Connection_profile.Id.t_of_jsonaf (Json.field value "connection_id"))
+          (generation value)
+      in
+      let cancellation =
+        Live_observer.Cancellation.of_json (Json.field value "cancellation")
+        |> Disk.unwrap
+      in
+      json_response
+        (Wire.success
+           (Live_observer.cancel service ~connection cancellation |> Disk.unwrap))
     | "POST", [ "ui-api"; "v1"; "live-observations" ] ->
       let service =
         match t.live_observer with

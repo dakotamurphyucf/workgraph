@@ -76,8 +76,10 @@ async function boundedBody(
 }
 
 /**
- * Same-origin, capability-bound HTTP only. Exactly one fetch per request; never
- * retries. A transport failure says nothing about a previously admitted write.
+ * Same-origin, capability-bound HTTP only. Only explicitly read-only routes retry a transport failure, at most once,
+ * immediately. Browser Fetch exposes network failures as TypeError, not a TCP
+ * reset code. Domain/protocol failures and aborted requests never retry. Writes
+ * remain single-send: transport failure cannot establish their durable outcome.
  */
 export function createHttpClient(options: HttpOptions): HttpClient {
   const base = new URL(options.origin);
@@ -148,31 +150,67 @@ export function createHttpClient(options: HttpOptions): HttpClient {
       };
       const maximumBytes =
         request.responseBudget === "operation" ? 16 * 1024 * 1024 : DEFAULT_JSON_LIMITS.maxBytes;
-      let response: Response;
-      let bodyResult: HttpResult<Uint8Array>;
-      try {
-        response = await send(url, init);
-        const contentType = response.headers
-          .get("content-type")
-          ?.split(";")[0]
-          ?.trim()
-          .toLowerCase();
-        if (contentType !== "application/json") {
-          await response.body?.cancel();
-          return protocol("Companion did not return JSON.");
+      const safeRead =
+        request.method === "GET" ||
+        (request.method === "POST" &&
+          [
+            "/read",
+            "/live-observations",
+            "/live-observations/cancel",
+            "/view-settings/inspect",
+            "/view-settings/list",
+            "/journals/list",
+            "/journals/inspect",
+          ].includes(request.path));
+      const timeoutMs =
+        request.path === "/connections" || request.path === "/live-observations/cancel"
+          ? 10000
+          : 45000;
+      let response!: Response;
+      let bodyResult!: HttpResult<Uint8Array>;
+      for (let attempt = 0; ; attempt++) {
+        const deadline = new AbortController();
+        const timer = safeRead ? setTimeout(() => deadline.abort(), timeoutMs) : undefined;
+        const signal =
+          request.signal === undefined
+            ? deadline.signal
+            : AbortSignal.any([request.signal, deadline.signal]);
+        try {
+          response = await send(url, { ...init, signal });
+          const contentType = response.headers
+            .get("content-type")
+            ?.split(";")[0]
+            ?.trim()
+            .toLowerCase();
+          if (contentType !== "application/json") {
+            await response.body?.cancel();
+            return protocol("Companion did not return JSON.");
+          }
+          bodyResult = await boundedBody(response, maximumBytes);
+          break;
+        } catch (error: unknown) {
+          if (request.signal?.aborted) return { ok: false, failure: { kind: "aborted" } };
+          if (deadline.signal.aborted)
+            return {
+              ok: false,
+              failure: { kind: "network", message: "Companion read timed out." },
+            };
+          if (error instanceof TypeError) {
+            if (safeRead && attempt === 0) continue;
+            return {
+              ok: false,
+              failure: {
+                kind: "network",
+                message: safeRead
+                  ? "Companion connection failed after one read retry."
+                  : "Companion connection failed; no request was retried.",
+              },
+            };
+          }
+          throw error;
+        } finally {
+          if (timer !== undefined) clearTimeout(timer);
         }
-        bodyResult = await boundedBody(response, maximumBytes);
-      } catch (error: unknown) {
-        if (request.signal?.aborted) return { ok: false, failure: { kind: "aborted" } };
-        if (error instanceof TypeError)
-          return {
-            ok: false,
-            failure: {
-              kind: "network",
-              message: "Companion connection failed; no request was retried.",
-            },
-          };
-        throw error;
       }
       if (!bodyResult.ok) return bodyResult;
       const processed = await processing.decodeHttp(bodyResult.data, {

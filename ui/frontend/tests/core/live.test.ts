@@ -114,7 +114,7 @@ describe("passive read ownership", () => {
     expect(maximum).toBe(1);
     expect(o.get().kind).toBe("live");
   });
-  it("pauses while hidden, catches up on return and cancels the previous endpoint", async () => {
+  it("cancels obsolete projection reads when the endpoint changes", async () => {
     vi.useFakeTimers();
     const signals: AbortSignal[] = [];
     const o = owner({
@@ -126,20 +126,13 @@ describe("passive read ownership", () => {
       },
     });
     await Promise.resolve();
-    o.setVisible(false);
-    expect(signals[0]?.aborted).toBe(true);
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(signals).toHaveLength(1);
-    o.setVisible(true);
-    await Promise.resolve();
-    expect(signals).toHaveLength(2);
     o.open(
       { ...scope, connection: { ...scope.connection, generation: decimal("2") } },
       { key: "other", sources: [], refresh: () => Promise.resolve({ ok: true }) },
     );
-    expect(signals[1]?.aborted).toBe(true);
+    expect(signals[0]?.aborted).toBe(true);
   });
-  it("backs off failed reads instead of spinning", async () => {
+  it("retries failed projections once per second without exponential delay", async () => {
     vi.useFakeTimers();
     let calls = 0;
     owner({
@@ -152,10 +145,8 @@ describe("passive read ownership", () => {
     });
     await vi.advanceTimersByTimeAsync(1000);
     expect(calls).toBe(2);
-    await vi.advanceTimersByTimeAsync(1999);
-    expect(calls).toBe(2);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(calls).toBe(3);
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(calls).toBe(12);
   });
 });
 
@@ -198,7 +189,6 @@ describe("change-driven observation", () => {
     await vi.advanceTimersByTimeAsync(125000);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(read).toHaveBeenCalledTimes(6);
-    o.setVisible(true);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(o.get().kind).toBe("live");
   });
@@ -275,4 +265,61 @@ describe("change-driven observation", () => {
     expect(read.mock.calls[2]?.[2]).toBeNull();
     expect(refresh).toHaveBeenCalledTimes(2);
   });
+});
+
+it("replaces page attachments without restarting a compatible live request or losing its cursor", async () => {
+  vi.useFakeTimers();
+  const scopeWithWorkspace = { ...scope, workspaceId: id("workspace") };
+  const pending =
+    deferred<ReturnType<typeof ok<import("../../src/core/state/live-types").LiveChangePage>>>();
+  const page = {
+    cursor: { planning: "p1", history: null, runtime: null },
+    hasMore: false,
+    needsLargerBudget: false,
+    changed: false,
+  };
+  const read = vi
+    .fn<import("../../src/core/state/live-types").LiveChangeReader["read"]>()
+    .mockResolvedValueOnce(ok(page))
+    .mockImplementationOnce(() => pending.promise)
+    .mockImplementation(() => new Promise(() => {}));
+  const o = createLiveReadOwner({ reader: { read } });
+  owners.push(o);
+  const first = vi.fn(() => Promise.resolve({ ok: true }));
+  const second = vi.fn(() => Promise.resolve({ ok: true }));
+  const close = o.open(scopeWithWorkspace, { key: "work", sources: ["planning"], refresh: first });
+  await vi.advanceTimersByTimeAsync(250);
+  expect(read).toHaveBeenCalledTimes(2);
+  const signal = read.mock.calls[1]![4];
+  close();
+  o.open(
+    { ...scopeWithWorkspace, projectId: id("other-project") },
+    { key: "activity", sources: ["planning"], refresh: second },
+  );
+  await vi.advanceTimersByTimeAsync(1);
+  expect(signal.aborted).toBe(false);
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(o.get().kind).toBe("live");
+  pending.resolve(ok({ ...page, cursor: { ...page.cursor, planning: "p2" }, changed: true }));
+  await vi.advanceTimersByTimeAsync(250);
+  expect(read.mock.calls[2]![2]?.planning).toBe("p2");
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(second).toHaveBeenCalledTimes(2);
+  o.open(scopeWithWorkspace, { key: "history", sources: ["planning", "history"], refresh: second });
+  expect(signal.aborted).toBe(true);
+});
+
+it("observation failures remain one second apart after many consecutive failures", async () => {
+  vi.useFakeTimers();
+  const read = vi
+    .fn<import("../../src/core/state/live-types").LiveChangeReader["read"]>()
+    .mockResolvedValue({ ok: false, failure: { kind: "network", message: "reset" } });
+  const o = createLiveReadOwner({ reader: { read } });
+  owners.push(o);
+  o.open(
+    { ...scope, workspaceId: id("workspace") },
+    { key: "work", sources: ["planning"], refresh: () => Promise.resolve({ ok: true }) },
+  );
+  await vi.advanceTimersByTimeAsync(11000);
+  expect(read).toHaveBeenCalledTimes(12);
 });

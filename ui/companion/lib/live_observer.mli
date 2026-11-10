@@ -4,10 +4,18 @@ open Core
     and optionally history together, outside the generic two-slot wait lane.
     The service and admission counter belong to the companion Eio domain; they
     must never be shared with worker domains. *)
+module Cancellation : sig
+  type t
+
+  (** Closed workspace_id and observation_id (32 lowercase hex characters).
+      The immutable connection generation is supplied separately by the router. *)
+  val of_json : Jsonaf.t -> (t, Workgraph.Problem.t) Result.t
+end
+
 module Plan : sig
   type t
 
-  (** Closed wire object: workspace_id, planning_cursor (nullable), history
+  (** Closed wire object: observation_id, workspace_id, planning_cursor (nullable), history
       (boolean), history_cursor (nullable), wait (boolean), runtime (boolean), and
       runtime_signature (nullable SHA-256). Runtime observation compares advisory
       staleness/lease warnings at the end of each wait, without browser polling. Native cursor bounds
@@ -30,4 +38,15 @@ val observe
   :  t
   -> connection:Connection_profile.t
   -> Plan.t
+  -> (Jsonaf.t, Workgraph.Problem.t) Result.t
+
+(** Finish only the named observation normally, without closing its HTTP socket.
+    A cancellation arriving before admission is remembered for 90 seconds, bounded
+    to 256 identities. All mutable registries belong to the serving Eio domain.
+    Cancellation is idempotent, scoped to connection generation and workspace;
+    it never cancels a write. Observe returns {cancelled:true} when interrupted. *)
+val cancel
+  :  t
+  -> connection:Connection_profile.t
+  -> Cancellation.t
   -> (Jsonaf.t, Workgraph.Problem.t) Result.t

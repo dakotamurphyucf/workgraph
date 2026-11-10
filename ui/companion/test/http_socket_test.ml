@@ -25,6 +25,13 @@ let with_http f =
            in
            let host = "127.0.0.1:" ^ Int.to_string port in
            let router, profiles, operations, scheduler = router env root ~sw ~host in
+           let router =
+             Http_router.with_live_observer
+               router
+               (Live_observer.create
+                  ~net:(Eio.Stdenv.net env)
+                  ~clock:(Eio.Stdenv.mono_clock env))
+           in
            let cancel, cancel_resolve = Eio.Promise.create () in
            let stopped, stopped_resolve = Eio.Promise.create () in
            Eio.Fiber.fork ~sw (fun () ->
@@ -521,4 +528,114 @@ true
 true
 true
 0|}]
+;;
+
+let%expect_test "server cancellation finishes a live response and reuses its HTTP socket" =
+  with_http (fun env root sw host port _ _ _ ->
+    let socket = State_root.path root ^ "/s" in
+    let listener =
+      Platform.listen_unix ~sw ~path:socket ~backlog:16 ~on_cleanup_error:failwith
+    in
+    let stop, stop_resolve = Eio.Promise.create () in
+    let waiting = ref false in
+    let release = Eio.Condition.create () in
+    let released = ref false in
+    Eio.Fiber.fork ~sw (fun () ->
+      Eio.Net.run_server ~stop ~on_error:raise listener (fun flow _ ->
+        let request = Framing.read flow |> Protocol.Request.of_json |> Disk.unwrap in
+        let method_ = Protocol.Request.method_ request in
+        if String.equal method_ "changes.wait"
+        then (
+          waiting := true;
+          Eio.Condition.loop_no_mutex release (fun () ->
+            if !released then Some () else None))
+        else (
+          let reply =
+            if String.equal method_ "initialize"
+            then Rpc_socket_test.initialization ()
+            else
+              Protocol.Success
+                (Api_response.project
+                   Value
+                   (Json.obj
+                      [ "source", Json.string "planning"
+                      ; "through", Json.int 0
+                      ; "items", `Array []
+                      ; "cursor", Json.string "cursor"
+                      ; "has_more", `False
+                      ; "needs_larger_budget", `False
+                      ])
+                 |> Api_response.to_json)
+          in
+          Framing.write flow (Protocol.response_json request reply))));
+    Exn.protect
+      ~finally:(fun () ->
+        released := true;
+        Eio.Condition.broadcast release;
+        Eio.Promise.resolve stop_resolve ())
+      ~f:(fun () ->
+        let flow = connect env ~sw port in
+        let input = Eio.Buf_read.of_flow ~max_size:(17 * 1024 * 1024) flow in
+        Eio.Flow.copy_string
+          (post
+             ~keep_alive:true
+             host
+             "/ui-api/v1/connections"
+             (Json.canonical
+                (Json.obj
+                   [ "id", Json.string "live"
+                   ; "label", Json.string "Live"
+                   ; "socket", Json.string socket
+                   ])))
+          flow;
+        ignore (framed_response input : string * (string * string) list * string);
+        let identity = Json.string (String.make 32 'a') in
+        let base = [ "connection_id", Json.string "live"; "generation", Json.int 1 ] in
+        let scope = [ "workspace_id", Json.string "w"; "observation_id", identity ] in
+        let plan =
+          Json.obj
+            (scope
+             @ [ "planning_cursor", Json.string "cursor"
+               ; "history", `False
+               ; "history_cursor", `Null
+               ; "runtime", `False
+               ; "runtime_signature", `Null
+               ; "wait", `True
+               ])
+        in
+        Eio.Flow.copy_string
+          (post
+             ~keep_alive:true
+             host
+             "/ui-api/v1/live-observations"
+             (Json.canonical (Json.obj (base @ [ "observation", plan ]))))
+          flow;
+        Rpc_socket_test.until env (fun () -> !waiting);
+        ignore
+          (exchange
+             env
+             port
+             (post
+                host
+                "/ui-api/v1/live-observations/cancel"
+                (Json.canonical (Json.obj (base @ [ "cancellation", Json.obj scope ]))))
+           : string);
+        let status, headers, body = framed_response input in
+        print_endline status;
+        print_endline (List.Assoc.find_exn headers ~equal:String.equal "connection");
+        let value = Json.parse body |> Disk.unwrap in
+        print_endline (Json.canonical (Json.field value "data"));
+        Eio.Flow.copy_string (get host "/ui-api/v1/connections") flow;
+        let status, _, body = framed_response input in
+        print_endline status;
+        let value = Json.parse body |> Disk.unwrap in
+        print_s
+          [%sexp
+            (List.length (Json.list (Json.field (Json.field value "data") "items")) : int)]));
+  [%expect
+    {|HTTP/1.1 200 OK
+keep-alive
+{"cancelled":true}
+HTTP/1.1 200 OK
+1|}]
 ;;

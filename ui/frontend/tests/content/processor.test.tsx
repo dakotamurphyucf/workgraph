@@ -51,6 +51,31 @@ describe("metadata and explicit language selection", () => {
       language: null,
     });
   });
+  it("treats generic upload MIME as unknown while retaining actual binary guards", () => {
+    const hints = { mime: "Application/Octet-Stream; charset=utf-8", filename: "NOTES.MD" };
+    const preview = renderContent(request("# Uploaded notes\n\nHello", { hints }));
+    expect(preview.status).toBe("rich");
+    expect(preview.format).toEqual({ kind: "markdown", language: "markdown", via: "filename" });
+    expect(renderToStaticMarkup(<RenderTree nodes={preview.nodes} />)).toContain(
+      "<h1>Uploaded notes</h1>",
+    );
+    expect(
+      renderContent(request("ordinary text", { hints: { mime: "application/octet-stream" } }))
+        .format.kind,
+    ).toBe("markdown");
+    expect(
+      resolveFormat({ mime: "application/octet-stream", filename: "code.py" }, "auto").language,
+    ).toBe("python");
+    expect(renderContent(request("binary\u0000bytes", { hints })).status).toBe("binary");
+    expect(renderContent(request("", { hints, bytes: new Uint8Array([255, 254]) })).status).toBe(
+      "binary",
+    );
+    expect(
+      renderContent(
+        request("%PDF-file", { hints: { mime: "application/pdf", filename: "fake.md" } }),
+      ).status,
+    ).toBe("binary");
+  });
   const samples: Record<CodeLanguage, string> = {
     ocaml: 'let value = "text" (* comment *)',
     typescript: 'const value: string = "text";',

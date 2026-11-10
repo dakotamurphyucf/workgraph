@@ -504,6 +504,7 @@
   background: #62c59b;
   box-shadow: 0 0 8px #62c59b24;
 }
+.wg-live-indicator--refresh_failed > span,
 .wg-live-indicator--offline > span,
 .wg-live-indicator--reconnecting > span {
   background: #d9ad61;

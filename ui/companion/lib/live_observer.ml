@@ -1,9 +1,45 @@
 open Core
 open Workgraph
 
+module Cancellation = struct
+  type t =
+    { workspace : Id.Workspace.t
+    ; observation_id : string
+    }
+
+  let decode value =
+    let observation_id = Json.text (Json.field value "observation_id") in
+    if
+      String.length observation_id <> 32
+      || not
+           (String.for_all observation_id ~f:(fun c ->
+              Char.is_digit c || Char.between c ~low:'a' ~high:'f'))
+    then Json.fail Invalid_argument "invalid observation identity";
+    { workspace = Id.Workspace.t_of_jsonaf (Json.field value "workspace_id")
+    ; observation_id
+    }
+  ;;
+
+  let of_json value =
+    Json.decode (fun () ->
+      Json.fields value ~allowed:[ "workspace_id"; "observation_id" ];
+      decode value)
+  ;;
+
+  let key t connection =
+    Json.canonical
+      (Json.obj
+         [ "connection", Connection_profile.to_json connection
+         ; "workspace", Id.Workspace.jsonaf_of_t t.workspace
+         ; "observation", Json.string t.observation_id
+         ])
+  ;;
+end
+
 module Plan = struct
   type t =
     { workspace : Id.Workspace.t
+    ; cancellation : Cancellation.t
     ; planning_cursor : string option
     ; history : bool
     ; history_cursor : string option
@@ -18,6 +54,7 @@ module Plan = struct
         value
         ~allowed:
           [ "workspace_id"
+          ; "observation_id"
           ; "planning_cursor"
           ; "history"
           ; "history_cursor"
@@ -54,6 +91,7 @@ module Plan = struct
                   Char.is_digit c || Char.between c ~low:'a' ~high:'f'))
         then Json.fail Invalid_argument "invalid runtime observation signature");
       { workspace = Id.Workspace.t_of_jsonaf (Json.field value "workspace_id")
+      ; cancellation = Cancellation.decode value
       ; planning_cursor
       ; history
       ; history_cursor
@@ -66,7 +104,9 @@ end
 
 type t =
   { invoke : Connection_profile.t -> Plan.t -> (Jsonaf.t, Problem.t) Result.t
-  ; mutable active : int
+  ; active : unit Eio.Promise.u String.Table.t
+  ; cancelled : Mtime.t String.Table.t
+  ; now : unit -> Mtime.t
   }
 
 let create ~net ~clock =
@@ -243,27 +283,67 @@ let create ~net ~clock =
               Api_codec.encode Change_feed_api.Response.codec page |> Disk.unwrap) )
         ])
   in
-  { invoke; active = 0 }
+  { invoke
+  ; active = String.Table.create ()
+  ; cancelled = String.Table.create ()
+  ; now = (fun () -> Eio.Time.Mono.now clock)
+  }
+;;
+
+let prune t =
+  let now = t.now () in
+  Hashtbl.filter_inplace t.cancelled ~f:(fun at ->
+    Float.(Mtime.Span.to_float_ns (Mtime.span at now) < 90e9))
+;;
+
+let cancelled_response = Json.obj [ "cancelled", `True ]
+
+let cancel t ~connection cancellation =
+  prune t;
+  let key = Cancellation.key cancellation connection in
+  if Hashtbl.mem t.cancelled key || Hashtbl.length t.cancelled < 256
+  then (
+    let first = not (Hashtbl.mem t.cancelled key) in
+    Hashtbl.set t.cancelled ~key ~data:(t.now ());
+    if first
+    then
+      Option.iter (Hashtbl.find t.active key) ~f:(fun resolver ->
+        Eio.Promise.resolve resolver ());
+    Ok cancelled_response)
+  else Error (Problem.create Blocked "live cancellation capacity is full")
 ;;
 
 let observe t ~connection plan =
-  if t.active >= 16
+  prune t;
+  let key = Cancellation.key plan.Plan.cancellation connection in
+  let count = Hashtbl.length t.active in
+  if Hashtbl.mem t.cancelled key
+  then Ok cancelled_response
+  else if Hashtbl.mem t.active key
+  then Error (Problem.create Conflict "observation identity is already active")
+  else if count >= 16
   then
     Error
       (Problem.with_details
          (Problem.create Blocked "live observation capacity is full")
          (Problem.Details.Capacity
             { meter = "ui-live-observations"
-            ; used = t.active
+            ; used = count
             ; limit = 16
-            ; attempted = t.active + 1
+            ; attempted = count + 1
             ; unit = "tabs"
             ; operator_action =
                 "Close an unused tab; the UI retries observation automatically."
             }))
   else (
-    t.active <- t.active + 1;
+    let cancelled, resolver = Eio.Promise.create () in
+    Hashtbl.set t.active ~key ~data:resolver;
     Exn.protect
-      ~f:(fun () -> t.invoke connection plan)
-      ~finally:(fun () -> t.active <- t.active - 1))
+      ~f:(fun () ->
+        Eio.Fiber.first
+          (fun () -> t.invoke connection plan)
+          (fun () ->
+             Eio.Promise.await cancelled;
+             Ok cancelled_response))
+      ~finally:(fun () -> Hashtbl.remove t.active key))
 ;;

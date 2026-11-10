@@ -26,7 +26,10 @@ Integrators can move decoding of large captured bodies into this worker explicit
 Known protocol field decoding remains a separate typed operation after the JSON job.
 
 Metadata precedence is per-view override, explicit language, MIME, filename extension,
-then intent/default. Recognized readable prose defaults to Markdown. Unknown explicit
+then intent/default. Generic `application/octet-stream` is an unknown type: it
+does not override a filename hint or prevent valid UTF-8 prose from rendering.
+Invalid UTF-8 and binary controls still select the binary fallback. Recognized
+readable prose defaults to Markdown. Unknown explicit
 code language stays plain code. No code autodetection occurs. The local grammar set is
 OCaml, TypeScript, JavaScript, JSON, shell (Bash), Python, Markdown, YAML, TOML (INI
 syntax grammar), HTML/XML, CSS and diff. This is syntax coloring, not format validation.

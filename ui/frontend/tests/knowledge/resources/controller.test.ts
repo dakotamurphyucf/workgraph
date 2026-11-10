@@ -124,6 +124,47 @@ function fixture(
   return { controller, client, transfer, select };
 }
 describe("Resource selection and exact verification owner", () => {
+  it("applies metadata type corrections without changing byte pins or fetching content again", async () => {
+    let value = record();
+    value = {
+      ...value,
+      current_version: { ...value.current_version, mime_type: "application/octet-stream" },
+      metadata: { ...value.metadata, mime_type: "application/octet-stream" },
+    };
+    const f = fixture({ get: () => Promise.resolve(ok(capture(value))) });
+    await f.controller.select({ ...f.select(), content: null });
+    const before = f.controller.get().content;
+    if (before.kind !== "verified") throw new Error("Expected verified content");
+    value = {
+      ...value,
+      metadata: { ...value.metadata, filename: "notes.md", mime_type: "text/markdown" },
+    };
+    await f.controller.refreshMetadata();
+    const after = f.controller.get().content;
+    if (after.kind !== "verified") throw new Error("Expected verified content");
+    expect(after.source.hints).toMatchObject({ filename: "notes.md", mime: "text/markdown" });
+    expect(after.pin).toBe(before.pin);
+    expect(after.blob).toBe(before.blob);
+    expect(after.source.bytes).toBe(before.source.bytes);
+    expect(after.source.key).toBe(before.source.key);
+    expect(f.transfer.download).toHaveBeenCalledTimes(1);
+    await f.controller.refreshLive(new AbortController().signal);
+    expect(f.controller.get().content).toBe(after);
+    await f.controller.select(f.select());
+    value = {
+      ...value,
+      current_version: { ...value.current_version, revision: decimal("2") },
+      metadata: { ...value.metadata, filename: "new.json", mime_type: "application/json" },
+    };
+    await f.controller.refreshLive(new AbortController().signal);
+    expect(f.controller.get().content).toMatchObject({
+      pin: { version: "1" },
+      source: {
+        hints: { filename: "notes.md", mime: "text/markdown" },
+      },
+    });
+    expect(f.transfer.download).toHaveBeenCalledTimes(1);
+  });
   it("updates unpinned content quietly and leaves an explicit version fixed", async () => {
     let version = "1";
     const next = deferred<Awaited<ReturnType<ResourceTransfer["download"]>>>();

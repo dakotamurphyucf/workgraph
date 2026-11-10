@@ -1,3 +1,4 @@
+import { resourcePresentation } from "./presentation";
 import { refreshSlots, createReadSlot, type ReadState } from "../../../core/state/read-slot";
 import * as d from "../../../core/protocol/decoders";
 import { createResourcesClient, type ResourcesClient } from "./client";
@@ -84,6 +85,7 @@ export function createResourcesController(
     state = Object.freeze({
       ...state,
       ...change,
+      content: resourcePresentation(change.content ?? state.content, current(metadata.get())),
       directory: directory.get(),
       metadata: metadata.get(),
       versions: versions.get(),

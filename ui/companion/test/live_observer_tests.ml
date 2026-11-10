@@ -3,10 +3,11 @@ open Workgraph
 open Workgraph_ui
 open State_tests
 
-let plan ?(cursor = `Null) ?(history = true) ?(wait = false) () =
+let plan ?(identity = 0) ?(cursor = `Null) ?(history = true) ?(wait = false) () =
   Live_observer.Plan.of_json
     (Json.obj
        [ "workspace_id", Json.string "w"
+       ; "observation_id", Json.string (sprintf "%032x" identity)
        ; "planning_cursor", cursor
        ; ("history", if history then `True else `False)
        ; ("history_cursor", if history then cursor else `Null)
@@ -109,10 +110,18 @@ let%expect_test
        Eio.Fiber.first
          (fun () ->
             Eio.Switch.run (fun sw ->
-              for _ = 1 to 16 do
+              for identity = 1 to 16 do
                 Eio.Fiber.fork ~sw (fun () ->
                   ignore
-                    (Live_observer.observe observer ~connection:profile pending
+                    (Live_observer.observe
+                       observer
+                       ~connection:profile
+                       (plan
+                          ~identity
+                          ~cursor:(Json.string "existing")
+                          ~history:true
+                          ~wait:true
+                          ())
                      : (Jsonaf.t, Problem.t) Result.t))
               done;
               Eio.Fiber.await_cancel ()))
@@ -188,6 +197,7 @@ let%expect_test "advisory warning changes invalidate once while increasing ages 
          let input =
            Json.obj
              [ "workspace_id", Json.string "w"
+             ; "observation_id", Json.string (sprintf "%032x" 0)
              ; "planning_cursor", Json.string "existing"
              ; "history", `False
              ; "history_cursor", `Null
@@ -209,4 +219,85 @@ let%expect_test "advisory warning changes invalidate once while increasing ages 
   [%expect
     {|false
 true|}]
+;;
+
+let cancellation ?(workspace = "w") identity =
+  Live_observer.Cancellation.of_json
+    (Json.obj
+       [ "workspace_id", Json.string workspace
+       ; "observation_id", Json.string (sprintf "%032x" identity)
+       ])
+  |> Disk.unwrap
+;;
+
+let%expect_test
+    "explicit cancellation drains an observation; early cancellation is scoped"
+  =
+  let waiting = ref false in
+  let release = Eio.Condition.create () in
+  let released = ref false in
+  Rpc_socket_test.with_bridge
+    (fun request ->
+       if String.equal (Protocol.Request.method_ request) "changes.wait"
+       then (
+         waiting := true;
+         Eio.Condition.loop_no_mutex release (fun () ->
+           if !released then Some () else None);
+         None)
+       else reply request)
+    (fun env _ _ _ profile ->
+       let observer =
+         Live_observer.create ~net:(Eio.Stdenv.net env) ~clock:(Eio.Stdenv.mono_clock env)
+       in
+       let result, () =
+         Eio.Fiber.pair
+           (fun () ->
+              Live_observer.observe
+                observer
+                ~connection:profile
+                (plan
+                   ~identity:42
+                   ~cursor:(Json.string "cursor")
+                   ~history:false
+                   ~wait:true
+                   ()))
+           (fun () ->
+              Rpc_socket_test.until env (fun () -> !waiting);
+              for _ = 1 to 2 do
+                ignore
+                  (Live_observer.cancel observer ~connection:profile (cancellation 42)
+                   |> Disk.unwrap
+                   : Jsonaf.t)
+              done)
+       in
+       print_endline (Json.canonical (result |> Disk.unwrap));
+       released := true;
+       Eio.Condition.broadcast release;
+       ignore
+         (Live_observer.cancel observer ~connection:profile (cancellation 43)
+          |> Disk.unwrap
+          : Jsonaf.t);
+       print_endline
+         (Json.canonical
+            (Live_observer.observe observer ~connection:profile (plan ~identity:43 ())
+             |> Disk.unwrap));
+       ignore
+         (Live_observer.cancel
+            observer
+            ~connection:profile
+            (cancellation ~workspace:"other" 44)
+          |> Disk.unwrap
+          : Jsonaf.t);
+       let result =
+         Live_observer.observe
+           observer
+           ~connection:profile
+           (plan ~identity:44 ~history:false ())
+         |> Disk.unwrap
+       in
+       print_endline (Json.text (Json.field result "workspace_id")));
+  [%expect
+    {|{"cancelled":true}
+{"cancelled":true}
+w|}]
 ;;

@@ -2,7 +2,7 @@ import { trackPageReads, waitForPageReads } from "../e2e/support/readiness";
 import { test, expect } from "../e2e/support/fixtures";
 
 test.setTimeout(90000);
-test("idle overview uses one observation and refreshes only after a real change", async ({
+test("background overview keeps observing and refreshes only after a real change", async ({
   page,
   daemon,
   companion,
@@ -32,6 +32,12 @@ test("idle overview uses one observation and refreshes only after a real change"
   await expect(page.locator(".wg-live-indicator")).toHaveText("Live");
   // Wait for the initial observer-fenced refresh and incidental mounts to settle.
   await page.waitForTimeout(1500);
+  // Simulate the browser lifecycle signal deterministically in headless Chrome.
+  // Actual browser tab suspension is outside application control.
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
   const start = requests.length;
   // Cross a full long-poll timeout, not just the removed three-second timer.
   await page.waitForTimeout(27000);
@@ -62,6 +68,19 @@ test("idle overview uses one observation and refreshes only after a real change"
   await expect(
     page.getByText("Arrived through live observation", { exact: true }).first(),
   ).toBeVisible();
+  await waitForPageReads(page);
+  const beforeReturn = requests.length;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("focus"));
+  });
+  await page.waitForTimeout(500);
+  expect(
+    requests
+      .slice(beforeReturn)
+      .every((request) => request.path === "/ui-api/v1/live-observations"),
+  ).toBe(true);
   await info.attach("idle-request-counts", {
     contentType: "application/json",
     body: JSON.stringify({ idleMilliseconds: 27000, requests: idle }, null, 2),
@@ -138,4 +157,59 @@ test("three visible windows receive changes and repeated reloads release observa
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
   }
+});
+
+test("page navigation retains compatible observation and drains changed feeds normally", async ({
+  page,
+  daemon,
+  companion,
+  browserDiagnostics,
+}) => {
+  const html = await (await page.request.get(companion.url)).text();
+  const capability = html.match(/<meta name="workgraph-capability" content="([a-f0-9]{64})"/u)?.[1];
+  if (!capability) throw new Error("Missing capability");
+  const origin = new URL(companion.url).origin;
+  const created = await page.request.post(`${origin}/ui-api/v1/connections`, {
+    headers: { "X-Workgraph-UI-Capability": capability, Origin: origin },
+    data: { id: "local", label: "Navigation test", socket: daemon.socket },
+  });
+  expect(created.status()).toBe(200);
+  const observations: import("@playwright/test").Request[] = [];
+  const cancels: import("@playwright/test").Request[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/live-observations")) observations.push(request);
+    if (request.url().endsWith("/live-observations/cancel")) cancels.push(request);
+  });
+  await page.goto(`${origin}/#/work?connection=local&workspace=demo&project=release`);
+  await expect(page.locator(".wg-live-indicator")).toHaveText("Live");
+  await waitForPageReads(page);
+  await expect
+    .poll(() =>
+      observations.some(
+        (r) => (r.postDataJSON() as { observation: { wait: boolean } }).observation.wait,
+      ),
+    )
+    .toBe(true);
+  const count = observations.length;
+  const pending = observations.at(-1)!;
+  for (const view of ["facts", "activity", "work", "resources", "work"]) {
+    await page.evaluate((view) => {
+      window.location.hash = `/${view}?connection=local&workspace=demo&project=release`;
+    }, view);
+    await waitForPageReads(page);
+    await expect(page.locator(".wg-live-indicator")).toHaveText("Live");
+    expect(observations.length).toBe(count);
+    expect(cancels).toHaveLength(0);
+  }
+  await page.evaluate(() => {
+    window.location.hash = "/history?connection=local&workspace=demo&project=release";
+  });
+  await expect.poll(() => cancels.length).toBe(1);
+  const response = await pending.response();
+  expect(response?.status()).toBe(200);
+  expect(await response?.json()).toMatchObject({ ok: true, data: { cancelled: true } });
+  expect(pending.failure()).toBeNull();
+  await expect(page.locator(".wg-live-indicator")).toHaveText("Live");
+  await waitForPageReads(page);
+  browserDiagnostics.markPendingReads();
 });

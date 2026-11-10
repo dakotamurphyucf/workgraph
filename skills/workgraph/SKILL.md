@@ -5,7 +5,7 @@ description: Use Workgraph through its CLI to discover features, plan local work
 
 # Workgraph
 
-This source skill targets the Workgraph **0.8.2 package**, whose daemon
+This source skill targets the Workgraph **0.8.3 package**, whose daemon
 application API remains **0.7**. Use the matching supplied executable on macOS or
 Linux; the API number alone does not establish package compatibility. State operations
 also need a local Unix socket service; discovery and help work offline. Shell

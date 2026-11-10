@@ -29,7 +29,33 @@ export function createLiveChangeReader(http: HttpClient): LiveChangeReader {
           ok: false,
           failure: { kind: "input", message: "Live feed requires a workspace." },
         };
+      if (signal.aborted) return { ok: false, failure: { kind: "aborted" } };
+      const observationId = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+        byte.toString(16).padStart(2, "0"),
+      ).join("");
       const history = sources.includes("history");
+      let cancellation: Promise<unknown> | undefined;
+      const cancel = () => {
+        cancellation ??= http
+          .request({
+            path: "/live-observations/cancel",
+            method: "POST",
+            codec: c.record({ cancelled: c.literal(true) }),
+            body: d.jsonObject([
+              ["connection_id", d.jsonString(scope.connection.id)],
+              ["generation", d.jsonString(scope.connection.generation)],
+              [
+                "cancellation",
+                d.jsonObject([
+                  ["workspace_id", d.jsonString(workspaceId)],
+                  ["observation_id", d.jsonString(observationId)],
+                ]),
+              ],
+            ]),
+          })
+          .catch(() => undefined);
+      };
+      signal.addEventListener("abort", cancel, { once: true });
       // A silently dropped connection must not leave the observer stuck forever.
       const deadline = new AbortController();
       const timer = setTimeout(() => deadline.abort(), 45000);
@@ -38,8 +64,8 @@ export function createLiveChangeReader(http: HttpClient): LiveChangeReader {
           return await http.request({
             path: "/live-observations",
             method: "POST",
-            signal: AbortSignal.any([signal, deadline.signal]),
-            codec: observation,
+            signal: deadline.signal,
+            codec: c.raw,
             body: d.jsonObject([
               ["connection_id", d.jsonString(scope.connection.id)],
               ["generation", d.jsonString(scope.connection.generation)],
@@ -47,6 +73,7 @@ export function createLiveChangeReader(http: HttpClient): LiveChangeReader {
                 "observation",
                 d.jsonObject([
                   ["workspace_id", d.jsonString(workspaceId)],
+                  ["observation_id", d.jsonString(observationId)],
                   [
                     "planning_cursor",
                     cursor === null ? { kind: "null" } : d.jsonString(cursor.planning),
@@ -68,8 +95,10 @@ export function createLiveChangeReader(http: HttpClient): LiveChangeReader {
           });
         } finally {
           clearTimeout(timer);
+          signal.removeEventListener("abort", cancel);
         }
       })();
+      if (signal.aborted) return { ok: false, failure: { kind: "aborted" } };
       if (!response.ok) {
         if (deadline.signal.aborted && !signal.aborted)
           return {
@@ -78,7 +107,19 @@ export function createLiveChangeReader(http: HttpClient): LiveChangeReader {
           };
         return response;
       }
-      const result = response.data;
+      const cancelled = c.record({ cancelled: c.literal(true) }).decode(response.data);
+      if (cancelled.ok) return { ok: false, failure: { kind: "aborted" } };
+      const decoded = observation.decode(response.data);
+      if (!decoded.ok)
+        return {
+          ok: false,
+          failure: {
+            kind: "protocol",
+            message: "Invalid live observation response.",
+            issue: decoded.issue,
+          },
+        };
+      const result = decoded.value;
       if (
         result.workspace_id !== scope.workspaceId ||
         result.planning.source !== "planning" ||

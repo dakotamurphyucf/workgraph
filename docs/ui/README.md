@@ -1,7 +1,7 @@
 # Workgraph UI
 
 Workgraph UI is an optional local browser interface for the same Workgraph records
-used by the CLI. This guide describes the **0.8.2 UI**,
+used by the CLI. This guide describes the **0.8.3 UI**,
 including its connection, planning, communication, history and content tools.
 The independently installable CLI is described in the [main guide](../../README.md).
 
@@ -22,7 +22,7 @@ identify retained historical data. The UI distinguishes these from live views. I
 and Resources, a failed continuation leaves the last readable page visible.
 
 Start with [installation and connections](installation.md).
-Read the [0.8.2 release notes](../releases/v0.8.2.md) for version and
+Read the [0.8.3 release notes](../releases/v0.8.3.md) for version and
 upgrade boundaries.
 [Optional platform packages](packages.md) describes package builds and paired daemon setup. Read
 [recovery](recovery.md) before resolving an interrupted change, and

@@ -2469,10 +2469,9 @@ scoped to the captured connection generation and workspace, independent of the
 selected project. A failed or partial directory read is not an empty workspace.
 
 
-## Change-driven refresh and multi-tab observation (0.8.2)
+## Change-driven refresh and multi-tab observation (0.8.3)
 
-A healthy idle page must not reread its projections on a timer. The visible
-feature owns one authenticated `/ui-api/v1/live-observations` long poll combining
+A healthy idle page must not reread its projections on a timer. The browser tab owns one authenticated `/ui-api/v1/live-observations` long poll combining
 planning and, for History, history-feed cursors. The companion waits for either
 feed for up to 25 seconds; native HTTP keep-alive permits connection reuse. This
 is deliberately a fixed-length JSON response using the existing capability
@@ -2484,14 +2483,16 @@ cursor merely because a connection dropped: that used to cause a full refresh
 on every reconnect. Invalid native cursors may explicitly bootstrap again and
 refresh current projections. Keep refreshes serial, retain prior rendered data,
 and preserve fixed historical captures and all write guards. Quiet retries must
-never reload the whole application or replay writes. Hidden, closed, reloaded or
-superseded scopes cancel their foreground reads. Repeated focus events while
-already visible are not a reason to reread everything.
+never reload the whole application or replay writes. Closed, reloaded or superseded scopes cancel their obsolete page reads.
+Visibility and focus changes do not cancel observation or refresh the directory.
+Keep background tabs connected and refresh on actual changes. Browser suspension
+or machine sleep may interrupt work; retain content and recover quietly when
+execution resumes. Do not simulate an always-running browser when it is suspended.
 
 Observation has its own 16-slot admission counter, owned by the companion's Eio
 domain. It is separate from the generic two-slot Wait lane. Each observation
 uses at most two simultaneous daemon connections; immediate capacity rejection
-lets the browser back off and use bounded fallback refreshes. A queued long poll
+lets the browser retry one second later and use bounded fallback refreshes. A queued long poll
 must not occupy ordinary read or write capacity. Test multiple simultaneous
 observers, cancellation and reopening, not just one tab's happy path.
 
@@ -2505,8 +2506,7 @@ threshold. A clock-only transition can take up to one 25-second wait interval.
 It is not a general live execution engine for arbitrary custom time predicates.
 
 The connection directory no longer polls every ten seconds while healthy. Read
-it on opening, explicit profile changes, visibility restoration and online
-recovery. Retry failed checks with bounded backoff while retaining selected
+it on opening, explicit profile changes and online recovery. Retry failed checks one second apart while retaining selected
 profile generations. Explicit per-operation monitoring (for example, an upload
 in progress or a user-requested request wait) still has its own lifecycle.
 
@@ -2515,3 +2515,58 @@ interval, then perform a native write and verify that the visible page updates.
 Do not mistake an empty timeout for a change. Test transports and cleanup must
 identify cancellation of the new read-only observation route as precisely as
 ordinary read cancellation; do not broadly suppress network failures.
+
+
+### Navigation-stable observation and local retry policy
+
+The application launch owns observation independently of the currently displayed
+page. A page attaches its refreshable data. Replacing that attachment must retain
+the active long poll, cursors and connection health when endpoint generation,
+workspace and watched feed set are unchanged. Project changes alone do not alter
+the workspace feed. Obsolete page reads have separate cancellation ownership.
+Changing pages is not a network failure and must not flash Connecting.
+
+When observation really must stop or change feeds, send the capability-protected
+`POST /ui-api/v1/live-observations/cancel` control request with its exact endpoint,
+workspace and random observation ID. Consume the original request's normal
+`{cancelled:true}` response; do not abort its HTTP transport merely to switch
+pages. This lets HTTP/1.1 reuse that socket. The server scopes cancellation to one
+invocation, remembers early cancellations briefly to handle reversed arrival,
+and retains admission until native work has unwound. Browser destruction and
+hard transport deadlines may still close a socket; graceful cancellation cannot
+guarantee delivery over a failed connection.
+
+Local recovery waits are fixed at one second: no exponential backoff for the
+live observer, passive page refresh or saved connection directory. Connection
+and projection failures have independent counters. A page refresh failure says
+Refresh delayed rather than falsely declaring the live connection lost.
+
+Only explicitly read-only HTTP routes may retry a transport failure immediately,
+and only once with the same parameters. Fetch does not expose reliable TCP reset
+codes, so this rule covers network TypeError failures. Never retry a write,
+protocol/validation error, cancellation or timeout through that fast path.
+Saved-profile network reads have a ten-second deadline; other admitted reads
+have a 45-second deadline. A stalled request must eventually release transport
+and permit the normal one-second retry loop. Deadlines measure request duration,
+not retry delay. Existing durable-write recovery remains explicit and unchanged.
+
+Verify compatible navigation with an outstanding wait and exact cursor retention.
+Verify a changed feed completes its prior HTTP response without ERR_ABORTED, and
+exercise another request on that same socket. Test a reset during both response
+headers and body transfer, no write retry, initial profile timeout, and repeated
+failures staying one second apart. Keep frontend processing failures separate
+from measured browser queuing and server response time when diagnosing startup.
+
+### Resource type hints and metadata corrections
+
+Uploads without a declared MIME type use `application/octet-stream`. Treat this
+as unknown, not proof of binary content: use a recognized filename extension,
+then render valid UTF-8 text as Markdown by default. Actual invalid UTF-8, binary
+controls and specific binary types still use the byte view. Never rewrite file
+bytes or stored MIME just to produce a preview.
+
+For the current resource publication, use current editable filename/MIME metadata
+as presentation hints. Re-render when those hints change, without downloading
+again or changing the verified digest, content version or byte pin. Opening an older publication uses its original filename/MIME; an already open
+pin retains its captured presentation when a newer publication arrives. Keep file-type labels and
+custom renderer selection consistent with the preview's effective hints.

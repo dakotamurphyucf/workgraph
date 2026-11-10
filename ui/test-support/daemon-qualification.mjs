@@ -36,7 +36,7 @@ try {
   owned.push(old);
   const currentInit = JSON.parse(await current.call("initialize", "{}"));
   const oldInit = JSON.parse(await old.call("initialize", "{}"));
-  check(currentInit.result.data.version === "0.8.2", "actual current package0.8.2");
+  check(currentInit.result.data.version === "0.8.3", "actual current package0.8.3");
   check(oldInit.result.data.version === "0.7.0", "actual old package0.7.0");
   check(
     currentInit.result.data.workgraph_api === "0.7" && oldInit.result.data.workgraph_api === "0.7",

@@ -1,17 +1,17 @@
 # Workgraph on AlmaLinux 10 in WSL: install and quick start
 
-Version 0.8.2 preserves the 0.7.0 data formats; existing 0.7.0 workspaces need no conversion. It uses application API 0.7, workspace/export format 6 and history
+Version 0.8.3 preserves the 0.7.0 data formats; existing 0.7.0 workspaces need no conversion. It uses application API 0.7, workspace/export format 6 and history
 batch format 2. Upgrade by [migrating a supported 0.6.2-format workspace](migration.md)
 into a new root; this release does not rewrite an older installation in place.
 Resolve uncertain writes with the old executable first, preserve its stopped roots
 and exact journals, then use a fresh registry, socket, contexts and request directory.
 Install the matching client/daemon and replace the complete [agent skill](agent-skill.md).
 Earlier preview formats are not supported by the converter. See the
-[release notes](releases/v0.8.2.md) for changes and qualification limits.
+[release notes](releases/v0.8.3.md) for changes and qualification limits.
 Release records identify exact source, artifacts and observed platform checks;
 installation instructions do not substitute for that evidence.
 
-This walkthrough installs **Workgraph v0.8.2 preview** on **x86_64/AMD64 AlmaLinux
+This walkthrough installs **Workgraph v0.8.3 preview** on **x86_64/AMD64 AlmaLinux
 10** userspace inside WSL. It uses API **0.7**, workspace/export format **6** and
 history batch format **2**.
 Run commands in your AlmaLinux terminal as your normal user; use `sudo` only where
@@ -20,11 +20,11 @@ shown. No OCaml, opam or systemd setup is required for the RPM.
 Native AlmaLinux tar/RPM qualification does not qualify an actual WSL kernel,
 Windows or SELinux policy. The standard AlmaLinux 10 AMD64 image requires an
 x86-64-v3-capable CPU. Keep registry/workspace data and the socket under your
-Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.8.2.md#qualification-and-limits).
+Linux home, never `/mnt/c`. See the [release qualification scope](releases/v0.8.3.md#verification-and-platform-scope).
 
 ## Preserve an older setup before upgrading
 
-For a first installation, continue with [Install v0.8.2](#install-v081).
+For a first installation, continue with [Install v0.8.3](#install-v083).
 Before replacing an existing RPM, preserve its matching executable and archives.
 Use that old binary to resolve uncertain writes from the original request files,
 stop its launchers and shut down gracefully. Preserve the complete stopped roots,
@@ -38,28 +38,28 @@ Do not edit format markers or copy the old registry into the new installation.
 Migration preserves its source; no deletion or reset is required. Never remove a
 socket or lock to force a new setup.
 
-## Install v0.8.2
+## Install v0.8.3
 
 Download the RPM and checksums from the
-[v0.8.2 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.8.2):
+[v0.8.3 release](https://github.com/dakotamurphyucf/workgraph/releases/tag/v0.8.3):
 
 ```bash
 set -euo pipefail
 command -v curl >/dev/null || sudo dnf install -y curl-minimal
 sudo dnf install -y jq python3
 
-mkdir -p "$HOME/Downloads/workgraph-0.8.2"
-cd "$HOME/Downloads/workgraph-0.8.2" || exit
+mkdir -p "$HOME/Downloads/workgraph-0.8.3"
+cd "$HOME/Downloads/workgraph-0.8.3" || exit
 
-RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.2"
+RELEASE="https://github.com/dakotamurphyucf/workgraph/releases/download/v0.8.3"
 
-curl -fLO "$RELEASE/workgraph-0.8.2-1.el10.x86_64.rpm"
+curl -fLO "$RELEASE/workgraph-0.8.3-1.el10.x86_64.rpm"
 curl -fLO "$RELEASE/SHA256SUMS"
 
-awk '$2 == "workgraph-0.8.2-1.el10.x86_64.rpm" { print; count++ }
+awk '$2 == "workgraph-0.8.3-1.el10.x86_64.rpm" { print; count++ }
      END { if (count != 1) exit 1 }' SHA256SUMS > rpm.SHA256SUMS &&
   sha256sum --check rpm.SHA256SUMS &&
-  sudo dnf install -y ./workgraph-0.8.2-1.el10.x86_64.rpm
+  sudo dnf install -y ./workgraph-0.8.3-1.el10.x86_64.rpm
 
 hash -r
 command -v workgraph
@@ -71,7 +71,7 @@ version:
 
 ```text
 /usr/bin/workgraph
-0.8.2
+0.8.3
 ```
 
 The executable uses standard AlmaLinux system libraries. `jq` supports the shell examples and optional WGX viewer. WGX
@@ -207,7 +207,7 @@ For example, after copying it to your harness's configured skills directory, its
 entry point might be `$HOME/.agents/skills/workgraph/SKILL.md`. The folder includes
 its own references, API schemas and scripts.
 
-The v0.8.2 RPM installs the full folder at
+The v0.8.3 RPM installs the full folder at
 `/usr/share/doc/workgraph/skills/workgraph/`. Copy that folder into your harness
 using the skill installation instructions above. Keep old skill copies separately;
 do not merge them into the current folder.

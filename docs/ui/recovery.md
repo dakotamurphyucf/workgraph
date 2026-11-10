@@ -1,6 +1,6 @@
 # Recover an interrupted change
 
-These rules describe saved operations in the 0.8.2 UI. The
+These rules describe saved operations in the 0.8.3 UI. The
 operation's displayed state, original writer and destination determine the next
 action. For CLI journals, use
 [saved-request recovery](../../skills/workgraph/references/cli-contract.md).
